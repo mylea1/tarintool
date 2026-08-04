@@ -1,0 +1,28 @@
+- generic [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]: KILO训练
+      - generic [ref=e5]: 选择计划并开始训练
+    - navigation "训练页面切换" [ref=e6]:
+      - button "计划" [active] [ref=e7]
+      - button "记录" [ref=e8]
+    - generic [ref=e9]:
+      - generic [ref=e10]:
+        - generic [ref=e11]:
+          - heading "我的训练计划" [level=2] [ref=e12]
+          - generic [ref=e13]: 常用训练，一点即开
+        - button "新建计划" [ref=e14]
+      - article [ref=e16]:
+        - main [ref=e17]:
+          - heading "我的训练模板" [level=3] [ref=e18]
+          - generic [ref=e19]: 2 个动作 · 约 35 分钟
+        - button "编辑" [ref=e20]
+      - button "使用官方计划 ›" [ref=e21]:
+        - text: 使用官方计划
+        - generic [ref=e22]: ›
+  - navigation "主导航" [ref=e23]:
+    - button "主页" [ref=e24]
+    - button "训练" [ref=e25]
+    - button "动作" [ref=e26]
+    - button "AI" [ref=e27]
+    - button "我的" [ref=e28]

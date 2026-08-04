@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kilo.local/contracts/mobile-recognition.json",
+  "title": "KILO mobile recognition request/response boundary",
+  "type": "object",
+  "required": ["request", "result"],
+  "properties": {
+    "request": {
+      "type": "object",
+      "required": ["exerciseId", "camera"],
+      "properties": {
+        "exerciseId": {"type": "string", "minLength": 1},
+        "camera": {"type": "string", "minLength": 1},
+        "mediaId": {"type": "string"},
+        "offline": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    },
+    "result": {
+      "type": "object",
+      "required": ["status", "confidence", "repetitions", "summary"],
+      "properties": {
+        "status": {"enum": ["complete", "low-confidence", "offline", "error"]},
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "repetitions": {"type": "integer", "minimum": 0},
+        "summary": {"type": "string"},
+        "error": {"type": ["string", "null"]}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

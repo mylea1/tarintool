@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>KILO 移动端信息架构预览</title>
+  <style>
+    :root{--paper:#f3f6f8;--surface:#fff;--ink:#10212b;--muted:#708494;--line:#d5e0e7;--blue:#0b66d4;--lime:#b7e34a}
+    *{box-sizing:border-box}body{margin:0;background:#dfe7ec;color:var(--ink);font:15px/1.45 system-ui,"Segoe UI","Noto Sans SC",sans-serif}.phone{width:min(100%,414px);min-height:100dvh;margin:auto;background:var(--paper);padding-bottom:76px}.head{padding:22px 18px 12px;border-bottom:1px solid var(--line)}.brand{font-size:28px;font-weight:900}.brand b{color:var(--blue);font-size:15px;letter-spacing:.16em;margin-right:10px}.sub{color:var(--muted)}.tabs{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin:14px 16px;padding:4px;background:#e5ebef;border-radius:12px}.tabs button,.nav button{border:0;background:transparent;color:var(--muted);font:inherit;font-weight:800;min-height:42px;border-radius:9px}.tabs button.active{background:#fff;color:var(--ink);box-shadow:0 1px 4px #10212b20}.page{padding:4px 16px 28px}.row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:18px 0 10px}.row h2{font-size:20px;margin:0}.quiet{color:var(--muted);font-size:13px}.button{border:1px solid var(--line);background:#fff;color:var(--blue);font-weight:800;border-radius:10px;min-height:44px;padding:0 14px;white-space:nowrap}.button.primary{width:100%;background:var(--blue);border-color:var(--blue);color:#fff}.list{background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden}.item{display:flex;align-items:center;gap:12px;padding:14px;border-bottom:1px solid var(--line)}.item:last-child{border:0}.item main{min-width:0;flex:1}.item h3{margin:0 0 2px;font-size:16px;overflow-wrap:anywhere}.item .button{min-height:38px}.official{display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:14px;padding:13px 14px;border:1px dashed #9fb3c1;border-radius:12px;background:transparent;color:var(--ink);font:inherit;font-weight:800}.nav{position:fixed;left:50%;bottom:0;transform:translateX(-50%);width:min(100%,414px);display:grid;grid-template-columns:repeat(5,1fr);padding:7px 5px calc(7px + env(safe-area-inset-bottom));background:#fff;border-top:1px solid var(--line)}.nav button.active{color:var(--blue);background:#e4effb}.modal{position:fixed;inset:0;background:#10212b70;display:none;align-items:flex-end;justify-content:center}.modal.open{display:flex}.sheet{width:min(100%,414px);max-height:82dvh;overflow:auto;background:#fff;border-radius:20px 20px 0 0;padding:18px}.sheet h2{margin:0 0 4px}.chart{height:150px;margin:14px 0;background:linear-gradient(180deg,#e7f1ff,#fff);border:1px solid #b8d4f2;border-radius:14px;display:flex;align-items:flex-end;gap:9px;padding:14px}.bar{flex:1;background:var(--blue);border-radius:6px 6px 2px 2px}.metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.metric{background:var(--paper);border-radius:10px;padding:10px;min-width:0}.metric b{display:block;font-size:17px;overflow-wrap:anywhere}@media(max-width:340px){.page{padding-inline:12px}.item{padding:12px 10px;gap:8px}.button{padding-inline:10px}.nav button{font-size:12px}}
+  </style>
+</head>
+<body>
+<main class="phone">
+  <header class="head"><div class="brand"><b>KILO</b>训练</div><div class="sub">选择计划并开始训练</div></header>
+  <nav class="tabs" aria-label="训练页面切换"><button class="active" data-tab="plans">计划</button><button data-tab="records">记录</button></nav>
+  <section class="page" id="plans">
+    <div class="row"><div><h2>我的训练计划</h2><div class="quiet">常用训练，一点即开</div></div><button class="button">新建计划</button></div>
+    <div class="list"><article class="item"><main><h3>我的训练模板</h3><div class="quiet">2 个动作 · 约 35 分钟</div></main><button class="button">编辑</button></article></div>
+    <button class="official" id="official">使用官方计划 <span>›</span></button>
+  </section>
+  <section class="page" id="records" hidden>
+    <div class="row"><div><h2>训练记录</h2><div class="quiet">日历和最近完成</div></div></div>
+    <div class="list"><article class="item"><main><h3>上肢力量</h3><div class="quiet">今天 · 6 个动作 · 18 组</div></main></article><article class="item"><main><h3>下肢训练</h3><div class="quiet">7 月 31 日 · 5 个动作</div></main></article><article class="item"><main><h3>推日</h3><div class="quiet">7 月 29 日 · 14 组</div></main></article></div>
+    <button class="button" style="width:100%;margin-top:12px" id="history">查看全部历史</button>
+  </section>
+</main>
+<nav class="nav" aria-label="主导航"><button>主页</button><button class="active">训练</button><button>动作</button><button>AI</button><button>我的</button></nav>
+<div class="modal" id="modal"><section class="sheet"><div class="row" style="margin-top:0"><div><h2 id="modalTitle">官方单日计划</h2><div class="quiet" id="modalSub">先看动作，再决定是否使用</div></div><button class="button" id="close">关闭</button></div><div id="modalBody" class="list"><article class="item"><main><h3>上肢力量</h3><div class="quiet">卧推、划船、肩推等 6 个动作</div></main><button class="button" id="detail">详情</button></article><article class="item"><main><h3>下肢力量</h3><div class="quiet">深蹲、硬拉、腿弯举等 5 个动作</div></main><button class="button">详情</button></article></div></section></div>
+<script>
+  const qs=s=>document.querySelector(s);document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('active',x===b));['plans','records'].forEach(id=>qs('#'+id).hidden=id!==b.dataset.tab)});const modal=qs('#modal');qs('#official').onclick=()=>modal.classList.add('open');qs('#history').onclick=()=>{qs('#modalTitle').textContent='全部训练历史';qs('#modalSub').textContent='点击记录查看动作与每组数据';modal.classList.add('open')};qs('#close').onclick=()=>modal.classList.remove('open');qs('#detail').onclick=()=>{qs('#modalTitle').textContent='上肢力量';qs('#modalSub').textContent='单日训练 · 约 60 分钟';qs('#modalBody').innerHTML='<div class="item"><main><h3>杠铃卧推</h3><div class="quiet">4 组 · 6-8 次 · 休息 150 秒</div></main></div><div class="item"><main><h3>胸托划船</h3><div class="quiet">3 组 · 8-10 次 · 休息 120 秒</div></main></div><button class="button primary" style="margin-top:14px">使用此计划</button>'};modal.onclick=e=>{if(e.target===modal)modal.classList.remove('open')};
+</script>
+</body></html>

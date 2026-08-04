@@ -1,0 +1,32 @@
+- generic [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]: KILO训练
+      - generic [ref=e5]: 选择计划并开始训练
+    - navigation "训练页面切换" [ref=e6]:
+      - button "计划" [ref=e7]
+      - button "记录" [active] [ref=e8]
+    - generic [ref=e29]:
+      - generic [ref=e31]:
+        - heading "训练记录" [level=2] [ref=e32]
+        - generic [ref=e33]: 日历和最近完成
+      - generic [ref=e34]:
+        - article [ref=e35]:
+          - main [ref=e36]:
+            - heading "上肢力量" [level=3] [ref=e37]
+            - generic [ref=e38]: 今天 · 6 个动作 · 18 组
+        - article [ref=e39]:
+          - main [ref=e40]:
+            - heading "下肢训练" [level=3] [ref=e41]
+            - generic [ref=e42]: 7 月 31 日 · 5 个动作
+        - article [ref=e43]:
+          - main [ref=e44]:
+            - heading "推日" [level=3] [ref=e45]
+            - generic [ref=e46]: 7 月 29 日 · 14 组
+      - button "查看全部历史" [ref=e47]
+  - navigation "主导航" [ref=e23]:
+    - button "主页" [ref=e24]
+    - button "训练" [ref=e25]
+    - button "动作" [ref=e26]
+    - button "AI" [ref=e27]
+    - button "我的" [ref=e28]
