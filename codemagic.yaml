@@ -26,10 +26,12 @@ workflows:
       - mobile/flutter_drive.log
 
   ios-release:
-    name: KILO iOS App Store IPA
+    name: KILO iOS TestFlight
     instance_type: mac_mini_m2
     max_build_duration: 90
     working_directory: mobile
+    integrations:
+      app_store_connect: 赵学昆
     environment:
       flutter: stable
       xcode: latest
@@ -60,3 +62,6 @@ workflows:
       - mobile/build/ios/ipa/*.ipa
       - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
       - mobile/flutter_drive.log
+    publishing:
+      app_store_connect:
+        auth: integration
