@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import 'exercise_media.dart';
+
 enum PageId { today, train, records, exercises, recognition, ai, profile }
 
 enum TrainView { workout, plans, history }
@@ -47,6 +49,7 @@ class WorkoutSet {
     required this.id,
     this.type = 'work',
     this.weight = 80,
+    this.plannedWeight,
     this.reps = 8,
     this.targetMin = 6,
     this.targetMax = 8,
@@ -57,6 +60,14 @@ class WorkoutSet {
   });
   final String id;
   String type;
+
+  /// The weight prescribed by the plan, when the source plan recorded one.
+  ///
+  /// This stays nullable so legacy records can explicitly report that their
+  /// planned weight was not stored. Callers that need a compatibility value
+  /// can use [plannedWeightOrActual], while history/progress surfaces should
+  /// inspect this field first and avoid inventing a planned value.
+  double? plannedWeight;
   double weight;
   int reps;
   int targetMin;
@@ -66,10 +77,36 @@ class WorkoutSet {
   bool failed;
   double? rpe;
 
-  WorkoutSet copy() => WorkoutSet(
+  double get plannedWeightOrActual => plannedWeight ?? weight;
+
+  WorkoutSet copy({bool normalizePlannedWeight = false}) => WorkoutSet(
     id: id,
     type: type,
     weight: weight,
+    plannedWeight: normalizePlannedWeight
+        ? plannedWeight ?? weight
+        : plannedWeight,
+    reps: reps,
+    targetMin: targetMin,
+    targetMax: targetMax,
+    restSeconds: restSeconds,
+    completed: completed,
+    failed: failed,
+    rpe: rpe,
+  );
+
+  /// Copies a set into a persisted plan. A plan created from a legacy live
+  /// workout has no separate planned value, so its current weight becomes the
+  /// initial prescribed value at this boundary.
+  WorkoutSet copyForPlan() => copy(normalizePlannedWeight: true);
+
+  /// Copies a plan set into a live workout. The user may then edit [weight]
+  /// without changing [plannedWeight].
+  WorkoutSet copyForWorkout() => WorkoutSet(
+    id: id,
+    type: type,
+    weight: plannedWeight ?? weight,
+    plannedWeight: plannedWeight,
     reps: reps,
     targetMin: targetMin,
     targetMax: targetMax,
@@ -96,10 +133,27 @@ class WorkoutExercise {
   bool collapsed;
   String? supersetId;
 
-  WorkoutExercise copy({String? newId}) => WorkoutExercise(
+  WorkoutExercise copy({String? newId, bool normalizePlannedWeight = false}) =>
+      WorkoutExercise(
+        id: newId ?? id,
+        exerciseId: exerciseId,
+        sets: sets
+            .map(
+              (set) => set.copy(normalizePlannedWeight: normalizePlannedWeight),
+            )
+            .toList(),
+        restSeconds: restSeconds,
+        collapsed: collapsed,
+        supersetId: supersetId,
+      );
+
+  WorkoutExercise copyForPlan({String? newId}) =>
+      copy(newId: newId, normalizePlannedWeight: true);
+
+  WorkoutExercise copyForWorkout({String? newId}) => WorkoutExercise(
     id: newId ?? id,
     exerciseId: exerciseId,
-    sets: sets.map((set) => set.copy()).toList(),
+    sets: sets.map((set) => set.copyForWorkout()).toList(),
     restSeconds: restSeconds,
     collapsed: collapsed,
     supersetId: supersetId,
@@ -635,6 +689,8 @@ String muscleGroupForLabel(String muscle) {
 }
 
 String exerciseAsset(String id) {
+  final reference = mediaForExercise(id);
+  if (reference != null) return reference.imagePath;
   const assets = <String, String>{
     'machine_chest_press': 'bench_press_0.png',
     'machine_crunch': 'crunch_0.png',

@@ -1,0 +1,54 @@
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+// URL.pathname is not a valid Windows filesystem path (spaces remain encoded
+// as %20). Resolve relative paths from the backend directory through the
+// standard URL-to-path conversion instead.
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const resolveFromRoot = (value, fallback) => path.resolve(root, value || fallback);
+const intValue = (env, name, fallback) => {
+  const value = Number(env[name] || fallback);
+  if (!Number.isFinite(value) || value <= 0) throw new Error(`invalid_${name.toLowerCase()}`);
+  return Math.floor(value);
+};
+
+export function loadConfig(env = process.env) {
+  const resolve = (value, fallback) => resolveFromRoot(value, fallback);
+  return Object.freeze({
+    nodeEnv: env.NODE_ENV || 'development',
+    host: env.KILO_HOST || '127.0.0.1',
+    port: intValue(env, 'KILO_PORT', 8790),
+    publicBaseUrl: (env.KILO_PUBLIC_BASE_URL || `http://127.0.0.1:${env.KILO_PORT || 8790}`).replace(/\/+$/, ''),
+    allowedOrigins: new Set((env.KILO_ALLOWED_ORIGINS || '').split(',').map((item) => item.trim()).filter(Boolean)),
+    dataDir: resolve(env.KILO_DATA_DIR, 'data'),
+    databasePath: resolve(env.KILO_DATABASE_PATH, 'data/kilo.sqlite3'),
+    mediaDir: resolve(env.KILO_MEDIA_DIR, 'data/media'),
+    maxUploadBytes: intValue(env, 'KILO_MAX_UPLOAD_BYTES', 250 * 1024 * 1024),
+    maxJsonBytes: intValue(env, 'KILO_MAX_JSON_BYTES', 2 * 1024 * 1024),
+    sessionPepper: env.KILO_SESSION_PEPPER || 'development-only-session-pepper',
+    gpuApiKey: env.KILO_GPU_API_KEY || '',
+    enableTestAdmin: env.KILO_ENABLE_TEST_ADMIN === 'true',
+    enablePasswordRegistration: env.KILO_ENABLE_PASSWORD_REGISTRATION === 'true',
+    testAdminIdentifier: env.KILO_TEST_ADMIN_IDENTIFIER || '1234',
+    testAdminPassword: env.KILO_TEST_ADMIN_PASSWORD || '1234',
+    deepSeekApiKey: env.DEEPSEEK_API_KEY || '',
+    deepSeekBaseUrl: (env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com').replace(/\/+$/, ''),
+    deepSeekModel: env.DEEPSEEK_MODEL || 'deepseek-v4-flash',
+    appleClientId: env.APPLE_CLIENT_ID || '',
+    googleClientId: env.GOOGLE_CLIENT_ID || '',
+    sessionTtlDays: intValue(env, 'KILO_SESSION_TTL_DAYS', 30),
+    gpuClaimTimeoutSeconds: intValue(env, 'KILO_GPU_CLAIM_TIMEOUT_SECONDS', 900),
+  });
+}
+
+export const config = loadConfig();
+
+export function assertProductionConfiguration(candidate = config, env = process.env) {
+  if (env.NODE_ENV !== 'production' && candidate.nodeEnv !== 'production') return;
+  const problems = [];
+  if (candidate.sessionPepper === 'development-only-session-pepper' || candidate.sessionPepper.length < 32) problems.push('KILO_SESSION_PEPPER');
+  if (!candidate.gpuApiKey || candidate.gpuApiKey.length < 32) problems.push('KILO_GPU_API_KEY');
+  if (candidate.enableTestAdmin) problems.push('KILO_ENABLE_TEST_ADMIN=false');
+  if (candidate.enablePasswordRegistration) problems.push('KILO_ENABLE_PASSWORD_REGISTRATION=false');
+  if (problems.length) throw new Error(`unsafe_production_configuration:${problems.join(',')}`);
+}

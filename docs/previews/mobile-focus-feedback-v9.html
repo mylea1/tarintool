@@ -1,0 +1,884 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f3f6f8">
+  <title>KILO v9 专注与强反馈预览</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+      --paper: #f3f6f8;
+      --surface: #ffffff;
+      --surface-soft: #eaf1f6;
+      --surface-blue: #e4effb;
+      --ink: #10212b;
+      --secondary: #405565;
+      --quiet: #708494;
+      --line: #d5e0e7;
+      --blue: #0b66d4;
+      --blue-dark: #084d9f;
+      --green: #197348;
+      --green-soft: #e2f5e9;
+      --green-strong: #bfe8cd;
+      --error: #b3261e;
+      --error-soft: #ffdad6;
+      --radius-card: 16px;
+      --radius-control: 12px;
+      --shadow: 0 12px 32px rgba(16, 33, 43, .11);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-width: 0; background: #dfe9ef; }
+    body { min-height: 100dvh; color: var(--ink); overflow-x: hidden; }
+    button, input, textarea, select { font: inherit; }
+    button { min-height: 44px; max-width: 100%; border: 0; cursor: pointer; color: inherit; }
+    button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
+      outline: 3px solid #86b8ef;
+      outline-offset: 2px;
+    }
+    button:active { transform: translateY(1px) scale(.99); }
+    img { display: block; max-width: 100%; height: auto; }
+    [hidden] { display: none !important; }
+
+    .phone {
+      width: min(100%, 430px);
+      min-height: 100dvh;
+      margin: 0 auto;
+      padding: 12px;
+      background: var(--paper);
+      overflow-x: clip;
+    }
+    .app-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      padding: 2px 2px 10px;
+      border-bottom: 1px solid var(--line);
+    }
+    .brand { color: var(--blue); font-size: 13px; font-weight: 900; letter-spacing: .16em; }
+    .head-title { min-width: 0; font-size: 18px; font-weight: 800; overflow-wrap: anywhere; }
+    .head-meta { margin-left: auto; color: var(--quiet); font-size: 11px; white-space: nowrap; }
+
+    .scene-switcher {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 4px;
+      margin: 10px 0 14px;
+      padding: 4px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-control);
+      background: #e7eef3;
+    }
+    .scene-switcher button {
+      min-width: 0;
+      padding: 7px 3px;
+      border-radius: 9px;
+      background: transparent;
+      color: var(--quiet);
+      font-size: 12px;
+      font-weight: 800;
+      line-height: 1.2;
+      overflow-wrap: anywhere;
+    }
+    .scene-switcher button[aria-selected="true"] {
+      color: var(--blue-dark);
+      background: var(--surface);
+      box-shadow: 0 1px 3px rgba(16, 33, 43, .14);
+    }
+    .scene { min-width: 0; }
+    .scene-heading { display: flex; align-items: flex-start; gap: 10px; min-width: 0; margin: 0 2px 12px; }
+    .scene-heading h1 { min-width: 0; margin: 0; font-size: 24px; line-height: 1.12; letter-spacing: -.03em; overflow-wrap: anywhere; }
+    .scene-heading p { margin: 4px 0 0; color: var(--quiet); font-size: 13px; line-height: 1.4; }
+    .grow { flex: 1; min-width: 0; }
+
+    .card {
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-card);
+      background: var(--surface);
+      box-shadow: 0 2px 8px rgba(16, 33, 43, .04);
+    }
+    .card-pad { padding: 13px; }
+    .eyebrow { color: var(--quiet); font-size: 11px; font-weight: 800; letter-spacing: .02em; }
+    .muted { color: var(--quiet); }
+    .secondary { color: var(--secondary); }
+    .small { font-size: 12px; }
+    .wrap-anywhere { overflow-wrap: anywhere; }
+
+    .detail-head { display: flex; align-items: flex-start; gap: 10px; min-width: 0; margin-bottom: 10px; }
+    .detail-close {
+      flex: 0 0 44px;
+      width: 44px;
+      padding: 0;
+      border-radius: 12px;
+      background: var(--surface-blue);
+      color: var(--blue-dark);
+      font-size: 22px;
+      line-height: 1;
+    }
+    .detail-title { min-width: 0; }
+    .detail-title h1 { margin: 3px 0 3px; font-size: 24px; line-height: 1.15; overflow-wrap: anywhere; }
+    .detail-title p { margin: 0; color: var(--quiet); font-size: 12px; overflow-wrap: anywhere; }
+    .detail-more { flex: 0 0 44px; width: 44px; border-radius: 12px; background: transparent; font-size: 22px; color: var(--quiet); }
+    .media-hero {
+      aspect-ratio: 16 / 9;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-card);
+      background: #edf2f5;
+    }
+    .media-hero img { width: 100%; height: 100%; object-fit: contain; }
+    .tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 12px; }
+    .tag { max-width: 100%; padding: 6px 9px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--secondary); font-size: 11px; overflow-wrap: anywhere; }
+    .detail-tabs {
+      position: sticky;
+      top: 0;
+      z-index: 3;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 4px;
+      margin: 0 0 10px;
+      padding: 4px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-control);
+      background: #e7eef3;
+    }
+    .detail-tabs button { min-width: 0; border-radius: 9px; background: transparent; color: var(--quiet); font-weight: 800; }
+    .detail-tabs button[aria-selected="true"] { color: var(--blue-dark); background: var(--surface); box-shadow: 0 1px 3px rgba(16, 33, 43, .12); }
+    .panel { min-width: 0; }
+    .stats-compact { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+    .stat {
+      min-width: 0;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: var(--surface);
+    }
+    .stat-label { display: block; color: var(--quiet); font-size: 11px; line-height: 1.25; overflow-wrap: anywhere; }
+    .stat-value { display: block; margin-top: 6px; font-size: 18px; font-weight: 900; line-height: 1.1; overflow-wrap: anywhere; }
+    .resource-card { margin-top: 9px; }
+    .resource-head { display: flex; align-items: center; gap: 8px; min-width: 0; margin-bottom: 9px; }
+    .resource-head h2 { min-width: 0; margin: 0; font-size: 15px; overflow-wrap: anywhere; }
+    .resource-icon { display: grid; place-items: center; flex: 0 0 30px; width: 30px; height: 30px; border-radius: 9px; background: var(--surface-blue); color: var(--blue); font-weight: 900; }
+    .field { display: block; min-width: 0; margin-top: 8px; }
+    .field-label { display: block; margin-bottom: 5px; color: var(--secondary); font-size: 12px; font-weight: 800; }
+    input, textarea, select {
+      width: 100%;
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fbfdfe;
+      color: var(--ink);
+    }
+    input, select { min-height: 44px; padding: 9px 10px; }
+    textarea { min-height: 66px; padding: 9px 10px; resize: vertical; line-height: 1.4; }
+    input::placeholder, textarea::placeholder { color: #8798a4; }
+    .resource-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    .resource-actions > * { flex: 1 1 140px; }
+    .outline-btn, .primary-btn, .text-btn, .icon-text {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      min-width: 0;
+      min-height: 44px;
+      padding: 8px 12px;
+      border-radius: 11px;
+      font-weight: 800;
+      line-height: 1.2;
+      text-align: center;
+      overflow-wrap: anywhere;
+    }
+    .outline-btn { border: 1px solid var(--line); background: var(--surface); color: var(--blue-dark); }
+    .primary-btn { background: var(--blue); color: #fff; box-shadow: 0 3px 8px rgba(11, 102, 212, .2); }
+    .text-btn { padding-inline: 8px; background: transparent; color: var(--blue-dark); }
+    .icon { flex: 0 0 auto; font-size: 16px; line-height: 1; }
+    .link-open { display: flex; align-items: flex-start; gap: 8px; min-width: 0; margin-top: 8px; padding: 8px 9px; border-radius: 10px; background: var(--surface-blue); color: var(--blue-dark); }
+    .link-open a { min-width: 0; color: inherit; font-size: 12px; overflow-wrap: anywhere; }
+    .status { min-height: 18px; margin-top: 7px; color: var(--secondary); font-size: 12px; line-height: 1.35; overflow-wrap: anywhere; }
+    .status.success { color: var(--green); }
+    .status.error { color: var(--error); }
+    .teach-card, .record-card { margin-bottom: 9px; }
+    .teach-card h2, .record-card h2 { margin: 0 0 9px; font-size: 16px; }
+    .teach-card p { margin: 0; color: var(--secondary); line-height: 1.5; }
+    .steps { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; counter-reset: step; }
+    .steps li { display: grid; grid-template-columns: 27px minmax(0,1fr); gap: 8px; align-items: start; color: var(--secondary); line-height: 1.45; counter-increment: step; }
+    .steps li::before { content: counter(step); display: grid; place-items: center; width: 27px; height: 27px; border-radius: 50%; background: var(--surface-blue); color: var(--blue-dark); font-size: 12px; font-weight: 900; }
+    .record-card header { display: flex; align-items: flex-start; gap: 8px; min-width: 0; }
+    .record-card header strong { min-width: 0; overflow-wrap: anywhere; }
+    .record-card header span { margin-left: auto; color: var(--quiet); font-size: 11px; white-space: nowrap; }
+    .record-sets { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); color: var(--green); font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
+
+    .timer-card { padding: 12px; background: linear-gradient(135deg, #fff 0%, #f6fbff 100%); }
+    .timer-top { display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(0, .92fr); gap: 8px; min-width: 0; }
+    .timer-block { min-width: 0; padding: 10px; border: 1px solid var(--line); border-radius: 13px; background: rgba(255,255,255,.7); }
+    .timer-block.rest { border-color: #b9d4f2; background: var(--surface-blue); }
+    .timer-label { display: flex; align-items: center; gap: 6px; color: var(--secondary); font-size: 11px; font-weight: 800; }
+    .timer-value { display: block; margin-top: 5px; font-size: 27px; font-weight: 900; letter-spacing: -.04em; line-height: 1; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+    .timer-hint { display: block; margin-top: 5px; color: var(--quiet); font-size: 11px; line-height: 1.3; overflow-wrap: anywhere; }
+    .timer-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin-top: 9px; }
+    .timer-controls .pause { grid-column: 1 / -1; }
+    .timer-controls .icon-text { border: 1px solid var(--line); background: var(--surface); color: var(--secondary); }
+    .timer-controls .pause { background: var(--blue); color: #fff; border-color: var(--blue); }
+    .rest-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-top: 7px; }
+    .rest-actions .text-btn { min-height: 38px; }
+    .rest-note { min-height: 19px; margin-top: 7px; color: var(--secondary); font-size: 12px; }
+    .set-list { margin-top: 12px; }
+    .section-row { display: flex; align-items: center; gap: 8px; min-width: 0; margin: 0 2px 7px; }
+    .section-row h2 { min-width: 0; margin: 0; font-size: 16px; }
+    .section-row .count { margin-left: auto; color: var(--quiet); font-size: 12px; white-space: nowrap; }
+    .set-table { display: grid; gap: 6px; min-width: 0; }
+    .set-row {
+      display: grid;
+      grid-template-columns: 35px minmax(0,1fr) minmax(0, .85fr) 32px;
+      gap: 7px;
+      align-items: center;
+      width: 100%;
+      min-width: 0;
+      padding: 9px 10px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: var(--surface);
+      text-align: left;
+      transition: transform 120ms ease, opacity 120ms ease;
+    }
+    .set-row.done { border-color: #9fd0b2; background: var(--green-soft); color: #125d3a; box-shadow: 0 0 0 2px rgba(25,115,72,.08); }
+    .set-row.current { border-color: #94bde6; background: #f8fbff; }
+    .set-index { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 9px; background: #edf2f5; color: var(--secondary); font-size: 12px; font-weight: 900; }
+    .set-row.done .set-index { background: var(--green-strong); color: var(--green); }
+    .set-main, .set-rpe { min-width: 0; }
+    .set-main strong, .set-main small, .set-rpe strong, .set-rpe small { display: block; overflow-wrap: anywhere; }
+    .set-main strong { font-size: 14px; }
+    .set-main small, .set-rpe small { color: var(--quiet); font-size: 11px; }
+    .set-rpe strong { font-size: 13px; }
+    .set-status { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: #eef2f4; color: var(--quiet); font-size: 15px; font-weight: 900; }
+    .set-row.done .set-status { background: var(--green); color: #fff; }
+    .finish-btn { width: 100%; margin-top: 12px; }
+    .batch-note { margin: 7px 2px 0; color: var(--secondary); font-size: 12px; line-height: 1.4; }
+
+    .library-toolbar { display: grid; grid-template-columns: minmax(0,1fr) auto auto; gap: 7px; align-items: center; min-width: 0; margin-bottom: 10px; }
+    .search-wrap { position: relative; min-width: 0; }
+    .search-wrap input { padding-left: 34px; }
+    .search-glyph { position: absolute; left: 11px; top: 50%; color: var(--quiet); font-size: 15px; transform: translateY(-50%); pointer-events: none; }
+    .select-compact { width: auto; max-width: 88px; padding: 8px 7px; color: var(--secondary); font-size: 12px; }
+    .fab {
+      display: grid;
+      place-items: center;
+      flex: 0 0 44px;
+      width: 44px;
+      height: 44px;
+      min-height: 44px;
+      padding: 0;
+      border-radius: 50%;
+      background: var(--blue);
+      color: #fff;
+      font-size: 28px;
+      font-weight: 500;
+      line-height: 1;
+      box-shadow: 0 4px 10px rgba(11, 102, 212, .25);
+    }
+    .library-layout { display: grid; grid-template-columns: 45px minmax(0,1fr); gap: 9px; min-width: 0; align-items: start; }
+    .muscle-rail { display: grid; gap: 2px; padding: 3px; border: 1px solid var(--line); border-radius: 13px; background: var(--surface); }
+    .muscle-rail button { min-width: 0; min-height: 44px; padding: 4px 2px; border-radius: 9px; background: transparent; color: var(--quiet); font-size: 11px; font-weight: 800; overflow-wrap: anywhere; }
+    .muscle-rail button[aria-pressed="true"] { background: var(--surface-blue); color: var(--blue-dark); }
+    .library-results { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; min-width: 0; }
+    .exercise-card { min-width: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+    .exercise-card button { display: block; width: 100%; min-width: 0; min-height: 0; padding: 0; background: transparent; text-align: left; }
+    .exercise-card img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: #edf2f5; }
+    .exercise-copy { min-width: 0; padding: 9px 9px 10px; }
+    .exercise-name { display: -webkit-box; min-width: 0; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-size: 14px; font-weight: 850; line-height: 1.3; overflow-wrap: anywhere; }
+    .exercise-meta { display: block; margin-top: 5px; color: var(--quiet); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .library-empty { grid-column: 1 / -1; padding: 18px 12px; color: var(--quiet); text-align: center; }
+    .language-row { display: flex; align-items: center; gap: 7px; min-width: 0; margin: 8px 0 0 54px; color: var(--quiet); font-size: 11px; }
+    .language-row select { width: auto; min-height: 36px; padding: 5px 8px; font-size: 12px; }
+
+    .summary-scene { display: grid; min-height: calc(100dvh - 108px); align-items: start; padding-top: 12px; }
+    .summary-card { position: relative; isolation: isolate; overflow: hidden; min-width: 0; padding: 20px 15px 15px; border: 1px solid #9dc4e9; border-radius: 22px; background: linear-gradient(155deg, #fff 0%, #f2f8ff 72%, #e2effb 100%); box-shadow: var(--shadow); }
+    .summary-card::before { content: ""; position: absolute; z-index: -1; top: -72px; right: -64px; width: 185px; height: 185px; border-radius: 50%; background: rgba(70, 154, 235, .16); filter: blur(2px); opacity: 0; transform: scale(.45); }
+    .summary-card.celebrate::before { animation: halo 850ms ease-out both; }
+    @keyframes halo { 0% { opacity: .05; transform: scale(.45); } 55% { opacity: .9; } 100% { opacity: 0; transform: scale(1.15); } }
+    .summary-kicker { display: inline-flex; align-items: center; gap: 7px; color: var(--green); font-size: 12px; font-weight: 900; }
+    .success-mark { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--green); color: #fff; font-size: 17px; }
+    .summary-card h1 { margin: 10px 0 5px; font-size: 30px; letter-spacing: -.04em; line-height: 1.08; overflow-wrap: anywhere; }
+    .summary-card > p { margin: 0; color: var(--secondary); line-height: 1.45; overflow-wrap: anywhere; }
+    .summary-metrics { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; margin-top: 16px; }
+    .summary-metric { min-width: 0; padding: 12px; border: 1px solid rgba(157,196,233,.82); border-radius: 14px; background: rgba(255,255,255,.82); }
+    .summary-metric:last-child { grid-column: 1 / -1; }
+    .summary-metric span { display: block; color: var(--quiet); font-size: 11px; font-weight: 800; }
+    .summary-metric strong { display: block; margin-top: 5px; color: var(--ink); font-size: 22px; line-height: 1.1; overflow-wrap: anywhere; }
+    .summary-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+    .summary-actions > * { flex: 1 1 140px; }
+    .summary-foot { margin-top: 10px; color: var(--quiet); font-size: 11px; line-height: 1.4; }
+    .particles { position: absolute; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+    .particle { position: absolute; left: 50%; top: 28%; width: 7px; height: 7px; border-radius: 50%; background: var(--blue); opacity: 0; }
+    .summary-card.celebrate .particle { animation: particle-pop 850ms cubic-bezier(.2,.8,.25,1) both; animation-delay: var(--delay); }
+    .particle:nth-child(2n) { background: var(--green); }
+    @keyframes particle-pop { 0% { opacity: 0; transform: translate(-50%, -50%) scale(.25); } 20% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--x), var(--y)) scale(.8); } }
+
+    .toast {
+      position: fixed;
+      z-index: 20;
+      left: 50%;
+      bottom: max(18px, env(safe-area-inset-bottom));
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      width: min(calc(100% - 24px), 398px);
+      min-width: 0;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--ink);
+      color: #fff;
+      box-shadow: var(--shadow);
+      font-size: 13px;
+      line-height: 1.35;
+      transform: translate(-50%, 20px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 160ms ease, transform 160ms ease;
+    }
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+    .toast .toast-icon { flex: 0 0 auto; color: #9de0b5; font-size: 18px; line-height: 1; }
+    .modal-backdrop { position: fixed; inset: 0; z-index: 15; display: grid; place-items: end center; padding: 12px; background: rgba(16, 33, 43, .48); }
+    .modal { width: min(100%, 406px); max-height: min(88dvh, 620px); overflow: auto; padding: 16px; border: 1px solid var(--line); border-radius: 20px 20px 14px 14px; background: var(--paper); box-shadow: var(--shadow); }
+    .modal header { display: flex; align-items: center; gap: 8px; min-width: 0; margin-bottom: 10px; }
+    .modal h2 { min-width: 0; margin: 0; font-size: 19px; overflow-wrap: anywhere; }
+    .modal-close { width: 44px; flex: 0 0 44px; border-radius: 12px; background: transparent; color: var(--quiet); font-size: 22px; }
+    .modal-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .modal-actions > * { flex: 1 1 135px; }
+
+    @media (max-width: 360px) {
+      .phone { padding: 9px; }
+      .app-head { gap: 7px; }
+      .head-meta { font-size: 10px; }
+      .scene-switcher { margin-top: 8px; }
+      .scene-switcher button { font-size: 11px; }
+      .scene-heading h1 { font-size: 22px; }
+      .stats-compact { gap: 5px; }
+      .stat { padding: 9px 7px; }
+      .stat-value { font-size: 16px; }
+      .timer-value { font-size: 24px; }
+      .library-layout { grid-template-columns: 42px minmax(0,1fr); gap: 7px; }
+      .muscle-rail button { min-height: 43px; font-size: 10px; }
+      .exercise-copy { padding-inline: 7px; }
+      .exercise-name { font-size: 13px; }
+    }
+    @media (min-width: 768px) {
+      .phone { margin-top: 18px; min-height: calc(100dvh - 36px); border: 1px solid #cddbe4; border-radius: 24px; box-shadow: 0 20px 48px rgba(16, 33, 43, .12); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+      .summary-card.celebrate::before { opacity: .18; transform: none; }
+      .summary-card.celebrate .particle { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="phone" aria-label="KILO v9 手机预览">
+    <header class="app-head">
+      <span class="brand">KILO</span>
+      <span class="head-title" id="appTitle">动作详情</span>
+      <span class="head-meta">专注反馈 v9</span>
+    </header>
+
+    <nav class="scene-switcher" aria-label="预览场景" role="tablist">
+      <button type="button" role="tab" aria-selected="true" data-scene-tab="detail">详情</button>
+      <button type="button" role="tab" aria-selected="false" data-scene-tab="live">实时训练</button>
+      <button type="button" role="tab" aria-selected="false" data-scene-tab="library">动作库</button>
+      <button type="button" role="tab" aria-selected="false" data-scene-tab="summary">训练完成</button>
+    </nav>
+
+    <section class="scene" id="scene-detail" role="tabpanel" aria-labelledby="scene-tab-detail">
+      <div class="detail-head">
+        <button class="detail-close" type="button" aria-label="返回动作库" data-action="go-library">‹</button>
+        <div class="detail-title grow">
+          <div class="eyebrow">动作详情</div>
+          <h1 id="detailName">杠铃卧推</h1>
+        </div>
+        <button class="detail-more" type="button" aria-label="更多动作选项" data-action="more">⋯</button>
+      </div>
+      <figure class="media-hero card" aria-label="动作演示图片">
+        <img id="detailImage" src="../../mobile/assets/exercises/bench_press_0.png" alt="杠铃卧推动作示意">
+      </figure>
+      <div class="tags" aria-label="动作标签">
+        <span class="tag" id="detailMuscle">主要：胸</span>
+        <span class="tag">辅助：肱三头肌</span>
+        <span class="tag" id="detailEquipment">器械：杠铃</span>
+      </div>
+      <nav class="detail-tabs" role="tablist" aria-label="动作详情页签">
+        <button type="button" role="tab" aria-selected="true" data-detail-tab="overview">概览</button>
+        <button type="button" role="tab" aria-selected="false" data-detail-tab="teaching">教学</button>
+        <button type="button" role="tab" aria-selected="false" data-detail-tab="records">记录</button>
+      </nav>
+
+      <div class="panel" id="detail-panel-overview" role="tabpanel">
+        <div class="stats-compact" aria-label="动作真实指标">
+          <div class="stat"><span class="stat-label">训练次数</span><strong class="stat-value">12</strong></div>
+          <div class="stat"><span class="stat-label">最重重量</span><strong class="stat-value">82.5 kg</strong></div>
+          <div class="stat"><span class="stat-label">估算 1RM</span><strong class="stat-value">104 kg</strong></div>
+        </div>
+        <article class="resource-card card card-pad">
+          <div class="resource-head">
+            <span class="resource-icon" aria-hidden="true">↗</span>
+            <h2>备注与链接</h2>
+          </div>
+          <label class="field">
+            <span class="field-label">动作备注</span>
+            <textarea id="noteInput" placeholder="例如：回程控制 2 秒，肩胛保持稳定">回程控制 2 秒，保持胸口支撑</textarea>
+          </label>
+          <label class="field">
+            <span class="field-label">教学链接（可选）</span>
+            <input id="linkInput" type="url" inputmode="url" autocomplete="url" placeholder="https://example.com/教学视频">
+          </label>
+          <div id="linkFeedback" class="status" aria-live="polite"></div>
+          <div id="linkOpenRow" class="link-open" hidden>
+            <span aria-hidden="true">↗</span>
+            <a id="linkOpenAnchor" href="#" target="_blank" rel="noopener">打开链接</a>
+          </div>
+          <div class="resource-actions">
+            <button class="outline-btn" type="button" id="saveResource"><span class="icon" aria-hidden="true">✓</span>保存备注</button>
+            <button class="primary-btn" type="button" id="openLinkButton" hidden><span class="icon" aria-hidden="true">↗</span>打开链接</button>
+          </div>
+          <p class="muted small wrap-anywhere" style="margin:9px 0 0">KILO 只把链接交给系统处理，不下载、不转存、不内嵌第三方视频。输入包含 fail 的地址可演示打不开反馈。</p>
+        </article>
+      </div>
+
+      <div class="panel" id="detail-panel-teaching" role="tabpanel" hidden>
+        <article class="teach-card card card-pad">
+          <h2>动作教学</h2>
+          <p>肩胛稳定贴住长凳，杠铃下放到胸骨中段，双脚保持稳定。向上推起时保持前臂接近垂直。</p>
+        </article>
+        <article class="teach-card card card-pad">
+          <h2>分步说明</h2>
+          <ol class="steps">
+            <li>双脚踩稳地面，臀部和上背保持接触长凳。</li>
+            <li>握距略宽于肩，取杠后将手腕保持在肘部上方。</li>
+            <li>吸气后缓慢下放，杠铃触及胸骨中段。</li>
+            <li>脚跟向下发力，沿稳定轨迹推回起始位置。</li>
+          </ol>
+        </article>
+        <article class="teach-card card card-pad">
+          <h2>拍摄机位</h2>
+          <p>侧前方 30 到 45 度，确保杠铃轨迹、肘部角度和胸廓位置同时入镜。</p>
+        </article>
+      </div>
+
+      <div class="panel" id="detail-panel-records" role="tabpanel" hidden>
+        <article class="record-card card card-pad">
+          <header><strong>2026 年 8 月 3 日</strong><span>推训练</span></header>
+          <div class="record-sets">82.5 kg × 6 · RPE 8<br>80 kg × 8 · RPE 8<br>77.5 kg × 10 · RPE 9</div>
+        </article>
+        <article class="record-card card card-pad">
+          <header><strong>2026 年 7 月 28 日</strong><span>上肢力量</span></header>
+          <div class="record-sets">80 kg × 7 · RPE 8<br>77.5 kg × 8 · RPE 8.5<br>75 kg × 10 · RPE 9</div>
+        </article>
+      </div>
+    </section>
+
+    <section class="scene" id="scene-live" role="tabpanel" hidden>
+      <div class="scene-heading">
+        <div class="grow"><div class="eyebrow">实时训练</div><h1>保持专注，完成下一组</h1><p>总时长与组间休息在同一张卡里，单手即可恢复节奏。</p></div>
+      </div>
+      <article class="timer-card card" aria-label="训练与休息计时">
+        <div class="timer-top">
+          <div class="timer-block">
+            <span class="timer-label"><span aria-hidden="true">◷</span>总训练时长</span>
+            <strong class="timer-value" id="elapsedClock">00:42</strong>
+            <span class="timer-hint" id="elapsedHint">计时进行中</span>
+          </div>
+          <div class="timer-block rest">
+            <span class="timer-label"><span aria-hidden="true">⏱</span>组间休息</span>
+            <strong class="timer-value" id="restClock">01:12</strong>
+            <span class="timer-hint" id="restHint">杠铃卧推之后</span>
+          </div>
+        </div>
+        <div class="timer-controls" aria-label="训练控制">
+          <button class="icon-text pause" type="button" id="pauseButton"><span class="icon" aria-hidden="true">⏸</span><span id="pauseLabel">暂停计时</span></button>
+          <button class="icon-text" type="button" id="batchButton"><span class="icon" aria-hidden="true">☷</span>批量</button>
+          <button class="icon-text" type="button" id="plateButton"><span class="icon" aria-hidden="true">▰</span>杠片</button>
+          <button class="icon-text" type="button" id="settingsButton"><span class="icon" aria-hidden="true">⚙</span>设置</button>
+        </div>
+        <div class="rest-actions" aria-label="休息控制">
+          <span class="muted small">休息动作</span>
+          <button class="text-btn" type="button" id="addRest"><span class="icon" aria-hidden="true">＋</span>15 秒</button>
+          <button class="text-btn" type="button" id="skipRest"><span class="icon" aria-hidden="true">≫</span>跳过</button>
+        </div>
+        <div class="rest-note" id="restNote" aria-live="polite"></div>
+      </article>
+
+      <section class="set-list" aria-labelledby="setListTitle">
+        <div class="section-row"><h2 id="setListTitle">杠铃卧推</h2><span class="count">2/3 组完成</span></div>
+        <div class="set-table" id="setTable">
+          <div class="set-row done" role="button" tabindex="0" data-complete="true" aria-label="第 1 组，82.5 千克 6 次，已完成">
+            <span class="set-index">1</span><span class="set-main"><strong>82.5 kg × 6</strong><small>热身后工作组</small></span><span class="set-rpe"><small>RPE</small><strong>8</strong></span><span class="set-status" aria-hidden="true">✓</span>
+          </div>
+          <div class="set-row done" role="button" tabindex="0" data-complete="true" aria-label="第 2 组，80 千克 8 次，已完成">
+            <span class="set-index">2</span><span class="set-main"><strong>80 kg × 8</strong><small>稳定完成</small></span><span class="set-rpe"><small>RPE</small><strong>8</strong></span><span class="set-status" aria-hidden="true">✓</span>
+          </div>
+          <div class="set-row current" role="button" tabindex="0" data-complete="false" aria-label="第 3 组，77.5 千克 10 次，点击标记完成">
+            <span class="set-index">3</span><span class="set-main"><strong>77.5 kg × 10</strong><small>点击整行标记完成</small></span><span class="set-rpe"><small>目标</small><strong>10</strong></span><span class="set-status" aria-hidden="true">○</span>
+          </div>
+        </div>
+        <p class="batch-note" id="batchNote" hidden>批量模式已开启。点击组行可选择，或使用批量修改。</p>
+      </section>
+      <button class="primary-btn finish-btn" type="button" id="finishWorkout"><span class="icon" aria-hidden="true">■</span>结束并保存训练</button>
+    </section>
+
+    <section class="scene" id="scene-library" role="tabpanel" hidden>
+      <div class="scene-heading">
+        <div class="grow"><div class="eyebrow">动作选择</div><h1>动作库</h1><p>部位 rail 保持窄，右侧双列图片卡优先显示中文动作名。</p></div>
+      </div>
+      <div class="library-toolbar">
+        <label class="search-wrap" aria-label="搜索动作">
+          <span class="search-glyph" aria-hidden="true">⌕</span>
+          <input type="search" id="exerciseSearch" placeholder="搜索动作或英文" autocomplete="off">
+        </label>
+        <select class="select-compact" id="equipmentFilter" aria-label="器械筛选">
+          <option value="全部">器械</option>
+          <option value="杠铃">杠铃</option>
+          <option value="哑铃">哑铃</option>
+          <option value="器械">器械</option>
+        </select>
+        <button class="fab" type="button" id="addExercise" aria-label="新增动作">＋</button>
+      </div>
+      <div class="library-layout">
+        <nav class="muscle-rail" id="muscleRail" aria-label="部位筛选">
+          <button type="button" aria-pressed="true" data-muscle="全部">全部</button>
+          <button type="button" aria-pressed="false" data-muscle="胸">胸</button>
+          <button type="button" aria-pressed="false" data-muscle="背">背</button>
+          <button type="button" aria-pressed="false" data-muscle="肩">肩</button>
+          <button type="button" aria-pressed="false" data-muscle="腿">腿</button>
+          <button type="button" aria-pressed="false" data-muscle="手臂">手臂</button>
+        </nav>
+        <div class="grow">
+          <div class="library-results" id="libraryResults">
+            <article class="exercise-card" data-name="杠铃卧推" data-en="barbell bench press" data-muscle="胸" data-equipment="杠铃" data-image="bench_press_0.png">
+              <button type="button" class="exercise-open" aria-label="打开杠铃卧推详情"><img src="../../mobile/assets/exercises/bench_press_0.png" alt="杠铃卧推示意图"><span class="exercise-copy"><span class="exercise-name" data-zh="杠铃卧推" data-en-name="Barbell bench press">杠铃卧推</span><span class="exercise-meta">胸 · 杠铃</span></span></button>
+            </article>
+            <article class="exercise-card" data-name="高位下拉" data-en="lat pulldown" data-muscle="背" data-equipment="器械" data-image="lat_pulldown_0.png">
+              <button type="button" class="exercise-open" aria-label="打开高位下拉详情"><img src="../../mobile/assets/exercises/lat_pulldown_0.png" alt="高位下拉示意图"><span class="exercise-copy"><span class="exercise-name" data-zh="高位下拉" data-en-name="Lat pulldown">高位下拉</span><span class="exercise-meta">背 · 器械</span></span></button>
+            </article>
+            <article class="exercise-card" data-name="深蹲" data-en="barbell squat" data-muscle="腿" data-equipment="杠铃" data-image="squat_0.png">
+              <button type="button" class="exercise-open" aria-label="打开深蹲详情"><img src="../../mobile/assets/exercises/squat_0.png" alt="深蹲示意图"><span class="exercise-copy"><span class="exercise-name" data-zh="深蹲" data-en-name="Barbell squat">深蹲</span><span class="exercise-meta">腿 · 杠铃</span></span></button>
+            </article>
+            <article class="exercise-card" data-name="坐姿划船" data-en="seated row" data-muscle="背" data-equipment="器械" data-image="seated_row_0.png">
+              <button type="button" class="exercise-open" aria-label="打开坐姿划船详情"><img src="../../mobile/assets/exercises/seated_row_0.png" alt="坐姿划船示意图"><span class="exercise-copy"><span class="exercise-name" data-zh="坐姿划船" data-en-name="Seated row">坐姿划船</span><span class="exercise-meta">背 · 器械</span></span></button>
+            </article>
+            <article class="exercise-card" data-name="哑铃肩推" data-en="dumbbell shoulder press" data-muscle="肩" data-equipment="哑铃" data-image="shoulder_press_0.png">
+              <button type="button" class="exercise-open" aria-label="打开哑铃肩推详情"><img src="../../mobile/assets/exercises/shoulder_press_0.png" alt="哑铃肩推示意图"><span class="exercise-copy"><span class="exercise-name" data-zh="哑铃肩推" data-en-name="Dumbbell shoulder press">哑铃肩推</span><span class="exercise-meta">肩 · 哑铃</span></span></button>
+            </article>
+            <article class="exercise-card" data-name="罗马尼亚硬拉" data-en="romanian deadlift" data-muscle="腿" data-equipment="杠铃" data-image="romanian_deadlift_0.png">
+              <button type="button" class="exercise-open" aria-label="打开罗马尼亚硬拉详情"><img src="../../mobile/assets/exercises/romanian_deadlift_0.png" alt="罗马尼亚硬拉示意图"><span class="exercise-copy"><span class="exercise-name" data-zh="罗马尼亚硬拉" data-en-name="Romanian deadlift">罗马尼亚硬拉</span><span class="exercise-meta">腿 · 杠铃</span></span></button>
+            </article>
+          </div>
+          <div class="language-row">
+            <span>动作名称语言</span>
+            <select id="nameLanguage" aria-label="动作名称语言"><option value="zh">简体中文</option><option value="en">English</option></select>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="scene summary-scene" id="scene-summary" role="tabpanel" hidden>
+      <article class="summary-card" id="summaryCard">
+        <div class="particles" aria-hidden="true">
+          <i class="particle" style="--x:-108px;--y:-74px;--delay:40ms"></i>
+          <i class="particle" style="--x:-62px;--y:-112px;--delay:90ms"></i>
+          <i class="particle" style="--x:-14px;--y:-124px;--delay:10ms"></i>
+          <i class="particle" style="--x:44px;--y:-106px;--delay:120ms"></i>
+          <i class="particle" style="--x:102px;--y:-68px;--delay:55ms"></i>
+          <i class="particle" style="--x:-92px;--y:30px;--delay:150ms"></i>
+          <i class="particle" style="--x:94px;--y:42px;--delay:180ms"></i>
+        </div>
+        <div class="summary-kicker"><span class="success-mark" aria-hidden="true">✓</span>训练已保存</div>
+        <h1>做得很好，训练完成</h1>
+        <p>这次训练的数据已经写入记录，下一次可以直接对比真实进步。</p>
+        <div class="summary-metrics" aria-label="训练总结数据">
+          <div class="summary-metric"><span>训练时长</span><strong>48 分 32 秒</strong></div>
+          <div class="summary-metric"><span>训练量</span><strong>12,480 kg</strong></div>
+          <div class="summary-metric"><span>有效组</span><strong>9 组</strong></div>
+          <div class="summary-metric"><span>动作数</span><strong>3 个</strong></div>
+          <div class="summary-metric"><span>完成率</span><strong>100%</strong></div>
+        </div>
+        <div class="summary-actions">
+          <button class="outline-btn" type="button" id="viewRecords"><span class="icon" aria-hidden="true">▤</span>查看记录</button>
+          <button class="primary-btn" type="button" id="finishSummary"><span class="icon" aria-hidden="true">✓</span>完成</button>
+        </div>
+        <p class="summary-foot">只播放一次完成反馈。开启系统减少动态效果时，粒子会降级为静态成功卡和图标。</p>
+      </article>
+    </section>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"><span class="toast-icon" aria-hidden="true">✓</span><span id="toastText"></span></div>
+
+  <div class="modal-backdrop" id="addModalBackdrop" hidden>
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="addModalTitle">
+      <header><button class="modal-close" type="button" id="closeAddModal" aria-label="关闭新增动作">×</button><h2 id="addModalTitle">新增自定义动作</h2></header>
+      <p class="secondary small" style="margin:0 0 8px">先写下动作名，后续可以在动作详情里补充器械与教学链接。</p>
+      <label class="field"><span class="field-label">动作名称</span><input id="customExerciseName" type="text" placeholder="例如：单臂绳索推胸"></label>
+      <div class="modal-actions"><button class="outline-btn" type="button" id="cancelAdd">取消</button><button class="primary-btn" type="button" id="saveCustomExercise">保存动作</button></div>
+    </section>
+  </div>
+
+  <script>
+    (() => {
+      const sceneNames = { detail: '动作详情', live: '实时训练', library: '动作库', summary: '训练完成' };
+      const appTitle = document.getElementById('appTitle');
+      const sceneTabs = [...document.querySelectorAll('[data-scene-tab]')];
+      const scenes = [...document.querySelectorAll('.scene')];
+      const detailTabs = [...document.querySelectorAll('[data-detail-tab]')];
+      const detailPanels = {
+        overview: document.getElementById('detail-panel-overview'),
+        teaching: document.getElementById('detail-panel-teaching'),
+        records: document.getElementById('detail-panel-records')
+      };
+      let activeScene = 'detail';
+      let activeDetailTab = 'overview';
+      let toastTimer = 0;
+      let elapsed = 42;
+      let restRemaining = 72;
+      let paused = false;
+      let restActive = true;
+      let summaryCelebrated = false;
+      let activeMuscle = '全部';
+      let nameLanguage = 'zh';
+
+      const $ = (id) => document.getElementById(id);
+      const twoDigits = (value) => String(Math.max(0, value)).padStart(2, '0');
+      const clock = (seconds) => `${twoDigits(Math.floor(seconds / 60))}:${twoDigits(seconds % 60)}`;
+
+      function showToast(message, icon = '✓') {
+        $('toastText').textContent = message;
+        $('toast').querySelector('.toast-icon').textContent = icon;
+        $('toast').classList.add('show');
+        window.clearTimeout(toastTimer);
+        toastTimer = window.setTimeout(() => $('toast').classList.remove('show'), 2400);
+      }
+
+      function showScene(name) {
+        activeScene = name;
+        scenes.forEach((scene) => { scene.hidden = scene.id !== `scene-${name}`; });
+        sceneTabs.forEach((tab) => tab.setAttribute('aria-selected', String(tab.dataset.sceneTab === name)));
+        appTitle.textContent = sceneNames[name];
+        if (name === 'summary' && !summaryCelebrated) {
+          summaryCelebrated = true;
+          const card = $('summaryCard');
+          card.classList.remove('celebrate');
+          requestAnimationFrame(() => card.classList.add('celebrate'));
+          window.setTimeout(() => card.classList.remove('celebrate'), 1100);
+        }
+      }
+
+      function selectDetailTab(name) {
+        activeDetailTab = name;
+        detailTabs.forEach((tab) => tab.setAttribute('aria-selected', String(tab.dataset.detailTab === name)));
+        Object.entries(detailPanels).forEach(([key, panel]) => { panel.hidden = key !== name; });
+      }
+
+      function setTimerText() {
+        $('elapsedClock').textContent = clock(elapsed);
+        $('restClock').textContent = clock(restRemaining);
+        $('pauseLabel').textContent = paused ? '恢复计时' : '暂停计时';
+        $('pauseButton').querySelector('.icon').textContent = paused ? '▶' : '⏸';
+        $('elapsedHint').textContent = paused ? '计时已暂停' : '计时进行中';
+        $('restHint').textContent = restActive ? '杠铃卧推之后' : '可以开始下一组';
+      }
+
+      function triggerSetSuccess(row) {
+        row.dataset.complete = 'true';
+        row.classList.remove('current');
+        row.classList.add('done');
+        row.setAttribute('aria-label', row.getAttribute('aria-label').replace('，点击标记完成', '，已完成'));
+        row.querySelector('.set-main small').textContent = '已记录';
+        row.querySelector('.set-status').textContent = '✓';
+        const remaining = [...document.querySelectorAll('.set-row[data-complete="false"]')].length;
+        document.querySelector('.section-row .count').textContent = `${3 - remaining}/3 组完成`;
+        showToast('第 3 组已记录，继续保持', '✓');
+      }
+
+      function triggerRow(row) {
+        if (row.dataset.complete === 'true') return;
+        if ($('batchNote').hidden) triggerSetSuccess(row);
+        else {
+          row.classList.toggle('current');
+          showToast('已选择这一组，可批量修改', '☷');
+        }
+      }
+
+      function updateLinkState() {
+        const raw = $('linkInput').value.trim();
+        const feedback = $('linkFeedback');
+        const openButton = $('openLinkButton');
+        const openRow = $('linkOpenRow');
+        const anchor = $('linkOpenAnchor');
+        feedback.className = 'status';
+        if (!raw) {
+          openButton.hidden = true;
+          openRow.hidden = true;
+          feedback.textContent = '';
+          return;
+        }
+        let parsed;
+        try { parsed = new URL(raw); } catch (_) { parsed = null; }
+        const valid = parsed && ['http:', 'https:'].includes(parsed.protocol);
+        if (!valid) {
+          openButton.hidden = true;
+          openRow.hidden = true;
+          feedback.className = 'status error';
+          feedback.textContent = '请输入 HTTP 或 HTTPS 链接。';
+          return;
+        }
+        openButton.hidden = false;
+        openRow.hidden = false;
+        anchor.href = parsed.href;
+        anchor.textContent = parsed.href;
+        feedback.textContent = '已准备交给系统处理';
+      }
+
+      function openLink() {
+        const raw = $('linkInput').value.trim();
+        let parsed;
+        try { parsed = new URL(raw); } catch (_) { parsed = null; }
+        if (!parsed || !['http:', 'https:'].includes(parsed.protocol)) {
+          updateLinkState();
+          return;
+        }
+        if (parsed.href.toLowerCase().includes('fail') || parsed.hostname.toLowerCase().includes('打不开')) {
+          $('linkFeedback').className = 'status error';
+          $('linkFeedback').textContent = '打开失败：系统没有可处理该链接的应用，请检查地址。';
+          showToast('链接打开失败，请检查地址', '×');
+          return;
+        }
+        window.open(parsed.href, '_blank', 'noopener,noreferrer');
+        $('linkFeedback').className = 'status success';
+        $('linkFeedback').textContent = '已交给系统处理，正在打开';
+        showToast('链接已交给系统处理', '↗');
+      }
+
+      function filterLibrary() {
+        const query = $('exerciseSearch').value.trim().toLowerCase();
+        const equipment = $('equipmentFilter').value;
+        let visible = 0;
+        document.querySelectorAll('.exercise-card').forEach((card) => {
+          const haystack = `${card.dataset.name} ${card.dataset.en}`.toLowerCase();
+          const matchesQuery = !query || haystack.includes(query);
+          const matchesMuscle = activeMuscle === '全部' || card.dataset.muscle === activeMuscle;
+          const matchesEquipment = equipment === '全部' || equipment === '器械' ? (equipment === '全部' || card.dataset.equipment === '器械') : card.dataset.equipment === equipment;
+          const show = matchesQuery && matchesMuscle && matchesEquipment;
+          card.hidden = !show;
+          if (show) visible += 1;
+        });
+        let empty = $('libraryEmpty');
+        if (!visible) {
+          if (!empty) {
+            empty = document.createElement('div');
+            empty.className = 'library-empty card';
+            empty.id = 'libraryEmpty';
+            empty.textContent = '没有匹配动作，试试清空搜索或切换筛选。';
+            $('libraryResults').appendChild(empty);
+          }
+          empty.hidden = false;
+        } else if (empty) empty.hidden = true;
+      }
+
+      function updateLanguage() {
+        nameLanguage = $('nameLanguage').value;
+        document.querySelectorAll('.exercise-name').forEach((name) => {
+          name.textContent = nameLanguage === 'zh' ? name.dataset.zh : name.dataset.enName;
+        });
+      }
+
+      function openDetailFromCard(card) {
+        $('detailName').textContent = nameLanguage === 'zh' ? card.dataset.name : card.querySelector('.exercise-name').dataset.enName;
+        $('detailImage').src = `../../mobile/assets/exercises/${card.dataset.image}`;
+        $('detailImage').alt = `${card.dataset.name}动作示意`;
+        $('detailMuscle').textContent = `主要：${card.dataset.muscle}`;
+        $('detailEquipment').textContent = `器械：${card.dataset.equipment}`;
+        selectDetailTab('overview');
+        showScene('detail');
+      }
+
+      function openAddModal() {
+        $('addModalBackdrop').hidden = false;
+        $('customExerciseName').focus();
+      }
+      function closeAddModal() { $('addModalBackdrop').hidden = true; }
+
+      sceneTabs.forEach((tab, index) => {
+        tab.addEventListener('click', () => showScene(tab.dataset.sceneTab));
+        tab.addEventListener('keydown', (event) => {
+          if (!['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(event.key)) return;
+          event.preventDefault();
+          const next = event.key === 'Home' ? 0 : event.key === 'End' ? sceneTabs.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + sceneTabs.length) % sceneTabs.length;
+          sceneTabs[next].focus();
+          showScene(sceneTabs[next].dataset.sceneTab);
+        });
+      });
+      detailTabs.forEach((tab) => tab.addEventListener('click', () => selectDetailTab(tab.dataset.detailTab)));
+      document.querySelectorAll('[data-action="go-library"]').forEach((button) => button.addEventListener('click', () => showScene('library')));
+      document.querySelector('[data-action="more"]').addEventListener('click', () => showToast('更多动作选项已收起', '⋯'));
+      $('linkInput').addEventListener('input', updateLinkState);
+      $('openLinkButton').addEventListener('click', openLink);
+      $('linkOpenAnchor').addEventListener('click', (event) => {
+        const href = event.currentTarget.href;
+        if (href.toLowerCase().includes('fail')) {
+          event.preventDefault();
+          openLink();
+        }
+      });
+      $('saveResource').addEventListener('click', () => showToast('动作备注已保存', '✓'));
+      $('pauseButton').addEventListener('click', () => { paused = !paused; setTimerText(); showToast(paused ? '训练计时已暂停' : '训练计时已恢复', paused ? 'Ⅱ' : '▶'); });
+      $('batchButton').addEventListener('click', () => { $('batchNote').hidden = !$('batchNote').hidden; showToast($('batchNote').hidden ? '已退出批量模式' : '批量模式已开启', '☷'); });
+      $('plateButton').addEventListener('click', () => showToast('杠片计算器已打开', '▰'));
+      $('settingsButton').addEventListener('click', () => showToast('训练设置已打开', '⚙'));
+      $('addRest').addEventListener('click', () => { restRemaining += 15; restActive = true; setTimerText(); showToast('休息已增加 15 秒', '+'); });
+      $('skipRest').addEventListener('click', () => { restRemaining = 0; restActive = false; setTimerText(); showToast('已跳过休息', '≫'); });
+      document.querySelectorAll('.set-row').forEach((row) => {
+        row.addEventListener('click', () => triggerRow(row));
+        row.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); triggerRow(row); } });
+      });
+      $('finishWorkout').addEventListener('click', () => showScene('summary'));
+      $('viewRecords').addEventListener('click', () => { showScene('detail'); selectDetailTab('records'); });
+      $('finishSummary').addEventListener('click', () => { summaryCelebrated = true; showScene('library'); showToast('训练已完成，明天继续', '✓'); });
+      $('exerciseSearch').addEventListener('input', filterLibrary);
+      $('equipmentFilter').addEventListener('change', filterLibrary);
+      document.querySelectorAll('[data-muscle]').forEach((button) => button.addEventListener('click', () => {
+        activeMuscle = button.dataset.muscle;
+        document.querySelectorAll('[data-muscle]').forEach((item) => item.setAttribute('aria-pressed', String(item === button)));
+        filterLibrary();
+      }));
+      $('nameLanguage').addEventListener('change', updateLanguage);
+      document.querySelectorAll('.exercise-open').forEach((button) => button.addEventListener('click', () => openDetailFromCard(button.closest('.exercise-card'))));
+      $('addExercise').addEventListener('click', openAddModal);
+      $('closeAddModal').addEventListener('click', closeAddModal);
+      $('cancelAdd').addEventListener('click', closeAddModal);
+      $('addModalBackdrop').addEventListener('click', (event) => { if (event.target === $('addModalBackdrop')) closeAddModal(); });
+      $('saveCustomExercise').addEventListener('click', () => {
+        const value = $('customExerciseName').value.trim();
+        if (!value) { $('customExerciseName').focus(); showToast('请先输入动作名称', '！'); return; }
+        closeAddModal();
+        $('customExerciseName').value = '';
+        showToast(`已新增动作：${value}`, '＋');
+      });
+      document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && !$('addModalBackdrop').hidden) closeAddModal(); });
+
+      window.setInterval(() => {
+        if (paused) return;
+        elapsed += 1;
+        if (restActive && restRemaining > 0) restRemaining -= 1;
+        if (restActive && restRemaining === 0) { restActive = false; showToast('休息结束，可以开始下一组', '✓'); }
+        setTimerText();
+      }, 1000);
+      setTimerText();
+      filterLibrary();
+      updateLanguage();
+    })();
+  </script>
+</body>
+</html>

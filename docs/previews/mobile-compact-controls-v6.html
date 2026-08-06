@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>KILO v6 紧凑训练控件预览</title>
+  <style>
+    :root {
+      font-family: system-ui, -apple-system, "Microsoft YaHei", sans-serif;
+      color: #10212b;
+      background: #eaf1f6;
+      --blue: #0b66d4;
+      --blue-soft: #eaf3ff;
+      --line: #d5e0e7;
+      --quiet: #708494;
+      --lime: #b7e34a;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-width: 0; }
+    button, input { font: inherit; }
+    button {
+      min-width: 44px;
+      min-height: 44px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fff;
+      color: #10212b;
+      padding: 0 10px;
+      cursor: pointer;
+    }
+    button:focus-visible, input:focus-visible { outline: 3px solid #8abaf3; outline-offset: 2px; }
+    .phone {
+      width: min(100%, 414px);
+      min-height: 100dvh;
+      margin: auto;
+      padding: 10px 12px 24px;
+      background: #f7fafc;
+      overflow: hidden;
+    }
+    .topbar, .header-line, .tool-row, .exercise-head, .picker-head {
+      display: flex;
+      align-items: center;
+      min-width: 0;
+    }
+    .topbar { height: 44px; gap: 8px; }
+    .topbar strong { font-size: 19px; letter-spacing: .02em; }
+    .grow { flex: 1; min-width: 0; }
+    .quiet { color: var(--quiet); }
+    .eyebrow { color: var(--blue); font-size: 11px; font-weight: 800; letter-spacing: .08em; }
+    .live-header {
+      margin-top: 8px;
+      padding: 10px 12px;
+      border: 1px solid #c8dced;
+      border-radius: 14px;
+      background: var(--blue-soft);
+    }
+    .header-line { gap: 9px; }
+    .back { flex: 0 0 44px; padding: 0; font-size: 20px; }
+    .workout-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 800; }
+    .timer { flex: 0 0 auto; font-variant-numeric: tabular-nums; font-size: 24px; font-weight: 900; }
+    .status { color: var(--blue); font-size: 11px; font-weight: 800; text-align: right; }
+    .control-strip {
+      margin-top: 8px;
+      padding: 7px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+    }
+    .tool-row { gap: 6px; flex-wrap: wrap; }
+    .tool { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-width: 0; }
+    .tool.primary { flex: 1 1 130px; background: var(--blue); color: #fff; border-color: var(--blue); font-weight: 800; }
+    .tool.secondary { flex: 0 1 auto; }
+    .tool-icon { font-size: 17px; line-height: 1; }
+    .selected-note { margin: 6px 2px 0; color: var(--blue); font-size: 12px; }
+    .exercise {
+      margin-top: 10px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fff;
+      overflow: hidden;
+    }
+    .exercise-head { gap: 9px; padding: 10px 12px; }
+    .thumb { width: 42px; height: 42px; flex: 0 0 42px; display: grid; place-items: center; border-radius: 9px; background: #eaf3ff; font-size: 19px; }
+    .exercise-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 800; }
+    .rest { color: var(--blue); font-size: 12px; }
+    .sets { border-top: 1px solid #edf2f5; }
+    .set-row { display: grid; grid-template-columns: 30px minmax(0, 1fr) 44px; align-items: center; gap: 8px; min-height: 50px; padding: 5px 10px; }
+    .set-row + .set-row { border-top: 1px solid #edf2f5; }
+    .set-number { color: var(--quiet); font-size: 12px; }
+    .set-data { min-width: 0; }
+    .set-data b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .set-data small { color: var(--quiet); }
+    .check { color: var(--blue); padding: 0; font-size: 20px; }
+    .hint { margin: 10px 2px; color: var(--quiet); font-size: 12px; }
+    dialog { width: min(calc(100% - 18px), 404px); max-height: 88dvh; border: 0; border-radius: 18px; padding: 0; color: #10212b; }
+    dialog::backdrop { background: #10212b88; }
+    .picker { display: flex; flex-direction: column; max-height: 88dvh; padding: 12px; }
+    .picker-head { gap: 8px; }
+    .picker-head h2 { margin: 0; font-size: 18px; }
+    .search { width: 100%; min-height: 44px; margin: 10px 0 6px; border: 1px solid var(--line); border-radius: 10px; padding: 0 11px; }
+    .picker-count { margin: 0 0 7px; color: var(--quiet); font-size: 12px; }
+    .picker-body { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 9px; min-height: 0; flex: 1; }
+    .rail { min-width: 0; overflow: auto; padding-right: 2px; }
+    .rail button { width: 100%; min-height: 42px; margin-bottom: 5px; padding: 0 3px; font-size: 12px; white-space: nowrap; }
+    .rail button.active { background: var(--blue); border-color: var(--blue); color: #fff; font-weight: 800; }
+    .results { min-width: 0; overflow: auto; }
+    .result { display: grid; grid-template-columns: 40px minmax(0, 1fr) 44px; align-items: center; gap: 7px; min-width: 0; padding: 7px 0; border-top: 1px solid #edf2f5; }
+    .result-name, .result-meta { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .result-name { font-weight: 750; }
+    .result-meta { margin-top: 2px; color: var(--quiet); font-size: 11px; }
+    .add { padding: 0; background: var(--blue); color: #fff; border-color: var(--blue); font-size: 18px; }
+    .empty { padding: 24px 5px; color: var(--quiet); font-size: 12px; }
+    @media (max-width: 340px) {
+      .phone { padding-inline: 9px; }
+      .picker-body { grid-template-columns: 64px minmax(0, 1fr); gap: 7px; }
+      .tool { padding-inline: 7px; }
+      .tool-label { display: none; }
+      .tool.primary .tool-label { display: inline; }
+      .timer { font-size: 21px; }
+    }
+    @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; } }
+  </style>
+</head>
+<body>
+  <main class="phone">
+    <div class="topbar"><strong>KILO · 训练</strong><span class="grow"></span><button aria-label="训练设置">⚙</button></div>
+    <div class="live-header" aria-label="实时训练摘要">
+      <div class="header-line">
+        <button class="back" aria-label="返回计划">‹</button>
+        <div class="grow"><div class="workout-title">自由训练</div><div class="quiet" id="summary">实时训练 · 1/4 组</div></div>
+        <div><div class="timer" id="clock">08:42</div><div class="status" id="state">进行中</div></div>
+      </div>
+    </div>
+    <section class="control-strip" aria-label="训练控件">
+      <div class="tool-row">
+        <button class="tool primary" id="pause" title="暂停或恢复训练"><span class="tool-icon">Ⅱ</span><span class="tool-label">暂停计时</span></button>
+        <button class="tool secondary" id="batch" title="批量修改"><span class="tool-icon">☷</span><span class="tool-label">批量</span></button>
+        <button class="tool secondary" id="plates" title="杠片计算器"><span class="tool-icon">◫</span><span class="tool-label">杠片</span></button>
+        <button class="tool secondary" title="训练设置" aria-label="训练设置"><span class="tool-icon">⚙</span><span class="tool-label">设置</span></button>
+      </div>
+      <div class="selected-note" id="selected" hidden>已选 2 组 · 编辑已选</div>
+    </section>
+    <section class="exercise">
+      <div class="exercise-head"><div class="thumb">▣</div><div class="grow"><div class="exercise-name">杠铃卧推</div><div class="rest">休息 90 秒 · 设置</div></div><button aria-label="动作更多">⋯</button></div>
+      <div class="sets"><div class="set-row"><span class="set-number">1</span><div class="set-data"><b>70 kg × 8 次</b><small>正式组 · 已完成</small></div><button class="check" aria-label="取消完成">✓</button></div><div class="set-row"><span class="set-number">2</span><div class="set-data"><b>70 kg × 8 次</b><small>正式组 · 下一组</small></div><button class="check" aria-label="完成第 2 组">○</button></div></div>
+    </section>
+    <p class="hint">紧凑控件将主要操作保持在首屏，动作组不需要先穿过重复的大标题卡片。</p>
+    <button id="openPicker" style="width:100%">＋ 添加动作</button>
+  </main>
+
+  <dialog id="pickerDialog">
+    <div class="picker">
+      <div class="picker-head"><h2 class="grow">添加动作</h2><button id="closePicker" aria-label="关闭动作选择">×</button></div>
+      <input class="search" id="search" type="search" placeholder="搜索动作、英文名或器械" aria-label="搜索动作">
+      <div class="picker-count" id="count">4 个动作</div>
+      <div class="picker-body">
+        <nav class="rail" aria-label="动作部位"><button class="active" data-muscle="全部">全部</button><button data-muscle="胸">胸</button><button data-muscle="背">背</button><button data-muscle="肩">肩</button><button data-muscle="腿">腿</button><button data-muscle="手臂">手臂</button><button data-muscle="核心">核心</button></nav>
+        <div class="results" id="results"></div>
+      </div>
+    </div>
+  </dialog>
+  <script>
+    const exercises = [
+      { name: '杠铃卧推', meta: '胸 · 杠铃', muscle: '胸' },
+      { name: '上斜哑铃卧推', meta: '胸 · 哑铃', muscle: '胸' },
+      { name: '坐姿划船', meta: '背 · 器械', muscle: '背' },
+      { name: '高脚杯深蹲', meta: '腿 · 哑铃', muscle: '腿' }
+    ];
+    const dialog = document.querySelector('#pickerDialog');
+    const results = document.querySelector('#results');
+    const search = document.querySelector('#search');
+    const count = document.querySelector('#count');
+    let muscle = '全部';
+    function render() {
+      const term = search.value.trim().toLowerCase();
+      const visible = exercises.filter(item => (muscle === '全部' || item.muscle === muscle) && (!term || `${item.name} ${item.meta}`.toLowerCase().includes(term)));
+      count.textContent = `${visible.length} 个动作`;
+      results.innerHTML = visible.length ? visible.map(item => `<div class="result"><div class="thumb">▣</div><div><b class="result-name">${item.name}</b><small class="result-meta">${item.meta}</small></div><button class="add" aria-label="添加 ${item.name}">＋</button></div>`).join('') : '<div class="empty">没有匹配动作，试试清空搜索或切换部位。</div>';
+    }
+    document.querySelectorAll('[data-muscle]').forEach(button => button.addEventListener('click', () => { muscle = button.dataset.muscle; document.querySelectorAll('[data-muscle]').forEach(item => item.classList.toggle('active', item === button)); render(); }));
+    search.addEventListener('input', render);
+    document.querySelector('#openPicker').addEventListener('click', () => { dialog.showModal(); render(); });
+    document.querySelector('#closePicker').addEventListener('click', () => dialog.close());
+    document.querySelector('#pause').addEventListener('click', event => { const paused = event.currentTarget.dataset.paused === 'true'; event.currentTarget.dataset.paused = String(!paused); event.currentTarget.querySelector('.tool-label').textContent = paused ? '暂停计时' : '恢复计时'; document.querySelector('#state').textContent = paused ? '进行中' : '已暂停'; event.currentTarget.querySelector('.tool-icon').textContent = paused ? 'Ⅱ' : '▶'; });
+    document.querySelector('#batch').addEventListener('click', () => { const selected = document.querySelector('#selected'); selected.hidden = !selected.hidden; });
+    render();
+  </script>
+</body>
+</html>

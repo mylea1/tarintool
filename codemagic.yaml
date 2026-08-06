@@ -1,0 +1,62 @@
+workflows:
+  ios-check:
+    name: KILO iOS unsigned check
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    working_directory: mobile
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+    cache:
+      cache_paths:
+        - $FLUTTER_ROOT/.pub-cache
+        - $HOME/Library/Caches/CocoaPods
+    scripts:
+      - name: Install Flutter dependencies
+        script: flutter pub get
+      - name: Analyze
+        script: flutter analyze
+      - name: Run tests
+        script: flutter test
+      - name: Build unsigned iOS app
+        script: flutter build ios --release --no-codesign
+    artifacts:
+      - mobile/build/ios/iphoneos/*.app
+      - mobile/flutter_drive.log
+
+  ios-release:
+    name: KILO iOS App Store IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 90
+    working_directory: mobile
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.kilostrength.kiloStrength
+    cache:
+      cache_paths:
+        - $FLUTTER_ROOT/.pub-cache
+        - $HOME/Library/Caches/CocoaPods
+    scripts:
+      - name: Install Flutter dependencies
+        script: flutter pub get
+      - name: Analyze
+        script: flutter analyze
+      - name: Run tests
+        script: flutter test
+      - name: Apply provisioning profiles
+        script: xcode-project use-profiles
+      - name: Build signed IPA
+        script: >-
+          flutter build ipa --release
+          --build-name=1.0.9
+          --build-number=$BUILD_NUMBER
+          --export-options-plist=$HOME/export_options.plist
+    artifacts:
+      - mobile/build/ios/ipa/*.ipa
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
+      - mobile/flutter_drive.log

@@ -4,9 +4,12 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 
+import 'account_membership.dart';
 import 'ai_api.dart';
 import 'models.dart';
 import 'recognition_api.dart';
+
+enum ExerciseNameLanguage { chinese, english }
 
 class PlatformTimerBridge {
   static const _channel = MethodChannel('kilo.platform.timer');
@@ -36,6 +39,18 @@ class PlatformTimerBridge {
       // The Android/iOS bridge is optional in widget tests and desktop previews.
     } on PlatformException catch (_) {
       // UI state remains authoritative when a system capability is unavailable.
+    }
+  }
+
+  static Future<void> startWorkout({required int elapsedSeconds}) async {
+    try {
+      await _channel.invokeMethod<void>('startWorkout', {
+        'elapsedSeconds': elapsedSeconds,
+      });
+    } on MissingPluginException {
+      // The native foreground service is optional in widget tests and previews.
+    } on PlatformException catch (_) {
+      // UI state remains authoritative when the system capability is unavailable.
     }
   }
 
@@ -74,13 +89,62 @@ class PlatformTimerBridge {
       // Optional capability.
     }
   }
+
+  static Future<void> clearRest() async {
+    try {
+      await _channel.invokeMethod<void>('clearRest');
+    } on MissingPluginException {
+      // Optional capability.
+    } on PlatformException catch (_) {
+      // Optional capability.
+    }
+  }
 }
 
 class AppController extends ChangeNotifier {
-  AppController() {
+  AppController({
+    AccountService? accountService,
+    RecognitionApi? recognitionApi,
+    this.coachApi,
+  }) : accountService = accountService ?? AccountService(),
+       recognitionApi = recognitionApi ?? UnconfiguredRecognitionApi() {
     _seed();
     PlatformTimerBridge.setRestSkippedHandler(skipRest);
+    this.accountService.addListener(_handleAccountChanged);
   }
+
+  final AccountService accountService;
+  final RecognitionApi recognitionApi;
+  final CoachApi? coachApi;
+
+  AccountUser? get currentUser => accountService.currentUser;
+  bool get isAuthenticated => accountService.isAuthenticated;
+  bool get isAdmin => accountService.isAdmin;
+  EntitlementSnapshot? get entitlements => accountService.entitlements;
+  int get aiRemaining => accountService.aiRemaining;
+  int get recognitionRemaining => accountService.recognitionRemaining;
+
+  void _handleAccountChanged() => notifyListeners();
+
+  AuthResult loginWithPhone(String identifier, {String? password}) =>
+      accountService.loginWithPhone(identifier, password: password);
+
+  AuthResult loginWithApple() => accountService.loginWithApple();
+
+  AuthResult loginWithGoogle() => accountService.loginWithGoogle();
+
+  void logout() => accountService.logout();
+
+  AccountResult<EntitlementSnapshot> grantMembership({
+    required String identifier,
+    required MembershipPlan plan,
+  }) => accountService.grantMembership(identifier: identifier, plan: plan);
+
+  RedemptionCode generateRedemptionCode({required MembershipPlan plan}) =>
+      accountService.generateRedemptionCode(plan: plan);
+
+  AccountResult<EntitlementSnapshot> redeemCode(String code) =>
+      accountService.redeemCode(code);
 
   PageId page = PageId.today;
   TrainView trainView = TrainView.workout;
@@ -92,7 +156,13 @@ class AppController extends ChangeNotifier {
   bool workoutDraft = false;
   bool workoutCompleted = false;
   bool liveWorkoutVisible = false;
-  String workoutName = '上肢力量 A';
+  bool completionBurstActive = false;
+  int completionBurstId = 0;
+
+  /// Whether the current session was started without a prescribed plan.
+  /// Free-training sets intentionally keep [WorkoutSet.plannedWeight] null.
+  bool freeWorkout = false;
+  String workoutName = '自由训练';
   String workoutNote = '';
   final List<WorkoutExercise> workout = [];
   final List<Routine> routines = [];
@@ -100,8 +170,6 @@ class AppController extends ChangeNotifier {
   final List<WorkoutRecord> history = [];
   final List<Exercise> customExercises = [];
   final Map<String, Map<String, ExerciseResource>> exerciseResources = {};
-  final RecognitionApi recognitionApi = MockRecognitionApi();
-  final CoachApi mockCoachApi = MockCoachApi();
   String aiBaseUrl = '';
   String? selectedMediaPath;
   String? selectedMediaName;
@@ -109,16 +177,12 @@ class AppController extends ChangeNotifier {
   String? mediaError;
   bool mediaPicking = false;
   RecognitionResult? recognitionResult;
-  final List<String> scheduled = [
-    '2026-08-01',
-    '2026-08-03',
-    '2026-08-05',
-    '2026-08-08',
-  ];
+  final List<String> scheduled = [];
   int defaultRestSeconds = 120;
   bool rpeTrackingEnabled = true;
   bool livePrEnabled = true;
   String selectedExerciseId = 'bench_press';
+  ExerciseNameLanguage exerciseNameLanguage = ExerciseNameLanguage.chinese;
   String search = '';
   String muscleFilter = '全部';
   String equipmentFilter = '全部';
@@ -131,13 +195,7 @@ class AppController extends ChangeNotifier {
   bool aiUseTrainingData = false;
   bool aiConsentSeen = false;
   bool aiTyping = false;
-  final List<ChatMessage> chat = [
-    ChatMessage(
-      id: 'welcome',
-      role: 'assistant',
-      body: '可以直接问训练技术、计划安排或恢复问题。我会优先使用知识库，并把依据放在回答下方。',
-    ),
-  ];
+  final List<ChatMessage> chat = [];
   final List<AiConversation> conversations = [];
   String activeConversationId = 'conversation-main';
   String scenario = 'normal';
@@ -147,16 +205,15 @@ class AppController extends ChangeNotifier {
   bool batchMode = false;
   final Set<String> selectedSetIds = <String>{};
   String? selectedPlanFolder;
-  final Map<String, String> scheduledLabels = {
-    '2026-08-05': '上肢增肌',
-    '2026-08-08': '下肢增肌',
-  };
+  final Map<String, String> scheduledLabels = {};
   int restRemainingSeconds = 0;
   bool restRunning = false;
   String? restExerciseName;
   Timer? _workoutTicker;
   Timer? _restTicker;
   Timer? _recognitionTicker;
+  Timer? _completionBurstTimer;
+  QuotaReservation? _recognitionReservation;
 
   List<Exercise> get allExercises => [...catalog, ...customExercises];
 
@@ -178,10 +235,46 @@ class AppController extends ChangeNotifier {
   String muscleGroupFor(String muscle) => muscleGroupForLabel(muscle);
 
   Exercise get selectedExercise => findExercise(selectedExerciseId);
+
+  String displayExerciseName(Exercise exercise) =>
+      exerciseNameLanguage == ExerciseNameLanguage.english
+      ? exercise.englishName
+      : exercise.name;
+
+  void setExerciseNameLanguage(ExerciseNameLanguage value) {
+    if (exerciseNameLanguage == value) return;
+    exerciseNameLanguage = value;
+    notifyListeners();
+  }
+
   int get completedSets =>
       workout.expand((item) => item.sets).where((set) => set.completed).length;
   int get totalSets => workout.expand((item) => item.sets).length;
   double get completion => totalSets == 0 ? 0 : completedSets / totalSets;
+
+  /// Returns the latest real history set for an exercise and index.
+  ///
+  /// Records are newest first. An exact completed index wins; if a recent
+  /// record has no matching index, the most recent completed set for the same
+  /// exercise is used as a conservative fallback. Planned values are never
+  /// consulted here.
+  WorkoutSet? previousSetFor(String exerciseId, int setIndex) {
+    WorkoutSet? fallback;
+    for (final record in history) {
+      for (final exercise in record.exercises) {
+        if (exercise.exerciseId != exerciseId) continue;
+        if (setIndex < exercise.sets.length) {
+          final exact = exercise.sets[setIndex];
+          if (exact.completed) return exact;
+        }
+        for (final set in exercise.sets) {
+          if (set.completed) return fallback ?? set;
+        }
+      }
+    }
+    return fallback;
+  }
+
   double get workoutVolume => workout
       .expand((item) => item.sets)
       .where((set) => set.completed)
@@ -194,213 +287,26 @@ class AppController extends ChangeNotifier {
         DateTime.now().difference(workoutStartedAt!).inSeconds;
   }
 
-  void _seed() {
-    workout.addAll([
-      WorkoutExercise(
-        id: 'we-bench',
-        exerciseId: 'bench_press',
-        restSeconds: 150,
-        sets: [
-          WorkoutSet(
-            id: 'bench-warm-1',
-            type: 'warmup',
-            weight: 20,
-            reps: 10,
-            completed: true,
-            restSeconds: 60,
-          ),
-          WorkoutSet(
-            id: 'bench-warm-2',
-            type: 'warmup',
-            weight: 50,
-            reps: 8,
-            completed: true,
-            restSeconds: 90,
-          ),
-          WorkoutSet(id: 'bench-work-1'),
-          WorkoutSet(id: 'bench-work-2'),
-          WorkoutSet(id: 'bench-work-3'),
-        ],
-      ),
-      WorkoutExercise(
-        id: 'we-row',
-        exerciseId: 'chest_supported_row',
-        restSeconds: 120,
-        collapsed: true,
-        sets: [
-          WorkoutSet(
-            id: 'row-warm-1',
-            type: 'warmup',
-            weight: 35,
-            reps: 10,
-            restSeconds: 60,
-          ),
-          WorkoutSet(id: 'row-work-1', weight: 62.5, reps: 10),
-          WorkoutSet(id: 'row-work-2', weight: 62.5, reps: 10),
-          WorkoutSet(id: 'row-back-1', type: 'backoff', weight: 55, reps: 12),
-        ],
-      ),
-      WorkoutExercise(
-        id: 'we-lateral',
-        exerciseId: 'lateral_raise',
-        restSeconds: 75,
-        collapsed: true,
-        sets: [
-          WorkoutSet(id: 'lat-work-1', weight: 10, reps: 12, restSeconds: 75),
-          WorkoutSet(id: 'lat-work-2', weight: 10, reps: 12, restSeconds: 75),
-          WorkoutSet(
-            id: 'lat-drop-1',
-            type: 'drop',
-            weight: 8,
-            reps: 15,
-            restSeconds: 60,
-          ),
-        ],
-      ),
-    ]);
-    routines.addAll([
-      Routine(
-        id: 'routine-upper-a',
-        name: '上肢力量 A',
-        folder: '力量周期',
-        exercises: workout
-            .map((item) => item.copy(newId: 'routine-${item.id}'))
-            .toList(),
-        updatedAt: DateTime(2026, 8, 2),
-      ),
-      Routine(
-        id: 'routine-lower-b',
-        name: '下肢力量 B',
-        folder: '力量周期',
-        exercises: [
-          _makeWorkout('barbell_squat', 'lower-squat'),
-          _makeWorkout('romanian_deadlift', 'lower-rdl'),
-          _makeWorkout('leg_curl', 'lower-curl'),
-        ],
-        updatedAt: DateTime(2026, 8, 1),
-      ),
-      Routine(
-        id: 'routine-hypertrophy',
-        name: '上肢增肌',
-        folder: '增肌模板',
-        exercises: [
-          _makeWorkout('dumbbell_press', 'hyper-press'),
-          _makeWorkout('lat_pulldown', 'hyper-pull'),
-          _makeWorkout('lateral_raise', 'hyper-lat'),
-        ],
-        updatedAt: DateTime(2026, 7, 29),
-      ),
-    ]);
-    routineFolders.addAll(['力量周期', '增肌模板', '自定义']);
-    history.addAll([
-      WorkoutRecord(
-        id: 'history-0801',
-        name: '上肢力量 A',
-        date: DateTime(2026, 8, 1),
-        startTime: '18:32',
-        durationSeconds: 3258,
-        volume: 6842.5,
-        effectiveSets: 12,
-        note: '卧推最后一组保持了目标次数。',
-        exerciseIds: ['bench_press', 'chest_supported_row', 'lateral_raise'],
-        prs: ['卧推重复次数 PR'],
-        exercises: _historyDetails([
-          'bench_press',
-          'chest_supported_row',
-          'lateral_raise',
-        ]),
-      ),
-      WorkoutRecord(
-        id: 'history-0730',
-        name: '下肢力量 B',
-        date: DateTime(2026, 7, 30),
-        startTime: '19:10',
-        durationSeconds: 4020,
-        volume: 8260,
-        effectiveSets: 15,
-        note: '深蹲节奏稳定。',
-        exerciseIds: ['barbell_squat', 'romanian_deadlift', 'leg_curl'],
-        exercises: _historyDetails([
-          'barbell_squat',
-          'romanian_deadlift',
-          'leg_curl',
-        ]),
-      ),
-      WorkoutRecord(
-        id: 'history-0727',
-        name: '推拉混合',
-        date: DateTime(2026, 7, 27),
-        startTime: '17:45',
-        durationSeconds: 3510,
-        volume: 6410,
-        effectiveSets: 13,
-        note: '',
-        exerciseIds: ['bench_press', 'row', 'shoulder_press'],
-        prs: ['坐姿划船重量 PR'],
-        exercises: _historyDetails(['bench_press', 'row', 'shoulder_press']),
-      ),
-      WorkoutRecord(
-        id: 'history-0724',
-        name: '上肢容量',
-        date: DateTime(2026, 7, 24),
-        startTime: '18:05',
-        durationSeconds: 3360,
-        volume: 5985,
-        effectiveSets: 14,
-        note: '',
-        exerciseIds: ['dumbbell_press', 'lat_pulldown', 'lateral_raise'],
-        exercises: _historyDetails([
-          'dumbbell_press',
-          'lat_pulldown',
-          'lateral_raise',
-        ]),
-      ),
-    ]);
-    conversations.add(
-      AiConversation(
-        id: activeConversationId,
-        title: '训练建议',
-        messages: List<ChatMessage>.from(chat),
-      ),
-    );
-  }
+  /// The product starts with a clean local workspace. Catalog exercises and
+  /// official static plans remain available, while user workouts, routines,
+  /// history, schedules and conversations are created only through actions.
+  void _seed() {}
 
   WorkoutExercise _makeWorkout(String exerciseId, String id) => WorkoutExercise(
     id: id,
     exerciseId: exerciseId,
-    sets: List.generate(
-      3,
-      (index) => WorkoutSet(id: '$id-set-$index', weight: index == 0 ? 20 : 30),
-    ),
+    sets: List.generate(3, (index) {
+      final weight = index == 0 ? 20.0 : 30.0;
+      return WorkoutSet(
+        id: '$id-set-$index',
+        weight: weight,
+        plannedWeight: weight,
+      );
+    }),
   );
 
   WorkoutExercise createWorkoutExercise(String exerciseId, String id) =>
       _makeWorkout(exerciseId, id);
-
-  List<WorkoutExercise> _historyDetails(List<String> exerciseIds) {
-    return [
-      for (
-        var exerciseIndex = 0;
-        exerciseIndex < exerciseIds.length;
-        exerciseIndex++
-      )
-        (() {
-          final exercise = _makeWorkout(
-            exerciseIds[exerciseIndex],
-            'history-detail-$exerciseIndex-${exerciseIds[exerciseIndex]}',
-          );
-          for (var setIndex = 0; setIndex < exercise.sets.length; setIndex++) {
-            final set = exercise.sets[setIndex];
-            set.completed = true;
-            set.type = setIndex == 0 ? 'warmup' : 'work';
-            set.weight = 40 + exerciseIndex * 12.5 + setIndex * 2.5;
-            set.reps = 8 + (setIndex % 3);
-            set.restSeconds = exercise.restSeconds;
-          }
-          return exercise;
-        })(),
-    ];
-  }
 
   void selectPage(PageId next) {
     switch (next) {
@@ -439,20 +345,38 @@ class AppController extends ChangeNotifier {
   }
 
   void startWorkout({List<WorkoutExercise>? source, String? name}) {
+    freeWorkout = source == null;
+    if (source == null && workoutCompleted) {
+      workout.clear();
+    }
     if (source != null) {
       workout
         ..clear()
-        ..addAll(source.map((item) => item.copy(newId: 'session-${item.id}')));
+        ..addAll(
+          source.map(
+            (item) => item.copyForWorkout(newId: 'session-${item.id}'),
+          ),
+        );
       for (final exercise in workout) {
         for (final set in exercise.sets) {
           set.completed = false;
         }
       }
     }
-    workoutName = name ?? workoutName;
+    workoutName = name ?? (freeWorkout ? '自由训练' : workoutName);
     if (workout.isEmpty) {
       workoutDraft = true;
-      workoutStarted = false;
+      workoutCompleted = false;
+      workoutStarted = true;
+      workoutPaused = false;
+      workoutElapsedSeconds = 0;
+      workoutStartedAt = DateTime.now();
+      _workoutTicker?.cancel();
+      _workoutTicker = Timer.periodic(
+        const Duration(seconds: 1),
+        (_) => notifyListeners(),
+      );
+      PlatformTimerBridge.startWorkout(elapsedSeconds: 0);
       notifyListeners();
       return;
     }
@@ -466,6 +390,7 @@ class AppController extends ChangeNotifier {
       const Duration(seconds: 1),
       (_) => notifyListeners(),
     );
+    PlatformTimerBridge.startWorkout(elapsedSeconds: 0);
     notifyListeners();
   }
 
@@ -485,6 +410,11 @@ class AppController extends ChangeNotifier {
     workoutElapsedSeconds = currentElapsed;
     workoutPaused = !workoutPaused;
     workoutStartedAt = workoutPaused ? null : DateTime.now();
+    if (workoutPaused) {
+      PlatformTimerBridge.pause();
+    } else {
+      PlatformTimerBridge.startWorkout(elapsedSeconds: workoutElapsedSeconds);
+    }
     if (restRunning) {
       if (workoutPaused) {
         PlatformTimerBridge.pause();
@@ -501,19 +431,40 @@ class AppController extends ChangeNotifier {
   void completeSet(WorkoutSet set, WorkoutExercise parent) {
     set.completed = !set.completed;
     if (set.completed) {
+      triggerCompletionBurst();
       restRemainingSeconds = set.restSeconds > 0
           ? set.restSeconds
           : parent.restSeconds;
-      startRest(
-        exercise: findExercise(parent.exerciseId).name,
-        seconds: restRemainingSeconds,
-      );
+      if (restRemainingSeconds > 0) {
+        startRest(
+          exercise: displayExerciseName(findExercise(parent.exerciseId)),
+          seconds: restRemainingSeconds,
+        );
+      } else {
+        restRemainingSeconds = 0;
+        restRunning = false;
+        restExerciseName = null;
+        _restTicker?.cancel();
+        PlatformTimerBridge.clearRest();
+      }
     } else {
+      restRemainingSeconds = 0;
       restRunning = false;
       restExerciseName = null;
       _restTicker?.cancel();
-      PlatformTimerBridge.finish();
+      PlatformTimerBridge.clearRest();
     }
+    notifyListeners();
+  }
+
+  void triggerCompletionBurst() {
+    completionBurstId++;
+    completionBurstActive = true;
+    _completionBurstTimer?.cancel();
+    _completionBurstTimer = Timer(const Duration(milliseconds: 800), () {
+      completionBurstActive = false;
+      notifyListeners();
+    });
     notifyListeners();
   }
 
@@ -528,6 +479,15 @@ class AppController extends ChangeNotifier {
   }
 
   void startRest({required String exercise, required int seconds}) {
+    if (seconds <= 0) {
+      restRemainingSeconds = 0;
+      restRunning = false;
+      restExerciseName = null;
+      _restTicker?.cancel();
+      PlatformTimerBridge.clearRest();
+      notifyListeners();
+      return;
+    }
     restRemainingSeconds = seconds;
     restRunning = true;
     restExerciseName = exercise;
@@ -544,10 +504,21 @@ class AppController extends ChangeNotifier {
         restRunning = false;
         restExerciseName = null;
         _restTicker?.cancel();
-        PlatformTimerBridge.finish();
+        PlatformTimerBridge.clearRest();
       }
       notifyListeners();
     });
+    notifyListeners();
+  }
+
+  void updateExerciseRest(WorkoutExercise exercise, int seconds) {
+    final value = seconds.clamp(0, 600).toInt();
+    exercise.restSeconds = value;
+    if (freeWorkout) {
+      for (final set in exercise.sets) {
+        if (!set.completed) set.restSeconds = value;
+      }
+    }
     notifyListeners();
   }
 
@@ -556,33 +527,76 @@ class AppController extends ChangeNotifier {
     restRunning = false;
     restExerciseName = null;
     _restTicker?.cancel();
-    PlatformTimerBridge.finish();
+    PlatformTimerBridge.clearRest();
     notifyListeners();
   }
 
-  void finishWorkout({String note = ''}) {
-    if (!workoutStarted && !workoutDraft) return;
+  WorkoutRecord? finishWorkout({
+    String note = '',
+    bool saveAsRoutine = false,
+    String? routineName,
+  }) {
+    if (!workoutStarted && !workoutDraft) return null;
     final now = DateTime.now();
-    history.insert(
-      0,
-      WorkoutRecord(
-        id: 'history-${now.microsecondsSinceEpoch}',
-        name: workoutName,
-        date: now,
-        startTime:
-            '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}',
-        durationSeconds: currentElapsed,
-        volume: workoutVolume,
-        effectiveSets: workout
-            .expand((item) => item.sets)
-            .where((set) => set.completed && set.type != 'technique')
-            .length,
-        note: note,
-        exerciseIds: workout.map((item) => item.exerciseId).toList(),
-        prs: livePrEnabled ? const ['本次训练实时 PR'] : const [],
-        exercises: workout.map((item) => item.copy()).toList(),
-      ),
+    final wasFreeWorkout = freeWorkout;
+    final historySnapshot = workout.map((item) => item.copy()).toList();
+    final record = WorkoutRecord(
+      id: 'history-${now.microsecondsSinceEpoch}',
+      name: workoutName,
+      date: now,
+      startTime:
+          '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}',
+      durationSeconds: currentElapsed,
+      volume: workoutVolume,
+      effectiveSets: workout
+          .expand((item) => item.sets)
+          .where((set) => set.completed && set.type != 'technique')
+          .length,
+      note: note,
+      exerciseIds: workout.map((item) => item.exerciseId).toList(),
+      prs: const [],
+      exercises: historySnapshot,
     );
+    history.insert(0, record);
+    // A valid completed session grants one recognition credit. The service
+    // tracks record IDs, so opening/saving the same summary cannot reward it
+    // twice. Empty sessions do not count as valid training.
+    if (record.effectiveSets > 0) {
+      accountService.rewardWorkoutCompleted(record.id, valid: true);
+    }
+    if (wasFreeWorkout && saveAsRoutine && workout.isNotEmpty) {
+      final baseName = routineName?.trim().isNotEmpty == true
+          ? routineName!.trim()
+          : _defaultFreeRoutineName(now);
+      var finalName = baseName;
+      var suffix = 2;
+      while (routines.any((routine) => routine.name == finalName)) {
+        finalName = '$baseName ($suffix)';
+        suffix++;
+      }
+      final exercises = historySnapshot.map((item) {
+        final planExercise = item.copyForPlan(
+          newId: 'routine-${DateTime.now().microsecondsSinceEpoch}-${item.id}',
+        );
+        for (final set in planExercise.sets) {
+          set.plannedWeight = set.weight;
+          set.completed = false;
+          set.failed = false;
+        }
+        return planExercise;
+      }).toList();
+      if (!routineFolders.contains('自定义')) routineFolders.add('自定义');
+      routines.insert(
+        0,
+        Routine(
+          id: 'routine-${DateTime.now().microsecondsSinceEpoch}',
+          name: finalName,
+          folder: '自定义',
+          exercises: exercises,
+          updatedAt: now,
+        ),
+      );
+    }
     workoutStarted = false;
     workoutPaused = false;
     workoutDraft = false;
@@ -590,6 +604,7 @@ class AppController extends ChangeNotifier {
     liveWorkoutVisible = false;
     workoutElapsedSeconds = 0;
     workoutStartedAt = null;
+    freeWorkout = false;
     restRunning = false;
     restRemainingSeconds = 0;
     restExerciseName = null;
@@ -597,16 +612,22 @@ class AppController extends ChangeNotifier {
     _restTicker?.cancel();
     PlatformTimerBridge.finish();
     notifyListeners();
+    return record;
   }
+
+  String _defaultFreeRoutineName(DateTime date) =>
+      '自由训练 ${date.month.toString().padLeft(2, '0')}月${date.day.toString().padLeft(2, '0')}日 ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
 
   void addSet(WorkoutExercise exercise) {
     final last = exercise.sets.isEmpty ? null : exercise.sets.last;
+    final firstFreeSet = freeWorkout && last == null;
     exercise.sets.add(
       WorkoutSet(
         id: 'set-${DateTime.now().microsecondsSinceEpoch}',
         type: last?.type ?? 'work',
-        weight: last?.weight ?? 0,
-        reps: last?.reps ?? 8,
+        weight: firstFreeSet ? 0 : last?.weight ?? 0,
+        plannedWeight: freeWorkout ? null : last?.plannedWeight ?? last?.weight,
+        reps: firstFreeSet ? 0 : last?.reps ?? 8,
         restSeconds: exercise.restSeconds,
       ),
     );
@@ -656,9 +677,15 @@ class AppController extends ChangeNotifier {
 
   void addExercise(String id) {
     if (workout.any((item) => item.exerciseId == id)) return;
-    workout.add(
-      _makeWorkout(id, 'we-${DateTime.now().microsecondsSinceEpoch}'),
-    );
+    final item = freeWorkout
+        ? WorkoutExercise(
+            id: 'we-${DateTime.now().microsecondsSinceEpoch}',
+            exerciseId: id,
+            sets: <WorkoutSet>[],
+            restSeconds: 0,
+          )
+        : _makeWorkout(id, 'we-${DateTime.now().microsecondsSinceEpoch}');
+    workout.add(item);
     workoutDraft = true;
     notifyListeners();
   }
@@ -749,11 +776,60 @@ class AppController extends ChangeNotifier {
         name: name,
         folder: folder,
         exercises: workout
-            .map((item) => item.copy(newId: 'routine-${item.id}'))
+            .map((item) => item.copyForPlan(newId: 'routine-${item.id}'))
             .toList(),
         updatedAt: DateTime.now(),
       ),
     );
+    notifyListeners();
+  }
+
+  /// Persists a draft composer in one transaction. The draft itself remains
+  /// outside [routines] until this method is called, so cancelling a composer
+  /// cannot leave an empty routine behind.
+  void saveRoutineFromDraft(
+    String name,
+    List<WorkoutExercise> exercises, {
+    String folder = '自定义',
+  }) {
+    final trimmedName = name.trim();
+    if (trimmedName.isEmpty || exercises.isEmpty) return;
+    if (!routineFolders.contains(folder)) routineFolders.add(folder);
+    routines.insert(
+      0,
+      Routine(
+        id: 'routine-${DateTime.now().microsecondsSinceEpoch}',
+        name: trimmedName,
+        folder: folder,
+        exercises: exercises
+            .map((item) => item.copyForPlan(newId: 'routine-${item.id}'))
+            .toList(),
+        updatedAt: DateTime.now(),
+      ),
+    );
+    notifyListeners();
+  }
+
+  /// Commits a full-page editor draft only after the user taps save. The
+  /// original routine is never mutated while the draft route is open.
+  void updateRoutineFromDraft(Routine original, Routine draft) {
+    final index = routines.indexOf(original);
+    if (index < 0) return;
+    final target = routines[index];
+    target.name = draft.name.trim().isEmpty ? target.name : draft.name.trim();
+    target.folder = draft.folder;
+    target.exercises = draft.exercises
+        .map((item) => item.copyForPlan(newId: 'routine-${item.id}'))
+        .toList();
+    target.updatedAt = DateTime.now();
+    notifyListeners();
+  }
+
+  /// Updates the prescribed weight in a plan and keeps its initial live
+  /// workout value in sync. Live workout edits only touch [WorkoutSet.weight].
+  void updatePlannedWeight(WorkoutSet set, double value) {
+    set.plannedWeight = value;
+    set.weight = value;
     notifyListeners();
   }
 
@@ -887,6 +963,10 @@ class AppController extends ChangeNotifier {
     }
     if (current == null) return;
     current.messages = List<ChatMessage>.from(chat);
+    if (chat.isEmpty) {
+      current.title = '新对话';
+      return;
+    }
     final latestUser = chat.lastWhere(
       (item) => item.role == 'user',
       orElse: () => chat.first,
@@ -925,7 +1005,7 @@ class AppController extends ChangeNotifier {
         }
       }
     } catch (_) {
-      mediaError = '文件选择失败，请重试或载入演示视频。';
+      mediaError = '文件选择失败，请重试。';
       recognitionStatus = RecognitionStatus.idle;
     } finally {
       mediaPicking = false;
@@ -933,18 +1013,10 @@ class AppController extends ChangeNotifier {
     }
   }
 
-  void chooseDemoVideo() {
-    selectedMediaPath = 'mock://kilo/demo-squat.mp4';
-    selectedMediaName = 'KILO 演示深蹲.mp4';
-    selectedMediaBytes = 8 * 1024 * 1024;
-    mediaError = null;
-    recognitionStatus = RecognitionStatus.ready;
-    recognitionProgress = 0;
-    notifyListeners();
-  }
-
   void startRecognition() {
     if (recognitionStatus != RecognitionStatus.ready) return;
+    _recognitionReservation?.rollback();
+    _recognitionReservation = null;
     recognitionStatus = RecognitionStatus.processing;
     recognitionProgress = 0.08;
     _recognitionTicker?.cancel();
@@ -953,17 +1025,7 @@ class AppController extends ChangeNotifier {
       if (recognitionProgress >= 1) {
         recognitionProgress = 1;
         recognitionStatus = RecognitionStatus.processing;
-        recognitionApi
-            .analyze(
-              exerciseId: recognitionExerciseId,
-              camera: recognitionCamera,
-              scenario: scenario,
-            )
-            .then((result) {
-              recognitionResult = result;
-              recognitionStatus = result.status;
-              notifyListeners();
-            });
+        _submitRecognition();
         _recognitionTicker?.cancel();
       }
       notifyListeners();
@@ -971,7 +1033,64 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void _submitRecognition() {
+    // The local unconfigured adapter must never consume a credit. A real
+    // adapter reserves immediately before its network submission and returns
+    // the credit when the request fails.
+    if (recognitionApi is! UnconfiguredRecognitionApi && isAuthenticated) {
+      _recognitionReservation = accountService.reserveRecognition();
+      if (_recognitionReservation == null) {
+        recognitionStatus = RecognitionStatus.error;
+        recognitionResult = const RecognitionResult(
+          status: RecognitionStatus.error,
+          confidence: 0,
+          repetitions: 0,
+          summary: '识别额度已用完，请等待每周补充或完成一次有效训练。',
+          error: 'quota_exhausted',
+        );
+        notifyListeners();
+        return;
+      }
+    }
+    recognitionApi
+        .analyze(
+          exerciseId: recognitionExerciseId,
+          camera: recognitionCamera,
+          scenario: scenario,
+        )
+        .then((result) {
+          final succeeded =
+              result.error == null &&
+              result.status != RecognitionStatus.error &&
+              result.status != RecognitionStatus.offline;
+          if (succeeded) {
+            _recognitionReservation?.commit();
+          } else {
+            _recognitionReservation?.rollback();
+          }
+          _recognitionReservation = null;
+          recognitionResult = result;
+          recognitionStatus = result.status;
+          notifyListeners();
+        })
+        .catchError((Object _) {
+          _recognitionReservation?.rollback();
+          _recognitionReservation = null;
+          recognitionStatus = RecognitionStatus.error;
+          recognitionResult = const RecognitionResult(
+            status: RecognitionStatus.error,
+            confidence: 0,
+            repetitions: 0,
+            summary: '识别服务暂时不可用，请稍后重试。',
+            error: 'service_error',
+          );
+          notifyListeners();
+        });
+  }
+
   void resetRecognition() {
+    _recognitionReservation?.rollback();
+    _recognitionReservation = null;
     recognitionStatus = RecognitionStatus.idle;
     recognitionProgress = 0;
     analysisAttached = false;
@@ -1006,123 +1125,67 @@ class AppController extends ChangeNotifier {
     );
     aiTyping = true;
     notifyListeners();
-    await Future<void>.delayed(const Duration(milliseconds: 550));
-    aiTyping = false;
-    final offline = scenario == 'offline';
-    final noEvidence = scenario == 'empty';
     CoachAnswer? remoteAnswer;
-    if (!offline && !noEvidence && aiBaseUrl.trim().isNotEmpty) {
-      try {
-        remoteAnswer = await HttpCoachApi(
-          baseUrl: aiBaseUrl.trim(),
-        ).answer(prompt: trimmed, includeTrainingSummary: aiUseTrainingData);
-      } catch (_) {
-        remoteAnswer = null;
+    String? serviceError;
+    QuotaReservation? aiReservation;
+    if (scenario == 'offline') {
+      serviceError = '当前处于离线状态，AI 服务暂不可用。';
+    } else if (scenario == 'empty') {
+      serviceError = '暂未找到可用训练证据，请先完成训练或补充数据。';
+    } else if (coachApi == null && aiBaseUrl.trim().isEmpty) {
+      serviceError = 'AI 服务未配置，请在设置中配置 Coach 服务后重试。';
+    } else {
+      if (isAuthenticated) {
+        aiReservation = accountService.reserveAi();
+        if (aiReservation == null) {
+          serviceError =
+              '\u4eca\u65e5 AI \u989d\u5ea6\u5df2\u7528\u5b8c\uff0c\u660e\u5929\u6216\u5f00\u901a\u4f1a\u5458\u540e\u6062\u590d\u3002';
+        }
+      }
+      if (serviceError == null) {
+        try {
+          remoteAnswer =
+              await (coachApi ?? HttpCoachApi(baseUrl: aiBaseUrl.trim()))
+                  .answer(
+                    prompt: trimmed,
+                    includeTrainingSummary: aiUseTrainingData,
+                  );
+          if (remoteAnswer.body.trim().isNotEmpty) {
+            aiReservation?.commit();
+          } else {
+            aiReservation?.rollback();
+            serviceError =
+                '\u0041\u0049 \u670d\u52a1\u672a\u8fd4\u56de\u53ef\u7528\u56de\u7b54\u3002';
+          }
+        } catch (_) {
+          aiReservation?.rollback();
+          serviceError = 'AI 服务暂时不可用，请检查配置后重试。';
+        }
       }
     }
-    final answerBody = remoteAnswer?.body;
+    aiTyping = false;
     chat.add(
       ChatMessage(
         id: 'answer-${DateTime.now().microsecondsSinceEpoch}',
         role: 'assistant',
-        body: answerBody?.isNotEmpty == true
-            ? answerBody!
-            : offline
-            ? '当前处于离线状态。你仍可查看已缓存的训练摘要，联网后再获取新的知识库引用。'
-            : noEvidence
-            ? '我没有找到足够的证据支持确定建议。可以补充动作、目标或最近训练数据后再问一次。'
-            : aiUseTrainingData
-            ? '根据你最近的训练记录，下一次卧推可以先尝试 82.5 kg × 8。若第一组 RPE 超过 9，保留当前重量并减少一组。'
-            : '下一次卧推建议先保持当前重量，记录 RPE 后再决定是否加重。若你希望我引用个人记录，请先开启训练摘要授权。',
-        citations:
-            remoteAnswer?.citations ??
-            (offline || noEvidence
-                ? const []
-                : const [
-                    'NSCA · Resistance Training Guidelines',
-                    'KILO 训练记录摘要',
-                  ]),
+        body: remoteAnswer?.body.isNotEmpty == true
+            ? remoteAnswer!.body
+            : serviceError ?? 'AI 服务未返回可用回答。',
+        citations: remoteAnswer?.citations ?? const [],
       ),
     );
     _saveActiveConversation();
     notifyListeners();
   }
 
-  void resetDemo() {
-    workoutStarted = false;
-    workoutPaused = false;
-    workoutCompleted = false;
-    liveWorkoutVisible = false;
-    workoutDraft = false;
-    workoutElapsedSeconds = 0;
-    workout
-      ..clear()
-      ..addAll([
-        WorkoutExercise(
-          id: 'we-bench',
-          exerciseId: 'bench_press',
-          restSeconds: 150,
-          sets: [
-            WorkoutSet(
-              id: 'bench-warm-1',
-              type: 'warmup',
-              weight: 20,
-              reps: 10,
-              completed: true,
-            ),
-            WorkoutSet(
-              id: 'bench-warm-2',
-              type: 'warmup',
-              weight: 50,
-              reps: 8,
-              completed: true,
-            ),
-            WorkoutSet(id: 'bench-work-1'),
-            WorkoutSet(id: 'bench-work-2'),
-            WorkoutSet(id: 'bench-work-3'),
-          ],
-        ),
-        WorkoutExercise(
-          id: 'we-row',
-          exerciseId: 'chest_supported_row',
-          restSeconds: 120,
-          collapsed: true,
-          sets: [
-            WorkoutSet(id: 'row-1', type: 'warmup', weight: 35, reps: 10),
-            WorkoutSet(id: 'row-2', weight: 62.5, reps: 10),
-            WorkoutSet(id: 'row-3', weight: 62.5, reps: 10),
-          ],
-        ),
-        WorkoutExercise(
-          id: 'we-lateral',
-          exerciseId: 'lateral_raise',
-          restSeconds: 75,
-          collapsed: true,
-          sets: [
-            WorkoutSet(id: 'lat-1', weight: 10, reps: 12),
-            WorkoutSet(id: 'lat-2', weight: 10, reps: 12),
-            WorkoutSet(id: 'lat-3', type: 'drop', weight: 8, reps: 15),
-          ],
-        ),
-      ]);
-    conversations
-      ..clear()
-      ..add(
-        AiConversation(
-          id: activeConversationId,
-          title: '训练建议',
-          messages: List<ChatMessage>.from(chat),
-        ),
-      );
-    notifyListeners();
-  }
-
   @override
   void dispose() {
+    accountService.removeListener(_handleAccountChanged);
     PlatformTimerBridge.setRestSkippedHandler(null);
     _workoutTicker?.cancel();
     _restTicker?.cancel();
     _recognitionTicker?.cancel();
+    _completionBurstTimer?.cancel();
     super.dispose();
   }
 }

@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <title>KILO 动作详情预览</title>
+  <style>
+    :root { font-family: system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; color: #10212b; background: #eaf1f6; --paper:#f3f6f8; --card:#fff; --blue:#0b66d4; --blue-soft:#e4effb; --line:#d5e0e7; --quiet:#708494; --green:#1e6b45; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-width: 0; background: #eaf1f6; }
+    body { overflow-x: hidden; }
+    button { min-height: 44px; max-width: 100%; font: inherit; cursor: pointer; }
+    button:focus-visible { outline: 3px solid #8abaf3; outline-offset: 2px; }
+    .phone { width: min(100%, 430px); min-height: 100dvh; margin: auto; padding: 12px; background: var(--paper); overflow-x: clip; }
+    .top { display:flex; align-items:center; gap:8px; min-width:0; }
+    .brand { color:var(--blue); font-weight:900; letter-spacing:.08em; }
+    .grow { flex:1; min-width:0; }
+    .library { margin-top:18px; }
+    .library h1 { margin:0; font-size:28px; }
+    .library p { margin:5px 0 14px; color:var(--quiet); }
+    .row { display:flex; align-items:center; gap:10px; width:100%; padding:9px; border:1px solid var(--line); border-radius:14px; color:inherit; background:var(--card); text-align:left; }
+    .row img { width:56px; height:56px; flex:0 0 56px; border-radius:11px; object-fit:cover; background:#edf2f5; }
+    .row strong, .row small { display:block; min-width:0; overflow-wrap:anywhere; }
+    .row small { margin-top:3px; color:var(--quiet); }
+    .sheet { position:fixed; inset:5dvh max(0px, calc((100vw - 430px)/2)) 0; z-index:2; display:none; overflow:auto; border:1px solid var(--line); border-bottom:0; border-radius:22px 22px 0 0; background:var(--paper); box-shadow:0 -12px 36px #19364c26; }
+    .sheet.open { display:block; animation:up 180ms ease-out; }
+    @keyframes up { from { opacity:.5; transform:translateY(18px); } }
+    .handle { width:42px; height:4px; margin:8px auto 5px; border-radius:9px; background:#b9c7d0; }
+    .sheet-head { display:flex; align-items:center; gap:8px; padding:4px 14px 10px; }
+    .sheet-head button { width:44px; border:0; border-radius:12px; background:transparent; font-size:24px; }
+    .title { min-width:0; }
+    .title strong { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:20px; }
+    .title small { color:var(--quiet); }
+    .hero { margin:0 14px; aspect-ratio:16/10; overflow:hidden; border:1px solid var(--line); border-radius:16px; background:#fff; }
+    .hero img { width:100%; height:100%; object-fit:contain; }
+    .meta { display:flex; flex-wrap:wrap; gap:6px; padding:10px 14px 0; color:#405565; font-size:12px; }
+    .meta span { padding:6px 9px; border-radius:999px; background:#fff; border:1px solid var(--line); }
+    .tabs { position:sticky; top:0; z-index:1; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:4px; margin:12px 14px; padding:4px; border:1px solid var(--line); border-radius:13px; background:#e8eef2; }
+    .tabs button { min-width:0; border:0; border-radius:9px; color:var(--quiet); background:transparent; font-weight:750; }
+    .tabs button.active { color:#084d9f; background:#fff; box-shadow:0 1px 2px #15364d16; }
+    .panel { display:none; padding:0 14px 28px; }
+    .panel.active { display:block; }
+    .stats { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+    .stat, .block, .record { min-width:0; border:1px solid var(--line); border-radius:14px; background:#fff; }
+    .stat { padding:12px; }
+    .stat small { display:block; color:var(--quiet); }
+    .stat b { display:block; margin-top:4px; font-size:20px; overflow-wrap:anywhere; }
+    .block { margin-top:9px; padding:13px; }
+    .block h2 { margin:0 0 8px; font-size:16px; }
+    .block p { margin:0; color:#405565; line-height:1.5; }
+    ol { margin:0; padding-left:24px; }
+    li { padding:6px 0; line-height:1.5; }
+    .record { margin-bottom:8px; padding:12px; }
+    .record-head { display:flex; gap:8px; justify-content:space-between; }
+    .record-head span { color:var(--quiet); font-size:12px; }
+    .sets { margin-top:8px; color:var(--green); font-size:13px; line-height:1.7; }
+    .overlay { position:fixed; inset:0; display:none; background:#10212b55; }
+    .overlay.open { display:block; }
+    @media (max-width:360px) { .phone{padding:9px}.sheet{inset-top:2dvh}.hero{aspect-ratio:4/3}.meta span{padding-inline:7px}.tabs{margin-inline:10px}.panel{padding-inline:10px}.stats{gap:6px} }
+    @media (min-width:768px) { .sheet { inset-top:4dvh; } }
+    @media (prefers-reduced-motion:reduce) { *,*::before,*::after { animation-duration:.01ms!important; transition-duration:.01ms!important; } }
+  </style>
+</head>
+<body>
+  <main class="phone">
+    <header class="top"><span class="brand">KILO</span><span class="grow"></span><button aria-label="筛选">筛选</button></header>
+    <section class="library"><h1>动作库</h1><p>点击封面查看演示、教学与训练记录</p>
+      <button class="row" id="openDetail"><img src="../../../exercise-dataset-reference/images/0025-EIeI8Vf.jpg" alt="杠铃卧推动作封面"><span class="grow"><strong>杠铃卧推</strong><small>Bench press · 胸部 · 杠铃</small></span><span aria-hidden="true">›</span></button>
+    </section>
+  </main>
+  <div class="overlay" id="overlay"></div>
+  <section class="sheet" id="detail" role="dialog" aria-modal="true" aria-labelledby="detailTitle">
+    <div class="handle"></div>
+    <header class="sheet-head"><button id="closeDetail" aria-label="关闭动作详情">‹</button><div class="title grow"><strong id="detailTitle">杠铃卧推</strong><small>Barbell bench press</small></div><button aria-label="更多操作">⋯</button></header>
+    <figure class="hero"><img src="../../../exercise-dataset-reference/videos/0025-EIeI8Vf.gif" alt="杠铃卧推动作演示"></figure>
+    <div class="meta"><span>主要：胸部</span><span>辅助：肱三头肌</span><span>器械：杠铃</span></div>
+    <nav class="tabs" role="tablist" aria-label="动作详情"><button class="active" data-tab="summary" role="tab" aria-selected="true">概览</button><button data-tab="howto" role="tab" aria-selected="false">教学</button><button data-tab="history" role="tab" aria-selected="false">记录</button></nav>
+    <section class="panel active" id="summary"><div class="stats"><div class="stat"><small>训练次数</small><b>2</b></div><div class="stat"><small>最重重量</small><b>82.5 kg</b></div><div class="stat"><small>估算 1RM</small><b>99 kg</b></div><div class="stat"><small>最近表现</small><b>80 × 8</b></div></div><div class="block"><h2>动作提示</h2><p>肩胛稳定贴住长凳，杠铃落点保持在胸骨下段。</p></div><div class="block"><h2>训练备注</h2><p>回程控制 2 秒，工作组保持相同握距。</p></div></section>
+    <section class="panel" id="howto"><div class="block"><h2>动作步骤</h2><ol><li>平躺在长凳上，双脚稳定踩地。</li><li>握住杠铃，将其从架上取下并保持手臂伸直。</li><li>有控制地将杠铃下降到胸部。</li><li>推起杠铃，直到手臂重新伸直。</li></ol></div><div class="block"><h2>拍摄机位</h2><p>侧前方 30-45°，确保杠铃轨迹和肘部角度完整入镜。</p></div></section>
+    <section class="panel" id="history"><article class="record"><div class="record-head"><strong>8 月 3 日 · 推训练</strong><span>3 个完成组</span></div><div class="sets">80 kg × 8 · RPE 8<br>80 kg × 8 · RPE 8.5<br>77.5 kg × 10 · RPE 9</div></article><article class="record"><div class="record-head"><strong>7 月 28 日 · 上肢力量</strong><span>3 个完成组</span></div><div class="sets">77.5 kg × 8<br>77.5 kg × 8<br>75 kg × 10</div></article></section>
+  </section>
+  <script>
+    const detail=document.getElementById('detail'), overlay=document.getElementById('overlay');
+    function setOpen(open){ detail.classList.toggle('open',open); overlay.classList.toggle('open',open); if(open) document.getElementById('closeDetail').focus(); }
+    document.getElementById('openDetail').addEventListener('click',()=>setOpen(true));
+    document.getElementById('closeDetail').addEventListener('click',()=>setOpen(false));
+    overlay.addEventListener('click',()=>setOpen(false));
+    document.querySelectorAll('[data-tab]').forEach(button=>button.addEventListener('click',()=>{ document.querySelectorAll('[data-tab]').forEach(item=>{const active=item===button;item.classList.toggle('active',active);item.setAttribute('aria-selected',String(active));}); document.querySelectorAll('.panel').forEach(panel=>panel.classList.toggle('active',panel.id===button.dataset.tab)); }));
+    document.addEventListener('keydown',event=>{if(event.key==='Escape')setOpen(false)});
+  </script>
+</body>
+</html>

@@ -1,120 +1,176 @@
 package com.kilostrength.kilo_strength
 
 import android.Manifest
-import android.app.Notification
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.Build
-import androidx.core.app.NotificationCompat
-import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
-/** Android system-capability bridge. Workout state remains in Flutter's AppController. */
+/**
+ * Thin bridge between Flutter and the workout foreground service.
+ *
+ * The timer state lives in [WorkoutTimerService], so it remains visible when
+ * the Flutter activity is backgrounded or the screen is locked.
+ */
 class MainActivity : FlutterActivity() {
-    private val channelName = "kilo.platform.timer"
-    private val notificationChannelId = "kilo_rest_v2"
-    private val notificationId = 704
-    private val notificationPermissionRequestCode = 704
-    private val skipAction = "com.kilostrength.kilo_strength.SKIP_REST"
-    private var currentExercise = "休息计时"
-    private var timerEndAt = 0L
-    private var timerSeconds = 0
-    private var timerPaused = false
-    private var pendingNotification = false
-    private var notificationPermissionRequested = false
     private var timerChannel: MethodChannel? = null
     private var skipReceiver: BroadcastReceiver? = null
+    private var notificationPermissionRequested = false
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        createNotificationChannel()
-        registerSkipReceiver()
-        timerChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channelName)
-        timerChannel?.setMethodCallHandler { call, result ->
-            when (call.method) {
-                "startTimer" -> {
-                    currentExercise = call.argument<String>("exercise") ?: "休息计时"
-                    timerSeconds = call.argument<Number>("seconds")?.toInt()?.coerceAtLeast(0) ?: 0
-                    timerEndAt = System.currentTimeMillis() + timerSeconds * 1000L
-                    timerPaused = false
-                    requestNotificationPermissionIfNeeded()
-                    result.success(null)
+        registerRestSkippedReceiver()
+
+        timerChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            CHANNEL_NAME,
+        ).also { channel ->
+            channel.setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "startWorkout" -> {
+                        val elapsedSeconds = call.argument<Number>("elapsedSeconds")
+                            ?.toLong()
+                            ?.coerceAtLeast(0L)
+                            ?: 0L
+                        enqueueServiceCommand(
+                            Intent(this, WorkoutTimerService::class.java)
+                                .setAction(WorkoutTimerService.ACTION_START_WORKOUT)
+                                .putExtra(WorkoutTimerService.EXTRA_ELAPSED_SECONDS, elapsedSeconds),
+                        )
+                        result.success(null)
+                    }
+
+                    "startTimer" -> {
+                        val exercise = call.argument<String>("exercise") ?: "休息"
+                        val seconds = call.argument<Number>("seconds")
+                            ?.toLong()
+                            ?.coerceAtLeast(0L)
+                            ?: 0L
+                        enqueueServiceCommand(
+                            Intent(this, WorkoutTimerService::class.java)
+                                .setAction(WorkoutTimerService.ACTION_START_REST)
+                                .putExtra(WorkoutTimerService.EXTRA_EXERCISE, exercise)
+                                .putExtra(WorkoutTimerService.EXTRA_SECONDS, seconds),
+                        )
+                        result.success(null)
+                    }
+
+                    "updateTimer" -> {
+                        val exercise = call.argument<String>("exercise") ?: "休息"
+                        val seconds = call.argument<Number>("seconds")
+                            ?.toLong()
+                            ?.coerceAtLeast(0L)
+                            ?: 0L
+                        enqueueServiceCommand(
+                            Intent(this, WorkoutTimerService::class.java)
+                                .setAction(WorkoutTimerService.ACTION_UPDATE_REST)
+                                .putExtra(WorkoutTimerService.EXTRA_EXERCISE, exercise)
+                                .putExtra(WorkoutTimerService.EXTRA_SECONDS, seconds),
+                        )
+                        result.success(null)
+                    }
+
+                    "clearRest" -> {
+                        enqueueServiceCommand(
+                            Intent(this, WorkoutTimerService::class.java)
+                                .setAction(WorkoutTimerService.ACTION_CLEAR_REST),
+                        )
+                        result.success(null)
+                    }
+
+                    "pauseTimer" -> {
+                        enqueueServiceCommand(
+                            Intent(this, WorkoutTimerService::class.java)
+                                .setAction(WorkoutTimerService.ACTION_PAUSE),
+                        )
+                        result.success(null)
+                    }
+
+                    "finishTimer" -> {
+                        enqueueServiceCommand(
+                            Intent(this, WorkoutTimerService::class.java)
+                                .setAction(WorkoutTimerService.ACTION_FINISH),
+                        )
+                        result.success(null)
+                    }
+
+                    else -> result.notImplemented()
                 }
-                "updateTimer" -> {
-                    currentExercise = call.argument<String>("exercise") ?: currentExercise
-                    timerSeconds = call.argument<Number>("seconds")?.toInt()?.coerceAtLeast(0) ?: timerSeconds
-                    timerEndAt = System.currentTimeMillis() + timerSeconds * 1000L
-                    postTimerNotificationIfAllowed()
-                    result.success(null)
-                }
-                "pauseTimer" -> {
-                    timerSeconds = ((timerEndAt - System.currentTimeMillis()) / 1000L).toInt().coerceAtLeast(0)
-                    timerPaused = true
-                    postTimerNotificationIfAllowed()
-                    result.success(null)
-                }
-                "finishTimer" -> {
-                    finishTimerNotification()
-                    result.success(null)
-                }
-                else -> result.notImplemented()
             }
         }
     }
 
     override fun onDestroy() {
-        skipReceiver?.let {
-            runCatching { unregisterReceiver(it) }
+        skipReceiver?.let { receiver ->
+            runCatching { unregisterReceiver(receiver) }
         }
         skipReceiver = null
         timerChannel = null
         super.onDestroy()
     }
 
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray,
+    ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == notificationPermissionRequestCode) {
-            val shouldPost = pendingNotification
-            pendingNotification = false
-            if (shouldPost && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
-                postTimerNotification()
+        if (requestCode != NOTIFICATION_PERMISSION_REQUEST_CODE) return
+        notificationPermissionRequested = false
+    }
+
+    private fun enqueueServiceCommand(intent: Intent) {
+        if (needsNotificationPermission()) {
+            // Android allows a foreground service to start without the
+            // POST_NOTIFICATIONS runtime grant. Starting immediately keeps the
+            // timer alive (and visible in Samsung's task manager) while the
+            // permission dialog is shown; a granted permission then enables
+            // the public lock-screen notification.
+            startWorkoutService(intent)
+            if (!notificationPermissionRequested) {
+                notificationPermissionRequested = true
+                requestPermissions(
+                    arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                    NOTIFICATION_PERMISSION_REQUEST_CODE,
+                )
+            }
+            return
+        }
+        startWorkoutService(intent)
+    }
+
+    private fun startWorkoutService(intent: Intent) {
+        runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                ContextCompat.startForegroundService(this, intent)
+            } else {
+                startService(intent)
             }
         }
     }
 
-    private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-        val channel = NotificationChannel(notificationChannelId, "KILO 休息计时", NotificationManager.IMPORTANCE_HIGH).apply {
-            description = "训练组间休息倒计时"
-            lockscreenVisibility = Notification.VISIBILITY_PUBLIC
-            setShowBadge(false)
-        }
-        getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
-    }
+    private fun needsNotificationPermission(): Boolean =
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
 
-    private fun registerSkipReceiver() {
+    private fun registerRestSkippedReceiver() {
         if (skipReceiver != null) return
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
-                if (intent?.action == skipAction) {
+                if (intent?.action == WorkoutTimerService.ACTION_REST_SKIPPED) {
                     timerChannel?.invokeMethod("restSkippedFromNotification", null)
-                    finishTimerNotification()
                 }
             }
         }
         skipReceiver = receiver
-        val filter = IntentFilter(skipAction)
+        val filter = IntentFilter(WorkoutTimerService.ACTION_REST_SKIPPED)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
         } else {
@@ -123,65 +179,8 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun requestNotificationPermissionIfNeeded() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-            pendingNotification = true
-            if (!notificationPermissionRequested) {
-                notificationPermissionRequested = true
-                requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), notificationPermissionRequestCode)
-            }
-            return
-        }
-        pendingNotification = false
-        postTimerNotification()
+    companion object {
+        private const val CHANNEL_NAME = "kilo.platform.timer"
+        private const val NOTIFICATION_PERMISSION_REQUEST_CODE = 704
     }
-
-    private fun postTimerNotificationIfAllowed() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-            pendingNotification = true
-            return
-        }
-        pendingNotification = false
-        postTimerNotification()
-    }
-
-    private fun postTimerNotification() {
-        createNotificationChannel()
-        val openIntent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
-        }
-        val openPendingIntent = PendingIntent.getActivity(this, 705, openIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        val skipIntent = Intent(skipAction).setPackage(packageName)
-        val skipPendingIntent = PendingIntent.getBroadcast(this, 706, skipIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        val endLabel = if (timerPaused) "已暂停 · 剩余 ${timerSeconds}s" else "剩余 ${timerSeconds}s · 结束 ${formatClock(timerEndAt)}"
-        val builder = NotificationCompat.Builder(this, notificationChannelId)
-            .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle("KILO · $currentExercise")
-            .setContentText(endLabel)
-            .setSubText("组间休息")
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setCategory(NotificationCompat.CATEGORY_ALARM)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setContentIntent(openPendingIntent)
-            .setOnlyAlertOnce(true)
-            .setOngoing(true)
-            .setAutoCancel(false)
-            .addAction(NotificationCompat.Action(0, "跳过休息", skipPendingIntent))
-        if (!timerPaused && timerEndAt > 0) {
-            builder.setWhen(timerEndAt).setUsesChronometer(true).setChronometerCountDown(true)
-        } else {
-            builder.setWhen(System.currentTimeMillis()).setUsesChronometer(false)
-        }
-        runCatching { NotificationManagerCompat.from(this).notify(notificationId, builder.build()) }
-    }
-
-    private fun finishTimerNotification() {
-        pendingNotification = false
-        timerPaused = false
-        timerSeconds = 0
-        timerEndAt = 0L
-        runCatching { NotificationManagerCompat.from(this).cancel(notificationId) }
-    }
-
-    private fun formatClock(timeMillis: Long): String = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(timeMillis))
 }

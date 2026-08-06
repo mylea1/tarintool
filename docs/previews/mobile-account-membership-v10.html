@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>KILO 账号与会员预览</title>
+  <style>
+    :root{color-scheme:light dark;--bg:#f3f6f8;--surface:#fff;--ink:#10212b;--muted:#647b8b;--line:#d5e0e7;--blue:#0b66d4;--blue-soft:#e4effb;--green:#147a4f;--green-soft:#e3f5eb;--radius:16px}
+    *{box-sizing:border-box}body{margin:0;background:#dce5ea;color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}.stage{display:flex;gap:24px;justify-content:center;align-items:flex-start;padding:24px;flex-wrap:wrap}.phone{width:min(100%,390px);min-height:780px;background:var(--bg);border-radius:30px;overflow:hidden;box-shadow:0 18px 55px #27415026;position:relative}.top{height:58px;padding:0 16px;display:flex;align-items:center;border-bottom:1px solid var(--line);gap:9px}.brand{font-size:13px;font-weight:900;letter-spacing:2px;color:var(--blue)}h1{font-size:21px;margin:0}main{padding:18px 16px 96px}.login{min-height:720px;display:grid;align-content:center}.mark{width:58px;height:58px;border-radius:18px;background:var(--blue);color:white;display:grid;place-items:center;font-weight:900;font-size:20px;margin-bottom:26px}.eyebrow{color:var(--muted);margin:7px 0 24px}.field{display:grid;gap:6px;margin:12px 0}.field input,.field select{width:100%;min-height:48px;border:1px solid var(--line);border-radius:12px;padding:0 14px;background:var(--surface);color:var(--ink);font:inherit}.button{border:0;border-radius:12px;min-height:48px;padding:0 16px;background:var(--blue);color:white;font-weight:800;font-size:15px;cursor:pointer;transition:transform .14s ease}.button:active{transform:scale(.98)}.button.secondary{background:var(--surface);color:var(--ink);border:1px solid var(--line)}.stack{display:grid;gap:10px}.note{font-size:12px;color:var(--muted)}.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:12px}.row{display:flex;gap:12px;align-items:center}.grow{flex:1;min-width:0}.avatar{width:46px;height:46px;border-radius:14px;background:var(--blue-soft);color:var(--blue);display:grid;place-items:center;font-weight:900}.title{font-weight:800;font-size:17px}.sub{color:var(--muted);font-size:12px;margin-top:2px}.badge{padding:5px 9px;border-radius:999px;background:var(--green-soft);color:var(--green);font-size:12px;font-weight:800}.quota{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}.metric{padding:12px;border-radius:12px;background:var(--bg)}.metric b{display:block;font-size:22px;color:var(--blue)}.list button{display:flex;width:100%;align-items:center;gap:12px;border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--ink);padding:14px 0;text-align:left;cursor:pointer}.list button:last-child{border-bottom:0}.icon{width:34px;height:34px;border-radius:10px;background:var(--blue-soft);color:var(--blue);display:grid;place-items:center}.chev{margin-left:auto;color:var(--muted)}.admin{border-color:#9bc6f5}.admin .icon{background:var(--blue);color:white}.tabs{position:absolute;inset:auto 0 0;display:grid;grid-template-columns:repeat(3,1fr);background:var(--surface);border-top:1px solid var(--line);padding:8px}.tabs button{border:0;background:transparent;color:var(--muted);padding:8px;font-weight:700}.tabs button.active{color:var(--blue);background:var(--blue-soft);border-radius:12px}.toast{position:absolute;left:16px;right:16px;bottom:78px;background:#10212b;color:white;padding:12px 14px;border-radius:12px;display:none}.toast.show{display:block}@media(prefers-reduced-motion:reduce){*{transition:none!important}}@media(max-width:420px){.stage{padding:0}.phone{border-radius:0;min-height:100dvh}}
+  </style>
+</head>
+<body>
+<div class="stage">
+  <section class="phone" id="loginPhone">
+    <main class="login">
+      <div class="mark">K</div>
+      <h1>登录 KILO</h1>
+      <p class="eyebrow">同步训练身份，保留会员和功能次数。</p>
+      <div class="field"><label for="account">手机号或测试账号</label><input id="account" value="1234" autocomplete="username"></div>
+      <div class="field"><label for="password">密码</label><input id="password" value="1234" type="password" autocomplete="current-password"></div>
+      <div class="stack">
+        <button class="button" id="loginBtn">登录</button>
+        <button class="button secondary">使用 Apple 登录</button>
+      </div>
+      <p class="note">测试管理员仅在调试环境启用。正式版使用服务端认证。</p>
+    </main>
+    <div class="toast" id="loginToast">登录成功，正在进入主页</div>
+  </section>
+  <section class="phone">
+    <header class="top"><span class="brand">KILO</span><h1>我的</h1></header>
+    <main>
+      <article class="card">
+        <div class="row"><div class="avatar">管</div><div class="grow"><div class="title">测试管理员</div><div class="sub">账号 1234</div></div><span class="badge">永久会员</span></div>
+        <div class="quota"><div class="metric"><span class="sub">今日 AI</span><b>20</b><span class="sub">次可用</span></div><div class="metric"><span class="sub">动作识别</span><b>8</b><span class="sub">次可用</span></div></div>
+      </article>
+      <article class="card list">
+        <button id="redeem"><span class="icon">券</span><span class="grow"><strong>兑换会员</strong><span class="sub" style="display:block">输入一次性兑换码</span></span><span class="chev">›</span></button>
+        <button><span class="icon">冠</span><span class="grow"><strong>会员权益</strong><span class="sub" style="display:block">进阶统计、同步与主题</span></span><span class="chev">›</span></button>
+        <button><span class="icon">盾</span><span class="grow"><strong>账号与安全</strong></span><span class="chev">›</span></button>
+      </article>
+      <article class="card list admin">
+        <div class="row" style="margin-bottom:6px"><span class="icon">管</span><div class="grow"><div class="title">管理员工具</div><div class="sub">仅管理员可见</div></div></div>
+        <button id="grant"><span class="grow"><strong>为用户开通会员</strong></span><span class="chev">›</span></button>
+        <button id="generate"><span class="grow"><strong>生成兑换码</strong></span><span class="chev">›</span></button>
+      </article>
+    </main>
+    <nav class="tabs"><button>主页</button><button>训练</button><button class="active">我的</button></nav>
+    <div class="toast" id="actionToast">已生成 1 个月会员兑换码</div>
+  </section>
+</div>
+<script>
+  const flash=(node,text)=>{node.textContent=text;node.classList.add('show');setTimeout(()=>node.classList.remove('show'),1800)};
+  document.querySelector('#loginBtn').addEventListener('click',()=>flash(document.querySelector('#loginToast'),'登录成功，正在进入主页'));
+  document.querySelector('#redeem').addEventListener('click',()=>flash(document.querySelector('#actionToast'),'兑换入口：支持 1 个月、3 个月和永久会员'));
+  document.querySelector('#grant').addEventListener('click',()=>flash(document.querySelector('#actionToast'),'管理员可按用户标识开通会员'));
+  document.querySelector('#generate').addEventListener('click',()=>flash(document.querySelector('#actionToast'),'已生成 1 个月会员兑换码'));
+</script>
+</body>
+</html>

@@ -1,0 +1,847 @@
+import 'dart:convert';
+
+import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+/// The local account/entitlement implementation used while the production
+/// identity service is not available yet.  The public API deliberately keeps
+/// the same boundaries as the service contract documented in v10 so the
+/// repository can be replaced by an authenticated client later.
+
+const bool _testAdminFlag = bool.fromEnvironment(
+  'ENABLE_TEST_ADMIN',
+  defaultValue: false,
+);
+
+/// `1234 / 1234` is a development fixture only.  In a release build it is
+/// disabled unless the developer explicitly opted in with
+/// `--dart-define=ENABLE_TEST_ADMIN=true`.
+bool get testAdminEnabled => kDebugMode || _testAdminFlag;
+
+enum AuthProvider { phone, apple, google }
+
+enum MembershipPlan { free, oneMonth, threeMonths, forever }
+
+enum UsageKind { ai, recognition }
+
+enum AccountError {
+  none,
+  emptyIdentifier,
+  invalidCredentials,
+  serviceNotConfigured,
+  notAuthenticated,
+  adminRequired,
+  quotaExhausted,
+  invalidCode,
+  codeAlreadyUsed,
+  invalidMembershipPlan,
+}
+
+class AccountUser {
+  const AccountUser({
+    required this.id,
+    required this.identifier,
+    required this.displayName,
+    required this.isAdmin,
+    this.provider = AuthProvider.phone,
+  });
+
+  final String id;
+  final String identifier;
+  final String displayName;
+  final bool isAdmin;
+  final AuthProvider provider;
+
+  Map<String, Object?> toMap() => {
+    'id': id,
+    'identifier': identifier,
+    'displayName': displayName,
+    'isAdmin': isAdmin,
+    'provider': provider.name,
+  };
+
+  factory AccountUser.fromMap(Map<String, dynamic> map) => AccountUser(
+    id: (map['id'] ?? '').toString(),
+    identifier: (map['identifier'] ?? '').toString(),
+    displayName: (map['displayName'] ?? map['identifier'] ?? '').toString(),
+    isAdmin: map['isAdmin'] == true,
+    provider: AuthProvider.values.firstWhere(
+      (item) => item.name == map['provider'],
+      orElse: () => AuthProvider.phone,
+    ),
+  );
+}
+
+class AccountResult<T> {
+  const AccountResult({required this.error, this.value, this.message});
+
+  const AccountResult.success([this.value])
+    : error = AccountError.none,
+      message = null;
+
+  const AccountResult.failure(this.error, {this.message, this.value});
+
+  final AccountError error;
+  final T? value;
+  final String? message;
+
+  bool get isSuccess => error == AccountError.none;
+}
+
+class AuthResult extends AccountResult<AccountUser> {
+  const AuthResult.success(super.value) : super.success();
+
+  const AuthResult.failure(super.error, {super.message}) : super.failure();
+
+  AccountUser? get user => value;
+}
+
+class EntitlementSnapshot {
+  const EntitlementSnapshot({
+    required this.membership,
+    required this.membershipExpiresAt,
+    required this.aiRemaining,
+    required this.aiDailyLimit,
+    required this.recognitionRemaining,
+    required this.recognitionWeeklyGrant,
+    required this.aiPeriodKey,
+    required this.recognitionWeekKey,
+  });
+
+  factory EntitlementSnapshot.free({
+    int aiRemaining = 3,
+    int recognitionRemaining = 5,
+    String aiPeriodKey = '',
+    String recognitionWeekKey = '',
+  }) => EntitlementSnapshot(
+    membership: MembershipPlan.free,
+    membershipExpiresAt: null,
+    aiRemaining: aiRemaining,
+    aiDailyLimit: 3,
+    recognitionRemaining: recognitionRemaining,
+    recognitionWeeklyGrant: 1,
+    aiPeriodKey: aiPeriodKey,
+    recognitionWeekKey: recognitionWeekKey,
+  );
+
+  final MembershipPlan membership;
+  final DateTime? membershipExpiresAt;
+  final int aiRemaining;
+  final int aiDailyLimit;
+  final int recognitionRemaining;
+  final int recognitionWeeklyGrant;
+  final String aiPeriodKey;
+  final String recognitionWeekKey;
+
+  bool get isMember => membership != MembershipPlan.free;
+
+  EntitlementSnapshot copyWith({
+    MembershipPlan? membership,
+    DateTime? membershipExpiresAt,
+    bool clearMembershipExpiresAt = false,
+    int? aiRemaining,
+    int? aiDailyLimit,
+    int? recognitionRemaining,
+    int? recognitionWeeklyGrant,
+    String? aiPeriodKey,
+    String? recognitionWeekKey,
+  }) => EntitlementSnapshot(
+    membership: membership ?? this.membership,
+    membershipExpiresAt: clearMembershipExpiresAt
+        ? null
+        : membershipExpiresAt ?? this.membershipExpiresAt,
+    aiRemaining: aiRemaining ?? this.aiRemaining,
+    aiDailyLimit: aiDailyLimit ?? this.aiDailyLimit,
+    recognitionRemaining: recognitionRemaining ?? this.recognitionRemaining,
+    recognitionWeeklyGrant:
+        recognitionWeeklyGrant ?? this.recognitionWeeklyGrant,
+    aiPeriodKey: aiPeriodKey ?? this.aiPeriodKey,
+    recognitionWeekKey: recognitionWeekKey ?? this.recognitionWeekKey,
+  );
+
+  Map<String, Object?> toMap() => {
+    'membership': membership.name,
+    'membershipExpiresAt': membershipExpiresAt?.toIso8601String(),
+    'aiRemaining': aiRemaining,
+    'aiDailyLimit': aiDailyLimit,
+    'recognitionRemaining': recognitionRemaining,
+    'recognitionWeeklyGrant': recognitionWeeklyGrant,
+    'aiPeriodKey': aiPeriodKey,
+    'recognitionWeekKey': recognitionWeekKey,
+  };
+
+  factory EntitlementSnapshot.fromMap(Map<String, dynamic> map) {
+    final membership = MembershipPlan.values.firstWhere(
+      (item) => item.name == map['membership'],
+      orElse: () => MembershipPlan.free,
+    );
+    return EntitlementSnapshot(
+      membership: membership,
+      membershipExpiresAt: DateTime.tryParse(
+        (map['membershipExpiresAt'] ?? '').toString(),
+      ),
+      aiRemaining: _asInt(
+        map['aiRemaining'],
+        membership == MembershipPlan.free ? 3 : 20,
+      ),
+      aiDailyLimit: _asInt(
+        map['aiDailyLimit'],
+        membership == MembershipPlan.free ? 3 : 20,
+      ),
+      recognitionRemaining: _asInt(map['recognitionRemaining'], 5),
+      recognitionWeeklyGrant: _asInt(
+        map['recognitionWeeklyGrant'],
+        membership == MembershipPlan.free ? 1 : 3,
+      ),
+      aiPeriodKey: (map['aiPeriodKey'] ?? '').toString(),
+      recognitionWeekKey: (map['recognitionWeekKey'] ?? '').toString(),
+    );
+  }
+}
+
+int _asInt(Object? value, int fallback) =>
+    value is num ? value.toInt() : int.tryParse('$value') ?? fallback;
+
+class RedemptionCode {
+  const RedemptionCode({
+    required this.code,
+    required this.plan,
+    required this.createdAt,
+    this.usedAt,
+    this.usedBy,
+  });
+
+  final String code;
+  final MembershipPlan plan;
+  final DateTime createdAt;
+  final DateTime? usedAt;
+  final String? usedBy;
+
+  bool get isUsed => usedAt != null || usedBy != null;
+
+  RedemptionCode markUsed({required String userId, DateTime? at}) =>
+      RedemptionCode(
+        code: code,
+        plan: plan,
+        createdAt: createdAt,
+        usedAt: at ?? DateTime.now(),
+        usedBy: userId,
+      );
+
+  Map<String, Object?> toMap() => {
+    'code': code,
+    'plan': plan.name,
+    'createdAt': createdAt.toIso8601String(),
+    'usedAt': usedAt?.toIso8601String(),
+    'usedBy': usedBy,
+  };
+
+  factory RedemptionCode.fromMap(Map<String, dynamic> map) => RedemptionCode(
+    code: (map['code'] ?? '').toString(),
+    plan: MembershipPlan.values.firstWhere(
+      (item) => item.name == map['plan'],
+      orElse: () => MembershipPlan.free,
+    ),
+    createdAt:
+        DateTime.tryParse((map['createdAt'] ?? '').toString()) ??
+        DateTime.fromMillisecondsSinceEpoch(0),
+    usedAt: DateTime.tryParse((map['usedAt'] ?? '').toString()),
+    usedBy: map['usedBy']?.toString(),
+  );
+}
+
+/// Small synchronous persistence boundary.  The production adapter can map
+/// this shape to a database transaction without changing entitlement logic.
+abstract interface class AccountPersistence {
+  Map<String, dynamic>? read();
+  void write(Map<String, dynamic> value);
+}
+
+class InMemoryAccountPersistence implements AccountPersistence {
+  InMemoryAccountPersistence([Map<String, dynamic>? initial])
+    : _value = initial == null ? null : _clone(initial);
+
+  Map<String, dynamic>? _value;
+
+  @override
+  Map<String, dynamic>? read() => _value == null ? null : _clone(_value!);
+
+  @override
+  void write(Map<String, dynamic> value) => _value = _clone(value);
+
+  static Map<String, dynamic> _clone(Map<String, dynamic> input) =>
+      jsonDecode(jsonEncode(input)) as Map<String, dynamic>;
+}
+
+/// SharedPreferences is intentionally injected after `getInstance()` so
+/// tests never need a platform channel.  Use [fromPreferences] in the app
+/// bootstrap when durable local storage is wanted.
+class SharedPreferencesAccountPersistence implements AccountPersistence {
+  SharedPreferencesAccountPersistence(this.preferences);
+
+  final SharedPreferences preferences;
+  static const key = 'kilo.account_membership.v1';
+
+  static Future<SharedPreferencesAccountPersistence> fromPreferences() async =>
+      SharedPreferencesAccountPersistence(
+        await SharedPreferences.getInstance(),
+      );
+
+  @override
+  Map<String, dynamic>? read() {
+    final raw = preferences.getString(key);
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      return jsonDecode(raw) as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  void write(Map<String, dynamic> value) {
+    // SharedPreferences writes asynchronously; callers do not block a user
+    // action on disk I/O, and the in-memory state remains authoritative.
+    preferences.setString(key, jsonEncode(value));
+  }
+}
+
+class QuotaReservation {
+  QuotaReservation._(this._service, this.kind, this._userId);
+
+  final AccountService _service;
+  final UsageKind kind;
+  final String _userId;
+  bool _closed = false;
+
+  bool get isClosed => _closed;
+
+  void commit() {
+    if (_closed) return;
+    _closed = true;
+    _service._persist();
+  }
+
+  void rollback() {
+    if (_closed) return;
+    _closed = true;
+    _service._restoreReservation(kind, _userId);
+  }
+}
+
+class AccountService extends ChangeNotifier {
+  AccountService({
+    AccountPersistence? persistence,
+    DateTime Function()? clock,
+    bool? allowTestAdmin,
+  }) : persistence = persistence ?? InMemoryAccountPersistence(),
+       _clock = clock ?? DateTime.now,
+       allowTestAdmin =
+           (allowTestAdmin ?? testAdminEnabled) && testAdminEnabled {
+    _restore(persistence?.read());
+    _refreshEntitlements();
+  }
+
+  AccountPersistence persistence;
+  final DateTime Function() _clock;
+  final bool allowTestAdmin;
+  final Map<String, AccountUser> _users = <String, AccountUser>{};
+  final Map<String, EntitlementSnapshot> _entitlements =
+      <String, EntitlementSnapshot>{};
+  final Map<String, Set<String>> _rewardedWorkouts = <String, Set<String>>{};
+  final Map<String, RedemptionCode> _codes = <String, RedemptionCode>{};
+  String? _currentUserId;
+
+  AccountUser? get currentUser =>
+      _currentUserId == null ? null : _users[_currentUserId];
+  bool get isAuthenticated => currentUser != null;
+  bool get isAdmin => currentUser?.isAdmin == true;
+  EntitlementSnapshot? get entitlements {
+    final user = currentUser;
+    if (user == null) return null;
+    _refreshEntitlements();
+    return _entitlements[user.id];
+  }
+
+  List<RedemptionCode> get redemptionCodes =>
+      _codes.values.toList(growable: false);
+
+  String get currentUserId => currentUser?.id ?? '';
+
+  /// Loads the persisted local prototype state. The app calls this during its
+  /// startup gate; tests can instead inject [InMemoryAccountPersistence] and
+  /// stay entirely synchronous.
+  Future<void> hydrateFromSharedPreferences() async {
+    final adapter = await SharedPreferencesAccountPersistence.fromPreferences();
+    final saved = adapter.read();
+    if (saved != null) {
+      _users.clear();
+      _entitlements.clear();
+      _rewardedWorkouts.clear();
+      _codes.clear();
+      _restore(saved);
+    }
+    persistence = adapter;
+    _refreshEntitlements();
+    notifyListeners();
+  }
+
+  AuthResult loginWithPhone(String identifier, {String? password}) {
+    final normalized = identifier.trim();
+    if (normalized.isEmpty) {
+      return const AuthResult.failure(AccountError.emptyIdentifier);
+    }
+    if (normalized == '1234') {
+      if (password != '1234' || !allowTestAdmin) {
+        return const AuthResult.failure(AccountError.invalidCredentials);
+      }
+      return _login(
+        identifier: normalized,
+        displayName: '测试管理员',
+        provider: AuthProvider.phone,
+        isAdmin: true,
+      );
+    }
+    return _login(
+      identifier: normalized,
+      displayName: normalized,
+      provider: AuthProvider.phone,
+      isAdmin: false,
+    );
+  }
+
+  AuthResult loginWithTestAdmin(String identifier, String password) =>
+      loginWithPhone(identifier, password: password);
+
+  AuthResult loginWithApple() => const AuthResult.failure(
+    AccountError.serviceNotConfigured,
+    message: 'Apple 登录尚未配置，请先完成服务端凭据配置。',
+  );
+
+  AuthResult loginWithGoogle() => const AuthResult.failure(
+    AccountError.serviceNotConfigured,
+    message: 'Google 登录尚未配置，后续海外开关开启后提供。',
+  );
+
+  void logout() {
+    _currentUserId = null;
+    _persist();
+    notifyListeners();
+  }
+
+  AuthResult _login({
+    required String identifier,
+    required String displayName,
+    required AuthProvider provider,
+    required bool isAdmin,
+  }) {
+    final id = '${provider.name}:${identifier.toLowerCase()}';
+    final user =
+        _users[id] ??
+        AccountUser(
+          id: id,
+          identifier: identifier,
+          displayName: displayName,
+          isAdmin: isAdmin,
+          provider: provider,
+        );
+    _users[id] = user;
+    _currentUserId = id;
+    final existing = _entitlements[id] ?? _newEntitlements();
+    _entitlements[id] = isAdmin
+        ? existing.copyWith(
+            membership: MembershipPlan.forever,
+            clearMembershipExpiresAt: true,
+            aiRemaining: existing.aiRemaining < 20 ? 20 : existing.aiRemaining,
+            aiDailyLimit: 20,
+            recognitionWeeklyGrant: 3,
+          )
+        : existing;
+    _refreshEntitlements();
+    _persist();
+    notifyListeners();
+    return AuthResult.success(user);
+  }
+
+  EntitlementSnapshot _newEntitlements() {
+    final now = _clock();
+    return EntitlementSnapshot.free(
+      aiRemaining: 3,
+      recognitionRemaining: 5,
+      aiPeriodKey: _dayKey(now),
+      recognitionWeekKey: _weekKey(now),
+    );
+  }
+
+  AccountResult<EntitlementSnapshot> grantMembership({
+    required String identifier,
+    required MembershipPlan plan,
+  }) {
+    if (!isAdmin) {
+      return const AccountResult.failure(AccountError.adminRequired);
+    }
+    if (identifier.trim().isEmpty) {
+      return const AccountResult.failure(AccountError.emptyIdentifier);
+    }
+    if (plan == MembershipPlan.free) {
+      return const AccountResult.failure(AccountError.invalidMembershipPlan);
+    }
+    final normalized = identifier.trim();
+    final target = _users.values
+        .where((item) => item.identifier == normalized)
+        .firstOrNull;
+    final adminId = _currentUserId;
+    if (target == null) {
+      _login(
+        identifier: normalized,
+        displayName: normalized,
+        provider: AuthProvider.phone,
+        isAdmin: false,
+      );
+      // Keep the administrator logged in after provisioning a new user.
+      _currentUserId = adminId;
+    }
+    final user = _users.values
+        .where((item) => item.identifier == normalized)
+        .first;
+    _applyMembership(user.id, plan);
+    return AccountResult.success(_entitlements[user.id]);
+  }
+
+  /// Synchronous admin-only code generation keeps local prototype actions
+  /// deterministic and makes the server replacement boundary explicit.
+  RedemptionCode generateRedemptionCode({required MembershipPlan plan}) {
+    if (!isAdmin) throw StateError(AccountError.adminRequired.name);
+    if (plan == MembershipPlan.free) {
+      throw StateError(AccountError.invalidMembershipPlan.name);
+    }
+    final now = _clock();
+    final prefix = switch (plan) {
+      MembershipPlan.oneMonth => 'KILO1',
+      MembershipPlan.threeMonths => 'KILO3',
+      MembershipPlan.forever => 'KILOP',
+      MembershipPlan.free => 'KILOF',
+    };
+    final code =
+        '$prefix-${now.microsecondsSinceEpoch.toRadixString(36).toUpperCase()}';
+    final redemption = RedemptionCode(code: code, plan: plan, createdAt: now);
+    _codes[code] = redemption;
+    _persist();
+    notifyListeners();
+    return redemption;
+  }
+
+  AccountResult<EntitlementSnapshot> redeemCode(String rawCode) {
+    final user = currentUser;
+    if (user == null) {
+      return const AccountResult.failure(AccountError.notAuthenticated);
+    }
+    final code = rawCode.trim().toUpperCase();
+    final redemption = _codes[code];
+    if (redemption == null) {
+      return const AccountResult.failure(AccountError.invalidCode);
+    }
+    if (redemption.isUsed) {
+      return const AccountResult.failure(AccountError.codeAlreadyUsed);
+    }
+    _codes[code] = redemption.markUsed(userId: user.id, at: _clock());
+    _applyMembership(user.id, redemption.plan);
+    _persist();
+    notifyListeners();
+    return AccountResult.success(_entitlements[user.id]);
+  }
+
+  /// Reserves one unit before a remote request.  Call [QuotaReservation.commit]
+  /// only after the remote operation succeeds; call rollback on all failures.
+  QuotaReservation? reserve(UsageKind kind) {
+    final user = currentUser;
+    if (user == null) return null;
+    _refreshEntitlements();
+    final current = _entitlements[user.id]!;
+    final remaining = kind == UsageKind.ai
+        ? current.aiRemaining
+        : current.recognitionRemaining;
+    if (remaining <= 0) return null;
+    _entitlements[user.id] = kind == UsageKind.ai
+        ? current.copyWith(aiRemaining: remaining - 1)
+        : current.copyWith(recognitionRemaining: remaining - 1);
+    _persist();
+    notifyListeners();
+    return QuotaReservation._(this, kind, user.id);
+  }
+
+  bool consume(UsageKind kind) {
+    final reservation = reserve(kind);
+    if (reservation == null) return false;
+    reservation.commit();
+    return true;
+  }
+
+  bool consumeAi() => consume(UsageKind.ai);
+
+  bool consumeRecognition() => consume(UsageKind.recognition);
+
+  QuotaReservation? reserveAi() => reserve(UsageKind.ai);
+
+  QuotaReservation? reserveRecognition() => reserve(UsageKind.recognition);
+
+  int get aiRemaining => entitlements?.aiRemaining ?? 0;
+
+  int get recognitionRemaining => entitlements?.recognitionRemaining ?? 0;
+
+  Future<T?> runWithQuota<T>(
+    UsageKind kind,
+    Future<T> Function() operation,
+  ) async {
+    final reservation = reserve(kind);
+    if (reservation == null) return null;
+    try {
+      final value = await operation();
+      reservation.commit();
+      return value;
+    } catch (_) {
+      reservation.rollback();
+      rethrow;
+    }
+  }
+
+  bool rewardWorkoutCompleted(String workoutId, {bool valid = true}) {
+    final user = currentUser;
+    if (user == null || !valid || workoutId.trim().isEmpty) return false;
+    final rewarded = _rewardedWorkouts.putIfAbsent(user.id, () => <String>{});
+    if (!rewarded.add(workoutId)) return false;
+    _refreshEntitlements();
+    final current = _entitlements[user.id]!;
+    _entitlements[user.id] = current.copyWith(
+      recognitionRemaining: current.recognitionRemaining + 1,
+    );
+    _persist();
+    notifyListeners();
+    return true;
+  }
+
+  void _restoreReservation(UsageKind kind, String userId) {
+    if (!_users.containsKey(userId)) return;
+    _refreshEntitlements();
+    final current = _entitlements[userId];
+    if (current == null) return;
+    _entitlements[userId] = kind == UsageKind.ai
+        ? current.copyWith(aiRemaining: current.aiRemaining + 1)
+        : current.copyWith(
+            recognitionRemaining: current.recognitionRemaining + 1,
+          );
+    _persist();
+    notifyListeners();
+  }
+
+  void _applyMembership(String userId, MembershipPlan plan) {
+    _refreshEntitlements();
+    final now = _clock();
+    final current = _entitlements[userId] ?? _newEntitlements();
+    final currentActive =
+        current.membership != MembershipPlan.free &&
+        (current.membership == MembershipPlan.forever ||
+            current.membershipExpiresAt?.isAfter(now) == true);
+    final effectivePlan = current.membership == MembershipPlan.forever
+        ? MembershipPlan.forever
+        : plan == MembershipPlan.forever
+        ? MembershipPlan.forever
+        : _membershipRank(current.membership) > _membershipRank(plan)
+        ? current.membership
+        : plan;
+    final expires = effectivePlan == MembershipPlan.forever
+        ? null
+        : plan == MembershipPlan.free
+        ? current.membershipExpiresAt
+        : _addMonths(
+            currentActive && current.membershipExpiresAt != null
+                ? current.membershipExpiresAt!
+                : now,
+            _membershipMonths(plan),
+          );
+    _entitlements[userId] = current.copyWith(
+      membership: effectivePlan,
+      membershipExpiresAt: expires,
+      clearMembershipExpiresAt: effectivePlan == MembershipPlan.forever,
+      aiRemaining: effectivePlan == MembershipPlan.free
+          ? current.aiRemaining.clamp(0, 3).toInt()
+          : current.aiRemaining < 20
+          ? 20
+          : current.aiRemaining,
+      aiDailyLimit: effectivePlan == MembershipPlan.free ? 3 : 20,
+      recognitionWeeklyGrant: effectivePlan == MembershipPlan.free ? 1 : 3,
+    );
+    _refreshEntitlements();
+    _persist();
+    notifyListeners();
+  }
+
+  static int _membershipRank(MembershipPlan plan) => switch (plan) {
+    MembershipPlan.free => 0,
+    MembershipPlan.oneMonth => 1,
+    MembershipPlan.threeMonths => 2,
+    MembershipPlan.forever => 3,
+  };
+
+  static int _membershipMonths(MembershipPlan plan) => switch (plan) {
+    MembershipPlan.oneMonth => 1,
+    MembershipPlan.threeMonths => 3,
+    MembershipPlan.free || MembershipPlan.forever => 0,
+  };
+
+  void _refreshEntitlements() {
+    final now = _clock();
+    final day = _dayKey(now);
+    final week = _weekKey(now);
+    for (final userId in _users.keys) {
+      var current = _entitlements[userId] ?? _newEntitlements();
+      if (current.membership != MembershipPlan.free &&
+          current.membershipExpiresAt != null &&
+          !current.membershipExpiresAt!.isAfter(now)) {
+        current = current.copyWith(
+          membership: MembershipPlan.free,
+          clearMembershipExpiresAt: true,
+          aiRemaining: current.aiRemaining.clamp(0, 3).toInt(),
+          aiDailyLimit: 3,
+          recognitionWeeklyGrant: 1,
+        );
+      }
+      if (current.aiPeriodKey != day) {
+        current = current.copyWith(
+          aiRemaining: current.aiDailyLimit,
+          aiPeriodKey: day,
+        );
+      }
+      if (current.recognitionWeekKey.isEmpty) {
+        current = current.copyWith(recognitionWeekKey: week);
+      } else if (current.recognitionWeekKey != week) {
+        final elapsedWeeks = _weekDistance(current.recognitionWeekKey, week);
+        current = current.copyWith(
+          recognitionRemaining:
+              current.recognitionRemaining +
+              elapsedWeeks * current.recognitionWeeklyGrant,
+          recognitionWeekKey: week,
+        );
+      }
+      _entitlements[userId] = current;
+    }
+  }
+
+  void _persist() {
+    persistence.write({
+      'currentUserId': _currentUserId,
+      'users': _users.map((key, value) => MapEntry(key, value.toMap())),
+      'entitlements': _entitlements.map(
+        (key, value) => MapEntry(key, value.toMap()),
+      ),
+      'rewardedWorkouts': _rewardedWorkouts.map(
+        (key, value) => MapEntry(key, value.toList()),
+      ),
+      'codes': _codes.map((key, value) => MapEntry(key, value.toMap())),
+    });
+  }
+
+  void _restore(Map<String, dynamic>? map) {
+    if (map == null) return;
+    _currentUserId = map['currentUserId']?.toString();
+    final users = map['users'];
+    if (users is Map) {
+      for (final entry in users.entries) {
+        if (entry.value is Map) {
+          _users[entry.key.toString()] = AccountUser.fromMap(
+            Map<String, dynamic>.from(entry.value as Map),
+          );
+        }
+      }
+    }
+    if (!allowTestAdmin) {
+      final disabledAdminIds = _users.values
+          .where((item) => item.identifier == '1234' && item.isAdmin)
+          .map((item) => item.id)
+          .toList();
+      for (final id in disabledAdminIds) {
+        _users.remove(id);
+        _entitlements.remove(id);
+        _rewardedWorkouts.remove(id);
+        if (_currentUserId == id) _currentUserId = null;
+      }
+    }
+    final entitlements = map['entitlements'];
+    if (entitlements is Map) {
+      for (final entry in entitlements.entries) {
+        if (entry.value is Map) {
+          _entitlements[entry.key.toString()] = EntitlementSnapshot.fromMap(
+            Map<String, dynamic>.from(entry.value as Map),
+          );
+        }
+      }
+    }
+    final rewards = map['rewardedWorkouts'];
+    if (rewards is Map) {
+      for (final entry in rewards.entries) {
+        final list = entry.value is List ? entry.value as List : const [];
+        _rewardedWorkouts[entry.key.toString()] = list
+            .map((item) => '$item')
+            .toSet();
+      }
+    }
+    final codes = map['codes'];
+    if (codes is Map) {
+      for (final entry in codes.entries) {
+        if (entry.value is Map) {
+          final code = RedemptionCode.fromMap(
+            Map<String, dynamic>.from(entry.value as Map),
+          );
+          if (code.code.isNotEmpty) _codes[entry.key.toString()] = code;
+        }
+      }
+    }
+  }
+
+  static String _dayKey(DateTime value) =>
+      '${value.year.toString().padLeft(4, '0')}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
+
+  static String _weekKey(DateTime value) {
+    final monday = DateTime(
+      value.year,
+      value.month,
+      value.day,
+    ).subtract(Duration(days: value.weekday - DateTime.monday));
+    return _dayKey(monday);
+  }
+
+  static int _weekDistance(String from, String to) {
+    final start = DateTime.tryParse(from);
+    final end = DateTime.tryParse(to);
+    if (start == null || end == null || !end.isAfter(start)) return 0;
+    return end.difference(start).inDays ~/ 7;
+  }
+
+  static DateTime _addMonths(DateTime value, int months) {
+    final target = DateTime(
+      value.year,
+      value.month + months,
+      1,
+      value.hour,
+      value.minute,
+      value.second,
+      value.millisecond,
+      value.microsecond,
+    );
+    final lastDay = DateTime(target.year, target.month + 1, 0).day;
+    return DateTime(
+      target.year,
+      target.month,
+      value.day.clamp(1, lastDay),
+      value.hour,
+      value.minute,
+      value.second,
+      value.millisecond,
+      value.microsecond,
+    );
+  }
+}
+
+extension<T> on Iterable<T> {
+  T? get firstOrNull => isEmpty ? null : first;
+}

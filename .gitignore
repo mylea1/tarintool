@@ -1,0 +1,11 @@
+.gstack/
+.playwright-cli/
+output/
+
+# Local credentials and Apple signing files must stay outside Git.
+.env
+.env.*
+!.env.example
+*.p8
+*.p12
+*.mobileprovision

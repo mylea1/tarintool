@@ -1,0 +1,22 @@
+{
+  "version": "v1",
+  "status": "contract-boundary",
+  "prototypeNote": "The Flutter local repository is runnable without this service. Production implementations must enforce authentication, role checks, and atomic usage updates server-side.",
+  "endpoints": {
+    "phoneLogin": { "method": "POST", "path": "/v1/auth/phone/login", "request": ["identifier", "password"], "response": ["user", "session"] },
+    "appleLogin": { "method": "POST", "path": "/v1/auth/apple", "request": ["identityToken"], "response": ["user", "session"] },
+    "googleLogin": { "method": "POST", "path": "/v1/auth/google", "request": ["idToken"], "response": ["user", "session"] },
+    "entitlements": { "method": "GET", "path": "/v1/me/entitlements", "response": ["membership", "membershipExpiresAt", "aiRemaining", "recognitionRemaining"] },
+    "redeem": { "method": "POST", "path": "/v1/redemptions/redeem", "request": ["code"], "atomic": true },
+    "consume": { "method": "POST", "path": "/v1/usage/consume", "request": ["kind", "requestId"], "atomic": true, "rollbackOnRemoteFailure": true },
+    "workoutReward": { "method": "POST", "path": "/v1/rewards/workout-completed", "request": ["workoutId"], "idempotentBy": "workoutId" },
+    "grantMembership": { "method": "POST", "path": "/v1/admin/memberships/grant", "request": ["identifier", "plan"], "requiresRole": "admin" },
+    "generateCode": { "method": "POST", "path": "/v1/admin/redemption-codes", "request": ["plan"], "requiresRole": "admin" }
+  },
+  "plans": ["oneMonth", "threeMonths", "forever"],
+  "usageRules": {
+    "free": { "aiDaily": 3, "recognitionInitial": 5, "recognitionWeekly": 1 },
+    "member": { "aiDaily": 20, "recognitionWeekly": 3, "recognitionUnlimited": false }
+  },
+  "errors": ["unauthenticated", "admin_required", "not_configured", "quota_exhausted", "invalid_code", "code_already_used"]
+}

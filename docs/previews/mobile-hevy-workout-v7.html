@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>KILO v7 力量训练日志预览</title>
+  <style>
+    :root {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+      color: #10212b;
+      background: #eaf1f6;
+      --paper: #f5f8fa;
+      --card: #ffffff;
+      --blue: #0b66d4;
+      --blue-deep: #084d9f;
+      --blue-soft: #eaf3ff;
+      --line: #d4e0e7;
+      --quiet: #708494;
+      --green: #1e6b45;
+      --green-soft: #e5f5eb;
+      --green-line: #6fbd8d;
+      --orange: #a45113;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-width: 0; background: #eaf1f6; }
+    body { overflow-x: hidden; }
+    button, input, select { box-sizing: border-box; max-width: 100%; font: inherit; }
+    button {
+      min-width: 44px;
+      min-height: 44px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--card);
+      color: var(--blue-deep);
+      padding: 7px 10px;
+      cursor: pointer;
+    }
+    button:hover { border-color: #9eb9cd; }
+    button:focus-visible, input:focus-visible { outline: 3px solid #8abaf3; outline-offset: 2px; }
+    button.primary { background: var(--blue); border-color: var(--blue); color: #fff; font-weight: 800; }
+    button.subtle { background: var(--blue-soft); border-color: #c5dbf1; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+    .phone {
+      width: min(100%, 430px);
+      min-height: 100dvh;
+      margin: auto;
+      padding: 12px 12px 28px;
+      background: var(--paper);
+      overflow-x: clip;
+    }
+    .topbar, .workout-head, .toolbar, .plan-head, .record-head { display: flex; align-items: center; min-width: 0; }
+    .topbar { min-height: 42px; gap: 8px; }
+    .brand { color: var(--blue); font-size: 18px; font-weight: 900; letter-spacing: .08em; }
+    .page-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 18px; font-weight: 800; }
+    .grow { flex: 1; min-width: 0; }
+    .muted { color: var(--quiet); }
+    .eyebrow { color: var(--blue); font-size: 11px; font-weight: 850; letter-spacing: .08em; }
+    .view-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; margin: 8px 0 12px; padding: 4px; border: 1px solid var(--line); border-radius: 12px; background: #eaf0f4; }
+    .view-tabs button { min-width: 0; min-height: 42px; padding: 6px 4px; color: var(--quiet); background: transparent; border-color: transparent; font-size: 12px; font-weight: 750; overflow-wrap: anywhere; }
+    .view-tabs button.active { color: var(--blue-deep); background: var(--card); border-color: var(--line); box-shadow: 0 1px 2px #15364d16; }
+    .view { min-width: 0; animation: view-in 180ms ease-out; }
+    .view[hidden] { display: none; }
+    @keyframes view-in { from { opacity: .5; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
+    .workout-head { gap: 9px; padding: 11px 12px; border: 1px solid #c6dcee; border-radius: 14px; background: var(--blue-soft); }
+    .back { flex: 0 0 44px; padding: 0; font-size: 21px; }
+    .workout-name, .plan-name { overflow: hidden; text-overflow: ellipsis; overflow-wrap: anywhere; font-weight: 850; }
+    .workout-name { white-space: nowrap; }
+    .workout-meta { margin-top: 2px; color: var(--quiet); font-size: 12px; }
+    .timer { flex: 0 0 auto; font-size: 23px; font-weight: 900; font-variant-numeric: tabular-nums; }
+    .status { color: var(--blue-deep); font-size: 11px; font-weight: 800; text-align: right; }
+    .toolbar { flex-wrap: wrap; gap: 7px; margin: 9px 0 12px; }
+    .toolbar button { min-width: 0; flex: 1 1 92px; }
+    .toolbar .rest-button { flex: 1 1 130px; }
+    .exercise-card, .plan-card, .record-card, .panel { min-width: 0; border: 1px solid var(--line); border-radius: 14px; background: var(--card); }
+    .exercise-card { overflow: hidden; }
+    .exercise-head { display: flex; gap: 9px; align-items: center; min-width: 0; padding: 11px 12px; border-bottom: 1px solid #edf2f5; }
+    .thumb { display: grid; place-items: center; width: 40px; height: 40px; flex: 0 0 40px; border-radius: 9px; background: #e8f2fc; color: var(--blue); font-size: 19px; }
+    .exercise-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 850; }
+    .rest-note { margin-top: 2px; color: var(--blue); font-size: 12px; }
+    .rest-panel { padding: 9px 12px; border-bottom: 1px solid #edf2f5; background: #f8fbfd; }
+    .rest-panel[hidden] { display: none; }
+    .rest-options { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
+    .rest-options button { min-height: 36px; padding-inline: 8px; font-size: 12px; }
+    .table-head, .set-row { display: grid; grid-template-columns: minmax(25px, .35fr) minmax(52px, .9fr) minmax(49px, .85fr) minmax(50px, .85fr) minmax(43px, .65fr) minmax(43px, .65fr); gap: 4px; align-items: center; min-width: 0; }
+    .table-head { padding: 6px 8px; color: var(--quiet); background: #f8fafb; font-size: 10px; font-weight: 800; }
+    .table-head > *, .set-row > * { min-width: 0; }
+    .set-row { padding: 6px 8px; border-top: 1px solid #edf2f5; color: #10212b; transition: background-color 200ms ease, border-color 200ms ease, color 200ms ease; }
+    .set-row.done { color: var(--green); background: var(--green-soft); border-color: var(--green-line); }
+    .set-cell { min-width: 0; overflow-wrap: anywhere; }
+    .set-index { display: flex; align-items: center; gap: 3px; font-weight: 800; }
+    .set-kind { color: var(--quiet); font-size: 10px; font-weight: 700; }
+    .set-row.done .set-kind { color: var(--green); }
+    .last-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--quiet); font-size: 11px; }
+    .set-row.done .last-value { color: var(--green); }
+    .set-input { width: 100%; min-width: 0; height: 34px; border: 1px solid #cad8e1; border-radius: 7px; padding: 4px 5px; color: #10212b; background: #fff; font-size: 12px; }
+    .set-row.done .set-input { border-color: var(--green-line); color: var(--green); background: #f4fff7; }
+    .complete { width: 100%; min-width: 0; min-height: 38px; padding: 4px; font-size: 19px; line-height: 1; }
+    .set-row.done .complete { border-color: var(--green); background: var(--green); color: #fff; }
+    .add-set { width: 100%; margin: 9px 0 11px; }
+    .section-title { margin: 0 0 8px; font-size: 17px; font-weight: 850; }
+    .free-entry { display: flex; align-items: center; gap: 9px; min-width: 0; margin-bottom: 10px; padding: 11px 12px; border: 1px solid #bcd6ee; border-radius: 13px; background: var(--blue-soft); }
+    .free-entry p { margin: 2px 0 0; color: var(--quiet); font-size: 12px; }
+    .free-entry button { flex: 0 0 auto; }
+    .plan-card { position: relative; padding: 12px; margin-top: 9px; cursor: pointer; }
+    .plan-head { gap: 8px; align-items: flex-start; }
+    .plan-name { line-height: 1.35; }
+    .more-button { flex: 0 0 44px; padding: 0; font-size: 22px; }
+    .plan-summary { margin: 8px 0; color: var(--quiet); font-size: 12px; line-height: 1.35; overflow-wrap: anywhere; }
+    .plan-meta, .record-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; min-width: 0; }
+    .meta-item { min-width: 0; padding: 7px; border-radius: 9px; background: #f4f7f9; }
+    .meta-item small { display: block; color: var(--quiet); font-size: 10px; overflow-wrap: anywhere; }
+    .meta-item b { display: block; margin-top: 2px; overflow-wrap: anywhere; font-size: 13px; }
+    .plan-actions { display: flex; justify-content: flex-end; margin-top: 10px; }
+    .plan-actions button { min-width: 86px; }
+    .more-menu { margin-top: 8px; padding: 7px; border: 1px solid var(--line); border-radius: 9px; background: #f8fbfd; }
+    .more-menu[hidden], .plan-detail[hidden], .record-detail[hidden] { display: none; }
+    .more-menu button { width: 100%; min-height: 38px; border: 0; text-align: left; }
+    .plan-detail { margin-top: 10px; padding: 9px; border-top: 1px solid #edf2f5; color: var(--quiet); font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }
+    .record-card { margin-top: 9px; padding: 12px; cursor: pointer; }
+    .record-head { gap: 8px; }
+    .record-date { font-weight: 850; overflow-wrap: anywhere; }
+    .record-subtitle { margin-top: 2px; color: var(--quiet); font-size: 12px; overflow-wrap: anywhere; }
+    .record-chevron { flex: 0 0 30px; color: var(--blue); font-size: 20px; text-align: center; }
+    .record-metrics { margin-top: 10px; }
+    .record-actions { margin: 8px 0 0; color: var(--quiet); font-size: 12px; overflow-wrap: anywhere; }
+    .record-detail { margin-top: 10px; padding-top: 9px; border-top: 1px solid #edf2f5; }
+    .record-set { display: grid; grid-template-columns: 32px minmax(0, 1fr) 54px; gap: 7px; align-items: center; min-width: 0; padding: 7px 8px; color: var(--green); border: 1px solid var(--green-line); border-radius: 9px; background: var(--green-soft); }
+    .record-set + .record-set { margin-top: 5px; }
+    .record-set b, .record-set small { min-width: 0; overflow-wrap: anywhere; }
+    .record-set small { color: var(--green); text-align: right; }
+    .empty-note { padding: 16px 4px; color: var(--quiet); font-size: 12px; }
+    @media (max-width: 360px) {
+      .phone { padding-inline: 9px; }
+      .view-tabs button { font-size: 11px; }
+      .toolbar { gap: 5px; }
+      .toolbar button { padding-inline: 7px; font-size: 12px; }
+      .table-head, .set-row { grid-template-columns: minmax(21px, .34fr) minmax(42px, .8fr) minmax(43px, .82fr) minmax(44px, .82fr) minmax(36px, .58fr) minmax(39px, .62fr); gap: 2px; padding-inline: 5px; }
+      .table-head { font-size: 9px; }
+      .set-input { height: 33px; padding-inline: 3px; font-size: 11px; }
+      .complete { font-size: 17px; }
+      .last-value { font-size: 10px; }
+      .plan-meta, .record-metrics { gap: 4px; }
+      .meta-item { padding: 6px 5px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <main class="phone">
+    <header class="topbar">
+      <span class="brand">KILO</span>
+      <span class="page-title" id="pageTitle">实时训练</span>
+      <span class="grow"></span>
+      <button aria-label="训练设置" title="训练设置">⚙</button>
+    </header>
+
+    <nav class="view-tabs" role="tablist" aria-label="训练视图">
+      <button class="active" role="tab" aria-selected="true" data-view="live">实时训练</button>
+      <button role="tab" aria-selected="false" data-view="plans">我的计划</button>
+      <button role="tab" aria-selected="false" data-view="records">训练记录</button>
+    </nav>
+
+    <section class="view" id="liveView" role="tabpanel">
+      <div class="workout-head">
+        <button class="back" aria-label="返回计划">‹</button>
+        <div class="grow">
+          <div class="workout-name">自由训练</div>
+          <div class="workout-meta" id="liveSummary">已完成 1/4 组 · 训练中</div>
+        </div>
+        <div>
+          <div class="timer">08:42</div>
+          <div class="status">进行中</div>
+        </div>
+      </div>
+
+      <div class="toolbar" aria-label="训练快捷操作">
+        <button class="primary" id="pauseButton" aria-pressed="false">Ⅱ 暂停</button>
+        <button class="subtle" id="restButton">休息 90s</button>
+        <button class="subtle" id="addSetTop">＋ 加组</button>
+      </div>
+      <div class="panel rest-panel" id="restPanel" hidden>
+        <strong>组间休息</strong>
+        <span class="muted">完成组后自动计时</span>
+        <div class="rest-options" aria-label="快捷休息时间">
+          <button data-rest="0">关闭</button><button data-rest="60">60s</button><button data-rest="90" class="subtle">90s</button><button data-rest="120">120s</button>
+        </div>
+      </div>
+
+      <article class="exercise-card">
+        <header class="exercise-head">
+          <div class="thumb">▣</div>
+          <div class="grow">
+            <div class="exercise-name">杠铃卧推</div>
+            <div class="rest-note">动作休息 90 秒 · 正式组</div>
+          </div>
+          <button aria-label="动作更多" title="动作更多">⋯</button>
+        </header>
+        <div class="table-head" aria-hidden="true"><span>组</span><span>上次</span><span>kg</span><span>次数</span><span>RPE</span><span>完成</span></div>
+        <div id="setList">
+          <div class="set-row done" data-set-row>
+            <div class="set-cell set-index"><span>1</span><span class="set-kind">● 正</span></div>
+            <div class="set-cell last-value">70×8</div>
+            <label class="set-cell"><span class="sr-only">第 1 组重量</span><input class="set-input" value="70" inputmode="decimal"></label>
+            <label class="set-cell"><span class="sr-only">第 1 组次数</span><input class="set-input" value="8" inputmode="numeric"></label>
+            <label class="set-cell"><span class="sr-only">第 1 组 RPE</span><input class="set-input" value="8" inputmode="decimal"></label>
+            <button class="complete" data-complete aria-pressed="true" aria-label="取消完成第 1 组">✓</button>
+          </div>
+          <div class="set-row" data-set-row>
+            <div class="set-cell set-index"><span>2</span><span class="set-kind">● 正</span></div>
+            <div class="set-cell last-value">70×8</div>
+            <label class="set-cell"><span class="sr-only">第 2 组重量</span><input class="set-input" value="70" inputmode="decimal"></label>
+            <label class="set-cell"><span class="sr-only">第 2 组次数</span><input class="set-input" value="8" inputmode="numeric"></label>
+            <label class="set-cell"><span class="sr-only">第 2 组 RPE</span><input class="set-input" value="" placeholder="-" inputmode="decimal"></label>
+            <button class="complete" data-complete aria-pressed="false" aria-label="完成第 2 组">○</button>
+          </div>
+        </div>
+        <button class="add-set" id="addSet">＋ 添加一组</button>
+      </article>
+      <p class="empty-note">完成组会把整行变为绿色状态，输入区域与勾选按钮保持同一语义。</p>
+    </section>
+
+    <section class="view" id="plansView" role="tabpanel" hidden>
+      <div class="free-entry">
+        <div class="grow"><strong>自由训练</strong><p>不选计划，马上记录第一组。</p></div>
+        <button class="primary" id="freeTraining">开始</button>
+      </div>
+      <h2 class="section-title">我的计划</h2>
+      <article class="plan-card" data-plan-card>
+        <header class="plan-head">
+          <div class="grow">
+            <div class="eyebrow">本周推荐</div>
+            <div class="plan-name">上肢力量与肩胛稳定性渐进训练计划（四周循环）</div>
+          </div>
+          <button class="more-button" data-more aria-expanded="false" aria-label="计划更多" title="计划更多">⋯</button>
+        </header>
+        <p class="plan-summary">卧推 · 坐姿划船 · 哑铃推举 · 面拉</p>
+        <div class="plan-meta"><div class="meta-item"><small>动作</small><b>4</b></div><div class="meta-item"><small>组数</small><b>14</b></div><div class="meta-item"><small>时长</small><b>45 分钟</b></div></div>
+        <div class="plan-actions"><button class="primary" data-start>开始</button></div>
+        <div class="more-menu" data-menu hidden><button>复制计划</button><button>加入收藏</button></div>
+        <div class="plan-detail" data-plan-detail hidden>计划详情：四个动作，先完成热身组，再进入正式组。点击卡片其他区域可展开或收起详情。</div>
+      </article>
+      <article class="plan-card" data-plan-card>
+        <header class="plan-head">
+          <div class="grow"><div class="plan-name">下肢基础</div><p class="plan-summary">深蹲 · 罗马尼亚硬拉 · 腿举</p></div>
+          <button class="more-button" data-more aria-expanded="false" aria-label="计划更多" title="计划更多">⋯</button>
+        </header>
+        <div class="plan-meta"><div class="meta-item"><small>动作</small><b>3</b></div><div class="meta-item"><small>组数</small><b>10</b></div><div class="meta-item"><small>时长</small><b>38 分钟</b></div></div>
+        <div class="plan-actions"><button class="primary" data-start>开始</button></div>
+        <div class="more-menu" data-menu hidden><button>复制计划</button><button>加入收藏</button></div>
+        <div class="plan-detail" data-plan-detail hidden>计划详情：以稳定动作节奏为主，休息时间按动作卡设置。</div>
+      </article>
+    </section>
+
+    <section class="view" id="recordsView" role="tabpanel" hidden>
+      <h2 class="section-title">训练记录</h2>
+      <article class="record-card" data-record tabindex="0" role="button" aria-expanded="false">
+        <header class="record-head"><div class="grow"><div class="record-date">8 月 4 日 · 周一</div><div class="record-subtitle">自由训练 · 42 分钟</div></div><div class="record-chevron">⌄</div></header>
+        <div class="record-metrics"><div class="meta-item"><small>总训练量</small><b>1,842 kg</b></div><div class="meta-item"><small>有效组</small><b>12</b></div><div class="meta-item"><small>完成率</small><b>86%</b></div></div>
+        <p class="record-actions">杠铃卧推 · 坐姿划船 · 哑铃推举</p>
+        <div class="record-detail" data-record-detail hidden>
+          <div class="record-set"><b>✓ 卧推</b><span>70 kg × 8 · RPE 8</span><small>完成</small></div>
+          <div class="record-set"><b>✓ 卧推</b><span>70 kg × 8 · RPE 8</span><small>完成</small></div>
+          <div class="record-set"><b>✓ 划船</b><span>55 kg × 10</span><small>完成</small></div>
+        </div>
+      </article>
+      <article class="record-card" data-record tabindex="0" role="button" aria-expanded="false">
+        <header class="record-head"><div class="grow"><div class="record-date">8 月 2 日 · 周六</div><div class="record-subtitle">上肢力量与肩胛稳定性渐进训练计划（四周循环） · 1 小时 12 分钟</div></div><div class="record-chevron">⌄</div></header>
+        <div class="record-metrics"><div class="meta-item"><small>总训练量</small><b>12,345.5 kg</b></div><div class="meta-item"><small>有效组</small><b>18</b></div><div class="meta-item"><small>完成率</small><b>100%</b></div></div>
+        <p class="record-actions">杠铃卧推 · 坐姿划船 · 哑铃推举 · 面拉</p>
+        <div class="record-detail" data-record-detail hidden><div class="record-set"><b>✓ 推举</b><span>1,234.5 kg × 6</span><small>完成</small></div><div class="record-set"><b>✓ 面拉</b><span>35 kg × 12</span><small>完成</small></div></div>
+      </article>
+    </section>
+  </main>
+
+  <script>
+    const tabs = [...document.querySelectorAll('[data-view]')];
+    const views = { live: document.querySelector('#liveView'), plans: document.querySelector('#plansView'), records: document.querySelector('#recordsView') };
+    const title = document.querySelector('#pageTitle');
+    const labels = { live: '实时训练', plans: '我的计划', records: '训练记录' };
+    function switchView(name) {
+      tabs.forEach(tab => { const active = tab.dataset.view === name; tab.classList.toggle('active', active); tab.setAttribute('aria-selected', String(active)); });
+      Object.entries(views).forEach(([key, view]) => { view.hidden = key !== name; });
+      title.textContent = labels[name];
+    }
+    tabs.forEach(tab => tab.addEventListener('click', () => switchView(tab.dataset.view)));
+
+    const liveSummary = document.querySelector('#liveSummary');
+    const pauseButton = document.querySelector('#pauseButton');
+    pauseButton.addEventListener('click', () => {
+      const paused = pauseButton.getAttribute('aria-pressed') === 'true';
+      pauseButton.setAttribute('aria-pressed', String(!paused));
+      pauseButton.textContent = paused ? 'Ⅱ 暂停' : '▶ 恢复';
+      liveSummary.textContent = paused ? '已完成 1/4 组 · 训练中' : '已完成 1/4 组 · 已暂停';
+    });
+
+    const restPanel = document.querySelector('#restPanel');
+    document.querySelector('#restButton').addEventListener('click', () => { restPanel.hidden = !restPanel.hidden; });
+    document.querySelectorAll('[data-rest]').forEach(button => button.addEventListener('click', () => {
+      document.querySelector('#restButton').textContent = `休息 ${button.dataset.rest}s`;
+      restPanel.hidden = true;
+    }));
+
+    function updateCompletion(row, completeButton) {
+      const done = row.classList.toggle('done');
+      completeButton.setAttribute('aria-pressed', String(done));
+      completeButton.setAttribute('aria-label', `${done ? '取消完成' : '完成'}第 ${row.querySelector('.set-index span').textContent} 组`);
+      completeButton.textContent = done ? '✓' : '○';
+    }
+    document.querySelectorAll('[data-complete]').forEach(button => button.addEventListener('click', () => updateCompletion(button.closest('[data-set-row]'), button)));
+
+    let nextSet = 3;
+    function addSet() {
+      const row = document.createElement('div');
+      row.className = 'set-row';
+      row.setAttribute('data-set-row', '');
+      row.innerHTML = `<div class="set-cell set-index"><span>${nextSet}</span><span class="set-kind">● 正</span></div><div class="set-cell last-value">70×8</div><label class="set-cell"><span class="sr-only">第 ${nextSet} 组重量</span><input class="set-input" value="70" inputmode="decimal"></label><label class="set-cell"><span class="sr-only">第 ${nextSet} 组次数</span><input class="set-input" value="8" inputmode="numeric"></label><label class="set-cell"><span class="sr-only">第 ${nextSet} 组 RPE</span><input class="set-input" placeholder="-" inputmode="decimal"></label><button class="complete" data-complete aria-pressed="false" aria-label="完成第 ${nextSet} 组">○</button>`;
+      row.querySelector('[data-complete]').addEventListener('click', event => updateCompletion(row, event.currentTarget));
+      document.querySelector('#setList').appendChild(row);
+      nextSet += 1;
+      row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+    document.querySelector('#addSet').addEventListener('click', addSet);
+    document.querySelector('#addSetTop').addEventListener('click', addSet);
+
+    document.querySelector('#freeTraining').addEventListener('click', () => switchView('live'));
+    document.querySelectorAll('[data-start]').forEach(button => button.addEventListener('click', event => { event.stopPropagation(); switchView('live'); }));
+    document.querySelectorAll('[data-more]').forEach(button => button.addEventListener('click', event => {
+      event.stopPropagation();
+      const card = button.closest('[data-plan-card]');
+      const menu = card.querySelector('[data-menu]');
+      menu.hidden = !menu.hidden;
+      button.setAttribute('aria-expanded', String(!menu.hidden));
+    }));
+    document.querySelectorAll('[data-plan-card]').forEach(card => card.addEventListener('click', event => {
+      if (event.target.closest('button')) return;
+      const detail = card.querySelector('[data-plan-detail]');
+      detail.hidden = !detail.hidden;
+    }));
+
+    function toggleRecord(card) {
+      const detail = card.querySelector('[data-record-detail]');
+      detail.hidden = !detail.hidden;
+      card.setAttribute('aria-expanded', String(!detail.hidden));
+      card.querySelector('.record-chevron').textContent = detail.hidden ? '⌄' : '⌃';
+    }
+    document.querySelectorAll('[data-record]').forEach(card => {
+      card.addEventListener('click', () => toggleRecord(card));
+      card.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); toggleRecord(card); } });
+    });
+  </script>
+</body>
+</html>
