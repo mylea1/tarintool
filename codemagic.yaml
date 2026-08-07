@@ -58,8 +58,16 @@ workflows:
           --build-name=1.0.9
           --build-number=$BUILD_NUMBER
           --export-options-plist=$HOME/export_options.plist
+      - name: Verify IPA artifact
+        script: |
+          IPA_PATH=$(find "$CM_BUILD_DIR/mobile/build/ios/ipa" -type f -name "*.ipa" | head -1)
+          if [ -z "$IPA_PATH" ]; then
+            echo "IPA artifact was not generated"
+            exit 1
+          fi
+          echo "Found IPA: $IPA_PATH"
     artifacts:
-      - mobile/build/ios/ipa/*.ipa
+      - $CM_BUILD_DIR/mobile/build/ios/ipa/*.ipa
       - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
       - mobile/flutter_drive.log
     publishing:
