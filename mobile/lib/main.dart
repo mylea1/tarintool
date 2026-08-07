@@ -8,14 +8,24 @@ import 'link_utils.dart';
 import 'models.dart';
 import 'recognition_api.dart';
 
-const paper = Color(0xFFF3F6F8);
-const ink = Color(0xFF10212B);
-const secondaryInk = Color(0xFF405565);
-const quiet = Color(0xFF708494);
-const cobalt = Color(0xFF0B66D4);
+// Warm-orange Material 3 tokens. The older names remain as compatibility
+// aliases because the prototype has many focused, purpose-built widgets.
+const paper = Color(0xFFFFF8F2);
+const surface = Color(0xFFFFFFFF);
+const primary = Color(0xFFC64F13);
+const primaryBright = Color(0xFFE76522);
+const primaryContainer = Color(0xFFFDE2D0);
+const ink = Color(0xFF2B1D16);
+const muted = Color(0xFF6F594E);
+const secondaryInk = muted;
+const quiet = muted;
+const cobalt = primary;
 const lime = Color(0xFFB7E34A);
-const orange = Color(0xFFE47B32);
-const hairline = Color(0xFFD5E0E7);
+const orange = primaryBright;
+const success = Color(0xFF26845B);
+const successContainer = Color(0xFFE4F4EB);
+const hairline = Color(0xFFE8D8CD);
+const danger = Color(0xFFB3261E);
 const kiloAppVersion = '1.0.9';
 const kiloAppBuild = '10';
 const kiloAppVersionLabel = '$kiloAppVersion ($kiloAppBuild)';
@@ -93,10 +103,24 @@ class _KiloAppState extends State<KiloApp> {
 final _theme = ThemeData(
   useMaterial3: true,
   scaffoldBackgroundColor: paper,
-  colorScheme: ColorScheme.fromSeed(
-    seedColor: cobalt,
-    brightness: Brightness.light,
-  ).copyWith(primary: cobalt, surface: Colors.white, onSurface: ink),
+  colorScheme:
+      ColorScheme.fromSeed(
+        seedColor: primary,
+        brightness: Brightness.light,
+      ).copyWith(
+        primary: primary,
+        onPrimary: Colors.white,
+        primaryContainer: primaryContainer,
+        onPrimaryContainer: ink,
+        secondary: primaryBright,
+        onSecondary: Colors.white,
+        secondaryContainer: primaryContainer,
+        onSecondaryContainer: ink,
+        surface: surface,
+        onSurface: ink,
+        outline: hairline,
+        outlineVariant: hairline,
+      ),
   textTheme: const TextTheme(
     headlineLarge: TextStyle(
       fontSize: 30,
@@ -125,11 +149,21 @@ final _theme = ThemeData(
   ),
   inputDecorationTheme: const InputDecorationTheme(
     border: OutlineInputBorder(borderSide: BorderSide(color: hairline)),
+    enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: hairline)),
+    focusedBorder: OutlineInputBorder(
+      borderSide: BorderSide(color: primary, width: 2),
+    ),
+    errorBorder: OutlineInputBorder(borderSide: BorderSide(color: danger)),
+    focusedErrorBorder: OutlineInputBorder(
+      borderSide: BorderSide(color: danger, width: 2),
+    ),
     filled: true,
-    fillColor: Colors.white,
+    fillColor: surface,
+    labelStyle: TextStyle(color: muted),
+    floatingLabelStyle: TextStyle(color: primary),
   ),
   cardTheme: const CardThemeData(
-    color: Colors.white,
+    color: surface,
     elevation: 0,
     margin: EdgeInsets.zero,
     shape: RoundedRectangleBorder(
@@ -138,8 +172,8 @@ final _theme = ThemeData(
     ),
   ),
   navigationBarTheme: const NavigationBarThemeData(
-    backgroundColor: Colors.white,
-    indicatorColor: Color(0xFFE4EFFB),
+    backgroundColor: surface,
+    indicatorColor: primaryContainer,
     labelTextStyle: WidgetStatePropertyAll(
       TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: ink),
     ),
@@ -224,6 +258,8 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     final isIos = defaultTargetPlatform == TargetPlatform.iOS;
+    final testAccountEnabled =
+        widget.controller.accountService.isTestAdminEnabled;
     return Scaffold(
       key: const Key('login-page'),
       body: SafeArea(
@@ -276,11 +312,37 @@ class _LoginPageState extends State<LoginPage> {
                     controller: password,
                     obscureText: true,
                     onSubmitted: (_) => submit(),
-                    decoration: const InputDecoration(labelText: '密码（测试账号需要）'),
+                    decoration: InputDecoration(
+                      labelText: testAccountEnabled ? '密码（测试账号需要）' : '密码',
+                    ),
                   ),
+                  if (testAccountEnabled) ...[
+                    const SizedBox(height: 10),
+                    OutlinedButton.icon(
+                      key: const Key('login-test-account-fill-button'),
+                      onPressed: busy
+                          ? null
+                          : () {
+                              setState(() {
+                                identifier.text = '1234';
+                                password.text = '1234';
+                                error = null;
+                              });
+                            },
+                      icon: const Icon(Icons.content_paste_go_outlined),
+                      label: const Text('一键填入测试账号'),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '测试版账号：1234 / 1234（仅 Debug 或显式测试开关可用）',
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodySmall?.copyWith(color: muted),
+                    ),
+                  ],
                   if (error != null) ...[
                     const SizedBox(height: 10),
-                    Text(error!, style: TextStyle(color: Colors.red)),
+                    Text(error!, style: const TextStyle(color: danger)),
                   ],
                   const SizedBox(height: 16),
                   FilledButton(
@@ -302,13 +364,6 @@ class _LoginPageState extends State<LoginPage> {
                       label: const Text('使用 Apple 登录（尚未配置）'),
                     ),
                   ],
-                  const SizedBox(height: 16),
-                  Text(
-                    testAdminEnabled
-                        ? '调试测试账号：1234 / 1234（仅当前 Debug 或显式测试开关）'
-                        : 'Apple / Google 登录尚未配置，当前不会伪造登录成功。',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
                 ],
               ),
             ),
@@ -1251,9 +1306,9 @@ class _LiveWorkoutTimingPanel extends StatelessWidget {
             margin: const EdgeInsets.only(top: 9),
             padding: const EdgeInsets.fromLTRB(10, 9, 8, 7),
             decoration: BoxDecoration(
-              color: const Color(0xFFEAF3FF),
+              color: primaryContainer,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFB9D4F2)),
+              border: Border.all(color: hairline),
             ),
             child: LayoutBuilder(
               builder: (context, constraints) {
@@ -1403,7 +1458,7 @@ class _LiveWorkoutTimingPanel extends StatelessWidget {
     );
     final card = Card(
       key: const Key('live-workout'),
-      color: const Color(0xFFEAF3FF),
+      color: primaryContainer,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(10, 9, 10, 11),
         child: Column(
@@ -1696,7 +1751,7 @@ class _RestBanner extends StatelessWidget {
         '${(seconds ~/ 60).toString().padLeft(2, '0')}:${(seconds % 60).toString().padLeft(2, '0')}';
     final exerciseName = controller.restExerciseName ?? '当前动作';
     return Card(
-      color: const Color(0xFFEAF3FF),
+      color: primaryContainer,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
         child: Column(
@@ -2020,7 +2075,7 @@ void _showSetTypeSheet(
                   key: Key('set-type-option-${set.id}-${entry.key}'),
                   leading: Icon(
                     _setTypeIcon(entry.key),
-                    color: Color(setTypeColors[entry.key] ?? 0xFF708494),
+                    color: _setTypeColor(entry.key),
                   ),
                   title: Text('${_setTypeShort(entry.key)} · ${entry.value}'),
                   selected: entry.key == set.type,
@@ -2039,6 +2094,12 @@ void _showSetTypeSheet(
   );
 }
 
+Color _setTypeColor(String type) => switch (type) {
+  'work' => primary,
+  'backoff' || 'drop' => primaryBright,
+  _ => Color(setTypeColors[type] ?? 0xFF6F594E),
+};
+
 class _SetTypeButton extends StatelessWidget {
   const _SetTypeButton({
     required this.controller,
@@ -2054,7 +2115,7 @@ class _SetTypeButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final label = _setTypeShort(set.type);
-    final color = Color(setTypeColors[set.type] ?? 0xFF708494);
+    final color = _setTypeColor(set.type);
     return Semantics(
       button: true,
       enabled: !set.completed,
@@ -2929,18 +2990,18 @@ class _RecordsPageState extends State<RecordsPage> {
                         day.day,
                       ).isBefore(DateTime(today.year, today.month, today.day));
                   final background = completed
-                      ? const Color(0xFFDCEBFF)
+                      ? successContainer
                       : missed
                       ? const Color(0xFFFFE7D4)
                       : planned
                       ? const Color(0xFFEFF8DE)
                       : isToday
-                      ? const Color(0xFFEAF3FF)
+                      ? primaryContainer
                       : Colors.transparent;
                   final border = current
                       ? cobalt
                       : completed
-                      ? cobalt
+                      ? success
                       : missed
                       ? orange
                       : planned
@@ -2998,7 +3059,7 @@ class _RecordsPageState extends State<RecordsPage> {
               const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  _CalendarLegend(color: cobalt, label: '已完成'),
+                  _CalendarLegend(color: success, label: '已完成'),
                   SizedBox(width: 12),
                   _CalendarLegend(color: orange, label: '已安排'),
                   SizedBox(width: 12),
@@ -3270,7 +3331,7 @@ class _MuscleRail extends StatelessWidget {
         for (final group in groups)
           Material(
             color: controller.muscleFilter == group
-                ? const Color(0xFFE4EFFB)
+                ? primaryContainer
                 : Colors.white,
             child: InkWell(
               onTap: () {
@@ -3482,12 +3543,12 @@ class RecognitionPage extends StatelessWidget {
                   padding: const EdgeInsets.only(top: 8),
                   child: Row(
                     children: [
-                      const Icon(Icons.info_outline, size: 16, color: orange),
+                      const Icon(Icons.info_outline, size: 16, color: danger),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
                           controller.mediaError!,
-                          style: const TextStyle(fontSize: 12, color: orange),
+                          style: const TextStyle(fontSize: 12, color: danger),
                         ),
                       ),
                       TextButton(
@@ -4052,7 +4113,7 @@ class _AccountMembershipCard extends StatelessWidget {
             Row(
               children: [
                 CircleAvatar(
-                  backgroundColor: const Color(0xFFE4EFFB),
+                  backgroundColor: primaryContainer,
                   foregroundColor: cobalt,
                   child: Text(
                     user.displayName.isEmpty
@@ -5029,7 +5090,7 @@ class _ExerciseDetailSheetState extends State<_ExerciseDetailSheet> {
                     children: [
                       CircleAvatar(
                         radius: 12,
-                        backgroundColor: const Color(0xFFE4EFFB),
+                        backgroundColor: primaryContainer,
                         foregroundColor: cobalt,
                         child: Text('${index + 1}'),
                       ),
@@ -5444,10 +5505,10 @@ void _showProgress(BuildContext context, AppController controller) {
                   height: 170,
                   child: DecoratedBox(
                     decoration: BoxDecoration(
-                      color: const Color(0xFFEAF3FF),
+                      color: primaryContainer,
                       borderRadius: BorderRadius.all(Radius.circular(14)),
                       border: Border.fromBorderSide(
-                        BorderSide(color: Color(0xFFB8D4F2)),
+                        BorderSide(color: hairline),
                       ),
                     ),
                     child: Padding(

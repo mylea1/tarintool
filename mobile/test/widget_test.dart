@@ -46,6 +46,26 @@ void main() {
     expect(controller.routines, isEmpty);
   });
 
+  testWidgets('warm orange theme tokens reach shell navigation and inputs', (
+    tester,
+  ) async {
+    final controller = AppController();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(KiloApp(initialController: controller));
+
+    final context = tester.element(find.byType(KiloShell));
+    final theme = Theme.of(context);
+    expect(theme.scaffoldBackgroundColor, const Color(0xFFFFF8F2));
+    expect(theme.colorScheme.primary, const Color(0xFFC64F13));
+    expect(theme.colorScheme.surface, const Color(0xFFFFFFFF));
+    expect(
+      NavigationBarTheme.of(context).indicatorColor,
+      const Color(0xFFFDE2D0),
+    );
+    final focusedBorder = theme.inputDecorationTheme.focusedBorder!;
+    expect(focusedBorder.borderSide.color, const Color(0xFFC64F13));
+  });
+
   testWidgets('free training starts empty timer and can add first action', (
     tester,
   ) async {

@@ -14,6 +14,68 @@ void main() {
     expect(find.byType(NavigationBar), findsNothing);
   });
 
+  testWidgets('enabled test account can be filled and signed in', (
+    tester,
+  ) async {
+    final service = AccountService(allowTestAdmin: true);
+    final controller = AppController(accountService: service);
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(home: LoginPage(controller: controller)),
+    );
+    expect(
+      find.byKey(const Key('login-test-account-fill-button')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const Key('login-test-account-fill-button')));
+    await tester.pump();
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('login-identifier')))
+          .controller!
+          .text,
+      '1234',
+    );
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('login-password')))
+          .controller!
+          .text,
+      '1234',
+    );
+
+    await tester.tap(find.byKey(const Key('login-button')));
+    await tester.pump();
+    expect(service.isAdmin, isTrue);
+    expect(service.entitlements?.membership, MembershipPlan.forever);
+  });
+
+  testWidgets(
+    'disabled test account hides the shortcut and rejects credentials',
+    (tester) async {
+      final service = AccountService(allowTestAdmin: false);
+      final controller = AppController(accountService: service);
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        MaterialApp(home: LoginPage(controller: controller)),
+      );
+      expect(
+        find.byKey(const Key('login-test-account-fill-button')),
+        findsNothing,
+      );
+
+      await tester.enterText(find.byKey(const Key('login-identifier')), '1234');
+      await tester.enterText(find.byKey(const Key('login-password')), '1234');
+      await tester.tap(find.byKey(const Key('login-button')));
+      await tester.pump();
+      expect(service.currentUser, isNull);
+      expect(find.text('账号或密码不正确。'), findsOneWidget);
+    },
+  );
+
   testWidgets('admin membership card survives compact width and text scaling', (
     tester,
   ) async {

@@ -352,6 +352,11 @@ class AccountService extends ChangeNotifier {
   final Map<String, RedemptionCode> _codes = <String, RedemptionCode>{};
   String? _currentUserId;
 
+  /// Whether the development-only test administrator is available for this
+  /// service instance.  The constructor still enforces the compile-time
+  /// release gate even when callers request [allowTestAdmin].
+  bool get isTestAdminEnabled => allowTestAdmin;
+
   AccountUser? get currentUser =>
       _currentUserId == null ? null : _users[_currentUserId];
   bool get isAuthenticated => currentUser != null;

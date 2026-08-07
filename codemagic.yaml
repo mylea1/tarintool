@@ -55,6 +55,7 @@ workflows:
       - name: Build signed IPA
         script: >-
           flutter build ipa --release
+          --dart-define=ENABLE_TEST_ADMIN=true
           --build-name=1.0.9
           --build-number=$BUILD_NUMBER
           --export-options-plist=$HOME/export_options.plist
