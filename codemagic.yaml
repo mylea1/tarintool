@@ -56,7 +56,8 @@ workflows:
         script: >-
           flutter build ipa --release
           --dart-define=ENABLE_TEST_ADMIN=true
-          --build-name=1.0.9
+          --dart-define=KILO_API_BASE_URL=https://magnitude-detail-pipe-cake.trycloudflare.com
+          --build-name=1.0.10
           --build-number=$BUILD_NUMBER
           --export-options-plist=$HOME/export_options.plist
       - name: Verify IPA artifact

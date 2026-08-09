@@ -1,17 +1,14 @@
-# KILO Live Activity extension sources
+# Live Activity implementation status
 
-These Swift files are intentionally kept outside the generated Runner target so
-Windows CI can build Android without pretending to run Xcode. Add them to a
-Widget Extension target named `KiloLiveActivity` on macOS, enable **Live
-Activities** and **App Groups**, and select `group.com.kilostrength` for both
-the Runner and extension targets.
+This folder keeps the earlier reference implementation only. The production
+Widget Extension is now part of `ios/Runner.xcodeproj` and its compiled sources
+live in `ios/KiloLiveActivity/`. The Runner-side ActivityKit bridge is
+`ios/Runner/KiloLiveActivityManager.swift`.
 
-The compact, minimal, expanded Dynamic Island regions and lock-screen view are
-all defined in `KiloLiveActivityWidget.swift`. `KiloTimerIntents.swift` exposes
-pause, skip-rest and finish-workout actions. The App Group dictionary is the
-only shared payload; Flutter state remains authoritative and the extension never
-reads Flutter memory.
+The extension uses an absolute rest end time, allowing iOS to update the lock
+screen and Dynamic Island countdown without receiving one method-channel call
+per second. Flutter remains authoritative for workout data.
 
-The Flutter `MethodChannel('kilo.platform.timer')` is the cross-platform bridge.
-On iOS it is safe to no-op when ActivityKit is unavailable (iOS < 16.1), while
-Android falls back to an ordinary notification channel.
+For App Store signing, register the extension identifier
+`com.kilostrength.kiloStrength.KiloLiveActivity` and provide an App Store
+provisioning profile for both the Runner and extension targets in Codemagic.

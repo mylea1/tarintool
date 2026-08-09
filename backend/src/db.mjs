@@ -157,3 +157,49 @@ export function seedTestAdmin(db, cfg) {
     updated_at = ? WHERE user_id = ?`).run(nowIso(), user.id);
   return db.prepare('SELECT * FROM users WHERE id = ?').get(user.id);
 }
+
+export function seedTestMember(db, cfg) {
+  if (!cfg.enableTestMember) return null;
+  const upsertMember = ({ identifier, rawPassword, displayName, forever = false }) => {
+    let user = db.prepare('SELECT * FROM users WHERE identifier = ?').get(identifier);
+    if (!user) {
+      const password = hashPassword(rawPassword, undefined, 3);
+      user = {
+        id: randomId('usr_'),
+        identifier,
+        display_name: displayName,
+        role: 'user',
+        auth_provider: 'password',
+        created_at: nowIso(),
+      };
+      db.prepare(`INSERT INTO users (id, identifier, display_name, role, auth_provider, password_salt, password_hash, created_at)
+        VALUES (@id, @identifier, @display_name, @role, @auth_provider, @salt, @hash, @created_at)`)
+        .run({ ...user, salt: password.salt, hash: password.hash });
+    }
+    if (user.role !== 'user') {
+      db.prepare("UPDATE users SET role = 'user' WHERE id = ?").run(user.id);
+      user = db.prepare('SELECT * FROM users WHERE id = ?').get(user.id);
+    }
+    ensureEntitlement(db, user.id);
+    if (forever) {
+      db.prepare(`UPDATE entitlements SET membership = 'forever', membership_expires_at = NULL,
+        ai_remaining = CASE WHEN ai_remaining < 20 THEN 20 ELSE ai_remaining END,
+        recognition_remaining = CASE WHEN recognition_remaining < 3 THEN 3 ELSE recognition_remaining END,
+        recognition_weekly_grant = CASE WHEN recognition_weekly_grant < 3 THEN 3 ELSE recognition_weekly_grant END,
+        updated_at = ? WHERE user_id = ?`).run(nowIso(), user.id);
+    }
+    return db.prepare('SELECT * FROM users WHERE id = ?').get(user.id);
+  };
+  const member = upsertMember({
+    identifier: cfg.testMemberIdentifier,
+    rawPassword: cfg.testMemberPassword,
+    displayName: 'EMBER Test Member',
+  });
+  upsertMember({
+    identifier: cfg.testAdminIdentifier,
+    rawPassword: cfg.testAdminPassword,
+    displayName: 'EMBER Test Operator',
+    forever: true,
+  });
+  return member;
+}

@@ -28,6 +28,10 @@ void main() {
       find.byKey(const Key('login-test-account-fill-button')),
       findsOneWidget,
     );
+    expect(
+      find.byKey(const Key('login-member-account-fill-button')),
+      findsOneWidget,
+    );
 
     await tester.tap(find.byKey(const Key('login-test-account-fill-button')));
     await tester.pump();
@@ -52,6 +56,37 @@ void main() {
     expect(service.entitlements?.membership, MembershipPlan.forever);
   });
 
+  testWidgets('normal test account signs in from a compact login screen', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 812);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    final service = AccountService(allowTestAdmin: true);
+    final controller = AppController(accountService: service);
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      MediaQuery(
+        data: const MediaQueryData(textScaler: TextScaler.linear(1.5)),
+        child: MaterialApp(home: LoginPage(controller: controller)),
+      ),
+    );
+    await tester.ensureVisible(
+      find.byKey(const Key('login-member-account-fill-button')),
+    );
+    await tester.tap(find.byKey(const Key('login-member-account-fill-button')));
+    await tester.tap(find.byKey(const Key('login-button')));
+    await tester.pump();
+
+    expect(service.currentUser?.identifier, '123');
+    expect(service.isAdmin, isFalse);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'disabled test account hides the shortcut and rejects credentials',
     (tester) async {
@@ -64,6 +99,10 @@ void main() {
       );
       expect(
         find.byKey(const Key('login-test-account-fill-button')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const Key('login-member-account-fill-button')),
         findsNothing,
       );
 
@@ -120,6 +159,23 @@ void main() {
     expect(enabled.entitlements?.membership, MembershipPlan.forever);
     expect(enabled.aiRemaining, 20);
     expect(enabled.entitlements?.recognitionWeeklyGrant, 3);
+  });
+
+  test('normal test account uses free-member permissions', () {
+    final disabled = AccountService(allowTestAdmin: false);
+    expect(
+      disabled.loginWithPhone('123', password: '123').error,
+      AccountError.invalidCredentials,
+    );
+
+    final enabled = AccountService(allowTestAdmin: true);
+    final result = enabled.loginWithPhone('123', password: '123');
+    expect(result.isSuccess, isTrue);
+    expect(enabled.isAdmin, isFalse);
+    expect(enabled.currentUser?.displayName, '普通体验用户');
+    expect(enabled.entitlements?.membership, MembershipPlan.free);
+    expect(enabled.aiRemaining, 3);
+    expect(enabled.recognitionRemaining, 5);
   });
 
   test('quota reservation commits and rolls back without losing credits', () {
@@ -330,6 +386,7 @@ class _ThrowingCoachApi implements CoachApi {
   Future<CoachAnswer> answer({
     required String prompt,
     required bool includeTrainingSummary,
+    String? trainingSummary,
   }) async {
     throw StateError('upstream');
   }

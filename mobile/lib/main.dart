@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'account_membership.dart';
 import 'controller.dart';
@@ -28,10 +29,13 @@ const hairline = Color(0xFFEAD9CD);
 const emberTint = Color(0xFFFFEFE4);
 const emberShadow = Color(0x1F8E3D15);
 const danger = Color(0xFFB3261E);
-const kiloAppVersion = '1.0.9';
-const kiloAppBuild = '10';
+const kiloAppVersion = '1.0.10';
+const kiloAppBuild = '11';
 const kiloAppVersionLabel = '$kiloAppVersion ($kiloAppBuild)';
 const kiloAppNavigationLabel = '新版导航：训练/记录、AI/识别已合并';
+const emberBrandName = '炽练';
+const emberBrandEnglish = 'EMBER';
+const emberLogoAsset = 'assets/branding/ember-mark.png';
 
 void main() => runApp(const KiloApp());
 
@@ -49,12 +53,19 @@ class _KiloAppState extends State<KiloApp> {
   late final AppController controller;
   late final bool ownsController;
   late bool durableStateReady;
+  late bool splashElapsed;
   @override
   void initState() {
     super.initState();
     ownsController = widget.initialController == null;
     controller = widget.initialController ?? AppController();
     durableStateReady = widget.initialController != null;
+    splashElapsed = widget.initialController != null;
+    if (!splashElapsed) {
+      Future<void>.delayed(const Duration(milliseconds: 900), () {
+        if (mounted) setState(() => splashElapsed = true);
+      });
+    }
     if (!durableStateReady) _loadDurableState();
   }
 
@@ -90,10 +101,10 @@ class _KiloAppState extends State<KiloApp> {
           !controller.isAuthenticated;
       return MaterialApp(
         debugShowCheckedModeBanner: false,
-        title: 'KILO Strength',
+        title: '$emberBrandName $emberBrandEnglish',
         theme: _theme,
-        home: !durableStateReady
-            ? const AccountLoadingPage()
+        home: !durableStateReady || !splashElapsed
+            ? const EmberSplashPage()
             : showLogin
             ? LoginPage(controller: controller)
             : KiloShell(controller: controller),
@@ -244,6 +255,87 @@ class AccountLoadingPage extends StatelessWidget {
   );
 }
 
+class EmberLogo extends StatelessWidget {
+  const EmberLogo({super.key, this.size = 48});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => Image.asset(
+    emberLogoAsset,
+    width: size,
+    height: size,
+    fit: BoxFit.contain,
+    semanticLabel: '$emberBrandName $emberBrandEnglish 标志',
+  );
+}
+
+class EmberSplashPage extends StatefulWidget {
+  const EmberSplashPage({super.key});
+
+  @override
+  State<EmberSplashPage> createState() => _EmberSplashPageState();
+}
+
+class _EmberSplashPageState extends State<EmberSplashPage>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController animation;
+  late final Animation<double> scale;
+  late final Animation<double> opacity;
+
+  @override
+  void initState() {
+    super.initState();
+    animation = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 760),
+    )..forward();
+    scale = CurvedAnimation(parent: animation, curve: Curves.easeOutBack);
+    opacity = CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
+  }
+
+  @override
+  void dispose() {
+    animation.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reducedMotion = MediaQuery.disableAnimationsOf(context);
+    return Scaffold(
+      key: const Key('ember-splash-page'),
+      body: Center(
+        child: FadeTransition(
+          opacity: reducedMotion ? const AlwaysStoppedAnimation(1) : opacity,
+          child: ScaleTransition(
+            scale: reducedMotion ? const AlwaysStoppedAnimation(1) : scale,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const EmberLogo(size: 104),
+                const SizedBox(height: 12),
+                Text(
+                  emberBrandName,
+                  style: Theme.of(context).textTheme.headlineLarge,
+                ),
+                const Text(
+                  emberBrandEnglish,
+                  style: TextStyle(
+                    color: primary,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key, required this.controller});
 
@@ -299,116 +391,178 @@ class _LoginPageState extends State<LoginPage> {
     setState(() => busy = false);
   }
 
+  void fillTestAccount(String value) {
+    setState(() {
+      identifier.text = value;
+      password.text = value;
+      error = null;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final isIos = defaultTargetPlatform == TargetPlatform.iOS;
     final testAccountEnabled =
-        widget.controller.accountService.isTestAdminEnabled;
+        widget.controller.accountService.isTestAccountEnabled;
     return Scaffold(
       key: const Key('login-page'),
       body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(24, 36, 24, 28),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Container(
-                    width: 58,
-                    height: 58,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: cobalt,
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    child: const Text(
-                      'K',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Text(
-                    '登录 KILO',
-                    style: Theme.of(context).textTheme.headlineMedium,
-                  ),
-                  const SizedBox(height: 8),
-                  const Text('同步训练身份，保留会员状态和 AI / 识别额度。'),
-                  const SizedBox(height: 24),
-                  TextField(
-                    key: const Key('login-identifier'),
-                    controller: identifier,
-                    keyboardType: TextInputType.phone,
-                    textInputAction: TextInputAction.next,
-                    decoration: const InputDecoration(
-                      labelText: '手机号或账号',
-                      hintText: '输入手机号',
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    key: const Key('login-password'),
-                    controller: password,
-                    obscureText: true,
-                    onSubmitted: (_) => submit(),
-                    decoration: InputDecoration(
-                      labelText: testAccountEnabled ? '密码（测试账号需要）' : '密码',
-                    ),
-                  ),
-                  if (testAccountEnabled) ...[
-                    const SizedBox(height: 10),
-                    OutlinedButton.icon(
-                      key: const Key('login-test-account-fill-button'),
-                      onPressed: busy
-                          ? null
-                          : () {
-                              setState(() {
-                                identifier.text = '1234';
-                                password.text = '1234';
-                                error = null;
-                              });
-                            },
-                      icon: const Icon(Icons.content_paste_go_outlined),
-                      label: const Text('一键填入测试账号'),
+        child: LayoutBuilder(
+          builder: (context, constraints) => SingleChildScrollView(
+            padding: EdgeInsets.fromLTRB(
+              20,
+              constraints.maxHeight < 700 ? 14 : 28,
+              20,
+              24,
+            ),
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Row(
+                      children: [
+                        EmberLogo(size: 66),
+                        SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                emberBrandEnglish,
+                                style: TextStyle(
+                                  color: primary,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 3,
+                                ),
+                              ),
+                              Text(
+                                emberBrandName,
+                                style: TextStyle(
+                                  color: ink,
+                                  fontSize: 27,
+                                  height: 1.05,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 8),
-                    Text(
-                      '测试版账号：1234 / 1234（仅 Debug 或显式测试开关可用）',
-                      style: Theme.of(
-                        context,
-                      ).textTheme.bodySmall?.copyWith(color: muted),
+                    const Text(
+                      '记录每一组，把坚持变成看得见的成长。',
+                      style: TextStyle(color: muted),
                     ),
-                  ],
-                  if (error != null) ...[
-                    const SizedBox(height: 10),
-                    Text(error!, style: const TextStyle(color: danger)),
-                  ],
-                  const SizedBox(height: 16),
-                  FilledButton(
-                    key: const Key('login-button'),
-                    onPressed: busy ? null : submit,
-                    child: Text(busy ? '登录中…' : '登录'),
-                  ),
-                  if (isIos) ...[
-                    const SizedBox(height: 10),
-                    OutlinedButton.icon(
-                      key: const Key('apple-login-button'),
-                      onPressed: () {
-                        final result = widget.controller.loginWithApple();
-                        setState(
-                          () => error = result.message ?? 'Apple 登录尚未配置。',
-                        );
-                      },
-                      icon: const Icon(Icons.apple),
-                      label: const Text('使用 Apple 登录（尚未配置）'),
+                    const SizedBox(height: 16),
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              '登录账号',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            const SizedBox(height: 10),
+                            TextField(
+                              key: const Key('login-identifier'),
+                              controller: identifier,
+                              keyboardType: TextInputType.phone,
+                              textInputAction: TextInputAction.next,
+                              autofillHints: const [AutofillHints.username],
+                              decoration: const InputDecoration(
+                                labelText: '手机号或账号',
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            TextField(
+                              key: const Key('login-password'),
+                              controller: password,
+                              obscureText: true,
+                              textInputAction: TextInputAction.done,
+                              autofillHints: const [AutofillHints.password],
+                              onSubmitted: (_) => submit(),
+                              decoration: const InputDecoration(
+                                labelText: '密码',
+                              ),
+                            ),
+                            if (error != null) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                error!,
+                                style: const TextStyle(
+                                  color: danger,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: 12),
+                            FilledButton(
+                              key: const Key('login-button'),
+                              onPressed: busy ? null : submit,
+                              child: Text(busy ? '登录中…' : '登录'),
+                            ),
+                            if (testAccountEnabled) ...[
+                              const SizedBox(height: 10),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: OutlinedButton(
+                                      key: const Key(
+                                        'login-member-account-fill-button',
+                                      ),
+                                      onPressed: busy
+                                          ? null
+                                          : () => fillTestAccount('123'),
+                                      child: const Text('普通体验 123'),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: OutlinedButton(
+                                      key: const Key(
+                                        'login-test-account-fill-button',
+                                      ),
+                                      onPressed: busy
+                                          ? null
+                                          : () => fillTestAccount('1234'),
+                                      child: const Text('管理测试 1234'),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              const Text(
+                                '测试入口仅在测试构建中显示',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(fontSize: 11, color: muted),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
                     ),
+                    if (isIos) ...[
+                      const SizedBox(height: 10),
+                      OutlinedButton.icon(
+                        key: const Key('apple-login-button'),
+                        onPressed: () {
+                          final result = widget.controller.loginWithApple();
+                          setState(
+                            () => error = result.message ?? 'Apple 登录尚未配置。',
+                          );
+                        },
+                        icon: const Icon(Icons.apple),
+                        label: const Text('使用 Apple 登录'),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),
@@ -535,23 +689,8 @@ class _TopBar extends StatelessWidget {
           Expanded(
             child: Row(
               children: [
-                SizedBox(
-                  width: 45,
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: const Text(
-                      'KILO',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 2,
-                        color: cobalt,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 9),
+                const EmberLogo(size: 35),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     title,
@@ -718,23 +857,46 @@ void showKiloSnack(
   messenger?.showSnackBar(
     SnackBar(
       backgroundColor: error
-          ? const Color(0xFF9F2D28)
-          : const Color(0xFF145B3A),
+          ? const Color(0xFF4A1E1B)
+          : const Color(0xFF2B1B15),
+      elevation: 12,
+      margin: const EdgeInsets.fromLTRB(14, 0, 14, 78),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       content: Row(
         children: [
-          Icon(
-            icon ?? (error ? Icons.error_outline : Icons.check_circle_outline),
-            color: Colors.white,
-            size: 19,
+          Container(
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              color: error
+                  ? const Color(0xFFFFDAD6).withValues(alpha: .16)
+                  : primary.withValues(alpha: .22),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              icon ?? (error ? Icons.error_outline : Icons.check_rounded),
+              color: error ? const Color(0xFFFFB4AB) : const Color(0xFFFFA66E),
+              size: 18,
+            ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 10),
           Expanded(
-            child: Text(message, maxLines: 3, overflow: TextOverflow.ellipsis),
+            child: Text(
+              message,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ),
         ],
       ),
       behavior: SnackBarBehavior.floating,
-      duration: const Duration(milliseconds: 1800),
+      duration: const Duration(milliseconds: 1650),
     ),
   );
 }
@@ -1004,7 +1166,10 @@ class _HomeWorkoutHero extends StatelessWidget {
                         child: FilledButton.icon(
                           key: const Key('home-free-workout'),
                           onPressed: () {
-                            controller.startWorkout(name: '自由训练');
+                            controller.startWorkout(
+                              name: '自由训练',
+                              autoStartTimer: false,
+                            );
                             controller.openLiveWorkout();
                           },
                           icon: const Icon(Icons.play_arrow_rounded),
@@ -1454,7 +1619,9 @@ class _LiveWorkoutTimingPanel extends StatelessWidget {
       children: [
         title,
         Text(
-          controller.workoutPaused
+          !controller.workoutTimerStarted
+              ? '准备训练 · ${controller.workout.length} 个动作'
+              : controller.workoutPaused
               ? '已暂停'
               : '实时训练 · ${controller.completedSets}/${controller.totalSets} 组',
           maxLines: 1,
@@ -1475,10 +1642,16 @@ class _LiveWorkoutTimingPanel extends StatelessWidget {
           ),
         ),
         Text(
-          controller.workoutPaused ? '暂停' : '进行中',
+          !controller.workoutTimerStarted
+              ? '准备开始'
+              : controller.workoutPaused
+              ? '暂停'
+              : '进行中',
           style: TextStyle(
             fontSize: 11,
-            color: controller.workoutPaused ? orange : cobalt,
+            color: !controller.workoutTimerStarted || controller.workoutPaused
+                ? orange
+                : cobalt,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -1623,16 +1796,36 @@ class _LiveWorkoutTimingPanel extends StatelessWidget {
           runSpacing: 7,
           children: [
             Tooltip(
-              message: controller.workoutPaused ? '恢复计时' : '暂停计时',
+              message: !controller.workoutTimerStarted
+                  ? '开始本次训练计时'
+                  : controller.workoutPaused
+                  ? '恢复计时'
+                  : '暂停计时',
               child: SizedBox(
                 width: fullWidth,
                 child: PrimaryButton(
-                  key: const Key('pause-workout-button'),
-                  label: controller.workoutPaused ? '恢复计时' : '暂停计时',
-                  icon: controller.workoutPaused
-                      ? Icons.play_arrow
-                      : Icons.pause,
-                  onPressed: controller.pauseWorkout,
+                  key: Key(
+                    controller.workoutTimerStarted
+                        ? 'pause-workout-button'
+                        : 'start-workout-timer-button',
+                  ),
+                  label: !controller.workoutTimerStarted
+                      ? '开始计时'
+                      : controller.workoutPaused
+                      ? '恢复计时'
+                      : '暂停计时',
+                  icon:
+                      !controller.workoutTimerStarted ||
+                          controller.workoutPaused
+                      ? Icons.play_arrow_rounded
+                      : Icons.pause_rounded,
+                  onPressed: controller.workoutTimerStarted
+                      ? controller.pauseWorkout
+                      : () {
+                          HapticFeedback.mediumImpact();
+                          controller.beginWorkoutTimer();
+                          showKiloSnack(context, '训练计时已开始');
+                        },
                 ),
               ),
             ),
@@ -1695,19 +1888,7 @@ class _LiveWorkoutTimingPanel extends StatelessWidget {
         ),
       ),
     );
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        card,
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          height: 96,
-          child: _CompletionBurst(controller: controller),
-        ),
-      ],
-    );
+    return card;
   }
 }
 
@@ -1777,7 +1958,7 @@ class _BurstPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height * .46);
-    final radius = size.shortestSide * .28;
+    final radius = size.shortestSide * .42;
     final opacity = (1 - progress).clamp(0.0, 1.0);
     for (var index = 0; index < points.length; index++) {
       final point = points[index];
@@ -1792,7 +1973,7 @@ class _BurstPainter extends CustomPainter {
                     : const Color(0xFF74C98E))
                 .withValues(alpha: opacity)
         ..style = PaintingStyle.fill;
-      canvas.drawCircle(position, 3.5 * (1 - progress * .35), paint);
+      canvas.drawCircle(position, 5.2 * (1 - progress * .35), paint);
     }
   }
 
@@ -1847,7 +2028,7 @@ class _WorkoutView extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   const Text(
-                    '计时已开始，添加第一个动作即可记录。',
+                    '可以先添加动作，也可以直接开始计时。',
                     style: TextStyle(color: quiet),
                   ),
                   const SizedBox(height: 12),
@@ -1885,11 +2066,20 @@ class _WorkoutView extends StatelessWidget {
           const SizedBox(height: 3),
           SizedBox(
             width: double.infinity,
-            child: OutlinedButton.icon(
+            child: FilledButton.icon(
               key: const Key('finish-workout-button'),
               onPressed: () => _showFinishWorkout(context, controller),
-              icon: const Icon(Icons.stop_circle_outlined),
-              label: Text('结束并保存 · ${controller.currentElapsed ~/ 60} 分钟'),
+              style: FilledButton.styleFrom(
+                backgroundColor: ink,
+                foregroundColor: Colors.white,
+                minimumSize: const Size.fromHeight(52),
+              ),
+              icon: const Icon(Icons.stop_circle_rounded),
+              label: Text(
+                controller.workoutTimerStarted
+                    ? '结束并保存 · ${controller.currentElapsed ~/ 60} 分钟'
+                    : '结束并保存训练',
+              ),
             ),
           ),
         ],
@@ -2433,185 +2623,211 @@ class _SetRow extends StatelessWidget {
   Widget _cellGap() => SizedBox(width: columns.gap);
 
   @override
-  Widget build(BuildContext context) => AnimatedContainer(
-    key: Key('set-row-${set.id}'),
-    duration: const Duration(milliseconds: 220),
-    padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 3),
-    decoration: BoxDecoration(
-      color: set.completed ? successContainer : Colors.white,
-      borderRadius: BorderRadius.circular(9),
-      border: Border.all(
-        color: set.completed ? const Color(0xFF6DB787) : hairline,
-      ),
-    ),
-    child: Row(
-      children: [
-        SizedBox(
-          width: columns.group,
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (controller.batchMode)
-                  SizedBox(
-                    width: 22,
-                    child: Checkbox(
-                      value: controller.selectedSetIds.contains(set.id),
-                      onChanged: set.completed
-                          ? null
-                          : (_) => controller.toggleSetSelection(set),
-                      visualDensity: VisualDensity.compact,
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                  )
-                else
-                  Text(
-                    '${index + 1}',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: set.completed ? const Color(0xFF1E6B45) : quiet,
-                      fontWeight: FontWeight.w800,
-                    ),
+  Widget build(BuildContext context) => Stack(
+    clipBehavior: Clip.none,
+    children: [
+      AnimatedContainer(
+        key: Key('set-row-${set.id}'),
+        duration: const Duration(milliseconds: 220),
+        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 3),
+        decoration: BoxDecoration(
+          color: set.completed ? successContainer : Colors.white,
+          borderRadius: BorderRadius.circular(9),
+          border: Border.all(
+            color: set.completed ? const Color(0xFF6DB787) : hairline,
+          ),
+          boxShadow: set.completed
+              ? const [
+                  BoxShadow(
+                    color: Color(0x1821845A),
+                    blurRadius: 10,
+                    offset: Offset(0, 4),
                   ),
-                _SetTypeButton(
-                  controller: controller,
-                  set: set,
-                  index: index,
-                  compact: columns.compact,
-                ),
-              ],
-            ),
-          ),
+                ]
+              : null,
         ),
-        _cellGap(),
-        SizedBox(
-          key: Key('previous-set-${set.id}'),
-          width: columns.last,
-          child: Builder(
-            builder: (context) {
-              final previous = controller.previousSetFor(
-                exercise.exerciseId,
-                index,
-              );
-              final label = previous == null
-                  ? '—'
-                  : '${_displayWeight(previous.weight)}×${previous.reps}';
-              return Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+        child: Row(
+          children: [
+            SizedBox(
+              width: columns.group,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (controller.batchMode)
+                      SizedBox(
+                        width: 22,
+                        child: Checkbox(
+                          value: controller.selectedSetIds.contains(set.id),
+                          onChanged: set.completed
+                              ? null
+                              : (_) => controller.toggleSetSelection(set),
+                          visualDensity: VisualDensity.compact,
+                          materialTapTargetSize:
+                              MaterialTapTargetSize.shrinkWrap,
+                        ),
+                      )
+                    else
+                      Text(
+                        '${index + 1}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: set.completed
+                              ? const Color(0xFF1E6B45)
+                              : quiet,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    _SetTypeButton(
+                      controller: controller,
+                      set: set,
+                      index: index,
+                      compact: columns.compact,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            _cellGap(),
+            SizedBox(
+              key: Key('previous-set-${set.id}'),
+              width: columns.last,
+              child: Builder(
+                builder: (context) {
+                  final previous = controller.previousSetFor(
+                    exercise.exerciseId,
+                    index,
+                  );
+                  final label = previous == null
+                      ? '—'
+                      : '${_displayWeight(previous.weight)}×${previous.reps}';
+                  return Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: set.completed
+                          ? const Color(0xFF1E6B45)
+                          : previous == null
+                          ? quiet
+                          : secondaryInk,
+                    ),
+                  );
+                },
+              ),
+            ),
+            _cellGap(),
+            SizedBox(
+              width: columns.weight,
+              child: TextFormField(
+                initialValue: _displayWeight(set.weight),
+                enabled: !set.completed,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 11,
-                  color: set.completed
-                      ? const Color(0xFF1E6B45)
-                      : previous == null
-                      ? quiet
-                      : secondaryInk,
+                  fontSize: columns.compact ? 11 : 12,
+                  color: set.completed ? const Color(0xFF1E6B45) : ink,
+                  fontWeight: set.completed ? FontWeight.w800 : FontWeight.w500,
                 ),
-              );
-            },
-          ),
-        ),
-        _cellGap(),
-        SizedBox(
-          width: columns.weight,
-          child: TextFormField(
-            initialValue: _displayWeight(set.weight),
-            enabled: !set.completed,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: columns.compact ? 11 : 12,
-              color: set.completed ? const Color(0xFF1E6B45) : ink,
-              fontWeight: set.completed ? FontWeight.w800 : FontWeight.w500,
-            ),
-            decoration: _inputDecoration(completed: set.completed),
-            onChanged: (value) {
-              set.weight = double.tryParse(value) ?? set.weight;
-            },
-          ),
-        ),
-        _cellGap(),
-        SizedBox(
-          width: columns.reps,
-          child: TextFormField(
-            initialValue: '${set.reps}',
-            enabled: !set.completed,
-            keyboardType: TextInputType.number,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: columns.compact ? 11 : 12,
-              color: set.completed ? const Color(0xFF1E6B45) : ink,
-              fontWeight: set.completed ? FontWeight.w800 : FontWeight.w500,
-            ),
-            decoration: _inputDecoration(completed: set.completed),
-            onChanged: (value) {
-              set.reps = int.tryParse(value) ?? set.reps;
-            },
-          ),
-        ),
-        if (controller.rpeTrackingEnabled) ...[
-          _cellGap(),
-          SizedBox(
-            width: columns.rpe,
-            child: TextFormField(
-              initialValue: set.rpe?.toStringAsFixed(0) ?? '',
-              enabled: !set.completed,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
+                decoration: _inputDecoration(completed: set.completed),
+                onChanged: (value) {
+                  set.weight = double.tryParse(value) ?? set.weight;
+                },
               ),
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: columns.compact ? 11 : 12,
-                color: set.completed ? const Color(0xFF1E6B45) : ink,
-                fontWeight: set.completed ? FontWeight.w800 : FontWeight.w500,
-              ),
-              decoration: _inputDecoration(
-                completed: set.completed,
-              ).copyWith(hintText: '—'),
-              onChanged: (value) {
-                set.rpe = double.tryParse(value);
-              },
             ),
-          ),
-        ],
-        _cellGap(),
-        SizedBox(
-          width: columns.complete,
-          child: Semantics(
-            label: set.completed ? '第 ${index + 1} 组已完成' : '完成第 ${index + 1} 组',
-            button: true,
-            child: Checkbox(
-              key: Key('set-complete-${set.id}'),
-              value: set.completed,
-              onChanged: controller.workoutStarted
-                  ? (_) {
-                      final wasCompleted = set.completed;
-                      controller.completeSet(set, exercise);
-                      showKiloSnack(
-                        context,
-                        wasCompleted
-                            ? '已取消第 ${index + 1} 组'
-                            : '已完成第 ${index + 1} 组',
-                      );
-                    }
-                  : null,
-              fillColor: WidgetStateProperty.resolveWith(
-                (states) => set.completed
-                    ? success
-                    : states.contains(WidgetState.disabled)
-                    ? hairline
-                    : cobalt,
+            _cellGap(),
+            SizedBox(
+              width: columns.reps,
+              child: TextFormField(
+                initialValue: '${set.reps}',
+                enabled: !set.completed,
+                keyboardType: TextInputType.number,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: columns.compact ? 11 : 12,
+                  color: set.completed ? const Color(0xFF1E6B45) : ink,
+                  fontWeight: set.completed ? FontWeight.w800 : FontWeight.w500,
+                ),
+                decoration: _inputDecoration(completed: set.completed),
+                onChanged: (value) {
+                  set.reps = int.tryParse(value) ?? set.reps;
+                },
               ),
-              checkColor: Colors.white,
-              visualDensity: VisualDensity.compact,
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
-          ),
+            if (controller.rpeTrackingEnabled) ...[
+              _cellGap(),
+              SizedBox(
+                width: columns.rpe,
+                child: TextFormField(
+                  initialValue: set.rpe?.toStringAsFixed(0) ?? '',
+                  enabled: !set.completed,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: columns.compact ? 11 : 12,
+                    color: set.completed ? const Color(0xFF1E6B45) : ink,
+                    fontWeight: set.completed
+                        ? FontWeight.w800
+                        : FontWeight.w500,
+                  ),
+                  decoration: _inputDecoration(
+                    completed: set.completed,
+                  ).copyWith(hintText: '—'),
+                  onChanged: (value) {
+                    set.rpe = double.tryParse(value);
+                  },
+                ),
+              ),
+            ],
+            _cellGap(),
+            SizedBox(
+              width: columns.complete,
+              child: Semantics(
+                label: set.completed
+                    ? '第 ${index + 1} 组已完成'
+                    : '完成第 ${index + 1} 组',
+                button: true,
+                child: Checkbox(
+                  key: Key('set-complete-${set.id}'),
+                  value: set.completed,
+                  onChanged: controller.workoutTimerStarted
+                      ? (_) {
+                          HapticFeedback.mediumImpact();
+                          controller.completeSet(set, exercise);
+                        }
+                      : null,
+                  fillColor: WidgetStateProperty.resolveWith(
+                    (states) => set.completed
+                        ? success
+                        : states.contains(WidgetState.disabled)
+                        ? hairline
+                        : cobalt,
+                  ),
+                  checkColor: Colors.white,
+                  visualDensity: VisualDensity.compact,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ),
+            ),
+          ],
         ),
-      ],
-    ),
+      ),
+      if (controller.completionBurstActive &&
+          controller.completionBurstSetId == set.id)
+        Positioned(
+          right: -30,
+          top: -62,
+          width: 150,
+          height: 126,
+          child: _CompletionBurst(controller: controller),
+        ),
+    ],
   );
 }
 
@@ -2712,7 +2928,7 @@ class _PlansView extends StatelessWidget {
           child: FilledButton.icon(
             key: const Key('free-workout-button'),
             onPressed: () {
-              controller.startWorkout(name: '自由训练');
+              controller.startWorkout(name: '自由训练', autoStartTimer: false);
               controller.openLiveWorkout();
             },
             icon: const Icon(Icons.play_arrow),
@@ -3353,13 +3569,25 @@ class _CalendarLegend extends StatelessWidget {
   );
 }
 
-class ExerciseLibraryPage extends StatelessWidget {
+class ExerciseLibraryPage extends StatefulWidget {
   const ExerciseLibraryPage({super.key, required this.controller});
   final AppController controller;
+
+  @override
+  State<ExerciseLibraryPage> createState() => _ExerciseLibraryPageState();
+}
+
+class _ExerciseLibraryPageState extends State<ExerciseLibraryPage> {
+  static const pageSize = 60;
+  var shownCount = pageSize;
+
+  AppController get controller => widget.controller;
+
   @override
   Widget build(BuildContext context) {
     const groups = ['全部', '胸', '背', '肩', '腿', '手臂', '核心'];
     final items = controller.visibleExercises;
+    final displayedItems = items.take(shownCount).toList(growable: false);
     final textScale = MediaQuery.textScalerOf(context).scale(1);
     final cardAspectRatio = textScale >= 1.5 ? .46 : .68;
     return PageFrame(
@@ -3388,6 +3616,7 @@ class ExerciseLibraryPage extends StatelessWidget {
                           isDense: true,
                         ),
                         onChanged: (value) {
+                          shownCount = pageSize;
                           controller.search = value;
                           controller.refresh();
                         },
@@ -3457,7 +3686,7 @@ class ExerciseLibraryPage extends StatelessWidget {
                       key: const Key('exercise-library-grid'),
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
-                      itemCount: items.length,
+                      itemCount: displayedItems.length,
                       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: 2,
                         crossAxisSpacing: 10,
@@ -3465,7 +3694,7 @@ class ExerciseLibraryPage extends StatelessWidget {
                         childAspectRatio: cardAspectRatio,
                       ),
                       itemBuilder: (context, index) {
-                        final exercise = items[index];
+                        final exercise = displayedItems[index];
                         return Card(
                           margin: EdgeInsets.zero,
                           clipBehavior: Clip.antiAlias,
@@ -3567,6 +3796,27 @@ class ExerciseLibraryPage extends StatelessWidget {
                         );
                       },
                     ),
+                  if (displayedItems.length < items.length) ...[
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        key: const Key('exercise-library-load-more'),
+                        onPressed: () => setState(() {
+                          shownCount = (shownCount + pageSize).clamp(
+                            0,
+                            items.length,
+                          );
+                        }),
+                        icon: const Icon(Icons.expand_more),
+                        label: Text(
+                          '加载更多（已显示 ${displayedItems.length} / ${items.length}）',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -3583,45 +3833,75 @@ class _MuscleRail extends StatelessWidget {
   final List<String> groups;
 
   @override
-  Widget build(BuildContext context) => Container(
+  Widget build(BuildContext context) => SizedBox(
     key: const Key('muscle-rail'),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: hairline),
-    ),
     child: Column(
       children: [
         for (final group in groups)
-          Material(
-            color: controller.muscleFilter == group ? primary : Colors.white,
-            child: InkWell(
-              onTap: () {
-                controller.muscleFilter = group;
-                controller.refresh();
-                showKiloSnack(
-                  context,
-                  group == '全部' ? '显示全部动作' : '已筛选 $group 部位',
-                );
-              },
-              child: Container(
-                constraints: const BoxConstraints(minHeight: 48),
-                width: double.infinity,
-                alignment: Alignment.center,
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: Text(
-                  group,
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: controller.muscleFilter == group
-                        ? FontWeight.w800
-                        : FontWeight.w600,
-                    color: controller.muscleFilter == group
-                        ? Colors.white
-                        : secondaryInk,
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              decoration: BoxDecoration(
+                color: controller.muscleFilter == group
+                    ? primaryContainer
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(13),
+                border: Border.all(
+                  color: controller.muscleFilter == group
+                      ? const Color(0xFFF0A278)
+                      : Colors.transparent,
+                  width: controller.muscleFilter == group ? 1.5 : 1,
+                ),
+                boxShadow: controller.muscleFilter == group
+                    ? const [
+                        BoxShadow(
+                          color: emberShadow,
+                          blurRadius: 10,
+                          offset: Offset(0, 4),
+                        ),
+                      ]
+                    : null,
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(13),
+                  onTap: () {
+                    controller.muscleFilter = group;
+                    controller.refresh();
+                    showKiloSnack(
+                      context,
+                      group == '全部' ? '显示全部动作' : '已筛选 $group 部位',
+                    );
+                  },
+                  child: Container(
+                    constraints: const BoxConstraints(minHeight: 44),
+                    width: double.infinity,
+                    alignment: Alignment.center,
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    decoration: controller.muscleFilter == group
+                        ? const BoxDecoration(
+                            border: Border(
+                              left: BorderSide(color: primary, width: 3),
+                            ),
+                          )
+                        : null,
+                    child: Text(
+                      group,
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: controller.muscleFilter == group
+                            ? FontWeight.w900
+                            : FontWeight.w600,
+                        color: controller.muscleFilter == group
+                            ? primary
+                            : secondaryInk,
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -4344,11 +4624,11 @@ class _AccountMembershipCard extends StatelessWidget {
 
   String _membershipCaption(EntitlementSnapshot entitlement) {
     if (entitlement.membership == MembershipPlan.forever) {
-      return 'KILO PRO · 永久有效';
+      return 'EMBER PRO · 永久有效';
     }
     final expiresAt = entitlement.membershipExpiresAt;
     if (expiresAt == null) return '基础权益 · 可随时升级';
-    return 'KILO PRO · ${expiresAt.year}.${expiresAt.month.toString().padLeft(2, '0')}.${expiresAt.day.toString().padLeft(2, '0')} 到期';
+    return 'EMBER PRO · ${expiresAt.year}.${expiresAt.month.toString().padLeft(2, '0')}.${expiresAt.day.toString().padLeft(2, '0')} 到期';
   }
 
   @override
@@ -4792,7 +5072,7 @@ class ProfilePage extends StatelessWidget {
               const _ProfileSettingRow(
                 key: Key('app-version-row'),
                 icon: Icons.info_outline,
-                title: '关于 KILO',
+                title: '关于炽练',
                 caption: '版本 $kiloAppVersionLabel · $kiloAppNavigationLabel',
               ),
             ],
@@ -5498,40 +5778,54 @@ class _ExerciseDetailSheetState extends State<_ExerciseDetailSheet> {
   @override
   Widget build(BuildContext context) {
     final records = matchingRecords;
-    return SafeArea(
-      child: SizedBox(
-        key: const Key('exercise-detail-sheet'),
-        height: MediaQuery.sizeOf(context).height * .94,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(14, 0, 14, 28),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _ExerciseDetailHeader(controller: controller, exercise: exercise),
-              _ExerciseMediaHero(exercise: exercise, media: media),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  _DetailTag(label: '主要：${exercise.muscle}'),
-                  _DetailTag(label: '辅助：${exercise.secondary}'),
-                  _DetailTag(label: '器械：${exercise.equipment}'),
-                ],
-              ),
-              const SizedBox(height: 12),
-              _ExerciseDetailTabs(
-                selected: tab,
-                onChanged: (value) => setState(() => tab = value),
-              ),
-              const SizedBox(height: 4),
-              if (tab == 0)
-                _buildOverview(records: records)
-              else if (tab == 1)
-                _buildTeaching()
-              else
-                _buildHistory(records),
-            ],
+    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
+    final sheetHeight = MediaQuery.sizeOf(context).height * .94;
+    final contentHeight = (sheetHeight - keyboardInset)
+        .clamp(320.0, sheetHeight)
+        .toDouble();
+    return AnimatedPadding(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      padding: EdgeInsets.only(bottom: keyboardInset),
+      child: SafeArea(
+        child: SizedBox(
+          key: const Key('exercise-detail-sheet'),
+          height: contentHeight,
+          child: SingleChildScrollView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: const EdgeInsets.fromLTRB(14, 0, 14, 28),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _ExerciseDetailHeader(
+                  controller: controller,
+                  exercise: exercise,
+                ),
+                _ExerciseMediaHero(exercise: exercise, media: media),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    _DetailTag(label: '主要：${exercise.muscle}'),
+                    _DetailTag(label: '辅助：${exercise.secondary}'),
+                    _DetailTag(label: '器械：${exercise.equipment}'),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                _ExerciseDetailTabs(
+                  selected: tab,
+                  onChanged: (value) => setState(() => tab = value),
+                ),
+                const SizedBox(height: 4),
+                if (tab == 0)
+                  _buildOverview(records: records)
+                else if (tab == 1)
+                  _buildTeaching()
+                else
+                  _buildHistory(records),
+              ],
+            ),
           ),
         ),
       ),
@@ -5582,6 +5876,10 @@ class _ExerciseDetailSheetState extends State<_ExerciseDetailSheet> {
                 controller: note,
                 maxLines: 2,
                 minLines: 1,
+                textInputAction: TextInputAction.newline,
+                scrollPadding: EdgeInsets.only(
+                  bottom: MediaQuery.viewInsetsOf(context).bottom + 150,
+                ),
                 decoration: const InputDecoration(
                   labelText: '动作备注',
                   hintText: '例如：回程控制 2 秒，保持胸口支撑',
@@ -5593,6 +5891,10 @@ class _ExerciseDetailSheetState extends State<_ExerciseDetailSheet> {
                 controller: link,
                 maxLines: 1,
                 keyboardType: TextInputType.url,
+                textInputAction: TextInputAction.done,
+                scrollPadding: EdgeInsets.only(
+                  bottom: MediaQuery.viewInsetsOf(context).bottom + 150,
+                ),
                 decoration: const InputDecoration(
                   labelText: '教学链接（可选）',
                   prefixIcon: Icon(Icons.link),
@@ -7230,14 +7532,40 @@ void _showScheduleEditor(
         ? '训练安排'
         : controller.scheduledLabels[oldDate] ?? '训练安排',
   );
+  const bodyParts = ['胸', '背', '肩', '腿', '手臂', '核心', '全身'];
+  String? selectedBodyPart;
   showDialog<void>(
     context: context,
     builder: (context) => StatefulBuilder(
       builder: (context, setState) => AlertDialog(
+        scrollable: true,
         title: Text(oldDate == null ? '新增排程' : '改期排程'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            const Text(
+              '快速选择训练部位',
+              style: TextStyle(fontSize: 12, color: muted),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 7,
+              runSpacing: 7,
+              children: [
+                for (final part in bodyParts)
+                  ChoiceChip(
+                    key: Key('schedule-body-part-$part'),
+                    label: Text(part),
+                    selected: selectedBodyPart == part,
+                    onSelected: (_) {
+                      setState(() => selectedBodyPart = part);
+                      label.text = part == '全身' ? '全身训练' : '$part部训练';
+                    },
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
             TextField(
               controller: label,
               decoration: const InputDecoration(labelText: '训练名称'),

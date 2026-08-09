@@ -13,8 +13,8 @@ const bool _testAdminFlag = bool.fromEnvironment(
   defaultValue: false,
 );
 
-/// `1234 / 1234` is a development fixture only.  In a release build it is
-/// disabled unless the developer explicitly opted in with
+/// `123 / 123` and `1234 / 1234` are development fixtures only. In a release
+/// build they are disabled unless the developer explicitly opted in with
 /// `--dart-define=ENABLE_TEST_ADMIN=true`.
 bool get testAdminEnabled => kDebugMode || _testAdminFlag;
 
@@ -357,6 +357,11 @@ class AccountService extends ChangeNotifier {
   /// release gate even when callers request [allowTestAdmin].
   bool get isTestAdminEnabled => allowTestAdmin;
 
+  /// Both the free-member and administrator fixtures share the same explicit
+  /// build gate so production releases cannot expose either account by
+  /// accident.
+  bool get isTestAccountEnabled => allowTestAdmin;
+
   AccountUser? get currentUser =>
       _currentUserId == null ? null : _users[_currentUserId];
   bool get isAuthenticated => currentUser != null;
@@ -405,6 +410,17 @@ class AccountService extends ChangeNotifier {
         displayName: '测试管理员',
         provider: AuthProvider.phone,
         isAdmin: true,
+      );
+    }
+    if (normalized == '123') {
+      if (password != '123' || !allowTestAdmin) {
+        return const AuthResult.failure(AccountError.invalidCredentials);
+      }
+      return _login(
+        identifier: normalized,
+        displayName: '普通体验用户',
+        provider: AuthProvider.phone,
+        isAdmin: false,
       );
     }
     return _login(
@@ -761,7 +777,11 @@ class AccountService extends ChangeNotifier {
     }
     if (!allowTestAdmin) {
       final disabledAdminIds = _users.values
-          .where((item) => item.identifier == '1234' && item.isAdmin)
+          .where(
+            (item) =>
+                (item.identifier == '1234' && item.isAdmin) ||
+                (item.identifier == '123' && !item.isAdmin),
+          )
           .map((item) => item.id)
           .toList();
       for (final id in disabledAdminIds) {

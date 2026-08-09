@@ -27,8 +27,7 @@ python -m unittest discover -s tests -v
 ```bash
 docker build -t ghcr.io/mylea1/tarintool-gpu-worker:latest .
 docker run --rm --gpus all \
-  -e KILO_API_BASE=https://api.kilostrength.com \
+  -e KILO_API_BASE=https://api.kilostrength.cn \
   -e KILO_GPU_API_KEY=replace-with-a-secret \
   ghcr.io/mylea1/tarintool-gpu-worker:latest
 ```
-

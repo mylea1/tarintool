@@ -7,11 +7,12 @@
 ```powershell
 npm install --registry=https://registry.npmmirror.com
 $env:KILO_ENABLE_TEST_ADMIN='true' # 仅本地测试时使用
+$env:KILO_ENABLE_TEST_MEMBER='true' # 普通体验账号 123/123
 $env:KILO_ENABLE_PASSWORD_REGISTRATION='true' # 仅 development/test
 npm start
 ```
 
-健康检查为 `GET /health`。测试管理员 `1234/1234` 只会在显式设置 `KILO_ENABLE_TEST_ADMIN=true` 时种子；生产环境会拒绝该开关、弱 session pepper 和弱 GPU key。
+健康检查为 `GET /health`。测试管理员 `1234/1234` 和普通体验账号 `123/123` 分别由 `KILO_ENABLE_TEST_ADMIN`、`KILO_ENABLE_TEST_MEMBER` 显式启用；两种测试开关都只允许 development/test，生产安全校验会拒绝它们。App 内的管理员身份不会绕过服务端角色校验。
 
 数据库由 `migrations/001_init.sql` 自动初始化。`KILO_DATA_DIR`、`KILO_DATABASE_PATH` 和 `KILO_MEDIA_DIR` 应指向持久卷；当前媒体实现是服务器磁盘上的 `LocalStorage`，API 使用逻辑 key，未来替换 OSS 不需要改移动端 API。媒体下载始终要求资源所属用户的会话。
 

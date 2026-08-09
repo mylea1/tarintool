@@ -1,9 +1,8 @@
-/// Lightweight, compile-time metadata for the exercise-dataset-reference
-/// media used by the mobile exercise library.
-///
-/// The source dataset is intentionally not read at runtime. Only the 32
-/// catalog entries needed by the app are represented here, together with the
-/// matching JPG/GIF copied to assets/exercises/reference.
+import 'exercise_dataset.generated.dart';
+
+/// Lightweight metadata for exercise-dataset-reference media used by the
+/// mobile exercise library. The source JSON is converted to Dart at build time
+/// so the app does not parse the 17 MB dataset at runtime.
 class ExerciseMedia {
   const ExerciseMedia({
     required this.datasetId,
@@ -412,4 +411,18 @@ const exerciseMedia = <String, ExerciseMedia>{
   ),
 };
 
-ExerciseMedia? mediaForExercise(String exerciseId) => exerciseMedia[exerciseId];
+final Map<String, ExerciseMedia> allExerciseMedia = <String, ExerciseMedia>{
+  for (final entry in datasetExerciseEntries.entries)
+    entry.key: ExerciseMedia(
+      datasetId: entry.value.datasetId,
+      imageAsset: entry.value.imageAsset,
+      gifAsset: entry.value.gifAsset,
+      summary: entry.value.summary,
+      steps: entry.value.steps,
+      attribution: entry.value.attribution,
+    ),
+  ...exerciseMedia,
+};
+
+ExerciseMedia? mediaForExercise(String exerciseId) =>
+    allExerciseMedia[exerciseId];

@@ -9,6 +9,11 @@ import 'ai_api.dart';
 import 'models.dart';
 import 'recognition_api.dart';
 
+const String defaultCoachApiBaseUrl = String.fromEnvironment(
+  'KILO_API_BASE_URL',
+  defaultValue: 'https://magnitude-detail-pipe-cake.trycloudflare.com',
+);
+
 enum ExerciseNameLanguage { chinese, english }
 
 class PlatformTimerBridge {
@@ -42,10 +47,14 @@ class PlatformTimerBridge {
     }
   }
 
-  static Future<void> startWorkout({required int elapsedSeconds}) async {
+  static Future<void> startWorkout({
+    required int elapsedSeconds,
+    required String workoutName,
+  }) async {
     try {
       await _channel.invokeMethod<void>('startWorkout', {
         'elapsedSeconds': elapsedSeconds,
+        'workoutName': workoutName,
       });
     } on MissingPluginException {
       // The native foreground service is optional in widget tests and previews.
@@ -116,6 +125,8 @@ class AppController extends ChangeNotifier {
   final AccountService accountService;
   final RecognitionApi recognitionApi;
   final CoachApi? coachApi;
+  HttpCoachApi? _defaultCoachApi;
+  String? _defaultCoachApiBaseUrl;
 
   AccountUser? get currentUser => accountService.currentUser;
   bool get isAuthenticated => accountService.isAuthenticated;
@@ -126,14 +137,19 @@ class AppController extends ChangeNotifier {
 
   void _handleAccountChanged() => notifyListeners();
 
-  AuthResult loginWithPhone(String identifier, {String? password}) =>
-      accountService.loginWithPhone(identifier, password: password);
+  AuthResult loginWithPhone(String identifier, {String? password}) {
+    _defaultCoachApi?.clearSession();
+    return accountService.loginWithPhone(identifier, password: password);
+  }
 
   AuthResult loginWithApple() => accountService.loginWithApple();
 
   AuthResult loginWithGoogle() => accountService.loginWithGoogle();
 
-  void logout() => accountService.logout();
+  void logout() {
+    _defaultCoachApi?.clearSession();
+    accountService.logout();
+  }
 
   AccountResult<EntitlementSnapshot> grantMembership({
     required String identifier,
@@ -150,6 +166,7 @@ class AppController extends ChangeNotifier {
   TrainView trainView = TrainView.workout;
   AiView aiView = AiView.chat;
   bool workoutStarted = false;
+  bool workoutTimerStarted = false;
   bool workoutPaused = false;
   DateTime? workoutStartedAt;
   int workoutElapsedSeconds = 0;
@@ -158,6 +175,7 @@ class AppController extends ChangeNotifier {
   bool liveWorkoutVisible = false;
   bool completionBurstActive = false;
   int completionBurstId = 0;
+  String? completionBurstSetId;
 
   /// Whether the current session was started without a prescribed plan.
   /// Free-training sets intentionally keep [WorkoutSet.plannedWeight] null.
@@ -170,7 +188,7 @@ class AppController extends ChangeNotifier {
   final List<WorkoutRecord> history = [];
   final List<Exercise> customExercises = [];
   final Map<String, Map<String, ExerciseResource>> exerciseResources = {};
-  String aiBaseUrl = '';
+  String aiBaseUrl = defaultCoachApiBaseUrl;
   String? selectedMediaPath;
   String? selectedMediaName;
   int? selectedMediaBytes;
@@ -344,7 +362,11 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void startWorkout({List<WorkoutExercise>? source, String? name}) {
+  void startWorkout({
+    List<WorkoutExercise>? source,
+    String? name,
+    bool autoStartTimer = true,
+  }) {
     freeWorkout = source == null;
     if (source == null && workoutCompleted) {
       workout.clear();
@@ -364,25 +386,25 @@ class AppController extends ChangeNotifier {
       }
     }
     workoutName = name ?? (freeWorkout ? '自由训练' : workoutName);
-    if (workout.isEmpty) {
-      workoutDraft = true;
-      workoutCompleted = false;
-      workoutStarted = true;
-      workoutPaused = false;
-      workoutElapsedSeconds = 0;
-      workoutStartedAt = DateTime.now();
-      _workoutTicker?.cancel();
-      _workoutTicker = Timer.periodic(
-        const Duration(seconds: 1),
-        (_) => notifyListeners(),
-      );
-      PlatformTimerBridge.startWorkout(elapsedSeconds: 0);
-      notifyListeners();
-      return;
-    }
-    workoutDraft = false;
+    workoutDraft = workout.isEmpty;
     workoutCompleted = false;
     workoutStarted = true;
+    workoutTimerStarted = false;
+    workoutPaused = false;
+    workoutElapsedSeconds = 0;
+    workoutStartedAt = null;
+    _workoutTicker?.cancel();
+    _workoutTicker = null;
+    if (autoStartTimer) {
+      beginWorkoutTimer();
+    } else {
+      notifyListeners();
+    }
+  }
+
+  void beginWorkoutTimer() {
+    if (!workoutStarted || workoutTimerStarted) return;
+    workoutTimerStarted = true;
     workoutPaused = false;
     workoutStartedAt = DateTime.now();
     _workoutTicker?.cancel();
@@ -390,7 +412,10 @@ class AppController extends ChangeNotifier {
       const Duration(seconds: 1),
       (_) => notifyListeners(),
     );
-    PlatformTimerBridge.startWorkout(elapsedSeconds: 0);
+    PlatformTimerBridge.startWorkout(
+      elapsedSeconds: 0,
+      workoutName: workoutName,
+    );
     notifyListeners();
   }
 
@@ -406,14 +431,17 @@ class AppController extends ChangeNotifier {
   }
 
   void pauseWorkout() {
-    if (!workoutStarted) return;
+    if (!workoutStarted || !workoutTimerStarted) return;
     workoutElapsedSeconds = currentElapsed;
     workoutPaused = !workoutPaused;
     workoutStartedAt = workoutPaused ? null : DateTime.now();
     if (workoutPaused) {
       PlatformTimerBridge.pause();
     } else {
-      PlatformTimerBridge.startWorkout(elapsedSeconds: workoutElapsedSeconds);
+      PlatformTimerBridge.startWorkout(
+        elapsedSeconds: workoutElapsedSeconds,
+        workoutName: workoutName,
+      );
     }
     if (restRunning) {
       if (workoutPaused) {
@@ -429,9 +457,10 @@ class AppController extends ChangeNotifier {
   }
 
   void completeSet(WorkoutSet set, WorkoutExercise parent) {
+    if (!workoutTimerStarted) return;
     set.completed = !set.completed;
     if (set.completed) {
-      triggerCompletionBurst();
+      triggerCompletionBurst(set.id);
       restRemainingSeconds = set.restSeconds > 0
           ? set.restSeconds
           : parent.restSeconds;
@@ -457,12 +486,14 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void triggerCompletionBurst() {
+  void triggerCompletionBurst([String? setId]) {
     completionBurstId++;
     completionBurstActive = true;
+    completionBurstSetId = setId;
     _completionBurstTimer?.cancel();
     _completionBurstTimer = Timer(const Duration(milliseconds: 800), () {
       completionBurstActive = false;
+      completionBurstSetId = null;
       notifyListeners();
     });
     notifyListeners();
@@ -598,6 +629,7 @@ class AppController extends ChangeNotifier {
       );
     }
     workoutStarted = false;
+    workoutTimerStarted = false;
     workoutPaused = false;
     workoutDraft = false;
     workoutCompleted = true;
@@ -1113,6 +1145,76 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<CoachApi> _activeCoachApi() async {
+    final injected = coachApi;
+    if (injected != null) return injected;
+
+    final baseUrl = aiBaseUrl.trim();
+    if (baseUrl.isEmpty) {
+      throw const CoachApiException('coach_base_url_missing');
+    }
+    if (_defaultCoachApi == null || _defaultCoachApiBaseUrl != baseUrl) {
+      _defaultCoachApi = HttpCoachApi(baseUrl: baseUrl);
+      _defaultCoachApiBaseUrl = baseUrl;
+    }
+    final api = _defaultCoachApi!;
+    if (!api.hasSession) {
+      final identifier = currentUser?.identifier;
+      if (identifier != '123' && identifier != '1234') {
+        throw const CoachApiException('coach_account_not_synced');
+      }
+      await api.signIn(identifier: identifier!, password: identifier);
+    }
+    return api;
+  }
+
+  String _buildAiTrainingSummary() {
+    if (history.isEmpty) return '用户尚无已完成训练记录。';
+    final lines = <String>[];
+    for (final record in history.take(5)) {
+      lines.add(
+        '${record.date.toIso8601String().split('T').first} ${record.name}：'
+        '${record.durationSeconds ~/ 60} 分钟，训练量 ${record.volume.toStringAsFixed(1)} kg，'
+        '有效组 ${record.effectiveSets}。',
+      );
+      for (final exercise in record.exercises.take(8)) {
+        final completed = exercise.sets.where((set) => set.completed).take(8);
+        if (completed.isEmpty) continue;
+        final sets = completed
+            .map(
+              (set) =>
+                  '${set.weight.toStringAsFixed(1)} kg × ${set.reps}'
+                  '${set.rpe == null ? '' : '，RPE ${set.rpe!.toStringAsFixed(1)}'}',
+            )
+            .join('；');
+        lines.add('${findExercise(exercise.exerciseId).name}：$sets');
+      }
+    }
+    return lines.join('\n');
+  }
+
+  Future<CoachAnswer> _requestCoachAnswer(String prompt) async {
+    Future<CoachAnswer> request() async {
+      final api = await _activeCoachApi();
+      return api.answer(
+        prompt: prompt,
+        includeTrainingSummary: aiUseTrainingData,
+        trainingSummary: aiUseTrainingData ? _buildAiTrainingSummary() : null,
+      );
+    }
+
+    try {
+      return await request();
+    } on CoachApiException catch (error) {
+      // HttpCoachApi clears an expired session on 401. Re-authenticate once so
+      // a long-lived app session does not force the user to resend the prompt.
+      if (coachApi == null && error.code == 'coach_http_401') {
+        return request();
+      }
+      rethrow;
+    }
+  }
+
   Future<void> sendChat(String text) async {
     final trimmed = text.trim();
     if (trimmed.isEmpty || aiTyping) return;
@@ -1144,12 +1246,7 @@ class AppController extends ChangeNotifier {
       }
       if (serviceError == null) {
         try {
-          remoteAnswer =
-              await (coachApi ?? HttpCoachApi(baseUrl: aiBaseUrl.trim()))
-                  .answer(
-                    prompt: trimmed,
-                    includeTrainingSummary: aiUseTrainingData,
-                  );
+          remoteAnswer = await _requestCoachAnswer(trimmed);
           if (remoteAnswer.body.trim().isNotEmpty) {
             aiReservation?.commit();
           } else {
@@ -1157,9 +1254,14 @@ class AppController extends ChangeNotifier {
             serviceError =
                 '\u0041\u0049 \u670d\u52a1\u672a\u8fd4\u56de\u53ef\u7528\u56de\u7b54\u3002';
           }
+        } on CoachApiException catch (error) {
+          aiReservation?.rollback();
+          serviceError = error.code == 'coach_account_not_synced'
+              ? '当前账号尚未同步到云端，请先使用测试账号 123 或 1234。'
+              : 'AI 服务暂时不可用，请稍后重试。';
         } catch (_) {
           aiReservation?.rollback();
-          serviceError = 'AI 服务暂时不可用，请检查配置后重试。';
+          serviceError = 'AI 服务暂时不可用，请稍后重试。';
         }
       }
     }

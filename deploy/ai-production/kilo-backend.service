@@ -1,0 +1,23 @@
+[Unit]
+Description=EMBER API backend
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=kilo
+Group=kilo
+WorkingDirectory=/opt/kilo/strength-pro/backend
+EnvironmentFile=/etc/kilo/backend.env
+ExecStart=/usr/bin/node src/server.mjs
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=20
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/kilo
+
+[Install]
+WantedBy=multi-user.target

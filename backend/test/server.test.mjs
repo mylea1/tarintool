@@ -24,10 +24,13 @@ async function api(pathname, options = {}) {
 
 test.before(async () => {
   root = await fs.mkdtemp(path.join(os.tmpdir(), 'kilo-backend-'));
-  const cfg = loadConfig({ ...process.env, NODE_ENV: 'test', KILO_ENABLE_TEST_ADMIN: 'true', KILO_ENABLE_PASSWORD_REGISTRATION: 'true', KILO_GPU_API_KEY: 'gpu-test-key-123456789012345678901234', KILO_SESSION_PEPPER: 'session-test-pepper-12345678901234567890', KILO_DATA_DIR: root, KILO_DATABASE_PATH: path.join(root, 'kilo.sqlite3'), KILO_MEDIA_DIR: path.join(root, 'media'), KILO_ALLOWED_ORIGINS: 'http://allowed.test' });
+  const cfg = loadConfig({ ...process.env, NODE_ENV: 'test', KILO_ENABLE_TEST_ADMIN: 'true', KILO_ENABLE_TEST_MEMBER: 'true', KILO_ENABLE_PASSWORD_REGISTRATION: 'true', KILO_GPU_API_KEY: 'gpu-test-key-123456789012345678901234', KILO_SESSION_PEPPER: 'session-test-pepper-12345678901234567890', KILO_DATA_DIR: root, KILO_DATABASE_PATH: path.join(root, 'kilo.sqlite3'), KILO_MEDIA_DIR: path.join(root, 'media'), KILO_ALLOWED_ORIGINS: 'http://allowed.test' });
   server = await startServer({ config: cfg, port: 0 });
   base = `http://127.0.0.1:${server.address().port}`;
   const admin = await api('/v1/auth/phone/login', { method: 'POST', body: JSON.stringify({ identifier: '1234', password: '1234' }) });
+  const member = await api('/v1/auth/phone/login', { method: 'POST', body: JSON.stringify({ identifier: '123', password: '123' }) });
+  assert.equal(member.response.status, 200);
+  assert.equal(member.body.user.role, 'user');
   assert.equal(admin.response.status, 200); adminToken = admin.body.session.token;
   const first = await api('/v1/auth/register', { method: 'POST', body: JSON.stringify({ identifier: 'first-user', password: 'abcd' }) });
   assert.equal(first.response.status, 201); userToken = first.body.session.token;
@@ -158,4 +161,43 @@ test('logout revokes a session; registration can be disabled; production rejects
 test('conversation reads remain isolated across users', async () => {
   const created = await api('/v1/ai/conversations', { method: 'POST', headers: { authorization: `Bearer ${user2Token}` }, body: JSON.stringify({ title: 'private' }) }); assert.equal(created.response.status, 201);
   const denied = await api(`/v1/ai/conversations/${created.body.id}`, { headers: { authorization: `Bearer ${userToken}` } }); assert.equal(denied.response.status, 404);
+});
+
+test('TestFlight operator credentials never gain server admin rights', async () => {
+  const isolated = await fs.mkdtemp(path.join(os.tmpdir(), 'kilo-testflight-users-'));
+  const cfg = loadConfig({
+    ...process.env,
+    NODE_ENV: 'test',
+    KILO_ENABLE_TEST_ADMIN: 'false',
+    KILO_ENABLE_TEST_MEMBER: 'true',
+    KILO_GPU_API_KEY: 'gpu-test-key-123456789012345678901234',
+    KILO_SESSION_PEPPER: 'session-test-pepper-12345678901234567890',
+    KILO_DATA_DIR: isolated,
+    KILO_DATABASE_PATH: path.join(isolated, 'kilo.sqlite3'),
+    KILO_MEDIA_DIR: path.join(isolated, 'media'),
+  });
+  const isolatedServer = await startServer({ config: cfg, port: 0 });
+  const isolatedBase = `http://127.0.0.1:${isolatedServer.address().port}`;
+  try {
+    const login = await fetch(`${isolatedBase}/v1/auth/phone/login`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ identifier: '1234', password: '1234' }),
+    });
+    const payload = await login.json();
+    assert.equal(login.status, 200);
+    assert.equal(payload.user.role, 'user');
+    const adminCall = await fetch(`${isolatedBase}/v1/admin/redemption-codes`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${payload.session.token}`,
+      },
+      body: JSON.stringify({ plan: 'oneMonth' }),
+    });
+    assert.equal(adminCall.status, 403);
+  } finally {
+    await isolatedServer.closeGracefully();
+    await fs.rm(isolated, { recursive: true, force: true });
+  }
 });

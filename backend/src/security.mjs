@@ -5,8 +5,8 @@ export const randomId = (prefix = '') => `${prefix}${randomBytes(16).toString('h
 export const randomToken = () => randomBytes(32).toString('base64url');
 export const sha256 = (value, pepper = '') => createHash('sha256').update(`${pepper}\u0000${value}`).digest('hex');
 
-export function hashPassword(password, salt = randomBytes(16).toString('hex')) {
-  if (typeof password !== 'string' || password.length < 4 || password.length > 256) throw new Error('invalid_password');
+export function hashPassword(password, salt = randomBytes(16).toString('hex'), minimumLength = 4) {
+  if (typeof password !== 'string' || password.length < minimumLength || password.length > 256) throw new Error('invalid_password');
   return { salt, hash: scryptSync(password, salt, 64).toString('hex') };
 }
 

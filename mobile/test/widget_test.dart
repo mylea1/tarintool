@@ -13,15 +13,82 @@ Future<void> _openRoute(WidgetTester tester, String label) async {
 
 void main() {
   test('all reference exercise media assets load', () async {
-    expect(exerciseMedia, hasLength(32));
-    for (final entry in exerciseMedia.entries) {
+    expect(catalog, hasLength(1324));
+    expect(catalog.map((item) => item.id).toSet(), hasLength(1324));
+    expect(allExerciseMedia, hasLength(1324));
+    final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
+    final assetKeys = manifest.listAssets().toSet();
+    for (final entry in allExerciseMedia.entries) {
       final image = mediaForExercise(entry.key)!.imagePath;
       final gif = mediaForExercise(entry.key)!.gifPath;
       expect(image, endsWith('.jpg'));
       expect(gif, endsWith('.gif'));
-      expect((await rootBundle.load(image)).lengthInBytes, greaterThan(0));
-      expect((await rootBundle.load(gif)).lengthInBytes, greaterThan(0));
+      expect(assetKeys, contains(image));
+      expect(assetKeys, contains(gif));
     }
+    for (final media in <ExerciseMedia>[
+      allExerciseMedia.values.first,
+      allExerciseMedia.values.last,
+    ]) {
+      expect(
+        (await rootBundle.load(media.imagePath)).lengthInBytes,
+        greaterThan(0),
+      );
+      expect(
+        (await rootBundle.load(media.gifPath)).lengthInBytes,
+        greaterThan(0),
+      );
+    }
+  });
+
+  testWidgets('full dataset exercise is searchable and opens its media', (
+    tester,
+  ) async {
+    final controller = AppController();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(KiloApp(initialController: controller));
+    await _openRoute(tester, '动作');
+
+    expect(find.text('1324 个动作'), findsOneWidget);
+    expect(find.byKey(const Key('exercise-library-load-more')), findsOneWidget);
+    expect(
+      tester
+          .widget<GridView>(find.byKey(const Key('exercise-library-grid')))
+          .childrenDelegate
+          .estimatedChildCount,
+      60,
+    );
+    await tester.ensureVisible(
+      find.byKey(const Key('exercise-library-load-more')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('exercise-library-load-more')));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<GridView>(find.byKey(const Key('exercise-library-grid')))
+          .childrenDelegate
+          .estimatedChildCount,
+      120,
+    );
+    await tester.enterText(
+      find.byKey(const Key('exercise-search')),
+      '3/4 sit-up',
+    );
+    await tester.pumpAndSettle();
+
+    final cover = find.byKey(const Key('exercise-cover-dataset_0001'));
+    expect(cover, findsOneWidget);
+    await tester.tap(cover);
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('exercise-detail-gif-dataset_0001')),
+      findsOneWidget,
+    );
+    expect(find.text('分步说明'), findsNothing);
+    await tester.tap(find.text('教学').last);
+    await tester.pumpAndSettle();
+    expect(find.text('分步说明'), findsOneWidget);
   });
 
   testWidgets('shell starts without preloaded user data', (tester) async {
@@ -77,7 +144,14 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(controller.workoutStarted, isTrue);
+    expect(controller.workoutTimerStarted, isFalse);
     expect(controller.workout, isEmpty);
+    expect(find.byKey(const Key('start-workout-timer-button')), findsOneWidget);
+    expect(find.byKey(const Key('pause-workout-button')), findsNothing);
+    await tester.tap(find.byKey(const Key('start-workout-timer-button')));
+    await tester.pump();
+    expect(controller.workoutTimerStarted, isTrue);
+    expect(find.byKey(const Key('pause-workout-button')), findsOneWidget);
     expect(find.byKey(const Key('first-action-button')), findsOneWidget);
     expect(find.text('添加第一个动作'), findsOneWidget);
     await tester.drag(find.byType(ListView).last, const Offset(0, -180));

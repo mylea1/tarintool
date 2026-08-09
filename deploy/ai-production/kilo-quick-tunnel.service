@@ -1,0 +1,20 @@
+[Unit]
+Description=KILO temporary Cloudflare quick tunnel
+Wants=network-online.target
+After=network-online.target kilo-api.service
+
+[Service]
+Type=simple
+User=kilo
+Group=kilo
+Environment=HOME=/tmp
+ExecStart=/usr/bin/cloudflared tunnel --no-autoupdate --protocol http2 --url http://127.0.0.1:8790
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

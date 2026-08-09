@@ -4,9 +4,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { config as defaultConfig, assertProductionConfiguration, loadConfig } from './config.mjs';
-import { openDatabase, closeDatabase, transaction, ensureEntitlement, refreshEntitlement, publicUser, publicEntitlement, seedTestAdmin, isoWeekKey, membershipActive } from './db.mjs';
+import { openDatabase, closeDatabase, transaction, ensureEntitlement, refreshEntitlement, publicUser, publicEntitlement, seedTestAdmin, seedTestMember, isoWeekKey, membershipActive } from './db.mjs';
 import { hashPassword, verifyPassword, sha256, safeEqualText, nowIso, randomId, randomToken } from './security.mjs';
 import { LocalStorage, extensionForType } from './storage.mjs';
+import { ConcurrencyGate, QueueCapacityError } from './concurrency.mjs';
 
 const JSON_CONTENT_TYPE = 'application/json; charset=utf-8';
 const MAX_TEXT = 4000;
@@ -107,6 +108,9 @@ function writeError(res, error, req, cfg) {
   const status = Number.isInteger(error?.status) ? error.status : 500;
   const payload = { error: error?.code || 'internal_error' };
   if (error?.detail !== undefined) payload.detail = error.detail;
+  if (error?.code === 'ai_busy') {
+    res.setHeader('retry-after', String(error?.detail?.retryAfterSeconds || 5));
+  }
   if (status >= 500) console.error('[KILO API]', error?.stack || error);
   writeJson(res, status, payload, req, cfg);
 }
@@ -292,10 +296,10 @@ async function verifyProviderToken(provider, token, cfg) {
   }
 }
 
-async function callDeepSeek(ctx, messages) {
+async function callDeepSeek(ctx, messages, userId) {
   if (!ctx.cfg.deepSeekApiKey) throw httpError(503, 'deepseek_not_configured');
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 30000);
+  const timeout = setTimeout(() => controller.abort(), ctx.cfg.aiRequestTimeoutSeconds * 1000);
   try {
     const response = await fetch(`${ctx.cfg.deepSeekBaseUrl}/chat/completions`, {
       method: 'POST',
@@ -304,6 +308,9 @@ async function callDeepSeek(ctx, messages) {
         model: ctx.cfg.deepSeekModel,
         temperature: 0.2,
         thinking: { type: ctx.cfg.deepSeekThinkingMode },
+        // A pseudonymous internal id gives DeepSeek per-user safety, cache and
+        // scheduling isolation without sending a phone number or Apple id.
+        user_id: userId,
         messages,
       }),
       signal: controller.signal,
@@ -414,7 +421,15 @@ async function handleRequest(req, res, ctx) {
     res.writeHead(204, headers); res.end(); return;
   }
   if (req.method === 'GET' && url.pathname === '/health') {
-    writeJson(res, 200, { ok: true, service: 'kilo-backend', time: nowIso() }, req, ctx.cfg); return;
+    writeJson(res, 200, {
+      ok: true,
+      service: 'kilo-backend',
+      time: nowIso(),
+      ai: {
+        configured: Boolean(ctx.cfg.deepSeekApiKey),
+        ...ctx.aiGate.snapshot(),
+      },
+    }, req, ctx.cfg); return;
   }
 
   // Explicitly configured test credentials are seeded at startup; no test
@@ -440,7 +455,8 @@ async function handleRequest(req, res, ctx) {
     const body = await readBody(req, ctx.cfg.maxJsonBytes);
     const identifier = requireString(body.identifier, 'identifier_required', 256);
     const password = requireString(body.password, 'password_required', 256);
-    if (!ctx.cfg.enableTestAdmin && identifier === ctx.cfg.testAdminIdentifier && password === ctx.cfg.testAdminPassword) throw httpError(401, 'invalid_credentials');
+    if (!ctx.cfg.enableTestAdmin && !ctx.cfg.enableTestMember && identifier === ctx.cfg.testAdminIdentifier && password === ctx.cfg.testAdminPassword) throw httpError(401, 'invalid_credentials');
+    if (!ctx.cfg.enableTestMember && identifier === ctx.cfg.testMemberIdentifier && password === ctx.cfg.testMemberPassword) throw httpError(401, 'invalid_credentials');
     const user = ctx.db.prepare("SELECT * FROM users WHERE identifier = ? AND auth_provider = 'password'").get(identifier);
     if (!user || !verifyPassword(password, user.password_salt, user.password_hash)) throw httpError(401, 'invalid_credentials');
     ensureEntitlement(ctx.db, user.id);
@@ -590,7 +606,15 @@ async function handleRequest(req, res, ctx) {
       for (const message of recent) messages.push({ role: message.role, content: message.content });
       if (body.useTrainingData === true && typeof body.trainingSummary === 'string' && body.trainingSummary.trim()) messages.push({ role: 'system', content: `用户已明确授权的训练摘要：${body.trainingSummary.trim().slice(0, MAX_SUMMARY)}` });
       messages.push({ role: 'user', content: question });
-      const answer = await callDeepSeek(ctx, messages);
+      let answer;
+      try {
+        answer = await ctx.aiGate.run(() => callDeepSeek(ctx, messages, user.id));
+      } catch (error) {
+        if (error instanceof QueueCapacityError) {
+          throw httpError(503, 'ai_busy', { retryAfterSeconds: 5 });
+        }
+        throw error;
+      }
       const stamp = nowIso(); transaction(ctx.db, () => { ctx.db.prepare('INSERT INTO conversation_messages (id, conversation_id, role, content, created_at) VALUES (?, ?, \'user\', ?, ?)').run(randomId('msg_'), conversationId, question, stamp); ctx.db.prepare('INSERT INTO conversation_messages (id, conversation_id, role, content, created_at) VALUES (?, ?, \'assistant\', ?, ?)').run(randomId('msg_'), conversationId, answer, nowIso()); ctx.db.prepare('UPDATE conversations SET updated_at = ? WHERE id = ?').run(nowIso(), conversationId); });
       // Memory summarisation is deliberately low frequency and best effort.
       try { const count = ctx.db.prepare('SELECT COUNT(*) AS n FROM conversation_messages WHERE conversation_id = ?').get(conversationId).n; if (count >= 10 && count % 10 === 0) { const text = conversationMessages(ctx.db, conversationId, 10).map((m) => `${m.role}: ${m.content}`).join('\n'); ctx.db.prepare('UPDATE conversations SET memory_summary = ?, updated_at = ? WHERE id = ?').run(text.slice(0, 3000), nowIso(), conversationId); } } catch { /* memory must never break the answer */ }
@@ -696,8 +720,9 @@ export function createApp(options = {}) {
   const cfg = options.config || defaultConfig;
   if (options.assertProduction !== false) assertProductionConfiguration(cfg);
   fs.mkdirSync(cfg.dataDir, { recursive: true }); fs.mkdirSync(cfg.mediaDir, { recursive: true });
-  const db = options.db || openDatabase(cfg.databasePath); const storage = options.storage || new LocalStorage(cfg.mediaDir, { maxBytes: cfg.maxUploadBytes }); seedTestAdmin(db, cfg);
-  const ctx = { cfg, db, storage };
+  const db = options.db || openDatabase(cfg.databasePath); const storage = options.storage || new LocalStorage(cfg.mediaDir, { maxBytes: cfg.maxUploadBytes }); seedTestMember(db, cfg); seedTestAdmin(db, cfg);
+  const aiGate = options.aiGate || new ConcurrencyGate({ limit: cfg.aiMaxConcurrency, queueLimit: cfg.aiQueueLimit });
+  const ctx = { cfg, db, storage, aiGate };
   const server = createServer((req, res) => handleRequest(req, res, ctx).catch((error) => writeError(res, error, req, cfg)));
   server.context = ctx;
   server.closeGracefully = async () => { await new Promise((resolve) => server.close(resolve)); closeDatabase(db); };

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import 'exercise_dataset.generated.dart';
 import 'exercise_media.dart';
 
 enum PageId { today, train, records, exercises, recognition, ai, profile }
@@ -299,7 +300,7 @@ const setTypeIcons = <String, int>{
   'technique': 0xe8b6,
 };
 
-const catalog = <Exercise>[
+const curatedCatalog = <Exercise>[
   Exercise(
     id: 'machine_chest_press',
     name: '器械推胸',
@@ -663,6 +664,25 @@ const catalog = <Exercise>[
     camera: '正侧面',
     cue: '骨盆稳定，控制回程',
   ),
+];
+
+final List<Exercise> catalog = <Exercise>[
+  ...curatedCatalog,
+  for (final entry in datasetExerciseEntries.entries)
+    Exercise(
+      id: entry.key,
+      name: entry.value.name,
+      englishName: entry.value.name,
+      family: entry.value.family,
+      muscle: entry.value.muscle,
+      secondary: entry.value.secondary,
+      equipment: entry.value.equipment,
+      camera: '正侧面或侧前方 30-45°',
+      cue: entry.value.steps.isEmpty
+          ? entry.value.summary
+          : entry.value.steps.first,
+      loadMode: entry.value.loadMode,
+    ),
 ];
 
 Exercise findExercise(String id) =>

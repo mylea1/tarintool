@@ -11,6 +11,11 @@ const intValue = (env, name, fallback) => {
   if (!Number.isFinite(value) || value <= 0) throw new Error(`invalid_${name.toLowerCase()}`);
   return Math.floor(value);
 };
+const nonNegativeIntValue = (env, name, fallback) => {
+  const value = Number(env[name] ?? fallback);
+  if (!Number.isFinite(value) || value < 0) throw new Error(`invalid_${name.toLowerCase()}`);
+  return Math.floor(value);
+};
 
 export function loadConfig(env = process.env) {
   const resolve = (value, fallback) => resolveFromRoot(value, fallback);
@@ -31,10 +36,16 @@ export function loadConfig(env = process.env) {
     enablePasswordRegistration: env.KILO_ENABLE_PASSWORD_REGISTRATION === 'true',
     testAdminIdentifier: env.KILO_TEST_ADMIN_IDENTIFIER || '1234',
     testAdminPassword: env.KILO_TEST_ADMIN_PASSWORD || '1234',
+    enableTestMember: env.KILO_ENABLE_TEST_MEMBER === 'true',
+    testMemberIdentifier: env.KILO_TEST_MEMBER_IDENTIFIER || '123',
+    testMemberPassword: env.KILO_TEST_MEMBER_PASSWORD || '123',
     deepSeekApiKey: env.DEEPSEEK_API_KEY || '',
     deepSeekBaseUrl: (env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com').replace(/\/+$/, ''),
     deepSeekModel: env.DEEPSEEK_MODEL || 'deepseek-v4-flash',
     deepSeekThinkingMode: env.DEEPSEEK_THINKING_MODE || 'disabled',
+    aiMaxConcurrency: intValue(env, 'KILO_AI_MAX_CONCURRENCY', 10),
+    aiQueueLimit: nonNegativeIntValue(env, 'KILO_AI_QUEUE_LIMIT', 40),
+    aiRequestTimeoutSeconds: intValue(env, 'KILO_AI_REQUEST_TIMEOUT_SECONDS', 60),
     appleClientId: env.APPLE_CLIENT_ID || '',
     googleClientId: env.GOOGLE_CLIENT_ID || '',
     sessionTtlDays: intValue(env, 'KILO_SESSION_TTL_DAYS', 30),
@@ -50,6 +61,7 @@ export function assertProductionConfiguration(candidate = config, env = process.
   if (candidate.sessionPepper === 'development-only-session-pepper' || candidate.sessionPepper.length < 32) problems.push('KILO_SESSION_PEPPER');
   if (!candidate.gpuApiKey || candidate.gpuApiKey.length < 32) problems.push('KILO_GPU_API_KEY');
   if (candidate.enableTestAdmin) problems.push('KILO_ENABLE_TEST_ADMIN=false');
+  if (candidate.enableTestMember) problems.push('KILO_ENABLE_TEST_MEMBER=false');
   if (candidate.enablePasswordRegistration) problems.push('KILO_ENABLE_PASSWORD_REGISTRATION=false');
   if (problems.length) throw new Error(`unsafe_production_configuration:${problems.join(',')}`);
 }
