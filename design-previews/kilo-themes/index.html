@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="ember">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>KILO 五主题探索</title>
+  <style>
+    * { box-sizing: border-box; }
+    :root {
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", "PingFang SC", sans-serif;
+      color-scheme: light;
+      --page: #efeae6; --paper: #fff8f2; --surface: #fff; --surface-2: #fff0e5;
+      --ink: #2b1d16; --muted: #755d52; --primary: #d95718; --primary-soft: #fde1cf;
+      --accent: #ff8b3d; --success: #23835a; --success-soft: #e3f5ea; --line: #ead7ca;
+      --shadow: 0 24px 70px rgba(86, 45, 21, .14); --radius: 24px;
+    }
+    html[data-theme="glacier"] { color-scheme: light; --page:#e9f0f7; --paper:#f5f9fd; --surface:#fff; --surface-2:#e9f3ff; --ink:#102237; --muted:#5e7082; --primary:#1769d2; --primary-soft:#dceaff; --accent:#14a0c0; --success:#16865c; --success-soft:#def5ea; --line:#cfdeec; --shadow:0 24px 70px rgba(21,72,127,.14); }
+    html[data-theme="obsidian"] { color-scheme: dark; --page:#06080b; --paper:#0e1218; --surface:#171c24; --surface-2:#202733; --ink:#f4f7fb; --muted:#9ca8b5; --primary:#ff7a1a; --primary-soft:#4a2815; --accent:#b9f227; --success:#2fe59b; --success-soft:#123c2f; --line:#2a3340; --shadow:0 26px 74px rgba(0,0,0,.5); }
+    html[data-theme="verdant"] { color-scheme: light; --page:#e9eee7; --paper:#f4f8f1; --surface:#fff; --surface-2:#e8f1e6; --ink:#1e3328; --muted:#617166; --primary:#2f7d5a; --primary-soft:#d9ebdf; --accent:#d7942c; --success:#2f7d5a; --success-soft:#dcefe3; --line:#d3e0d4; --shadow:0 24px 70px rgba(39,83,57,.13); }
+    html[data-theme="coral"] { color-scheme: light; --page:#f1e6e3; --paper:#fff6f3; --surface:rgba(255,255,255,.84); --surface-2:#ffe3de; --ink:#342220; --muted:#79605c; --primary:#ed5f50; --primary-soft:#ffd9d2; --accent:#0b839a; --success:#17845f; --success-soft:#dff3eb; --line:#eed0ca; --shadow:0 28px 76px rgba(139,66,55,.16); }
+    html, body { max-width:100%; overflow-x:hidden; }
+    body { margin:0; min-width:320px; background:radial-gradient(circle at 10% 0%, var(--primary-soft), transparent 34%), var(--page); color:var(--ink); }
+    button { font:inherit; color:inherit; }
+    .shell { width:min(1180px,100%); margin:auto; padding:32px clamp(16px,4vw,48px) 56px; }
+    .intro { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:24px; align-items:end; margin-bottom:24px; }
+    .eyebrow { color:var(--primary); font-size:13px; font-weight:850; letter-spacing:.14em; }
+    h1 { margin:8px 0; font-size:clamp(32px,5vw,64px); line-height:.96; letter-spacing:-.045em; overflow-wrap:anywhere; }
+    .intro p { margin:0; max-width:690px; color:var(--muted); line-height:1.65; }
+    .theme-picker { display:flex; flex-wrap:wrap; gap:8px; justify-content:flex-end; }
+    .theme-picker button, .route-tabs button { border:1px solid var(--line); background:var(--surface); border-radius:999px; padding:10px 14px; cursor:pointer; font-weight:750; }
+    .theme-picker button[aria-pressed="true"], .route-tabs button[aria-selected="true"] { border-color:var(--primary); color:var(--primary); background:var(--primary-soft); }
+    .intro, .stage, .intro > *, .stage > * { min-width:0; }
+    .stage { display:grid; grid-template-columns:minmax(280px,390px) minmax(0,1fr); gap:clamp(24px,5vw,64px); align-items:center; }
+    .phone { width:min(390px,100%); aspect-ratio:9/18.7; max-height:780px; border:10px solid var(--ink); border-radius:48px; background:var(--paper); box-shadow:var(--shadow); overflow:hidden; position:relative; }
+    .status { height:28px; display:flex; align-items:center; justify-content:space-between; padding:4px 22px; font-size:11px; font-weight:800; }
+    .appbar { padding:17px 20px 10px; display:flex; align-items:center; justify-content:space-between; }
+    .brand { color:var(--primary); font-weight:900; letter-spacing:.15em; font-size:13px; }
+    .page-title { font-size:26px; font-weight:900; letter-spacing:-.03em; }
+    .avatar { width:34px; height:34px; border-radius:50%; display:grid; place-items:center; background:var(--primary-soft); color:var(--primary); }
+    .content { padding:8px 16px 92px; height:calc(100% - 100px); overflow:auto; scrollbar-width:none; }
+    .route-tabs { display:flex; gap:8px; overflow:auto; padding-bottom:12px; }
+    .route-tabs button { white-space:nowrap; padding:8px 12px; font-size:12px; }
+    .card { background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:16px; margin-bottom:12px; box-shadow:0 8px 28px color-mix(in srgb, var(--ink) 6%, transparent); backdrop-filter:blur(16px); }
+    .hero { background:linear-gradient(145deg,var(--surface-2),var(--surface)); }
+    .row { display:flex; align-items:center; justify-content:space-between; gap:12px; min-width:0; }
+    .muted { color:var(--muted); font-size:12px; line-height:1.45; }
+    .metric { font-size:30px; font-weight:900; letter-spacing:-.04em; }
+    .pill { border-radius:999px; padding:7px 10px; background:var(--primary-soft); color:var(--primary); font-size:11px; font-weight:850; white-space:nowrap; }
+    .primary { width:100%; border:0; border-radius:18px; padding:14px 16px; background:var(--primary); color:#fff; font-weight:850; }
+    .sets { display:grid; gap:7px; margin-top:12px; }
+    .set { display:grid; grid-template-columns:24px minmax(0,1fr) minmax(0,1fr) 36px; gap:7px; align-items:center; padding:10px; border:1px solid var(--line); border-radius:14px; font-size:12px; }
+    .set.done { background:var(--success-soft); border-color:var(--success); color:var(--success); font-weight:800; }
+    .field { background:color-mix(in srgb,var(--surface) 80%,var(--paper)); border:1px solid var(--line); border-radius:10px; padding:8px; text-align:center; min-width:0; }
+    .exercise-grid { display:grid; grid-template-columns:1fr 1fr; gap:9px; }
+    .exercise { background:var(--surface); border:1px solid var(--line); border-radius:18px; padding:10px; min-width:0; }
+    .exercise-figure { height:64px; border-radius:12px; display:grid; place-items:center; background:var(--surface-2); font-size:30px; }
+    .exercise strong { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:8px; font-size:12px; }
+    .chat { display:grid; gap:9px; }
+    .bubble { max-width:88%; padding:11px 13px; border-radius:16px; background:var(--surface); border:1px solid var(--line); font-size:12px; line-height:1.5; }
+    .bubble.user { justify-self:end; background:var(--primary); color:white; border-color:var(--primary); }
+    .source { margin-top:6px; color:var(--primary); font-size:10px; font-weight:800; }
+    .menu { display:grid; gap:8px; }
+    .menu .row { padding:11px 0; border-bottom:1px solid var(--line); }
+    .bottom { position:absolute; bottom:0; inset-inline:0; height:76px; display:grid; grid-template-columns:repeat(5,1fr); background:var(--surface); border-top:1px solid var(--line); backdrop-filter:blur(20px); }
+    .bottom button { border:0; background:transparent; font-size:10px; display:grid; place-items:center; align-content:center; gap:3px; cursor:pointer; color:var(--muted); min-width:0; }
+    .bottom button span:first-child { font-size:19px; }
+    .bottom button.active { color:var(--primary); font-weight:850; }
+    .notes { min-width:0; }
+    .notes h2 { font-size:clamp(24px,4vw,42px); margin:0 0 12px; }
+    .notes-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-top:20px; }
+    .note { background:color-mix(in srgb,var(--surface) 82%,transparent); border:1px solid var(--line); padding:16px; border-radius:20px; min-width:0; }
+    .note b { display:block; margin-bottom:5px; }
+    .note span { color:var(--muted); font-size:13px; line-height:1.5; overflow-wrap:anywhere; }
+    @media (max-width:780px) { .shell { width:100vw; padding:24px 20px 48px; } .intro,.stage { width:100%; grid-template-columns:minmax(0,1fr); } h1 { width:100%; word-break:break-all; font-size:clamp(30px,9vw,42px); } .theme-picker { width:100%; max-width:100%; justify-content:flex-start; } .phone { width:100%; max-width:390px; justify-self:start; } .notes-grid { grid-template-columns:1fr; } }
+    @media (prefers-reduced-motion:no-preference) { .phone,.card,.theme-picker button { transition:background .25s,color .25s,border-color .25s,transform .25s; } .theme-picker button:hover { transform:translateY(-2px); } }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="intro">
+      <div><div class="eyebrow">KILO THEME LAB</div><h1>同一训练逻辑，五种视觉性格</h1><p>导航、数据和操作顺序保持稳定；主题只改变色彩、材质与反馈。点击主题和底部导航查看不同页面。</p></div>
+      <div class="theme-picker" aria-label="主题选择">
+        <button data-theme="ember" aria-pressed="true">活力暖橙</button><button data-theme="glacier" aria-pressed="false">冰川钴蓝</button><button data-theme="obsidian" aria-pressed="false">暗夜荧光</button><button data-theme="verdant" aria-pressed="false">森氧恢复</button><button data-theme="coral" aria-pressed="false">珊瑚玻璃</button>
+      </div>
+    </section>
+    <section class="stage">
+      <div class="phone" aria-label="KILO 移动端主题预览">
+        <div class="status"><span>09:41</span><span>5G ◉ 92%</span></div>
+        <div class="appbar"><div><span class="brand">KILO</span> <span class="page-title" id="pageTitle">训练</span></div><div class="avatar">赵</div></div>
+        <div class="content" id="content"></div>
+        <nav class="bottom" aria-label="主导航">
+          <button data-route="home"><span>⌂</span><span>主页</span></button>
+          <button data-route="training" class="active"><span>◆</span><span>训练</span></button>
+          <button data-route="exercises"><span>▦</span><span>动作</span></button>
+          <button data-route="ai"><span>✦</span><span>AI</span></button>
+          <button data-route="profile"><span>●</span><span>我的</span></button>
+        </nav>
+      </div>
+      <div class="notes">
+        <div class="eyebrow" id="themeLabel">活力暖橙 · EMBER</div><h2 id="themeTitle">训练现场更直接，完成反馈更有温度</h2><p class="muted" id="themeCopy">暖白背景降低刺眼感，橙色只用于主操作；完成组同时变绿、显示勾选，训练结束使用橙色粒子和总结卡片强化正反馈。</p>
+        <div class="notes-grid"><div class="note"><b>固定主路径</b><span>开始训练 → 完成组 → 休息 → 保存总结</span></div><div class="note"><b>渐进披露</b><span>记录、识别和高级设置通过顶部切换或详情进入</span></div><div class="note"><b>训练可读性</b><span>重量、次数、RPE 与完成状态始终高于装饰层</span></div><div class="note"><b>业务指标</b><span>优先提升开始率、组完成率和训练保存率</span></div></div>
+      </div>
+    </section>
+  </main>
+  <script>
+    const themes={ember:['活力暖橙 · EMBER','训练现场更直接，完成反馈更有温度','暖白背景降低刺眼感，橙色只用于主操作；完成组同时变绿、显示勾选，训练结束使用橙色粒子和总结卡片强化正反馈。'],glacier:['冰川钴蓝 · GLACIER','像运动仪表一样清楚，但不冰冷','冷白表面、钴蓝主操作与青绿完成态，让计时、重量和趋势一眼可辨，适合偏专业的数据用户。'],obsidian:['暗夜荧光 · OBSIDIAN','把注意力锁在下一组','深色表面减少健身房眩光，橙色负责主操作，酸橙仅提示计时与新纪录；完成组产生短促绿色边缘辉光。'],verdant:['森氧恢复 · VERDANT','训练与恢复处在同一套自然节奏里','低刺激绿色系统适合长时间查看，恢复状态、训练负荷与周趋势使用连续自然色阶，但完成操作依旧明确。'],coral:['珊瑚玻璃 · CORAL GLASS','更轻盈、更像精品个人教练','珊瑚主色与青色数据强调构成活泼对比，半透明材质只用于导航和浮层，避免影响表格清晰度。']};
+    const pages={
+      home:`<div class="route-tabs"><button aria-selected="true">今日</button><button>训练周</button><button>进步</button></div><div class="card hero"><div class="row"><div><div class="muted">今天 18:30</div><h3>上肢力量 A</h3></div><span class="pill">本周 3 / 4</span></div><p class="muted">杠铃卧推、胸托划船、侧平举 · 预计 56 分钟</p><button class="primary">继续训练</button></div><div class="card"><div class="row"><b>最近进步</b><span class="pill">+6.8%</span></div><div class="metric">4,860 kg</div><div class="muted">近 4 周训练量 · 点击查看趋势与关键动作</div></div>`,
+      training:`<div class="route-tabs"><button aria-selected="true">训练</button><button>记录</button></div><div class="card hero"><div class="row"><div><b>自由训练</b><div class="muted">实时训练 · 3/5 组</div></div><div class="metric">18:42</div></div><div class="row" style="margin-top:12px"><span class="pill">休息 01:24</span><span class="muted">下组：卧推 80 kg × 8</span></div></div><div class="card"><div class="row"><div><b>杠铃卧推</b><div class="muted">胸部 · 休息 150 秒</div></div><span class="pill">•••</span></div><div class="sets"><div class="set done"><b>1 ✓</b><span class="field">80 kg</span><span class="field">8 次</span><span>完成</span></div><div class="set done"><b>2 ✓</b><span class="field">80 kg</span><span class="field">8 次</span><span>完成</span></div><div class="set"><b>3</b><span class="field">80 kg</span><span class="field">8 次</span><span>□</span></div></div></div><button class="primary">完成第 3 组</button>`,
+      exercises:`<div class="route-tabs"><button aria-selected="true">全部</button><button>胸</button><button>背</button><button>腿</button><button>肩</button></div><div class="card"><div class="row"><span class="muted">⌕ 搜索动作或器械</span><span class="pill">32 个动作</span></div></div><div class="exercise-grid"><div class="exercise"><div class="exercise-figure">🏋️</div><strong>杠铃卧推</strong><span class="muted">胸部</span></div><div class="exercise"><div class="exercise-figure">◫</div><strong>胸托划船</strong><span class="muted">上背部</span></div><div class="exercise"><div class="exercise-figure">↕</div><strong>深蹲</strong><span class="muted">腿部</span></div><div class="exercise"><div class="exercise-figure">⌁</div><strong>绳索侧平举</strong><span class="muted">肩部</span></div></div>`,
+      ai:`<div class="route-tabs"><button aria-selected="true">AI 对话</button><button>动作识别</button></div><div class="chat"><div class="bubble user">深蹲正式组之间应该休息多久？</div><div class="bubble">复合动作通常休息约 2–4 分钟。若下一组次数、速度或技术明显下降，可以适当延长。<div class="source">来源 · 组间休息时间的安排</div></div></div><div class="card" style="margin-top:12px"><div class="row"><span class="muted">问训练、恢复或计划安排</span><span class="pill">发送 ↑</span></div></div>`,
+      profile:`<div class="card hero"><div class="row"><div><b>赵学昆</b><div class="muted">永久会员 · 今日 AI 20 次</div></div><span class="pill">会员中心</span></div></div><div class="card menu"><b>训练偏好</b><div class="row"><span>默认组间休息</span><span class="muted">150 秒 ›</span></div><div class="row"><span>动作名称语言</span><span class="muted">中文 ›</span></div><div class="row"><span>通知与锁屏计时</span><span class="muted">已开启 ›</span></div><div class="row"><span>隐私与 AI 授权</span><span class="muted">查看 ›</span></div></div>`
+    };
+    const titles={home:'主页',training:'训练',exercises:'动作',ai:'AI',profile:'我的'};
+    let route='training';
+    function render(){document.getElementById('content').innerHTML=pages[route];document.getElementById('pageTitle').textContent=titles[route];document.querySelectorAll('.bottom button').forEach(b=>b.classList.toggle('active',b.dataset.route===route));}
+    document.querySelectorAll('.theme-picker button').forEach(button=>button.addEventListener('click',()=>{document.documentElement.dataset.theme=button.dataset.theme;document.querySelectorAll('.theme-picker button').forEach(b=>b.setAttribute('aria-pressed',String(b===button)));const copy=themes[button.dataset.theme];document.getElementById('themeLabel').textContent=copy[0];document.getElementById('themeTitle').textContent=copy[1];document.getElementById('themeCopy').textContent=copy[2];}));
+    document.querySelectorAll('.bottom button').forEach(button=>button.addEventListener('click',()=>{route=button.dataset.route;render();}));render();
+    document.documentElement.dataset.viewport=String(window.innerWidth);document.documentElement.dataset.scrollWidth=String(document.documentElement.scrollWidth);
+  </script>
+</body>
+</html>

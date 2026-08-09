@@ -34,6 +34,7 @@ export function loadConfig(env = process.env) {
     deepSeekApiKey: env.DEEPSEEK_API_KEY || '',
     deepSeekBaseUrl: (env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com').replace(/\/+$/, ''),
     deepSeekModel: env.DEEPSEEK_MODEL || 'deepseek-v4-flash',
+    deepSeekThinkingMode: env.DEEPSEEK_THINKING_MODE || 'disabled',
     appleClientId: env.APPLE_CLIENT_ID || '',
     googleClientId: env.GOOGLE_CLIENT_ID || '',
     sessionTtlDays: intValue(env, 'KILO_SESSION_TTL_DAYS', 30),

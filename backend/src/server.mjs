@@ -300,7 +300,12 @@ async function callDeepSeek(ctx, messages) {
     const response = await fetch(`${ctx.cfg.deepSeekBaseUrl}/chat/completions`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', authorization: `Bearer ${ctx.cfg.deepSeekApiKey}` },
-      body: JSON.stringify({ model: ctx.cfg.deepSeekModel, temperature: 0.2, messages }),
+      body: JSON.stringify({
+        model: ctx.cfg.deepSeekModel,
+        temperature: 0.2,
+        thinking: { type: ctx.cfg.deepSeekThinkingMode },
+        messages,
+      }),
       signal: controller.signal,
     });
     if (!response.ok) throw httpError(response.status === 429 ? 503 : 502, 'deepseek_upstream_error', { upstreamStatus: response.status });
@@ -319,10 +324,48 @@ function knowledgeSearch(db, query, limit = 5) {
   if (!query) return [];
   const safe = query.replace(/[\"']/g, ' ').trim().split(/\s+/).filter(Boolean).slice(0, 8).join(' ');
   if (!safe) return [];
+  const found = [];
+  const seen = new Set();
   try {
-    return db.prepare(`SELECT k.id, k.title, k.source, k.content, k.tags_json
+    const rows = db.prepare(`SELECT k.id, k.title, k.source, k.content, k.tags_json
       FROM knowledge_fts f JOIN knowledge_chunks k ON k.id = f.id WHERE knowledge_fts MATCH ? ORDER BY rank LIMIT ?`).all(safe, limit);
-  } catch { return []; }
+    for (const row of rows) {
+      found.push(row);
+      seen.add(row.id);
+    }
+  } catch { /* Chinese sentences often need the substring fallback below. */ }
+
+  if (found.length >= limit) return found;
+  const terms = [];
+  const addTerm = (term) => {
+    const normalized = term.toLocaleLowerCase().trim();
+    if (normalized.length >= 2 && !terms.includes(normalized)) terms.push(normalized);
+  };
+  for (const token of safe.match(/[\p{Script=Han}]+|[\p{L}\p{N}]+/gu) || []) {
+    if (/^[\p{Script=Han}]+$/u.test(token)) {
+      if (token.length <= 4) addTerm(token);
+      for (let index = 0; index < token.length - 1; index += 1) addTerm(token.slice(index, index + 2));
+    } else {
+      addTerm(token);
+    }
+  }
+  const selectedTerms = terms.slice(0, 16);
+  if (!selectedTerms.length) return found;
+  const candidates = db.prepare('SELECT id, title, source, content, tags_json FROM knowledge_chunks LIMIT 500').all();
+  const scored = candidates
+    .filter((row) => !seen.has(row.id))
+    .map((row) => {
+      const haystack = `${row.title}\n${row.content}`.toLocaleLowerCase();
+      const score = selectedTerms.reduce((total, term) => total + (haystack.includes(term) ? (row.title.toLocaleLowerCase().includes(term) ? 3 : 1) : 0), 0);
+      return { row, score };
+    })
+    .filter((item) => item.score > 0)
+    .sort((left, right) => right.score - left.score || left.row.title.localeCompare(right.row.title));
+  for (const item of scored) {
+    found.push(item.row);
+    if (found.length >= limit) break;
+  }
+  return found;
 }
 
 function conversationMessages(db, conversationId, limit = 20) {

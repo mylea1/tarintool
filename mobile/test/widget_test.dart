@@ -55,15 +55,15 @@ void main() {
 
     final context = tester.element(find.byType(KiloShell));
     final theme = Theme.of(context);
-    expect(theme.scaffoldBackgroundColor, const Color(0xFFFFF8F2));
-    expect(theme.colorScheme.primary, const Color(0xFFC64F13));
+    expect(theme.scaffoldBackgroundColor, const Color(0xFFFFF7F0));
+    expect(theme.colorScheme.primary, const Color(0xFFD95718));
     expect(theme.colorScheme.surface, const Color(0xFFFFFFFF));
     expect(
       NavigationBarTheme.of(context).indicatorColor,
-      const Color(0xFFFDE2D0),
+      const Color(0xFFFFE3D2),
     );
     final focusedBorder = theme.inputDecorationTheme.focusedBorder!;
-    expect(focusedBorder.borderSide.color, const Color(0xFFC64F13));
+    expect(focusedBorder.borderSide.color, const Color(0xFFD95718));
   });
 
   testWidgets('free training starts empty timer and can add first action', (
@@ -535,7 +535,7 @@ void main() {
       );
       expect(
         (completedRow.decoration! as BoxDecoration).color,
-        const Color(0xFFE5F5EB),
+        const Color(0xFFE6F5EC),
       );
 
       await tester.tap(find.byKey(Key('set-complete-${set.id}')));

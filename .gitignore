@@ -1,6 +1,8 @@
 .gstack/
 .playwright-cli/
 output/
+design-previews/kilo-themes/generated/*.png
+design-previews/kilo-themes/preview-*.png
 
 # Local credentials and Apple signing files must stay outside Git.
 .env

@@ -48,6 +48,25 @@ test('health, auth and admin role boundaries', async () => {
   assert.equal(code.response.status, 201); assert.match(code.body.code, /^KILO-/);
 });
 
+test('knowledge search falls back to Chinese substring matching', async () => {
+  const created = await api('/v1/admin/knowledge', {
+    method: 'POST',
+    headers: { authorization: `Bearer ${adminToken}` },
+    body: JSON.stringify({
+      title: '深蹲组间休息',
+      source: 'test-fixture',
+      content: '深蹲正式组之间通常需要较充分的组间休息，并根据训练目标和主观恢复调整。',
+      tags: ['深蹲', '恢复'],
+    }),
+  });
+  assert.equal(created.response.status, 201);
+  const result = await api(`/v1/knowledge/search?q=${encodeURIComponent('如何安排深蹲组间休息')}`, {
+    headers: { authorization: `Bearer ${userToken}` },
+  });
+  assert.equal(result.response.status, 200);
+  assert.equal(result.body.results.some((item) => item.id === created.body.id), true);
+});
+
 test('redemption is atomic and cannot be reused', async () => {
   const generated = await api('/v1/admin/redemption-codes', { method: 'POST', headers: { authorization: `Bearer ${adminToken}` }, body: JSON.stringify({ plan: 'threeMonths' }) });
   const redeemed = await api('/v1/redemptions/redeem', { method: 'POST', headers: { authorization: `Bearer ${userToken}` }, body: JSON.stringify({ code: generated.body.code }) });

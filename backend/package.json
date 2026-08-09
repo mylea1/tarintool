@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "node --watch src/server.mjs",
     "start": "node src/server.mjs",
+    "seed:knowledge": "node scripts/seed-knowledge.mjs",
     "test": "node --test --test-concurrency=1"
   },
   "dependencies": {
