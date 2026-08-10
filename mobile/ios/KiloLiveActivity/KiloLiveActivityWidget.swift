@@ -17,14 +17,17 @@ struct KiloLiveActivityWidget: Widget {
                 DynamicIslandExpandedRegion(.leading) {
                     Label(context.attributes.workoutName, systemImage: "figure.strengthtraining.traditional")
                         .font(.caption.weight(.bold))
+                        .foregroundStyle(.white)
                         .lineLimit(1)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     KiloWorkoutTimer(state: context.state, compact: true)
+                        .foregroundStyle(.white)
                 }
                 DynamicIslandExpandedRegion(.center) {
                     Text(context.state.phaseLabel)
                         .font(.headline)
+                        .foregroundStyle(.white)
                         .lineLimit(1)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
@@ -32,13 +35,15 @@ struct KiloLiveActivityWidget: Widget {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(context.state.exerciseName)
                                 .font(.caption.weight(.semibold))
+                                .foregroundStyle(.white)
                                 .lineLimit(1)
                             Text(context.state.restEndsAt == nil ? "保持节奏，完成下一组" : "组间休息")
                                 .font(.caption2)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(.white.opacity(0.72))
                         }
                         Spacer()
                         KiloRestTimer(state: context.state)
+                            .foregroundStyle(ember)
                     }
                 }
             } compactLeading: {
@@ -46,13 +51,20 @@ struct KiloLiveActivityWidget: Widget {
                     .foregroundStyle(ember)
             } compactTrailing: {
                 if context.state.restEndsAt != nil || context.state.pausedRestSeconds > 0 {
-                    KiloRestTimer(state: context.state)
+                    KiloRestTimer(state: context.state, compact: true)
+                        .foregroundStyle(ember)
                 } else {
                     KiloWorkoutTimer(state: context.state, compact: true)
+                        .foregroundStyle(.white)
                 }
             } minimal: {
-                Image(systemName: context.state.isPaused ? "pause.fill" : "flame.fill")
-                    .foregroundStyle(ember)
+                if context.state.restEndsAt != nil || context.state.pausedRestSeconds > 0 {
+                    KiloRestTimer(state: context.state, compact: true)
+                        .foregroundStyle(ember)
+                } else {
+                    KiloWorkoutTimer(state: context.state, compact: true)
+                        .foregroundStyle(.white)
+                }
             }
             .widgetURL(URL(string: "ember://training"))
             .keylineTint(ember)
@@ -61,6 +73,8 @@ struct KiloLiveActivityWidget: Widget {
 
     private struct KiloLockScreenView: View {
         let context: ActivityViewContext<KiloLiveActivityAttributes>
+        private let primaryText = Color(red: 0.16, green: 0.09, blue: 0.06)
+        private let secondaryText = Color(red: 0.38, green: 0.29, blue: 0.25)
 
         var body: some View {
             HStack(spacing: 12) {
@@ -73,28 +87,30 @@ struct KiloLiveActivityWidget: Widget {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(context.attributes.workoutName)
                         .font(.headline)
+                        .foregroundStyle(primaryText)
                         .lineLimit(1)
                     Text(context.state.exerciseName)
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(secondaryText)
                         .lineLimit(1)
                 }
                 Spacer(minLength: 8)
                 VStack(alignment: .trailing, spacing: 3) {
                     HStack(spacing: 4) {
-                        Text("训练").font(.caption2).foregroundStyle(.secondary)
+                        Text("训练").font(.caption2).foregroundStyle(secondaryText)
                         KiloWorkoutTimer(state: context.state, compact: false)
+                            .foregroundStyle(primaryText)
                     }
                     if context.state.restEndsAt != nil || context.state.pausedRestSeconds > 0 {
                         HStack(spacing: 4) {
-                            Text("休息").font(.caption2).foregroundStyle(.secondary)
+                            Text("休息").font(.caption2).foregroundStyle(secondaryText)
                             KiloRestTimer(state: context.state)
                                 .foregroundStyle(Color(red: 0.93, green: 0.34, blue: 0.08))
                         }
                     } else {
                         Text(context.state.isPaused ? "已暂停" : context.state.phaseLabel)
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(context.state.isPaused ? .orange : .secondary)
+                            .foregroundStyle(context.state.isPaused ? Color.orange : secondaryText)
                     }
                 }
             }
@@ -121,11 +137,15 @@ struct KiloLiveActivityWidget: Widget {
             }
             .font(.system(compact ? .caption : .body, design: .monospaced).weight(.bold))
             .monospacedDigit()
+            .lineLimit(1)
+            .minimumScaleFactor(0.72)
+            .frame(width: compact ? 44 : nil, alignment: .trailing)
         }
     }
 
     private struct KiloRestTimer: View {
         let state: KiloLiveActivityAttributes.ContentState
+        var compact = false
 
         var body: some View {
             Group {
@@ -137,8 +157,11 @@ struct KiloLiveActivityWidget: Widget {
                     Text("—")
                 }
             }
-            .font(.system(.body, design: .monospaced).weight(.bold))
+            .font(.system(compact ? .caption2 : .body, design: .monospaced).weight(.bold))
             .monospacedDigit()
+            .lineLimit(1)
+            .minimumScaleFactor(0.65)
+            .frame(width: compact ? 40 : nil, alignment: .trailing)
         }
     }
 

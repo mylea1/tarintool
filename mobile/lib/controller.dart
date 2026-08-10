@@ -108,6 +108,16 @@ class PlatformTimerBridge {
       // Optional capability.
     }
   }
+
+  static Future<void> completeRest() async {
+    try {
+      await _channel.invokeMethod<void>('completeRest');
+    } on MissingPluginException {
+      // The native completion notification is optional in tests and previews.
+    } on PlatformException catch (_) {
+      // UI state remains authoritative when the system capability is unavailable.
+    }
+  }
 }
 
 class AppController extends ChangeNotifier {
@@ -533,11 +543,15 @@ class AppController extends ChangeNotifier {
       }
       if (restRemainingSeconds > 0) {
         restRemainingSeconds -= 1;
-      } else {
+      }
+      if (restRemainingSeconds <= 0) {
+        restRemainingSeconds = 0;
         restRunning = false;
         restExerciseName = null;
         _restTicker?.cancel();
-        PlatformTimerBridge.clearRest();
+        PlatformTimerBridge.completeRest();
+        SystemSound.play(SystemSoundType.alert);
+        HapticFeedback.heavyImpact();
       }
       notifyListeners();
     });
