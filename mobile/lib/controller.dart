@@ -8,6 +8,7 @@ import 'account_membership.dart';
 import 'ai_api.dart';
 import 'models.dart';
 import 'recognition_api.dart';
+import 'workout_history_persistence.dart';
 
 const String defaultCoachApiBaseUrl = String.fromEnvironment(
   'KILO_API_BASE_URL',
@@ -125,8 +126,12 @@ class AppController extends ChangeNotifier {
     AccountService? accountService,
     RecognitionApi? recognitionApi,
     this.coachApi,
+    WorkoutHistoryPersistence? workoutHistoryPersistence,
   }) : accountService = accountService ?? AccountService(),
-       recognitionApi = recognitionApi ?? UnconfiguredRecognitionApi() {
+       recognitionApi = recognitionApi ?? UnconfiguredRecognitionApi(),
+       workoutHistoryPersistence =
+           workoutHistoryPersistence ??
+           SharedPreferencesWorkoutHistoryPersistence() {
     _seed();
     PlatformTimerBridge.setRestSkippedHandler(skipRest);
     this.accountService.addListener(_handleAccountChanged);
@@ -135,6 +140,9 @@ class AppController extends ChangeNotifier {
   final AccountService accountService;
   final RecognitionApi recognitionApi;
   final CoachApi? coachApi;
+  final WorkoutHistoryPersistence workoutHistoryPersistence;
+  Future<void> _historyWriteChain = Future<void>.value();
+  String? _loadedHistoryUserId;
   HttpCoachApi? _defaultCoachApi;
   String? _defaultCoachApiBaseUrl;
 
@@ -149,7 +157,12 @@ class AppController extends ChangeNotifier {
 
   AuthResult loginWithPhone(String identifier, {String? password}) {
     _defaultCoachApi?.clearSession();
-    return accountService.loginWithPhone(identifier, password: password);
+    final result = accountService.loginWithPhone(
+      identifier,
+      password: password,
+    );
+    if (result.isSuccess) unawaited(hydrateWorkoutHistory(force: true));
+    return result;
   }
 
   AuthResult loginWithApple() => accountService.loginWithApple();
@@ -159,6 +172,42 @@ class AppController extends ChangeNotifier {
   void logout() {
     _defaultCoachApi?.clearSession();
     accountService.logout();
+    _loadedHistoryUserId = null;
+    history.clear();
+    notifyListeners();
+  }
+
+  Future<void> hydrateWorkoutHistory({bool force = false}) async {
+    final userId = currentUser?.id;
+    if (userId == null || userId.isEmpty) {
+      history.clear();
+      _loadedHistoryUserId = null;
+      notifyListeners();
+      return;
+    }
+    if (!force && _loadedHistoryUserId == userId) return;
+    await _historyWriteChain;
+    final records = await workoutHistoryPersistence.read(userId);
+    if (currentUser?.id != userId) return;
+    history
+      ..clear()
+      ..addAll(records);
+    _loadedHistoryUserId = userId;
+    notifyListeners();
+  }
+
+  Future<void> flushWorkoutHistoryPersistence() => _historyWriteChain;
+
+  void _persistWorkoutHistory() {
+    final userId = currentUser?.id;
+    if (userId == null || userId.isEmpty) return;
+    _loadedHistoryUserId = userId;
+    final snapshot = history.map((record) => record).toList(growable: false);
+    _historyWriteChain = _historyWriteChain
+        .then((_) => workoutHistoryPersistence.write(userId, snapshot))
+        .catchError((Object _) {
+          // Training stays usable when platform storage is temporarily absent.
+        });
   }
 
   AccountResult<EntitlementSnapshot> grantMembership({
@@ -609,6 +658,7 @@ class AppController extends ChangeNotifier {
       exercises: historySnapshot,
     );
     history.insert(0, record);
+    _persistWorkoutHistory();
     // A valid completed session grants one recognition credit. The service
     // tracks record IDs, so opening/saving the same summary cannot reward it
     // twice. Empty sessions do not count as valid training.
@@ -786,6 +836,7 @@ class AppController extends ChangeNotifier {
 
   void deleteRecord(WorkoutRecord record) {
     history.remove(record);
+    _persistWorkoutHistory();
     notifyListeners();
   }
 
@@ -805,6 +856,7 @@ class AppController extends ChangeNotifier {
       prs: record.prs,
       exercises: record.exercises.map((item) => item.copy()).toList(),
     );
+    _persistWorkoutHistory();
     notifyListeners();
   }
 
@@ -1272,9 +1324,11 @@ class AppController extends ChangeNotifier {
 
   void saveAiPlan(AiPlanDraft plan, {required bool scheduleCalendar}) {
     final stamp = DateTime.now().microsecondsSinceEpoch;
-    for (var sessionIndex = 0;
-        sessionIndex < plan.sessions.length;
-        sessionIndex++) {
+    for (
+      var sessionIndex = 0;
+      sessionIndex < plan.sessions.length;
+      sessionIndex++
+    ) {
       final session = plan.sessions[sessionIndex];
       final validIds = session.exerciseIds
           .where((id) => allExercises.any((exercise) => exercise.id == id))
@@ -1288,9 +1342,11 @@ class AppController extends ChangeNotifier {
           name: routineName,
           folder: 'AI 生成',
           exercises: [
-            for (var exerciseIndex = 0;
-                exerciseIndex < validIds.length;
-                exerciseIndex++)
+            for (
+              var exerciseIndex = 0;
+              exerciseIndex < validIds.length;
+              exerciseIndex++
+            )
               _makeWorkout(
                 validIds[exerciseIndex],
                 'ai-$stamp-$sessionIndex-$exerciseIndex',
@@ -1303,9 +1359,7 @@ class AppController extends ChangeNotifier {
       for (var week = 0; week < plan.weeks; week++) {
         final dayOffset = session.dayOffset.clamp(0, 6).toInt();
         schedule(
-          DateTime.now().add(
-            Duration(days: dayOffset + week * 7),
-          ),
+          DateTime.now().add(Duration(days: dayOffset + week * 7)),
           routineName,
         );
       }

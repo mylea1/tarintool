@@ -1,10 +1,63 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kilo_strength/account_membership.dart';
 import 'package:kilo_strength/controller.dart';
 import 'package:kilo_strength/models.dart';
+import 'package:kilo_strength/workout_history_persistence.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  test('completed history survives controller recreation per user', () async {
+    final persistence = InMemoryWorkoutHistoryPersistence();
+    AppController buildController() {
+      final account = AccountService(allowTestAdmin: true);
+      account.loginWithPhone('123', password: '123');
+      return AppController(
+        accountService: account,
+        workoutHistoryPersistence: persistence,
+      );
+    }
+
+    final first = buildController();
+    await first.hydrateWorkoutHistory();
+    first.startWorkout(name: '持久化训练');
+    first.addExercise('bench_press');
+    final exercise = first.workout.single;
+    first.addSet(exercise);
+    exercise.sets.single
+      ..weight = 72.5
+      ..reps = 6
+      ..note = '动作稳定'
+      ..completed = true;
+    first.finishWorkout(note: '状态良好');
+    await first.flushWorkoutHistoryPersistence();
+    first.dispose();
+
+    final second = buildController();
+    await second.hydrateWorkoutHistory();
+    expect(second.history, hasLength(1));
+    expect(second.history.single.name, '持久化训练');
+    expect(second.history.single.note, '状态良好');
+    expect(second.history.single.exercises.single.sets.single.weight, 72.5);
+    expect(second.history.single.exercises.single.sets.single.note, '动作稳定');
+
+    second.updateRecordNote(second.history.single, '重启后编辑');
+    await second.flushWorkoutHistoryPersistence();
+    second.dispose();
+
+    final third = buildController();
+    await third.hydrateWorkoutHistory();
+    expect(third.history.single.note, '重启后编辑');
+    third.deleteRecord(third.history.single);
+    await third.flushWorkoutHistoryPersistence();
+    third.dispose();
+
+    final fourth = buildController();
+    await fourth.hydrateWorkoutHistory();
+    expect(fourth.history, isEmpty);
+    fourth.dispose();
+  });
 
   test('workout timer stays independent from rest timer', () async {
     const channel = MethodChannel('kilo.platform.timer');
@@ -206,57 +259,54 @@ void main() {
   test(
     'every free-workout exercise inherits rest and later actions restart timer',
     () async {
-    const channel = MethodChannel('kilo.platform.timer');
-    final calls = <String>[];
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, (call) async {
-          calls.add(call.method);
-          return null;
-        });
-    final controller = AppController();
-    try {
-      controller.startWorkout(name: '自由训练');
-      controller.addExercise('bench_press');
-      final exercise = controller.workout.single;
-      controller.addSet(exercise);
-      expect(exercise.restSeconds, controller.defaultRestSeconds);
-      expect(exercise.sets.single.restSeconds, controller.defaultRestSeconds);
-      final burstBefore = controller.completionBurstId;
-      controller.completeSet(exercise.sets.single, exercise);
-      await Future<void>.delayed(Duration.zero);
-      expect(controller.restRunning, isTrue);
-      expect(calls, contains('startTimer'));
-      expect(controller.completionBurstId, burstBefore + 1);
-      controller.completeSet(exercise.sets.single, exercise);
-      expect(controller.completionBurstId, burstBefore + 1);
-
-      controller.addExercise('squat');
-      final secondExercise = controller.workout.last;
-      controller.addSet(secondExercise);
-      expect(secondExercise.restSeconds, controller.defaultRestSeconds);
-      expect(
-        secondExercise.sets.single.restSeconds,
-        controller.defaultRestSeconds,
-      );
-      controller.completeSet(secondExercise.sets.single, secondExercise);
-      await Future<void>.delayed(Duration.zero);
-      expect(controller.restRunning, isTrue);
-      expect(
-        controller.restRemainingSeconds,
-        controller.defaultRestSeconds,
-      );
-
-      controller.completeSet(secondExercise.sets.single, secondExercise);
-      controller.updateExerciseRest(secondExercise, 0);
-      controller.completeSet(secondExercise.sets.single, secondExercise);
-      await Future<void>.delayed(Duration.zero);
-      expect(controller.restRunning, isFalse);
-      expect(controller.restRemainingSeconds, 0);
-    } finally {
-      controller.dispose();
+      const channel = MethodChannel('kilo.platform.timer');
+      final calls = <String>[];
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(channel, null);
-    }
+          .setMockMethodCallHandler(channel, (call) async {
+            calls.add(call.method);
+            return null;
+          });
+      final controller = AppController();
+      try {
+        controller.startWorkout(name: '自由训练');
+        controller.addExercise('bench_press');
+        final exercise = controller.workout.single;
+        controller.addSet(exercise);
+        expect(exercise.restSeconds, controller.defaultRestSeconds);
+        expect(exercise.sets.single.restSeconds, controller.defaultRestSeconds);
+        final burstBefore = controller.completionBurstId;
+        controller.completeSet(exercise.sets.single, exercise);
+        await Future<void>.delayed(Duration.zero);
+        expect(controller.restRunning, isTrue);
+        expect(calls, contains('startTimer'));
+        expect(controller.completionBurstId, burstBefore + 1);
+        controller.completeSet(exercise.sets.single, exercise);
+        expect(controller.completionBurstId, burstBefore + 1);
+
+        controller.addExercise('squat');
+        final secondExercise = controller.workout.last;
+        controller.addSet(secondExercise);
+        expect(secondExercise.restSeconds, controller.defaultRestSeconds);
+        expect(
+          secondExercise.sets.single.restSeconds,
+          controller.defaultRestSeconds,
+        );
+        controller.completeSet(secondExercise.sets.single, secondExercise);
+        await Future<void>.delayed(Duration.zero);
+        expect(controller.restRunning, isTrue);
+        expect(controller.restRemainingSeconds, controller.defaultRestSeconds);
+
+        controller.completeSet(secondExercise.sets.single, secondExercise);
+        controller.updateExerciseRest(secondExercise, 0);
+        controller.completeSet(secondExercise.sets.single, secondExercise);
+        await Future<void>.delayed(Duration.zero);
+        expect(controller.restRunning, isFalse);
+        expect(controller.restRemainingSeconds, 0);
+      } finally {
+        controller.dispose();
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, null);
+      }
     },
   );
 

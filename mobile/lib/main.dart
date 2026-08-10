@@ -75,6 +75,9 @@ class _KiloAppState extends State<KiloApp> {
       await controller.accountService.hydrateFromSharedPreferences().timeout(
         const Duration(milliseconds: 500),
       );
+      await controller.hydrateWorkoutHistory().timeout(
+        const Duration(milliseconds: 500),
+      );
     } catch (_) {
       // Local storage is optional in previews; the in-memory repository stays
       // usable when a platform implementation is unavailable.
