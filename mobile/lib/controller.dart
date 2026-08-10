@@ -277,7 +277,7 @@ class AppController extends ChangeNotifier {
   String scenario = 'normal';
   bool appleWatch = false;
   bool liveActivity = true;
-  bool androidNotifications = false;
+  bool androidNotifications = true;
   bool batchMode = false;
   final Set<String> selectedSetIds = <String>{};
   String? selectedPlanFolder;
@@ -1277,16 +1277,29 @@ class AppController extends ChangeNotifier {
       );
     }
 
-    try {
-      return await request();
-    } on CoachApiException catch (error) {
-      // HttpCoachApi clears an expired session on 401. Re-authenticate once so
-      // a long-lived app session does not force the user to resend the prompt.
-      if (coachApi == null && error.code == 'coach_http_401') {
-        return request();
+    for (var attempt = 0; attempt < 2; attempt++) {
+      try {
+        return await request();
+      } on CoachApiException catch (error) {
+        // Re-authenticate once after an expired session. Transient upstream and
+        // network failures also receive one bounded retry so users do not lose
+        // a plan request because of a short queue spike or tunnel reconnect.
+        final retryable =
+            error.code == 'coach_http_502' ||
+            error.code == 'coach_http_503' ||
+            error.code == 'coach_http_504' ||
+            error.code == 'coach_timeout' ||
+            error.code == 'coach_network';
+        if (attempt == 0 &&
+            (retryable ||
+                (coachApi == null && error.code == 'coach_http_401'))) {
+          await Future<void>.delayed(const Duration(milliseconds: 650));
+          continue;
+        }
+        rethrow;
       }
-      rethrow;
     }
+    throw const CoachApiException('coach_retry_exhausted');
   }
 
   bool _isAiPlanRequest(String prompt) {
@@ -1295,9 +1308,12 @@ class AppController extends ChangeNotifier {
       r'(生成|制定|安排|创建|做一份|设计|帮我做|帮我排|generate|create|build|make)',
     ).hasMatch(normalized);
     final mentionsPlan = RegExp(
-      r'(训练计划|训练方案|健身计划|健身方案|月计划|周计划|workout plan|training plan)',
+      r'(计划|方案|workout plan|training plan)',
     ).hasMatch(normalized);
-    return asksToCreate && mentionsPlan;
+    final shortPlanIntent = RegExp(
+      r'(今日|今天|明天|本周|这周|练胸|练背|练腿|练肩|练手臂)',
+    ).hasMatch(normalized);
+    return mentionsPlan && (asksToCreate || shortPlanIntent);
   }
 
   List<Map<String, String>> _aiExerciseCatalog() {
@@ -1322,15 +1338,42 @@ class AppController extends ChangeNotifier {
     ];
   }
 
-  void saveAiPlan(AiPlanDraft plan, {required bool scheduleCalendar}) {
+  WorkoutExercise _makeAiWorkout(AiPlanExerciseDraft draft, String id) =>
+      WorkoutExercise(
+        id: id,
+        exerciseId: draft.exerciseId,
+        restSeconds: draft.sets.isEmpty
+            ? defaultRestSeconds
+            : draft.sets.first.restSeconds,
+        sets: [
+          for (var index = 0; index < draft.sets.length; index++)
+            WorkoutSet(
+              id: '$id-set-$index',
+              type: draft.sets[index].type,
+              weight: draft.sets[index].weight,
+              plannedWeight: draft.sets[index].weight,
+              reps: draft.sets[index].reps,
+              targetMin: draft.sets[index].reps,
+              targetMax: draft.sets[index].reps,
+              restSeconds: draft.sets[index].restSeconds,
+            ),
+        ],
+      );
+
+  void saveAiPlan(
+    AiPlanDraft plan, {
+    required bool scheduleCalendar,
+    DateTime? scheduleStartDate,
+  }) {
     final stamp = DateTime.now().microsecondsSinceEpoch;
+    final scheduleAnchor = scheduleStartDate ?? DateTime.now();
     for (
       var sessionIndex = 0;
       sessionIndex < plan.sessions.length;
       sessionIndex++
     ) {
       final session = plan.sessions[sessionIndex];
-      final validIds = session.exerciseIds
+      final validIds = session.effectiveExerciseIds
           .where((id) => allExercises.any((exercise) => exercise.id == id))
           .toList();
       if (validIds.isEmpty) continue;
@@ -1341,17 +1384,32 @@ class AppController extends ChangeNotifier {
           id: 'ai-routine-$stamp-$sessionIndex',
           name: routineName,
           folder: 'AI 生成',
-          exercises: [
-            for (
-              var exerciseIndex = 0;
-              exerciseIndex < validIds.length;
-              exerciseIndex++
-            )
-              _makeWorkout(
-                validIds[exerciseIndex],
-                'ai-$stamp-$sessionIndex-$exerciseIndex',
-              ),
-          ],
+          exercises: session.exercises.isNotEmpty
+              ? [
+                  for (
+                    var exerciseIndex = 0;
+                    exerciseIndex < session.exercises.length;
+                    exerciseIndex++
+                  )
+                    if (validIds.contains(
+                      session.exercises[exerciseIndex].exerciseId,
+                    ))
+                      _makeAiWorkout(
+                        session.exercises[exerciseIndex],
+                        'ai-$stamp-$sessionIndex-$exerciseIndex',
+                      ),
+                ]
+              : [
+                  for (
+                    var exerciseIndex = 0;
+                    exerciseIndex < validIds.length;
+                    exerciseIndex++
+                  )
+                    _makeWorkout(
+                      validIds[exerciseIndex],
+                      'ai-$stamp-$sessionIndex-$exerciseIndex',
+                    ),
+                ],
           updatedAt: DateTime.now(),
         ),
       );
@@ -1359,7 +1417,7 @@ class AppController extends ChangeNotifier {
       for (var week = 0; week < plan.weeks; week++) {
         final dayOffset = session.dayOffset.clamp(0, 6).toInt();
         schedule(
-          DateTime.now().add(Duration(days: dayOffset + week * 7)),
+          scheduleAnchor.add(Duration(days: dayOffset + week * 7)),
           routineName,
         );
       }
@@ -1408,9 +1466,15 @@ class AppController extends ChangeNotifier {
           }
         } on CoachApiException catch (error) {
           aiReservation?.rollback();
-          serviceError = error.code == 'coach_account_not_synced'
-              ? '当前账号尚未同步到云端，请先使用测试账号 123 或 1234。'
-              : 'AI 服务暂时不可用，请稍后重试。';
+          serviceError = switch (error.code) {
+            'coach_account_not_synced' => '当前账号尚未同步到云端，请先使用测试账号 123 或 1234。',
+            'coach_timeout' => 'AI 响应超时，已自动重试一次，请稍后再试。',
+            'coach_network' => '当前网络无法连接 AI 服务，请检查网络后重试。',
+            'coach_http_429' ||
+            'coach_http_503' => 'AI 当前请求较多，已自动重试但仍在排队，请稍后再试。',
+            'coach_http_502' || 'coach_http_504' => 'AI 上游服务短暂波动，已自动重试，请稍后再试。',
+            _ => 'AI 服务暂时不可用（${error.code}），请稍后重试。',
+          };
         } catch (_) {
           aiReservation?.rollback();
           serviceError = 'AI 服务暂时不可用，请稍后重试。';

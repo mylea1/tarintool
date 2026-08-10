@@ -329,8 +329,10 @@ async function callDeepSeek(ctx, messages, userId) {
 
 function isTrainingPlanRequest(question) {
   const normalized = question.toLocaleLowerCase();
-  return /(生成|制定|安排|创建|做一份|设计|帮我做|帮我排|generate|create|build|make)/u.test(normalized)
-    && /(训练计划|训练方案|健身计划|健身方案|月计划|周计划|workout plan|training plan)/u.test(normalized);
+  const mentionsPlan = /(计划|方案|workout plan|training plan)/u.test(normalized);
+  const asksToCreate = /(生成|制定|安排|创建|做一份|设计|帮我做|帮我排|generate|create|build|make)/u.test(normalized);
+  const shortPlanIntent = /(今日|今天|明天|本周|这周|练胸|练背|练腿|练肩|练手臂)/u.test(normalized);
+  return mentionsPlan && (asksToCreate || shortPlanIntent);
 }
 
 function extractPlanDraft(rawAnswer, allowedExerciseIds) {
@@ -339,14 +341,37 @@ function extractPlanDraft(rawAnswer, allowedExerciseIds) {
   const answer = rawAnswer.replace(marker[0], '').trim();
   try {
     const parsed = JSON.parse(marker[1].trim());
+    const allowedSetTypes = new Set(['warmup', 'work', 'backoff', 'drop', 'failure', 'technique']);
     const sessions = Array.isArray(parsed?.sessions)
-      ? parsed.sessions.slice(0, 7).map((session) => ({
-        dayOffset: Math.max(0, Math.min(6, Number(session?.dayOffset) || 0)),
-        name: String(session?.name || '训练').trim().slice(0, 60),
-        exerciseIds: Array.isArray(session?.exerciseIds)
+      ? parsed.sessions.slice(0, 7).map((session) => {
+        const structuredExercises = Array.isArray(session?.exercises)
+          ? session.exercises.slice(0, 10).map((exercise) => {
+            const exerciseId = String(exercise?.exerciseId || '');
+            if (!allowedExerciseIds.has(exerciseId)) return null;
+            const sets = Array.isArray(exercise?.sets)
+              ? exercise.sets.slice(0, 8).map((set) => ({
+                type: allowedSetTypes.has(String(set?.type)) ? String(set.type) : 'work',
+                weight: Math.max(0, Math.min(1000, Number(set?.weight) || 0)),
+                reps: Math.max(1, Math.min(100, Math.round(Number(set?.reps) || 8))),
+                restSeconds: Math.max(15, Math.min(600, Math.round(Number(set?.restSeconds) || 90))),
+              }))
+              : [];
+            return sets.length ? { exerciseId, sets } : null;
+          }).filter(Boolean)
+          : [];
+        const legacyIds = Array.isArray(session?.exerciseIds)
           ? [...new Set(session.exerciseIds.map(String).filter((id) => allowedExerciseIds.has(id)))].slice(0, 10)
-          : [],
-      })).filter((session) => session.exerciseIds.length)
+          : [];
+        const exerciseIds = structuredExercises.length
+          ? structuredExercises.map((exercise) => exercise.exerciseId)
+          : legacyIds;
+        return {
+          dayOffset: Math.max(0, Math.min(6, Number(session?.dayOffset) || 0)),
+          name: String(session?.name || '训练').trim().slice(0, 60),
+          exerciseIds,
+          exercises: structuredExercises,
+        };
+      }).filter((session) => session.exerciseIds.length)
       : [];
     if (!sessions.length) return { answer, plan: null };
     return {
@@ -653,8 +678,8 @@ async function handleRequest(req, res, ctx) {
       if (planRequested && exerciseCatalog.length) {
         messages.push({ role: 'system', content: `用户明确要求生成训练计划。只能从下面动作库选择动作，不得编造 ID：\n${exerciseCatalog.map((item) => `${item.id}|${item.name}|${item.equipment}|${item.muscle}`).join('\n')}
 先用 Markdown 说明计划思路和注意事项，然后在回答最末尾输出且只输出一次以下机器可读块：
-<KILO_PLAN>{"title":"计划名称","weeks":4,"sessions":[{"dayOffset":0,"name":"训练日名称","exerciseIds":["动作ID"]}]}</KILO_PLAN>
-dayOffset 为本周从今天起第几天（0-6）；如果用户要求一个月，weeks 设为 4。不要在机器可读块中使用 Markdown 代码围栏。` });
+<KILO_PLAN>{"title":"计划名称","weeks":1,"sessions":[{"dayOffset":0,"name":"胸部训练","exercises":[{"exerciseId":"动作ID","sets":[{"type":"warmup","weight":20,"reps":12,"restSeconds":60},{"type":"work","weight":40,"reps":8,"restSeconds":120}]}]}]}</KILO_PLAN>
+每个动作必须给出具体组型、重量（kg）、次数和组间休息；自重动作的 weight 使用 0。没有用户历史重量时使用保守可调整的起始重量，不要编造极限重量。dayOffset 为本周从今天起第几天（0-6）；如果用户要求一个月，weeks 设为 4。不要在机器可读块中使用 Markdown 代码围栏。` });
       }
       messages.push({ role: 'user', content: question });
       let rawAnswer;

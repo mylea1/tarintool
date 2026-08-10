@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -5,11 +6,7 @@ import 'package:http/http.dart' as http;
 import 'models.dart';
 
 class CoachAnswer {
-  const CoachAnswer({
-    required this.body,
-    this.citations = const [],
-    this.plan,
-  });
+  const CoachAnswer({required this.body, this.citations = const [], this.plan});
   final String body;
   final List<String> citations;
   final AiPlanDraft? plan;
@@ -84,37 +81,43 @@ class HttpCoachApi implements CoachApi {
     if (token == null || token.isEmpty) {
       throw const CoachApiException('coach_unauthenticated');
     }
-    final response = await _client
-        .post(
-          uri,
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer $token',
-          },
-          body: jsonEncode({
-            'question': prompt,
-            'useTrainingData': includeTrainingSummary,
-            if (includeTrainingSummary &&
-                trainingSummary?.trim().isNotEmpty == true)
-              'trainingSummary': trainingSummary!.trim(),
-            if (exerciseCatalog.isNotEmpty) 'exerciseCatalog': exerciseCatalog,
-          }),
-        )
-        .timeout(requestTimeout);
+    late final http.Response response;
+    try {
+      response = await _client
+          .post(
+            uri,
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({
+              'question': prompt,
+              'useTrainingData': includeTrainingSummary,
+              if (includeTrainingSummary &&
+                  trainingSummary?.trim().isNotEmpty == true)
+                'trainingSummary': trainingSummary!.trim(),
+              if (exerciseCatalog.isNotEmpty)
+                'exerciseCatalog': exerciseCatalog,
+            }),
+          )
+          .timeout(requestTimeout);
+    } on TimeoutException {
+      throw const CoachApiException('coach_timeout');
+    } on http.ClientException {
+      throw const CoachApiException('coach_network');
+    }
     if (response.statusCode < 200 || response.statusCode >= 300) {
       if (response.statusCode == 401) clearSession();
       throw CoachApiException('coach_http_${response.statusCode}');
     }
     final payload = jsonDecode(response.body) as Map<String, dynamic>;
     final citations = (payload['citations'] as List<dynamic>? ?? const [])
-        .map(
-          (item) {
-            if (item is! Map<String, dynamic>) return item.toString();
-            final title = (item['title'] ?? item['detail'] ?? '').toString();
-            final source = (item['source'] ?? '').toString();
-            return source.isEmpty || source == title ? title : '$title｜$source';
-          },
-        )
+        .map((item) {
+          if (item is! Map<String, dynamic>) return item.toString();
+          final title = (item['title'] ?? item['detail'] ?? '').toString();
+          final source = (item['source'] ?? '').toString();
+          return source.isEmpty || source == title ? title : '$title｜$source';
+        })
         .where((item) => item.isNotEmpty)
         .toList();
     final planPayload = payload['plan'];
@@ -122,17 +125,46 @@ class HttpCoachApi implements CoachApi {
     if (planPayload is Map<String, dynamic>) {
       final sessions = (planPayload['sessions'] as List<dynamic>? ?? const [])
           .whereType<Map<String, dynamic>>()
-          .map(
-            (item) => AiPlanSession(
+          .map((item) {
+            final exercises = (item['exercises'] as List<dynamic>? ?? const [])
+                .whereType<Map<String, dynamic>>()
+                .map((exercise) {
+                  final id = (exercise['exerciseId'] ?? '').toString();
+                  final sets = (exercise['sets'] as List<dynamic>? ?? const [])
+                      .whereType<Map<String, dynamic>>()
+                      .map(
+                        (set) => AiPlanSetDraft(
+                          type: (set['type'] ?? 'work').toString(),
+                          weight: (set['weight'] as num?)?.toDouble() ?? 0,
+                          reps: (set['reps'] as num?)?.toInt() ?? 8,
+                          restSeconds:
+                              (set['restSeconds'] as num?)?.toInt() ?? 90,
+                        ),
+                      )
+                      .toList();
+                  return AiPlanExerciseDraft(exerciseId: id, sets: sets);
+                })
+                .where(
+                  (exercise) =>
+                      exercise.exerciseId.isNotEmpty &&
+                      exercise.sets.isNotEmpty,
+                )
+                .toList();
+            final legacyIds =
+                (item['exerciseIds'] as List<dynamic>? ?? const [])
+                    .map((id) => id.toString())
+                    .where((id) => id.isNotEmpty)
+                    .toList();
+            return AiPlanSession(
               dayOffset: (item['dayOffset'] as num?)?.toInt() ?? 0,
               name: (item['name'] ?? '训练').toString(),
-              exerciseIds: (item['exerciseIds'] as List<dynamic>? ?? const [])
-                  .map((id) => id.toString())
-                  .where((id) => id.isNotEmpty)
-                  .toList(),
-            ),
-          )
-          .where((session) => session.exerciseIds.isNotEmpty)
+              exerciseIds: exercises.isEmpty
+                  ? legacyIds
+                  : exercises.map((exercise) => exercise.exerciseId).toList(),
+              exercises: exercises,
+            );
+          })
+          .where((session) => session.effectiveExerciseIds.isNotEmpty)
           .toList();
       if (sessions.isNotEmpty) {
         plan = AiPlanDraft(

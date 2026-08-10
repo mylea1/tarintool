@@ -275,11 +275,47 @@ class AiPlanSession {
     required this.dayOffset,
     required this.name,
     required this.exerciseIds,
+    this.exercises = const [],
   });
 
   final int dayOffset;
   final String name;
   final List<String> exerciseIds;
+  final List<AiPlanExerciseDraft> exercises;
+
+  List<String> get effectiveExerciseIds => exercises.isEmpty
+      ? exerciseIds
+      : exercises.map((exercise) => exercise.exerciseId).toList();
+
+  int get totalSets =>
+      exercises.fold(0, (total, exercise) => total + exercise.sets.length);
+
+  double get plannedVolume =>
+      exercises.fold(0, (total, exercise) => total + exercise.plannedVolume);
+}
+
+class AiPlanExerciseDraft {
+  const AiPlanExerciseDraft({required this.exerciseId, required this.sets});
+
+  final String exerciseId;
+  final List<AiPlanSetDraft> sets;
+
+  double get plannedVolume =>
+      sets.fold(0, (total, set) => total + set.weight * set.reps);
+}
+
+class AiPlanSetDraft {
+  const AiPlanSetDraft({
+    required this.type,
+    required this.weight,
+    required this.reps,
+    required this.restSeconds,
+  });
+
+  final String type;
+  final double weight;
+  final int reps;
+  final int restSeconds;
 }
 
 class AiConversation {

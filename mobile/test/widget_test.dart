@@ -644,6 +644,8 @@ void main() {
       await tester.tap(find.byKey(Key('set-note-save-${set.id}')));
       await tester.pumpAndSettle();
       expect(set.note, '窄握，最后两次速度变慢');
+      expect(find.byKey(Key('set-note-preview-${set.id}')), findsOneWidget);
+      expect(find.text('窄握，最后两次速度变慢'), findsOneWidget);
 
       await tester.tap(find.byKey(Key('set-complete-${set.id}')));
       await tester.pump();
@@ -823,6 +825,7 @@ void main() {
       await tester.ensureVisible(find.byKey(completionKey));
       await tester.pumpAndSettle();
       expect(find.byKey(completionKey), findsOneWidget);
+      expect(find.byKey(Key('set-note-preview-${set.id}')), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.tap(find.byKey(completionKey));
       await tester.pump();

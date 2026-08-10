@@ -366,4 +366,51 @@ void main() {
           .setMockMethodCallHandler(channel, null);
     }
   });
+
+  test('AI plan preserves prescriptions and schedules from chosen date', () {
+    final controller = AppController();
+    try {
+      final plan = AiPlanDraft(
+        title: '今日练胸',
+        weeks: 1,
+        sessions: [
+          AiPlanSession(
+            dayOffset: 2,
+            name: '胸部训练',
+            exerciseIds: const ['bench_press'],
+            exercises: const [
+              AiPlanExerciseDraft(
+                exerciseId: 'bench_press',
+                sets: [
+                  AiPlanSetDraft(
+                    type: 'work',
+                    weight: 52.5,
+                    reps: 8,
+                    restSeconds: 120,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      );
+
+      controller.saveAiPlan(
+        plan,
+        scheduleCalendar: true,
+        scheduleStartDate: DateTime(2026, 8, 10),
+      );
+
+      expect(controller.routines, hasLength(1));
+      final set = controller.routines.single.exercises.single.sets.single;
+      expect(set.plannedWeight, 52.5);
+      expect(set.weight, 52.5);
+      expect(set.reps, 8);
+      expect(set.restSeconds, 120);
+      expect(controller.scheduled, contains('2026-08-12'));
+      expect(controller.scheduledLabels['2026-08-12'], contains('胸部训练'));
+    } finally {
+      controller.dispose();
+    }
+  });
 }

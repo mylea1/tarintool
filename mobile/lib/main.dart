@@ -26,6 +26,10 @@ const lime = Color(0xFFB7E34A);
 const orange = primaryBright;
 const success = Color(0xFF21845A);
 const successContainer = Color(0xFFE6F5EC);
+const calendarScheduled = Color(0xFFE65A17);
+const calendarScheduledContainer = Color(0xFFFFE4D2);
+const calendarSelected = Color(0xFF2468C9);
+const calendarSelectedContainer = Color(0xFFE7F0FF);
 const hairline = Color(0xFFEAD9CD);
 const emberTint = Color(0xFFFFEFE4);
 const emberShadow = Color(0x1F8E3D15);
@@ -2746,182 +2750,250 @@ class _SetRow extends StatelessWidget {
                 ]
               : null,
         ),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            SizedBox(
-              width: columns.group,
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (controller.batchMode)
-                      SizedBox(
-                        width: 22,
-                        child: Checkbox(
-                          value: controller.selectedSetIds.contains(set.id),
-                          onChanged: set.completed
-                              ? null
-                              : (_) => controller.toggleSetSelection(set),
-                          visualDensity: VisualDensity.compact,
-                          materialTapTargetSize:
-                              MaterialTapTargetSize.shrinkWrap,
+            Row(
+              children: [
+                SizedBox(
+                  width: columns.group,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (controller.batchMode)
+                          SizedBox(
+                            width: 22,
+                            child: Checkbox(
+                              value: controller.selectedSetIds.contains(set.id),
+                              onChanged: set.completed
+                                  ? null
+                                  : (_) => controller.toggleSetSelection(set),
+                              visualDensity: VisualDensity.compact,
+                              materialTapTargetSize:
+                                  MaterialTapTargetSize.shrinkWrap,
+                            ),
+                          )
+                        else
+                          Text(
+                            '${index + 1}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: set.completed
+                                  ? const Color(0xFF1E6B45)
+                                  : quiet,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        _SetTypeButton(
+                          controller: controller,
+                          set: set,
+                          index: index,
+                          compact: columns.compact,
                         ),
-                      )
-                    else
-                      Text(
-                        '${index + 1}',
+                      ],
+                    ),
+                  ),
+                ),
+                _cellGap(),
+                SizedBox(
+                  key: Key('previous-set-${set.id}'),
+                  width: columns.last,
+                  child: Builder(
+                    builder: (context) {
+                      final previous = controller.previousSetFor(
+                        exercise.exerciseId,
+                        index,
+                      );
+                      final label = previous == null
+                          ? '—'
+                          : '${_displayWeight(previous.weight)}×${previous.reps}';
+                      return Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 11,
                           color: set.completed
                               ? const Color(0xFF1E6B45)
-                              : quiet,
-                          fontWeight: FontWeight.w800,
+                              : previous == null
+                              ? quiet
+                              : secondaryInk,
                         ),
-                      ),
-                    _SetTypeButton(
-                      controller: controller,
-                      set: set,
-                      index: index,
-                      compact: columns.compact,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            _cellGap(),
-            SizedBox(
-              key: Key('previous-set-${set.id}'),
-              width: columns.last,
-              child: Builder(
-                builder: (context) {
-                  final previous = controller.previousSetFor(
-                    exercise.exerciseId,
-                    index,
-                  );
-                  final label = previous == null
-                      ? '—'
-                      : '${_displayWeight(previous.weight)}×${previous.reps}';
-                  return Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: set.completed
-                          ? const Color(0xFF1E6B45)
-                          : previous == null
-                          ? quiet
-                          : secondaryInk,
-                    ),
-                  );
-                },
-              ),
-            ),
-            _cellGap(),
-            SizedBox(
-              width: columns.weight,
-              child: TextFormField(
-                initialValue: _displayWeight(set.weight),
-                enabled: !set.completed,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                onTapOutside: (_) =>
-                    FocusManager.instance.primaryFocus?.unfocus(),
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: columns.compact ? 11 : 12,
-                  color: set.completed ? const Color(0xFF1E6B45) : ink,
-                  fontWeight: set.completed ? FontWeight.w800 : FontWeight.w500,
-                ),
-                decoration: _inputDecoration(completed: set.completed),
-                onChanged: (value) {
-                  set.weight = double.tryParse(value) ?? set.weight;
-                },
-              ),
-            ),
-            _cellGap(),
-            SizedBox(
-              width: columns.reps,
-              child: TextFormField(
-                initialValue: '${set.reps}',
-                enabled: !set.completed,
-                keyboardType: TextInputType.number,
-                onTapOutside: (_) =>
-                    FocusManager.instance.primaryFocus?.unfocus(),
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: columns.compact ? 11 : 12,
-                  color: set.completed ? const Color(0xFF1E6B45) : ink,
-                  fontWeight: set.completed ? FontWeight.w800 : FontWeight.w500,
-                ),
-                decoration: _inputDecoration(completed: set.completed),
-                onChanged: (value) {
-                  set.reps = int.tryParse(value) ?? set.reps;
-                },
-              ),
-            ),
-            _cellGap(),
-            SizedBox(
-              width: columns.note,
-              child: IconButton(
-                key: Key('set-note-${set.id}'),
-                tooltip: set.note.isEmpty ? '添加本组备注' : '查看或修改本组备注',
-                onPressed: () =>
-                    _showSetNoteEditor(context, controller, set, index),
-                icon: Icon(
-                  set.note.isEmpty
-                      ? Icons.sticky_note_2_outlined
-                      : Icons.sticky_note_2_rounded,
-                  size: columns.compact ? 18 : 20,
-                  color: set.note.isEmpty
-                      ? (set.completed ? const Color(0xFF1E6B45) : quiet)
-                      : (set.completed ? const Color(0xFF1E6B45) : primary),
-                ),
-                visualDensity: VisualDensity.compact,
-                padding: EdgeInsets.zero,
-              ),
-            ),
-            _cellGap(),
-            SizedBox(
-              width: columns.complete,
-              child: Semantics(
-                label: set.completed
-                    ? '第 ${index + 1} 组已完成'
-                    : '完成第 ${index + 1} 组',
-                button: true,
-                child: Checkbox(
-                  key: Key('set-complete-${set.id}'),
-                  value: set.completed,
-                  onChanged: controller.workoutStarted
-                      ? (_) {
-                          final autoStarted = !controller.workoutTimerStarted;
-                          HapticFeedback.mediumImpact();
-                          controller.completeSet(set, exercise);
-                          if (autoStarted) {
-                            showKiloSnack(
-                              context,
-                              controller.restRunning
-                                  ? '训练已开始，本组完成，休息计时已启动'
-                                  : '训练已开始，本组已完成',
-                            );
-                          }
-                        }
-                      : null,
-                  fillColor: WidgetStateProperty.resolveWith(
-                    (states) => set.completed
-                        ? success
-                        : states.contains(WidgetState.disabled)
-                        ? hairline
-                        : cobalt,
+                      );
+                    },
                   ),
-                  checkColor: Colors.white,
-                  visualDensity: VisualDensity.compact,
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                _cellGap(),
+                SizedBox(
+                  width: columns.weight,
+                  child: TextFormField(
+                    initialValue: _displayWeight(set.weight),
+                    enabled: !set.completed,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    onTapOutside: (_) =>
+                        FocusManager.instance.primaryFocus?.unfocus(),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: columns.compact ? 11 : 12,
+                      color: set.completed ? const Color(0xFF1E6B45) : ink,
+                      fontWeight: set.completed
+                          ? FontWeight.w800
+                          : FontWeight.w500,
+                    ),
+                    decoration: _inputDecoration(completed: set.completed),
+                    onChanged: (value) {
+                      set.weight = double.tryParse(value) ?? set.weight;
+                    },
+                  ),
+                ),
+                _cellGap(),
+                SizedBox(
+                  width: columns.reps,
+                  child: TextFormField(
+                    initialValue: '${set.reps}',
+                    enabled: !set.completed,
+                    keyboardType: TextInputType.number,
+                    onTapOutside: (_) =>
+                        FocusManager.instance.primaryFocus?.unfocus(),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: columns.compact ? 11 : 12,
+                      color: set.completed ? const Color(0xFF1E6B45) : ink,
+                      fontWeight: set.completed
+                          ? FontWeight.w800
+                          : FontWeight.w500,
+                    ),
+                    decoration: _inputDecoration(completed: set.completed),
+                    onChanged: (value) {
+                      set.reps = int.tryParse(value) ?? set.reps;
+                    },
+                  ),
+                ),
+                _cellGap(),
+                SizedBox(
+                  width: columns.note,
+                  child: IconButton(
+                    key: Key('set-note-${set.id}'),
+                    tooltip: set.note.isEmpty ? '添加本组备注' : '查看或修改本组备注',
+                    onPressed: () =>
+                        _showSetNoteEditor(context, controller, set, index),
+                    icon: Icon(
+                      set.note.isEmpty
+                          ? Icons.sticky_note_2_outlined
+                          : Icons.sticky_note_2_rounded,
+                      size: columns.compact ? 18 : 20,
+                      color: set.note.isEmpty
+                          ? (set.completed ? const Color(0xFF1E6B45) : quiet)
+                          : (set.completed ? const Color(0xFF1E6B45) : primary),
+                    ),
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                  ),
+                ),
+                _cellGap(),
+                SizedBox(
+                  width: columns.complete,
+                  child: Semantics(
+                    label: set.completed
+                        ? '第 ${index + 1} 组已完成'
+                        : '完成第 ${index + 1} 组',
+                    button: true,
+                    child: Checkbox(
+                      key: Key('set-complete-${set.id}'),
+                      value: set.completed,
+                      onChanged: controller.workoutStarted
+                          ? (_) {
+                              final autoStarted =
+                                  !controller.workoutTimerStarted;
+                              HapticFeedback.mediumImpact();
+                              controller.completeSet(set, exercise);
+                              if (autoStarted) {
+                                showKiloSnack(
+                                  context,
+                                  controller.restRunning
+                                      ? '训练已开始，本组完成，休息计时已启动'
+                                      : '训练已开始，本组已完成',
+                                );
+                              }
+                            }
+                          : null,
+                      fillColor: WidgetStateProperty.resolveWith(
+                        (states) => set.completed
+                            ? success
+                            : states.contains(WidgetState.disabled)
+                            ? hairline
+                            : cobalt,
+                      ),
+                      checkColor: Colors.white,
+                      visualDensity: VisualDensity.compact,
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (set.note.trim().isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Semantics(
+                button: true,
+                label: '第 ${index + 1} 组备注：${set.note.trim()}，点击编辑',
+                child: InkWell(
+                  key: Key('set-note-preview-${set.id}'),
+                  onTap: () =>
+                      _showSetNoteEditor(context, controller, set, index),
+                  borderRadius: BorderRadius.circular(7),
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
+                    decoration: BoxDecoration(
+                      color: set.completed
+                          ? const Color(0xFFDDF1E4)
+                          : emberTint,
+                      borderRadius: BorderRadius.circular(7),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          Icons.sticky_note_2_outlined,
+                          size: 15,
+                          color: set.completed
+                              ? const Color(0xFF1E6B45)
+                              : primary,
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            set.note.trim(),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 11,
+                              height: 1.3,
+                              color: set.completed
+                                  ? const Color(0xFF1E6B45)
+                                  : secondaryInk,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(
+                          Icons.edit_outlined,
+                          size: 14,
+                          color: set.completed
+                              ? const Color(0xFF1E6B45)
+                              : primary,
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
-            ),
+            ],
           ],
         ),
       ),
@@ -3565,32 +3637,31 @@ class _RecordsPageState extends State<RecordsPage> {
                         day.month,
                         day.day,
                       ).isBefore(DateTime(today.year, today.month, today.day));
+                  final scheduledBodyPart = _scheduledBodyPart(
+                    controller.scheduledLabels[key],
+                  );
                   final background = completed
                       ? successContainer
                       : missed
-                      ? const Color(0xFFFFE7D4)
+                      ? const Color(0xFFFFE0DD)
                       : planned
-                      ? const Color(0xFFEFF8DE)
-                      : isToday
-                      ? primaryContainer
+                      ? calendarScheduledContainer
+                      : current
+                      ? calendarSelectedContainer
                       : Colors.transparent;
-                  final border = current
-                      ? cobalt
-                      : completed
+                  final border = completed
                       ? success
                       : missed
-                      ? orange
+                      ? danger
                       : planned
-                      ? lime
-                      : isToday
-                      ? cobalt
+                      ? calendarScheduled
+                      : current
+                      ? calendarSelected
                       : hairline;
                   final icon = completed
                       ? Icons.check_circle
                       : missed
                       ? Icons.event_busy
-                      : planned
-                      ? Icons.fitness_center
                       : isToday
                       ? Icons.today
                       : Icons.remove;
@@ -3618,13 +3689,25 @@ class _RecordsPageState extends State<RecordsPage> {
                             style: TextStyle(
                               fontSize: 13,
                               color: day.month == selected.month ? ink : quiet,
-                              fontWeight: current || isToday
+                              fontWeight: current || isToday || planned
                                   ? FontWeight.w900
                                   : FontWeight.w500,
                             ),
                           ),
                           const SizedBox(height: 3),
-                          Icon(icon, size: 14, color: border),
+                          if (planned && !completed && !missed)
+                            Text(
+                              scheduledBodyPart,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: calendarScheduled,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            )
+                          else
+                            Icon(icon, size: 14, color: border),
                         ],
                       ),
                     ),
@@ -3632,13 +3715,14 @@ class _RecordsPageState extends State<RecordsPage> {
                 },
               ),
               const SizedBox(height: 10),
-              const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+              const Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 12,
+                runSpacing: 7,
                 children: [
                   _CalendarLegend(color: success, label: '已完成'),
-                  SizedBox(width: 12),
-                  _CalendarLegend(color: orange, label: '已安排'),
-                  SizedBox(width: 12),
+                  _CalendarLegend(color: calendarScheduled, label: '已安排'),
+                  _CalendarLegend(color: calendarSelected, label: '当前选中'),
                   _CalendarLegend(color: hairline, label: '未安排'),
                 ],
               ),
@@ -3680,6 +3764,21 @@ class _RecordsPageState extends State<RecordsPage> {
           )
         : PageFrame(children: content);
   }
+}
+
+String _scheduledBodyPart(String? label) {
+  final value = label ?? '';
+  if (RegExp(r'胸|chest', caseSensitive: false).hasMatch(value)) return '胸';
+  if (RegExp(r'背|back|pull', caseSensitive: false).hasMatch(value)) return '背';
+  if (RegExp(r'肩|shoulder', caseSensitive: false).hasMatch(value)) return '肩';
+  if (RegExp(r'腿|下肢|leg|lower', caseSensitive: false).hasMatch(value)) {
+    return '腿';
+  }
+  if (RegExp(r'手臂|二头|三头|arm', caseSensitive: false).hasMatch(value)) {
+    return '臂';
+  }
+  if (RegExp(r'核心|腹|core', caseSensitive: false).hasMatch(value)) return '核';
+  return '练';
 }
 
 class _CalendarLegend extends StatelessWidget {
@@ -4793,25 +4892,59 @@ class _ChatBubble extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Divider(height: 14),
-                  const Text(
-                    '参考文献',
-                    style: TextStyle(
-                      color: muted,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                    ),
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          '参考文献',
+                          style: TextStyle(
+                            color: muted,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      TextButton.icon(
+                        onPressed: () {
+                          Clipboard.setData(
+                            ClipboardData(text: message.citations.join('\n')),
+                          );
+                          showKiloSnack(context, '参考文献已复制');
+                        },
+                        icon: const Icon(Icons.copy_all_outlined, size: 15),
+                        label: const Text('复制全部'),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 4),
                   for (var index = 0; index < message.citations.length; index++)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 3),
-                      child: Text(
-                        '${index + 1}. ${message.citations[index]}',
-                        style: const TextStyle(
-                          color: muted,
-                          fontSize: 11,
-                          height: 1.35,
-                        ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: SelectableText(
+                              '${index + 1}. ${message.citations[index]}',
+                              style: const TextStyle(
+                                color: muted,
+                                fontSize: 11,
+                                height: 1.35,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: '复制此参考文献',
+                            visualDensity: VisualDensity.compact,
+                            onPressed: () {
+                              Clipboard.setData(
+                                ClipboardData(text: message.citations[index]),
+                              );
+                              showKiloSnack(context, '第 ${index + 1} 条参考文献已复制');
+                            },
+                            icon: const Icon(Icons.copy_outlined, size: 15),
+                          ),
+                        ],
                       ),
                     ),
                 ],
@@ -4904,11 +5037,48 @@ class _AiPlanCard extends StatelessWidget {
   final AiPlanDraft plan;
   final AppController controller;
 
-  void _save(BuildContext context, {required bool calendar}) {
-    controller.saveAiPlan(plan, scheduleCalendar: calendar);
+  int get totalExercises => plan.sessions.fold(
+    0,
+    (total, session) => total + session.effectiveExerciseIds.length,
+  );
+
+  int get totalSets =>
+      plan.sessions.fold(0, (total, session) => total + session.totalSets);
+
+  Future<void> _save(BuildContext context, {required bool calendar}) async {
+    DateTime? startDate;
+    if (calendar) {
+      final now = DateTime.now();
+      startDate = await showDatePicker(
+        context: context,
+        initialDate: now,
+        firstDate: DateTime(now.year, now.month, now.day),
+        lastDate: DateTime(now.year + 2),
+        helpText: '选择计划开始日期',
+        confirmText: '安排到这天',
+        cancelText: '取消',
+      );
+      if (startDate == null || !context.mounted) return;
+    }
+    controller.saveAiPlan(
+      plan,
+      scheduleCalendar: calendar,
+      scheduleStartDate: startDate,
+    );
     showKiloSnack(
       context,
-      calendar ? '计划已保存，并安排到未来 ${plan.weeks} 周日历' : '计划已保存到“AI 生成”',
+      calendar
+          ? '计划已保存，从 ${startDate!.month} 月 ${startDate.day} 日开始安排'
+          : '计划已保存到“AI 生成”',
+    );
+  }
+
+  void _openDetail(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        fullscreenDialog: true,
+        builder: (_) => _AiPlanDetailPage(plan: plan, controller: controller),
+      ),
     );
   }
 
@@ -4944,16 +5114,45 @@ class _AiPlanCard extends StatelessWidget {
         for (final session in plan.sessions)
           Padding(
             padding: const EdgeInsets.only(bottom: 4),
-            child: Text(
-              '第 ${session.dayOffset + 1} 天 · ${session.name} · ${session.exerciseIds.length} 个动作',
-              style: const TextStyle(fontSize: 12, color: secondaryInk),
+            child: InkWell(
+              onTap: () => _openDetail(context),
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '第 ${session.dayOffset + 1} 天 · ${session.name} · ${session.effectiveExerciseIds.length} 个动作',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: secondaryInk,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    const Icon(Icons.chevron_right, size: 17, color: muted),
+                  ],
+                ),
+              ),
             ),
           ),
+        Text(
+          totalSets > 0
+              ? '$totalExercises 个动作 · $totalSets 组 · 已含重量/次数/休息'
+              : '$totalExercises 个动作 · 旧计划未包含组次处方',
+          style: const TextStyle(fontSize: 11, color: muted),
+        ),
         const SizedBox(height: 5),
         Wrap(
           spacing: 7,
           runSpacing: 6,
           children: [
+            OutlinedButton.icon(
+              onPressed: () => _openDetail(context),
+              icon: const Icon(Icons.visibility_outlined, size: 17),
+              label: const Text('查看详情'),
+            ),
             OutlinedButton.icon(
               onPressed: () => _save(context, calendar: false),
               icon: const Icon(Icons.bookmark_add_outlined, size: 17),
@@ -4969,6 +5168,156 @@ class _AiPlanCard extends StatelessWidget {
       ],
     ),
   );
+}
+
+class _AiPlanDetailPage extends StatelessWidget {
+  const _AiPlanDetailPage({required this.plan, required this.controller});
+
+  final AiPlanDraft plan;
+  final AppController controller;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: paper,
+    appBar: AppBar(
+      title: const Text('训练计划详情'),
+      backgroundColor: paper,
+      surfaceTintColor: Colors.transparent,
+    ),
+    body: ListView(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+      children: [
+        Text(plan.title, style: Theme.of(context).textTheme.headlineSmall),
+        const SizedBox(height: 4),
+        Text(
+          '${plan.weeks} 周 · ${plan.sessions.length} 个训练日',
+          style: const TextStyle(color: muted),
+        ),
+        const SizedBox(height: 14),
+        for (final session in plan.sessions)
+          Card(
+            margin: const EdgeInsets.only(bottom: 12),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '第 ${session.dayOffset + 1} 天 · ${session.name}',
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  if (session.plannedVolume > 0) ...[
+                    const SizedBox(height: 3),
+                    Text(
+                      '${session.totalSets} 组 · 计划容量 ${session.plannedVolume.toStringAsFixed(0)} kg',
+                      style: const TextStyle(color: muted, fontSize: 12),
+                    ),
+                  ],
+                  const SizedBox(height: 10),
+                  if (session.exercises.isEmpty)
+                    const Text(
+                      '这份旧计划只保存了动作。请重新生成一次，即可获得每组重量、次数和休息安排。',
+                      style: TextStyle(color: muted, height: 1.4),
+                    ),
+                  for (
+                    var exerciseIndex = 0;
+                    exerciseIndex < session.exercises.length;
+                    exerciseIndex++
+                  ) ...[
+                    _AiPlanExerciseDetail(
+                      index: exerciseIndex + 1,
+                      draft: session.exercises[exerciseIndex],
+                    ),
+                    if (exerciseIndex != session.exercises.length - 1)
+                      const Divider(height: 20),
+                  ],
+                  if (session.exercises.isEmpty)
+                    for (final exerciseId in session.exerciseIds)
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: _ExerciseThumb(exerciseId: exerciseId),
+                        title: Text(findExercise(exerciseId).name),
+                      ),
+                ],
+              ),
+            ),
+          ),
+      ],
+    ),
+  );
+}
+
+class _AiPlanExerciseDetail extends StatelessWidget {
+  const _AiPlanExerciseDetail({required this.index, required this.draft});
+
+  final int index;
+  final AiPlanExerciseDraft draft;
+
+  @override
+  Widget build(BuildContext context) {
+    final exercise = findExercise(draft.exerciseId);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            _ExerciseThumb(exerciseId: draft.exerciseId),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '$index. ${exercise.name}',
+                    style: const TextStyle(fontWeight: FontWeight.w900),
+                  ),
+                  Text(
+                    '${exercise.muscle} · ${exercise.equipment}',
+                    style: const TextStyle(color: muted, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        for (var setIndex = 0; setIndex < draft.sets.length; setIndex++)
+          Container(
+            margin: const EdgeInsets.only(bottom: 5),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: setIndex == 0 ? emberTint : surface,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: hairline),
+            ),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 46,
+                  child: Text(
+                    '${setIndex + 1} · ${draft.sets[setIndex].type == 'warmup' ? '热身' : '正式'}',
+                    style: const TextStyle(fontSize: 11, color: muted),
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    '${draft.sets[setIndex].weight.toStringAsFixed(draft.sets[setIndex].weight % 1 == 0 ? 0 : 1)} kg × ${draft.sets[setIndex].reps} 次',
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                ),
+                Text(
+                  '休 ${draft.sets[setIndex].restSeconds}s',
+                  style: const TextStyle(fontSize: 12, color: primary),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
 }
 
 class _AccountMembershipCard extends StatelessWidget {
@@ -5326,62 +5675,54 @@ class ProfilePage extends StatelessWidget {
           builder: (context, constraints) {
             final textScale = MediaQuery.textScalerOf(context).scale(1);
             final singleColumn = constraints.maxWidth < 330 || textScale > 1.45;
-            final width = singleColumn
-                ? constraints.maxWidth
-                : (constraints.maxWidth - 10) / 2;
-            return Wrap(
-              spacing: 10,
-              runSpacing: 10,
+            return GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: singleColumn ? 1 : 2,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+              mainAxisExtent: singleColumn
+                  ? (textScale > 1.45 ? 124 : 96)
+                  : (textScale > 1.2 ? 132 : 116),
               children: [
-                SizedBox(
-                  width: width,
-                  child: _ProfileQuickAction(
-                    icon: Icons.insights_rounded,
-                    title: '训练进步',
-                    caption: '趋势、肌群与记录',
-                    onTap: () => _showProgress(context, controller),
-                  ),
+                _ProfileQuickAction(
+                  icon: Icons.insights_rounded,
+                  title: '训练进步',
+                  caption: '趋势、肌群与记录',
+                  onTap: () => _showProgress(context, controller),
                 ),
-                SizedBox(
-                  width: width,
-                  child: _ProfileQuickAction(
-                    icon: Icons.timer_outlined,
-                    title: '默认休息',
-                    caption: '${controller.defaultRestSeconds} 秒',
-                    onTap: () => _showWorkoutSettings(context, controller),
-                  ),
+                _ProfileQuickAction(
+                  icon: Icons.timer_outlined,
+                  title: '默认休息',
+                  caption: '${controller.defaultRestSeconds} 秒',
+                  onTap: () => _showWorkoutSettings(context, controller),
                 ),
-                SizedBox(
-                  width: width,
-                  child: _ProfileQuickAction(
-                    key: const Key('exercise-name-language-setting'),
-                    icon: Icons.translate_rounded,
-                    title: '动作语言',
-                    caption:
-                        controller.exerciseNameLanguage ==
-                            ExerciseNameLanguage.english
-                        ? 'English'
-                        : '简体中文',
-                    onTap: () =>
-                        _showExerciseNameLanguageSheet(context, controller),
-                  ),
+                _ProfileQuickAction(
+                  key: const Key('exercise-name-language-setting'),
+                  icon: Icons.translate_rounded,
+                  title: '动作语言',
+                  caption:
+                      controller.exerciseNameLanguage ==
+                          ExerciseNameLanguage.english
+                      ? 'English'
+                      : '简体中文',
+                  onTap: () =>
+                      _showExerciseNameLanguageSheet(context, controller),
                 ),
-                SizedBox(
-                  width: width,
-                  child: _ProfileQuickAction(
-                    icon: Icons.notifications_active_outlined,
-                    title: '通知反馈',
-                    caption: controller.androidNotifications
-                        ? '训练提醒已开启'
-                        : '训练提醒已关闭',
-                    onTap: () {
-                      controller.androidNotifications =
-                          !controller.androidNotifications;
+                _ProfileQuickAction(
+                  key: const Key('notification-feedback-card'),
+                  icon: Icons.notifications_active_outlined,
+                  title: '通知反馈',
+                  caption: controller.androidNotifications
+                      ? '训练提醒已开启'
+                      : '训练提醒已关闭',
+                  trailing: Switch(
+                    key: const Key('notification-feedback-switch'),
+                    value: controller.androidNotifications,
+                    onChanged: (value) {
+                      controller.androidNotifications = value;
                       controller.refresh();
-                      showKiloSnack(
-                        context,
-                        controller.androidNotifications ? '训练提醒已开启' : '训练提醒已关闭',
-                      );
+                      showKiloSnack(context, value ? '训练提醒已开启' : '训练提醒已关闭');
                     },
                   ),
                 ),
@@ -5486,12 +5827,14 @@ class _ProfileQuickAction extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.caption,
-    required this.onTap,
+    this.onTap,
+    this.trailing,
   });
   final IconData icon;
   final String title;
   final String caption;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) => Material(
@@ -5538,7 +5881,7 @@ class _ProfileQuickAction extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, size: 18, color: quiet),
+            trailing ?? const Icon(Icons.chevron_right, size: 18, color: quiet),
           ],
         ),
       ),
@@ -7813,16 +8156,16 @@ void _showCalendarDayActions(
           ListTile(
             title: Text('${date.year} 年 ${date.month} 月 ${date.day} 日'),
             subtitle: Text(
-              planned
+              record != null
+                  ? '已完成 ${record.name}'
+                  : planned
                   ? controller.scheduledLabels[key] ?? '已安排训练'
-                  : record == null
-                  ? '未安排训练'
-                  : '已完成 ${record.name}',
+                  : '未安排训练',
             ),
           ),
           if (selectedRecord != null)
             ListTile(
-              leading: const Icon(Icons.check_circle, color: cobalt),
+              leading: const Icon(Icons.check_circle, color: success),
               title: const Text('查看训练记录'),
               onTap: () {
                 Navigator.pop(sheetContext);

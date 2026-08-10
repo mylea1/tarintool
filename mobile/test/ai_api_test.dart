@@ -123,10 +123,7 @@ void main() {
           jsonEncode({
             'answer': '这是你的训练安排。',
             'citations': [
-              {
-                'title': '渐进超负荷',
-                'source': 'https://example.test/source',
-              },
+              {'title': '渐进超负荷', 'source': 'https://example.test/source'},
             ],
             'plan': {
               'title': '四周增肌计划',
@@ -169,5 +166,73 @@ void main() {
     expect(answer.plan?.title, '四周增肌计划');
     expect(answer.plan?.weeks, 4);
     expect(answer.plan?.sessions.single.exerciseIds, ['bench-press']);
+  });
+
+  test('coach client parses prescribed sets, weights and rest', () async {
+    final client = MockClient((request) async {
+      if (request.url.path == '/v1/auth/phone/login') {
+        return http.Response(
+          jsonEncode({
+            'session': {'token': 'structured-plan-session'},
+          }),
+          200,
+        );
+      }
+      return http.Response.bytes(
+        utf8.encode(
+          jsonEncode({
+            'answer': '胸部训练已生成。',
+            'plan': {
+              'title': '今日练胸',
+              'weeks': 1,
+              'sessions': [
+                {
+                  'dayOffset': 0,
+                  'name': '胸部训练',
+                  'exercises': [
+                    {
+                      'exerciseId': 'bench_press',
+                      'sets': [
+                        {
+                          'type': 'warmup',
+                          'weight': 20,
+                          'reps': 12,
+                          'restSeconds': 60,
+                        },
+                        {
+                          'type': 'work',
+                          'weight': 50,
+                          'reps': 8,
+                          'restSeconds': 120,
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          }),
+        ),
+        200,
+        headers: {'content-type': 'application/json; charset=utf-8'},
+      );
+    });
+    final api = HttpCoachApi(
+      baseUrl: 'https://api.example.test',
+      client: client,
+    );
+
+    await api.signIn(identifier: '123', password: '123');
+    final answer = await api.answer(
+      prompt: '生成今日练胸计划',
+      includeTrainingSummary: false,
+    );
+
+    final session = answer.plan!.sessions.single;
+    expect(session.effectiveExerciseIds, ['bench_press']);
+    expect(session.totalSets, 2);
+    expect(session.plannedVolume, 640);
+    expect(session.exercises.single.sets.last.weight, 50);
+    expect(session.exercises.single.sets.last.restSeconds, 120);
   });
 }
