@@ -2807,10 +2807,19 @@ class _SetRow extends StatelessWidget {
                 child: Checkbox(
                   key: Key('set-complete-${set.id}'),
                   value: set.completed,
-                  onChanged: controller.workoutTimerStarted
+                  onChanged: controller.workoutStarted
                       ? (_) {
+                          final autoStarted = !controller.workoutTimerStarted;
                           HapticFeedback.mediumImpact();
                           controller.completeSet(set, exercise);
+                          if (autoStarted) {
+                            showKiloSnack(
+                              context,
+                              controller.restRunning
+                                  ? '训练已开始，本组完成，休息计时已启动'
+                                  : '训练已开始，本组已完成',
+                            );
+                          }
                         }
                       : null,
                   fillColor: WidgetStateProperty.resolveWith(
@@ -6973,6 +6982,15 @@ class _ExercisePickerSheetState extends State<_ExercisePickerSheet> {
   Widget build(BuildContext context) {
     final items = filtered;
     const muscles = ['全部', '胸', '背', '肩', '腿', '手臂', '核心'];
+    const muscleLabels = {
+      '全部': '全部',
+      '胸': '胸部',
+      '背': '背部',
+      '肩': '肩部',
+      '腿': '腿部',
+      '手臂': '手臂',
+      '核心': '核心',
+    };
     return SizedBox(
       key: const Key('exercise-picker'),
       height: MediaQuery.sizeOf(context).height * .84,
@@ -6996,134 +7014,125 @@ class _ExercisePickerSheetState extends State<_ExercisePickerSheet> {
                 ),
               ],
             ),
+            TextField(
+              key: const Key('exercise-picker-search'),
+              controller: query,
+              autofocus: false,
+              textInputAction: TextInputAction.search,
+              onTapOutside: (_) =>
+                  FocusManager.instance.primaryFocus?.unfocus(),
+              decoration: const InputDecoration(
+                prefixIcon: Icon(Icons.search),
+                hintText: '搜索动作、器械',
+                isDense: true,
+              ),
+              onChanged: (_) => setState(() {}),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              height: 38,
+              child: ListView.separated(
+                key: const Key('exercise-picker-muscle-strip'),
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 1),
+                itemCount: muscles.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 7),
+                itemBuilder: (context, index) {
+                  final value = muscles[index];
+                  final selected = muscle == value;
+                  return ChoiceChip(
+                    key: Key('exercise-picker-filter-$value'),
+                    label: Text(muscleLabels[value]!),
+                    selected: selected,
+                    showCheckmark: false,
+                    selectedColor: primary,
+                    backgroundColor: surface,
+                    side: BorderSide(
+                      color: selected ? primary : hairline,
+                      width: selected ? 1.4 : 1,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    labelPadding: const EdgeInsets.symmetric(horizontal: 7),
+                    visualDensity: VisualDensity.compact,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    labelStyle: TextStyle(
+                      fontSize: 12,
+                      color: selected ? Colors.white : ink,
+                      fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                    ),
+                    onSelected: (_) => setState(() => muscle = value),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 9),
+            Text(
+              muscle == '全部'
+                  ? '${items.length} 个动作'
+                  : '${muscleLabels[muscle]} · ${items.length} 个动作',
+              style: const TextStyle(fontSize: 12, color: quiet),
+            ),
+            const SizedBox(height: 4),
             Expanded(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(
-                    width: 72,
-                    child: ListView.separated(
-                      key: const Key('exercise-picker-muscle-rail'),
-                      padding: const EdgeInsets.only(right: 2),
-                      itemCount: muscles.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 4),
+              child: items.isEmpty
+                  ? const Center(
+                      child: Text(
+                        '没有匹配动作，试试清空搜索或切换部位。',
+                        style: TextStyle(color: quiet),
+                      ),
+                    )
+                  : ListView.separated(
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
+                      itemCount: items.length,
+                      separatorBuilder: (_, _) => const Divider(height: 1),
                       itemBuilder: (context, index) {
-                        final value = muscles[index];
-                        return SizedBox(
-                          width: double.infinity,
-                          child: ChoiceChip(
-                            key: Key('exercise-picker-filter-$value'),
-                            label: Text(value),
-                            selected: muscle == value,
-                            showCheckmark: false,
-                            labelStyle: TextStyle(
-                              fontSize: 12,
-                              color: muscle == value ? Colors.white : ink,
-                              fontWeight: muscle == value
-                                  ? FontWeight.w800
-                                  : FontWeight.w600,
-                            ),
-                            onSelected: (_) => setState(() => muscle = value),
+                        final exercise = items[index];
+                        return ListTile(
+                          key: Key('exercise-picker-item-${exercise.id}'),
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 4,
                           ),
+                          leading: _ExerciseThumb(
+                            exerciseId: exercise.id,
+                            size: 40,
+                          ),
+                          title: Text(
+                            widget.controller.displayExerciseName(exercise),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          subtitle: Text(
+                            '${exercise.muscle} · ${exercise.equipment}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          trailing: IconButton.filled(
+                            key: Key('exercise-picker-add-${exercise.id}'),
+                            style: IconButton.styleFrom(
+                              backgroundColor: cobalt,
+                              foregroundColor: Colors.white,
+                            ),
+                            tooltip: widget.replacing == null
+                                ? '添加动作'
+                                : '替换动作',
+                            onPressed: () => choose(exercise),
+                            icon: Icon(
+                              widget.replacing == null
+                                  ? Icons.add
+                                  : Icons.swap_horiz,
+                              size: 18,
+                            ),
+                          ),
+                          onTap: () => choose(exercise),
                         );
                       },
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        TextField(
-                          key: const Key('exercise-picker-search'),
-                          controller: query,
-                          autofocus: false,
-                          textInputAction: TextInputAction.search,
-                          decoration: const InputDecoration(
-                            prefixIcon: Icon(Icons.search),
-                            hintText: '搜索动作、器械',
-                            isDense: true,
-                          ),
-                          onChanged: (_) => setState(() {}),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          '${items.length} 个动作',
-                          style: const TextStyle(fontSize: 12, color: quiet),
-                        ),
-                        const SizedBox(height: 4),
-                        Expanded(
-                          child: items.isEmpty
-                              ? const Center(
-                                  child: Text(
-                                    '没有匹配动作，试试清空搜索或切换部位。',
-                                    style: TextStyle(color: quiet),
-                                  ),
-                                )
-                              : ListView.separated(
-                                  keyboardDismissBehavior:
-                                      ScrollViewKeyboardDismissBehavior.onDrag,
-                                  itemCount: items.length,
-                                  separatorBuilder: (_, _) =>
-                                      const Divider(height: 1),
-                                  itemBuilder: (context, index) {
-                                    final exercise = items[index];
-                                    return ListTile(
-                                      key: Key(
-                                        'exercise-picker-item-${exercise.id}',
-                                      ),
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                            vertical: 4,
-                                          ),
-                                      leading: _ExerciseThumb(
-                                        exerciseId: exercise.id,
-                                        size: 40,
-                                      ),
-                                      title: Text(
-                                        widget.controller.displayExerciseName(
-                                          exercise,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                      subtitle: Text(
-                                        '${exercise.muscle} · ${exercise.equipment}',
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      trailing: IconButton.filled(
-                                        key: Key(
-                                          'exercise-picker-add-${exercise.id}',
-                                        ),
-                                        style: IconButton.styleFrom(
-                                          backgroundColor: cobalt,
-                                          foregroundColor: Colors.white,
-                                        ),
-                                        tooltip: widget.replacing == null
-                                            ? '添加动作'
-                                            : '替换动作',
-                                        onPressed: () => choose(exercise),
-                                        icon: Icon(
-                                          widget.replacing == null
-                                              ? Icons.add
-                                              : Icons.swap_horiz,
-                                          size: 18,
-                                        ),
-                                      ),
-                                      onTap: () => choose(exercise),
-                                    );
-                                  },
-                                ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
             ),
           ],
         ),

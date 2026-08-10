@@ -458,7 +458,8 @@ class AppController extends ChangeNotifier {
   }
 
   void completeSet(WorkoutSet set, WorkoutExercise parent) {
-    if (!workoutTimerStarted) return;
+    if (!workoutStarted) return;
+    if (!workoutTimerStarted) beginWorkoutTimer();
     set.completed = !set.completed;
     if (set.completed) {
       triggerCompletionBurst(set.id);

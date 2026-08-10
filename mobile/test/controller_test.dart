@@ -49,6 +49,33 @@ void main() {
     }
   });
 
+  test('first completed set starts a prepared workout and its rest timer', () {
+    const channel = MethodChannel('kilo.platform.timer');
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async => null);
+    final controller = AppController();
+    try {
+      controller.startWorkout(name: '准备训练', autoStartTimer: false);
+      controller.addExercise('bench_press');
+      final exercise = controller.workout.single;
+      controller.addSet(exercise);
+      controller.updateExerciseRest(exercise, 45);
+      final set = exercise.sets.single;
+
+      expect(controller.workoutTimerStarted, isFalse);
+      controller.completeSet(set, exercise);
+
+      expect(controller.workoutTimerStarted, isTrue);
+      expect(set.completed, isTrue);
+      expect(controller.restRunning, isTrue);
+      expect(controller.restRemainingSeconds, 45);
+    } finally {
+      controller.dispose();
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, null);
+    }
+  });
+
   test(
     'planned weight flows from plan to workout record without overwriting',
     () {

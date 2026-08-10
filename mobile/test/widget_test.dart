@@ -313,10 +313,10 @@ void main() {
       expect(
         tester
             .widget<ListView>(
-              find.byKey(const Key('exercise-picker-muscle-rail')),
+              find.byKey(const Key('exercise-picker-muscle-strip')),
             )
             .scrollDirection,
-        Axis.vertical,
+        Axis.horizontal,
       );
       final originalSearch = controller.search;
       final originalMuscle = controller.muscleFilter;
@@ -466,9 +466,14 @@ void main() {
     await tester.tap(find.byKey(const Key('first-action-button')));
     await tester.pumpAndSettle();
     expect(
-      find.byKey(const Key('exercise-picker-muscle-rail')),
+      find.byKey(const Key('exercise-picker-muscle-strip')),
       findsOneWidget,
     );
+    await tester.drag(
+      find.byKey(const Key('exercise-picker-muscle-strip')),
+      const Offset(-160, 0),
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('exercise-picker-filter-腿')));
     await tester.pump();
     expect(find.text('高脚杯深蹲'), findsOneWidget);
@@ -478,6 +483,36 @@ void main() {
     controller.finishWorkout();
     await tester.pump();
   });
+
+  testWidgets(
+    'completing the first set automatically starts workout and rest timers',
+    (tester) async {
+      final controller = AppController();
+      controller.startWorkout(name: '自动开练', autoStartTimer: false);
+      controller.addExercise('bench_press');
+      final exercise = controller.workout.single;
+      controller.addSet(exercise);
+      controller.updateExerciseRest(exercise, 45);
+      controller.openLiveWorkout();
+      addTearDown(() {
+        if (controller.workoutStarted) controller.finishWorkout();
+        controller.dispose();
+      });
+
+      await tester.pumpWidget(KiloApp(initialController: controller));
+      final set = exercise.sets.single;
+      expect(controller.workoutTimerStarted, isFalse);
+
+      await tester.tap(find.byKey(Key('set-complete-${set.id}')));
+      await tester.pump();
+
+      expect(controller.workoutTimerStarted, isTrue);
+      expect(set.completed, isTrue);
+      expect(controller.restRunning, isTrue);
+      expect(controller.restRemainingSeconds, 45);
+      expect(find.text('训练已开始，本组完成，休息计时已启动'), findsOneWidget);
+    },
+  );
 
   testWidgets(
     'completion burst is deterministic and finish defaults to saving free plan',
