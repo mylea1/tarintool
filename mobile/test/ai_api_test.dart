@@ -118,25 +118,31 @@ void main() {
         );
       }
       coachBody = jsonDecode(request.body) as Map<String, dynamic>;
-      return http.Response(
-        jsonEncode({
-          'answer': '这是你的训练安排。',
-          'citations': [
-            {'title': '渐进超负荷', 'source': 'https://example.test/source'},
-          ],
-          'plan': {
-            'title': '四周增肌计划',
-            'weeks': 4,
-            'sessions': [
+      return http.Response.bytes(
+        utf8.encode(
+          jsonEncode({
+            'answer': '这是你的训练安排。',
+            'citations': [
               {
-                'dayOffset': 0,
-                'name': '上肢训练',
-                'exerciseIds': ['bench-press'],
+                'title': '渐进超负荷',
+                'source': 'https://example.test/source',
               },
             ],
-          },
-        }),
+            'plan': {
+              'title': '四周增肌计划',
+              'weeks': 4,
+              'sessions': [
+                {
+                  'dayOffset': 0,
+                  'name': '上肢训练',
+                  'exerciseIds': ['bench-press'],
+                },
+              ],
+            },
+          }),
+        ),
         200,
+        headers: {'content-type': 'application/json; charset=utf-8'},
       );
     });
     final api = HttpCoachApi(
