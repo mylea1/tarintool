@@ -58,7 +58,7 @@ class WorkoutSet {
     this.restSeconds = 120,
     this.completed = false,
     this.failed = false,
-    this.rpe,
+    this.note = '',
   });
   final String id;
   String type;
@@ -77,7 +77,7 @@ class WorkoutSet {
   int restSeconds;
   bool completed;
   bool failed;
-  double? rpe;
+  String note;
 
   double get plannedWeightOrActual => plannedWeight ?? weight;
 
@@ -94,7 +94,7 @@ class WorkoutSet {
     restSeconds: restSeconds,
     completed: completed,
     failed: failed,
-    rpe: rpe,
+    note: note,
   );
 
   /// Copies a set into a persisted plan. A plan created from a legacy live
@@ -115,7 +115,7 @@ class WorkoutSet {
     restSeconds: restSeconds,
     completed: completed,
     failed: failed,
-    rpe: rpe,
+    note: note,
   );
 }
 

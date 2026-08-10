@@ -203,7 +203,9 @@ void main() {
     }
   });
 
-  test('free workout rest settings and zero rest do not start timer', () async {
+  test(
+    'every free-workout exercise inherits rest and later actions restart timer',
+    () async {
     const channel = MethodChannel('kilo.platform.timer');
     final calls = <String>[];
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -217,30 +219,46 @@ void main() {
       controller.addExercise('bench_press');
       final exercise = controller.workout.single;
       controller.addSet(exercise);
-      expect(exercise.restSeconds, 0);
-      expect(exercise.sets.single.restSeconds, 0);
+      expect(exercise.restSeconds, controller.defaultRestSeconds);
+      expect(exercise.sets.single.restSeconds, controller.defaultRestSeconds);
       final burstBefore = controller.completionBurstId;
-      controller.completeSet(exercise.sets.single, exercise);
-      await Future<void>.delayed(Duration.zero);
-      expect(controller.restRunning, isFalse);
-      expect(calls, isNot(contains('startTimer')));
-      expect(controller.completionBurstId, burstBefore + 1);
-      controller.completeSet(exercise.sets.single, exercise);
-      expect(controller.completionBurstId, burstBefore + 1);
-
-      controller.updateExerciseRest(exercise, 45);
-      expect(exercise.restSeconds, 45);
-      expect(exercise.sets.single.restSeconds, 45);
       controller.completeSet(exercise.sets.single, exercise);
       await Future<void>.delayed(Duration.zero);
       expect(controller.restRunning, isTrue);
       expect(calls, contains('startTimer'));
+      expect(controller.completionBurstId, burstBefore + 1);
+      controller.completeSet(exercise.sets.single, exercise);
+      expect(controller.completionBurstId, burstBefore + 1);
+
+      controller.addExercise('squat');
+      final secondExercise = controller.workout.last;
+      controller.addSet(secondExercise);
+      expect(secondExercise.restSeconds, controller.defaultRestSeconds);
+      expect(
+        secondExercise.sets.single.restSeconds,
+        controller.defaultRestSeconds,
+      );
+      controller.completeSet(secondExercise.sets.single, secondExercise);
+      await Future<void>.delayed(Duration.zero);
+      expect(controller.restRunning, isTrue);
+      expect(
+        controller.restRemainingSeconds,
+        controller.defaultRestSeconds,
+      );
+
+      controller.completeSet(secondExercise.sets.single, secondExercise);
+      controller.updateExerciseRest(secondExercise, 0);
+      controller.completeSet(secondExercise.sets.single, secondExercise);
+      await Future<void>.delayed(Duration.zero);
+      expect(controller.restRunning, isFalse);
+      expect(controller.restRemainingSeconds, 0);
     } finally {
       controller.dispose();
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(channel, null);
     }
-  });
+    },
+  );
 
   test('free finish can save a non-empty plan while non-free ignores flag', () {
     final controller = AppController();

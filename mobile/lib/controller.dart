@@ -207,7 +207,6 @@ class AppController extends ChangeNotifier {
   RecognitionResult? recognitionResult;
   final List<String> scheduled = [];
   int defaultRestSeconds = 120;
-  bool rpeTrackingEnabled = true;
   bool livePrEnabled = true;
   String selectedExerciseId = 'bench_press';
   ExerciseNameLanguage exerciseNameLanguage = ExerciseNameLanguage.chinese;
@@ -569,6 +568,11 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void updateSetNote(WorkoutSet set, String note) {
+    set.note = note.trim();
+    notifyListeners();
+  }
+
   void skipRest() {
     restRemainingSeconds = 0;
     restRunning = false;
@@ -730,7 +734,7 @@ class AppController extends ChangeNotifier {
             id: 'we-${DateTime.now().microsecondsSinceEpoch}',
             exerciseId: id,
             sets: <WorkoutSet>[],
-            restSeconds: 0,
+            restSeconds: defaultRestSeconds,
           )
         : _makeWorkout(id, 'we-${DateTime.now().microsecondsSinceEpoch}');
     workout.add(item);
@@ -1200,7 +1204,7 @@ class AppController extends ChangeNotifier {
             .map(
               (set) =>
                   '${set.weight.toStringAsFixed(1)} kg × ${set.reps}'
-                  '${set.rpe == null ? '' : '，RPE ${set.rpe!.toStringAsFixed(1)}'}',
+                  '${set.note.trim().isEmpty ? '' : '，备注：${set.note.trim()}'}',
             )
             .join('；');
         lines.add('${findExercise(exercise.exerciseId).name}：$sets');

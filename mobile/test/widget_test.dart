@@ -511,6 +511,8 @@ void main() {
       expect(controller.restRunning, isTrue);
       expect(controller.restRemainingSeconds, 45);
       expect(find.text('训练已开始，本组完成，休息计时已启动'), findsOneWidget);
+      controller.finishWorkout();
+      await tester.pump(const Duration(milliseconds: 900));
     },
   );
 
@@ -616,7 +618,7 @@ void main() {
       final set = exercise.sets.single
         ..weight = 77.5
         ..reps = 5
-        ..rpe = 8;
+        ..note = '窄握';
       controller.openLiveWorkout();
 
       await tester.pumpWidget(KiloApp(initialController: controller));
@@ -633,12 +635,22 @@ void main() {
       await tester.pumpAndSettle();
       expect(set.type, 'warmup');
 
+      await tester.tap(find.byKey(Key('set-note-${set.id}')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(Key('set-note-input-${set.id}')),
+        '窄握，最后两次速度变慢',
+      );
+      await tester.tap(find.byKey(Key('set-note-save-${set.id}')));
+      await tester.pumpAndSettle();
+      expect(set.note, '窄握，最后两次速度变慢');
+
       await tester.tap(find.byKey(Key('set-complete-${set.id}')));
       await tester.pump();
       expect(set.completed, isTrue);
       expect(set.weight, 77.5);
       expect(set.reps, 5);
-      expect(set.rpe, 8);
+      expect(set.note, '窄握，最后两次速度变慢');
       final completedRow = tester.widget<AnimatedContainer>(
         find.byKey(Key('set-row-${set.id}')),
       );
@@ -652,7 +664,7 @@ void main() {
       expect(set.completed, isFalse);
       expect(set.weight, 77.5);
       expect(set.reps, 5);
-      expect(set.rpe, 8);
+      expect(set.note, '窄握，最后两次速度变慢');
       controller.finishWorkout();
       await tester.pump(const Duration(milliseconds: 900));
     },
@@ -704,7 +716,7 @@ void main() {
     final set = exercise.sets.single
       ..weight = 50
       ..reps = 10
-      ..rpe = 8
+      ..note = '最后两次速度变慢'
       ..completed = true;
     controller.finishWorkout();
     final record = controller.history.single;
@@ -779,14 +791,14 @@ void main() {
       source.sets.first
         ..weight = 999.5
         ..reps = 100
-        ..rpe = 10;
+        ..note = List<String>.filled(30, '长备注').join();
       controller.saveRoutineFromDraft(longName, [source]);
       final routine = controller.routines.single;
       controller.startRoutine(routine);
       final set = controller.workout.single.sets.first
         ..weight = 999.5
         ..reps = 100
-        ..rpe = 10;
+        ..note = List<String>.filled(30, '长备注').join();
       addTearDown(() {
         if (controller.workoutStarted) controller.finishWorkout();
         controller.dispose();
@@ -866,7 +878,7 @@ void main() {
     workoutExercise.sets.single
       ..weight = 72.5
       ..reps = 8
-      ..rpe = 8
+      ..note = '肩胛保持稳定'
       ..completed = true;
     controller.finishWorkout();
     final record = controller.history.single;
@@ -884,7 +896,7 @@ void main() {
 
     expect(find.byKey(Key('exercise-history-${record.id}')), findsOneWidget);
     expect(find.textContaining('72.5 kg × 8'), findsOneWidget);
-    expect(find.textContaining('RPE 8.0'), findsOneWidget);
+    expect(find.textContaining('备注：肩胛保持稳定'), findsOneWidget);
     expect(find.text('训练次数'), findsNothing);
     expect(tester.takeException(), isNull);
   });

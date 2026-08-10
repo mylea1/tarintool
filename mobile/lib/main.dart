@@ -2343,10 +2343,7 @@ class _WorkoutExerciseCard extends StatelessWidget {
                       );
                       return Column(
                         children: [
-                          _SetTableHeader(
-                            columns: columns,
-                            showRpe: controller.rpeTrackingEnabled,
-                          ),
+                          _SetTableHeader(columns: columns),
                           for (var i = 0; i < exercise.sets.length; i++)
                             _SetRow(
                               controller: controller,
@@ -2412,7 +2409,7 @@ class _SetColumns {
     required this.last,
     required this.weight,
     required this.reps,
-    required this.rpe,
+    required this.note,
     required this.complete,
     required this.gap,
   });
@@ -2421,7 +2418,7 @@ class _SetColumns {
   final double last;
   final double weight;
   final double reps;
-  final double rpe;
+  final double note;
   final double complete;
   final double gap;
 
@@ -2433,7 +2430,7 @@ class _SetColumns {
       last: compact ? 44 : 58,
       weight: compact ? 50 : 58,
       reps: compact ? 34 : 42,
-      rpe: compact ? 32 : 40,
+      note: compact ? 34 : 40,
       complete: compact ? 36 : 40,
       gap: compact ? 2 : 4,
     );
@@ -2441,9 +2438,8 @@ class _SetColumns {
 }
 
 class _SetTableHeader extends StatelessWidget {
-  const _SetTableHeader({required this.columns, required this.showRpe});
+  const _SetTableHeader({required this.columns});
   final _SetColumns columns;
-  final bool showRpe;
 
   Widget _label(String text, double width) => SizedBox(
     width: width,
@@ -2465,13 +2461,109 @@ class _SetTableHeader extends StatelessWidget {
       _label('kg', columns.weight),
       SizedBox(width: columns.gap),
       _label('次数', columns.reps),
-      if (showRpe) ...[
-        SizedBox(width: columns.gap),
-        _label('RPE', columns.rpe),
-      ],
+      SizedBox(width: columns.gap),
+      _label('备注', columns.note),
       SizedBox(width: columns.gap),
       _label('完成', columns.complete),
     ],
+  );
+}
+
+Future<void> _showSetNoteEditor(
+  BuildContext context,
+  AppController controller,
+  WorkoutSet set,
+  int index,
+) async {
+  var draft = set.note;
+  await showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    builder: (sheetContext) => AnimatedPadding(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+      ),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: hairline,
+                  borderRadius: BorderRadius.circular(99),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              '第 ${index + 1} 组备注',
+              style: Theme.of(
+                sheetContext,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              '记录握距、动作感受、疼痛或器械设置。',
+              style: TextStyle(color: secondaryInk, fontSize: 12),
+            ),
+            const SizedBox(height: 14),
+            TextFormField(
+              key: Key('set-note-input-${set.id}'),
+              initialValue: set.note,
+              onChanged: (value) => draft = value,
+              autofocus: true,
+              minLines: 3,
+              maxLines: 5,
+              maxLength: 200,
+              textInputAction: TextInputAction.newline,
+              decoration: const InputDecoration(
+                labelText: '备注',
+                hintText: '例如：窄握，最后两次速度变慢',
+                alignLabelWithHint: true,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                if (set.note.isNotEmpty)
+                  TextButton.icon(
+                    key: Key('set-note-clear-${set.id}'),
+                    onPressed: () {
+                      controller.updateSetNote(set, '');
+                      Navigator.pop(sheetContext);
+                    },
+                    icon: const Icon(Icons.delete_outline),
+                    label: const Text('清除'),
+                  ),
+                const Spacer(),
+                TextButton(
+                  onPressed: () => Navigator.pop(sheetContext),
+                  child: const Text('取消'),
+                ),
+                const SizedBox(width: 8),
+                FilledButton.icon(
+                  key: Key('set-note-save-${set.id}'),
+                  onPressed: () {
+                    controller.updateSetNote(set, draft);
+                    Navigator.pop(sheetContext);
+                  },
+                  icon: const Icon(Icons.check_rounded),
+                  label: const Text('保存备注'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    ),
   );
 }
 
@@ -2767,35 +2859,27 @@ class _SetRow extends StatelessWidget {
                 },
               ),
             ),
-            if (controller.rpeTrackingEnabled) ...[
-              _cellGap(),
-              SizedBox(
-                width: columns.rpe,
-                child: TextFormField(
-                  initialValue: set.rpe?.toStringAsFixed(0) ?? '',
-                  enabled: !set.completed,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  onTapOutside: (_) =>
-                      FocusManager.instance.primaryFocus?.unfocus(),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: columns.compact ? 11 : 12,
-                    color: set.completed ? const Color(0xFF1E6B45) : ink,
-                    fontWeight: set.completed
-                        ? FontWeight.w800
-                        : FontWeight.w500,
-                  ),
-                  decoration: _inputDecoration(
-                    completed: set.completed,
-                  ).copyWith(hintText: '—'),
-                  onChanged: (value) {
-                    set.rpe = double.tryParse(value);
-                  },
+            _cellGap(),
+            SizedBox(
+              width: columns.note,
+              child: IconButton(
+                key: Key('set-note-${set.id}'),
+                tooltip: set.note.isEmpty ? '添加本组备注' : '查看或修改本组备注',
+                onPressed: () =>
+                    _showSetNoteEditor(context, controller, set, index),
+                icon: Icon(
+                  set.note.isEmpty
+                      ? Icons.sticky_note_2_outlined
+                      : Icons.sticky_note_2_rounded,
+                  size: columns.compact ? 18 : 20,
+                  color: set.note.isEmpty
+                      ? (set.completed ? const Color(0xFF1E6B45) : quiet)
+                      : (set.completed ? const Color(0xFF1E6B45) : primary),
                 ),
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
               ),
-            ],
+            ),
             _cellGap(),
             SizedBox(
               width: columns.complete,
@@ -3276,7 +3360,6 @@ class _RecordSetRow extends StatelessWidget {
     final planned = set.plannedWeight;
     final delta = planned == null ? null : set.weight - planned;
     final detail = <String>[
-      if (set.rpe != null) 'RPE ${set.rpe!.toStringAsFixed(0)}',
       '休息 ${set.restSeconds}s',
       if (planned != null)
         '计划 ${_displayWeight(planned)} · Δ ${delta! >= 0 ? '+' : ''}${_displayWeight(delta)}',
@@ -3323,6 +3406,28 @@ class _RecordSetRow extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
+                if (set.note.trim().isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.sticky_note_2_outlined,
+                        size: 14,
+                        color: statusColor,
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          set.note.trim(),
+                          style: TextStyle(fontSize: 11, color: statusColor),
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
@@ -4352,12 +4457,8 @@ class _AiPageState extends State<AiPage> {
                         ),
                       ),
                     for (final message in controller.chat)
-                      _ChatBubble(
-                        message: message,
-                        controller: controller,
-                      ),
-                    if (controller.aiTyping)
-                      const _ThinkingIndicator(),
+                      _ChatBubble(message: message, controller: controller),
+                    if (controller.aiTyping) const _ThinkingIndicator(),
                   ],
                 ),
               ),
@@ -4388,9 +4489,7 @@ class _AiPageState extends State<AiPage> {
                       const SizedBox(width: 8),
                       IconButton.filled(
                         tooltip: '发送',
-                        onPressed: controller.aiTyping
-                            ? null
-                            : _sendMessage,
+                        onPressed: controller.aiTyping ? null : _sendMessage,
                         icon: const Icon(Icons.arrow_upward),
                       ),
                     ],
@@ -4683,10 +4782,7 @@ class _ChatBubble extends StatelessWidget {
               ),
             ),
           if (message.plan != null)
-            _AiPlanCard(
-              plan: message.plan!,
-              controller: controller,
-            ),
+            _AiPlanCard(plan: message.plan!, controller: controller),
           if (message.citations.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 10),
@@ -4703,9 +4799,7 @@ class _ChatBubble extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  for (var index = 0;
-                      index < message.citations.length;
-                      index++)
+                  for (var index = 0; index < message.citations.length; index++)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 3),
                       child: Text(
@@ -4725,6 +4819,7 @@ class _ChatBubble extends StatelessWidget {
     ),
   );
 }
+
 class _ThinkingIndicator extends StatefulWidget {
   const _ThinkingIndicator();
 
@@ -4771,14 +4866,15 @@ class _ThinkingIndicatorState extends State<_ThinkingIndicator>
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: primary.withValues(
-                        alpha: (.28 +
-                                .72 *
-                                    (1 -
-                                        ((animation.value - index * .18)
-                                                    .abs() %
-                                                1)
-                                            .clamp(0, 1)))
-                            .toDouble(),
+                        alpha:
+                            (.28 +
+                                    .72 *
+                                        (1 -
+                                            ((animation.value - index * .18)
+                                                        .abs() %
+                                                    1)
+                                                .clamp(0, 1)))
+                                .toDouble(),
                       ),
                     ),
                   ),
@@ -4799,6 +4895,7 @@ class _ThinkingIndicatorState extends State<_ThinkingIndicator>
     ),
   );
 }
+
 class _AiPlanCard extends StatelessWidget {
   const _AiPlanCard({required this.plan, required this.controller});
   final AiPlanDraft plan;
@@ -6314,7 +6411,8 @@ class _ExerciseDetailSheetState extends State<_ExerciseDetailSheet> {
                         Padding(
                           padding: const EdgeInsets.only(bottom: 3),
                           child: Text(
-                            '${_weight(set.weight)} × ${set.reps}${set.rpe == null ? '' : ' · RPE ${set.rpe!.toStringAsFixed(1)}'}',
+                            '${_weight(set.weight)} × ${set.reps}'
+                            '${set.note.trim().isEmpty ? '' : '\n备注：${set.note.trim()}'}',
                           ),
                         ),
                   ],
@@ -7103,9 +7201,7 @@ class _ExercisePickerSheetState extends State<_ExercisePickerSheet> {
                             widget.controller.displayExerciseName(exercise),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w700,
-                            ),
+                            style: const TextStyle(fontWeight: FontWeight.w700),
                           ),
                           subtitle: Text(
                             '${exercise.muscle} · ${exercise.equipment}',
@@ -7118,9 +7214,7 @@ class _ExercisePickerSheetState extends State<_ExercisePickerSheet> {
                               backgroundColor: cobalt,
                               foregroundColor: Colors.white,
                             ),
-                            tooltip: widget.replacing == null
-                                ? '添加动作'
-                                : '替换动作',
+                            tooltip: widget.replacing == null ? '添加动作' : '替换动作',
                             onPressed: () => choose(exercise),
                             icon: Icon(
                               widget.replacing == null
@@ -7230,14 +7324,6 @@ void _showWorkoutSettings(BuildContext context, AppController controller) {
                   controller.defaultRestSeconds = value.round();
                   setSheetState(() {});
                 },
-              ),
-              SwitchListTile(
-                value: controller.rpeTrackingEnabled,
-                onChanged: (value) {
-                  controller.rpeTrackingEnabled = value;
-                  setSheetState(() {});
-                },
-                title: const Text('记录 RPE'),
               ),
               const SizedBox(height: 8),
             ],
@@ -8506,8 +8592,7 @@ class _RoutineExerciseEditor extends StatelessWidget {
           TextFormField(
             initialValue: '${exercise.restSeconds}',
             keyboardType: TextInputType.number,
-            onTapOutside: (_) =>
-                FocusManager.instance.primaryFocus?.unfocus(),
+            onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
             decoration: const InputDecoration(labelText: '动作休息（秒）'),
             onChanged: (value) {
               exercise.restSeconds =
