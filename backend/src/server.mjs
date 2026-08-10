@@ -327,6 +327,41 @@ async function callDeepSeek(ctx, messages, userId) {
   } finally { clearTimeout(timeout); }
 }
 
+function isTrainingPlanRequest(question) {
+  const normalized = question.toLocaleLowerCase();
+  return /(生成|制定|安排|创建|做一份|设计|帮我做|帮我排|generate|create|build|make)/u.test(normalized)
+    && /(训练计划|训练方案|健身计划|健身方案|月计划|周计划|workout plan|training plan)/u.test(normalized);
+}
+
+function extractPlanDraft(rawAnswer, allowedExerciseIds) {
+  const marker = rawAnswer.match(/<KILO_PLAN>([\s\S]*?)<\/KILO_PLAN>/u);
+  if (!marker) return { answer: rawAnswer.trim(), plan: null };
+  const answer = rawAnswer.replace(marker[0], '').trim();
+  try {
+    const parsed = JSON.parse(marker[1].trim());
+    const sessions = Array.isArray(parsed?.sessions)
+      ? parsed.sessions.slice(0, 7).map((session) => ({
+        dayOffset: Math.max(0, Math.min(6, Number(session?.dayOffset) || 0)),
+        name: String(session?.name || '训练').trim().slice(0, 60),
+        exerciseIds: Array.isArray(session?.exerciseIds)
+          ? [...new Set(session.exerciseIds.map(String).filter((id) => allowedExerciseIds.has(id)))].slice(0, 10)
+          : [],
+      })).filter((session) => session.exerciseIds.length)
+      : [];
+    if (!sessions.length) return { answer, plan: null };
+    return {
+      answer: answer || '训练计划已经整理好。请先检查动作和训练频率，确认后再保存。',
+      plan: {
+        title: String(parsed?.title || 'AI 训练计划').trim().slice(0, 80),
+        weeks: Math.max(1, Math.min(8, Number(parsed?.weeks) || 1)),
+        sessions,
+      },
+    };
+  } catch {
+    return { answer, plan: null };
+  }
+}
+
 function knowledgeSearch(db, query, limit = 5) {
   if (!query) return [];
   const safe = query.replace(/[\"']/g, ' ').trim().split(/\s+/).filter(Boolean).slice(0, 8).join(' ');
@@ -600,25 +635,46 @@ async function handleRequest(req, res, ctx) {
       if (!conversation) { conversationId = randomId('conv_'); const stamp = nowIso(); ctx.db.prepare('INSERT INTO conversations (id, user_id, title, memory_summary, created_at, updated_at) VALUES (?, ?, ?, \'\', ?, ?)').run(conversationId, user.id, question.slice(0, 80), stamp, stamp); conversation = ctx.db.prepare('SELECT * FROM conversations WHERE id = ?').get(conversationId); }
       const recent = conversationMessages(ctx.db, conversationId, 20);
       const knowledge = knowledgeSearch(ctx.db, question, 5);
-      const messages = [{ role: 'system', content: '你是 KILO Strength 健身训练助手。提供一般训练、恢复和动作记录建议，不进行医疗诊断。证据不足时明确说明。' }];
+      const messages = [{ role: 'system', content: `你是 KILO Strength 健身训练助手。提供一般训练、恢复和动作记录建议，不进行医疗诊断。证据不足时明确说明。
+回答使用简洁 Markdown：用标题、加粗、列表组织内容，但不要堆叠格式。只总结知识库结论，不要大段照搬原文。不要在正文中写文献名称、来源列表、脚注编号或“根据某文献”；客户端会在回答结尾统一展示服务端检索到的来源。` }];
       if (conversation.memory_summary) messages.push({ role: 'system', content: `长期记忆摘要：${conversation.memory_summary.slice(0, 3000)}` });
       if (knowledge.length) messages.push({ role: 'system', content: `知识库参考：\n${knowledge.map((item) => `${item.title}: ${item.content.slice(0, 1200)}`).join('\n')}` });
       for (const message of recent) messages.push({ role: message.role, content: message.content });
       if (body.useTrainingData === true && typeof body.trainingSummary === 'string' && body.trainingSummary.trim()) messages.push({ role: 'system', content: `用户已明确授权的训练摘要：${body.trainingSummary.trim().slice(0, MAX_SUMMARY)}` });
+      const planRequested = isTrainingPlanRequest(question);
+      const exerciseCatalog = Array.isArray(body.exerciseCatalog)
+        ? body.exerciseCatalog.slice(0, 100).map((item) => ({
+          id: String(item?.id || '').slice(0, 200),
+          name: String(item?.name || '').slice(0, 100),
+          equipment: String(item?.equipment || '').slice(0, 60),
+          muscle: String(item?.muscle || '').slice(0, 60),
+        })).filter((item) => item.id && item.name)
+        : [];
+      if (planRequested && exerciseCatalog.length) {
+        messages.push({ role: 'system', content: `用户明确要求生成训练计划。只能从下面动作库选择动作，不得编造 ID：\n${exerciseCatalog.map((item) => `${item.id}|${item.name}|${item.equipment}|${item.muscle}`).join('\n')}
+先用 Markdown 说明计划思路和注意事项，然后在回答最末尾输出且只输出一次以下机器可读块：
+<KILO_PLAN>{"title":"计划名称","weeks":4,"sessions":[{"dayOffset":0,"name":"训练日名称","exerciseIds":["动作ID"]}]}</KILO_PLAN>
+dayOffset 为本周从今天起第几天（0-6）；如果用户要求一个月，weeks 设为 4。不要在机器可读块中使用 Markdown 代码围栏。` });
+      }
       messages.push({ role: 'user', content: question });
-      let answer;
+      let rawAnswer;
       try {
-        answer = await ctx.aiGate.run(() => callDeepSeek(ctx, messages, user.id));
+        rawAnswer = await ctx.aiGate.run(() => callDeepSeek(ctx, messages, user.id));
       } catch (error) {
         if (error instanceof QueueCapacityError) {
           throw httpError(503, 'ai_busy', { retryAfterSeconds: 5 });
         }
         throw error;
       }
+      const allowedExerciseIds = new Set(exerciseCatalog.map((item) => item.id));
+      const parsedAnswer = planRequested
+        ? extractPlanDraft(rawAnswer, allowedExerciseIds)
+        : { answer: rawAnswer, plan: null };
+      const answer = parsedAnswer.answer;
       const stamp = nowIso(); transaction(ctx.db, () => { ctx.db.prepare('INSERT INTO conversation_messages (id, conversation_id, role, content, created_at) VALUES (?, ?, \'user\', ?, ?)').run(randomId('msg_'), conversationId, question, stamp); ctx.db.prepare('INSERT INTO conversation_messages (id, conversation_id, role, content, created_at) VALUES (?, ?, \'assistant\', ?, ?)').run(randomId('msg_'), conversationId, answer, nowIso()); ctx.db.prepare('UPDATE conversations SET updated_at = ? WHERE id = ?').run(nowIso(), conversationId); });
       // Memory summarisation is deliberately low frequency and best effort.
       try { const count = ctx.db.prepare('SELECT COUNT(*) AS n FROM conversation_messages WHERE conversation_id = ?').get(conversationId).n; if (count >= 10 && count % 10 === 0) { const text = conversationMessages(ctx.db, conversationId, 10).map((m) => `${m.role}: ${m.content}`).join('\n'); ctx.db.prepare('UPDATE conversations SET memory_summary = ?, updated_at = ? WHERE id = ?').run(text.slice(0, 3000), nowIso(), conversationId); } } catch { /* memory must never break the answer */ }
-      changeReservation(ctx.db, user.id, requestId, 'commit'); writeJson(res, 200, { conversationId, answer, citations: knowledge.map((item) => ({ id: item.id, title: item.title, source: item.source })) }, req, ctx.cfg);
+      changeReservation(ctx.db, user.id, requestId, 'commit'); writeJson(res, 200, { conversationId, answer, citations: knowledge.map((item) => ({ id: item.id, title: item.title, source: item.source })), plan: parsedAnswer.plan }, req, ctx.cfg);
     } catch (error) { try { changeReservation(ctx.db, user.id, requestId, 'rollback'); } catch { /* preserve original error */ } throw error; }
     return;
   }

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter/services.dart';
 
 import 'account_membership.dart';
@@ -649,7 +650,11 @@ class KiloShell extends StatelessWidget {
                 ),
               ),
             ),
-            body,
+            GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+              child: body,
+            ),
           ],
         ),
       ),
@@ -2727,6 +2732,8 @@ class _SetRow extends StatelessWidget {
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
+                onTapOutside: (_) =>
+                    FocusManager.instance.primaryFocus?.unfocus(),
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: columns.compact ? 11 : 12,
@@ -2746,6 +2753,8 @@ class _SetRow extends StatelessWidget {
                 initialValue: '${set.reps}',
                 enabled: !set.completed,
                 keyboardType: TextInputType.number,
+                onTapOutside: (_) =>
+                    FocusManager.instance.primaryFocus?.unfocus(),
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: columns.compact ? 11 : 12,
@@ -2768,6 +2777,8 @@ class _SetRow extends StatelessWidget {
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
+                  onTapOutside: (_) =>
+                      FocusManager.instance.primaryFocus?.unfocus(),
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: columns.compact ? 11 : 12,
@@ -4225,9 +4236,52 @@ class AiPage extends StatefulWidget {
 
 class _AiPageState extends State<AiPage> {
   final input = TextEditingController();
+  late final ScrollController scroll;
+  var followLatest = true;
+  var lastMessageCount = 0;
   AppController get controller => widget.controller;
+
+  @override
+  void initState() {
+    super.initState();
+    lastMessageCount = controller.chat.length;
+    scroll = ScrollController(initialScrollOffset: controller.aiScrollOffset);
+    scroll.addListener(_rememberScrollPosition);
+  }
+
+  void _rememberScrollPosition() {
+    controller.aiScrollOffset = scroll.offset;
+    if (scroll.hasClients) {
+      followLatest = scroll.position.maxScrollExtent - scroll.offset < 100;
+    }
+  }
+
+  void _scrollToLatest() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !scroll.hasClients) return;
+      scroll.animateTo(
+        scroll.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 280),
+        curve: Curves.easeOutCubic,
+      );
+    });
+  }
+
+  void _sendMessage() {
+    final text = input.text;
+    if (text.trim().isEmpty) return;
+    input.clear();
+    FocusManager.instance.primaryFocus?.unfocus();
+    followLatest = true;
+    controller.sendChat(text);
+    _scrollToLatest();
+  }
+
   @override
   void dispose() {
+    scroll
+      ..removeListener(_rememberScrollPosition)
+      ..dispose();
     input.dispose();
     super.dispose();
   }
@@ -4235,6 +4289,10 @@ class _AiPageState extends State<AiPage> {
   @override
   Widget build(BuildContext context) {
     final recognition = controller.aiView == AiView.recognition;
+    if (controller.chat.length != lastMessageCount) {
+      lastMessageCount = controller.chat.length;
+      if (followLatest) _scrollToLatest();
+    }
     return Scaffold(
       key: const Key('ai-page'),
       drawer: recognition ? null : _AiDrawer(controller: controller),
@@ -4271,6 +4329,9 @@ class _AiPageState extends State<AiPage> {
               ),
               Expanded(
                 child: ListView(
+                  controller: scroll,
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
                   children: [
                     if (controller.chat.isEmpty && !controller.aiTyping)
@@ -4284,21 +4345,10 @@ class _AiPageState extends State<AiPage> {
                     for (final message in controller.chat)
                       _ChatBubble(
                         message: message,
-                        onCitation: message.citations.isEmpty
-                            ? null
-                            : () => _showCitation(context, message.citations),
+                        controller: controller,
                       ),
                     if (controller.aiTyping)
-                      const Align(
-                        alignment: Alignment.centerLeft,
-                        child: Padding(
-                          padding: EdgeInsets.only(top: 4, bottom: 7),
-                          child: Text(
-                            'AI 正在整理证据…',
-                            style: TextStyle(color: quiet, fontSize: 12),
-                          ),
-                        ),
-                      ),
+                      const _ThinkingIndicator(),
                   ],
                 ),
               ),
@@ -4315,6 +4365,8 @@ class _AiPageState extends State<AiPage> {
                           minLines: 1,
                           maxLines: 4,
                           textInputAction: TextInputAction.newline,
+                          onTapOutside: (_) =>
+                              FocusManager.instance.primaryFocus?.unfocus(),
                           decoration: const InputDecoration(
                             hintText: '问训练、恢复或计划安排',
                             contentPadding: EdgeInsets.symmetric(
@@ -4329,11 +4381,7 @@ class _AiPageState extends State<AiPage> {
                         tooltip: '发送',
                         onPressed: controller.aiTyping
                             ? null
-                            : () {
-                                final text = input.text;
-                                input.clear();
-                                controller.sendChat(text);
-                              },
+                            : _sendMessage,
                         icon: const Icon(Icons.arrow_upward),
                       ),
                     ],
@@ -4556,9 +4604,18 @@ void _showAiSettings(BuildContext context, AppController controller) {
 }
 
 class _ChatBubble extends StatelessWidget {
-  const _ChatBubble({required this.message, this.onCitation});
+  const _ChatBubble({required this.message, required this.controller});
   final ChatMessage message;
-  final VoidCallback? onCitation;
+  final AppController controller;
+
+  Future<void> _openMarkdownLink(BuildContext context, String? href) async {
+    if (href == null) return;
+    final uri = normalizeTrainingUri(href);
+    if (uri == null || !await launchTrainingUri(uri)) {
+      if (context.mounted) showKiloSnack(context, '链接暂时无法打开');
+    }
+  }
+
   @override
   Widget build(BuildContext context) => Align(
     alignment: message.role == 'user'
@@ -4575,37 +4632,232 @@ class _ChatBubble extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            message.body,
-            style: TextStyle(
-              color: message.role == 'user' ? Colors.white : ink,
-              height: 1.35,
+          if (message.role == 'user')
+            Text(
+              message.body,
+              style: const TextStyle(color: Colors.white, height: 1.35),
+            )
+          else
+            MarkdownBody(
+              data: message.body,
+              selectable: true,
+              onTapLink: (text, href, title) =>
+                  _openMarkdownLink(context, href),
+              styleSheet: MarkdownStyleSheet(
+                p: const TextStyle(color: ink, height: 1.45, fontSize: 14),
+                h1: const TextStyle(
+                  color: ink,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                ),
+                h2: const TextStyle(
+                  color: ink,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w900,
+                ),
+                h3: const TextStyle(
+                  color: ink,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                ),
+                strong: const TextStyle(
+                  color: ink,
+                  fontWeight: FontWeight.w900,
+                ),
+                listBullet: const TextStyle(color: primary, fontSize: 15),
+                a: const TextStyle(
+                  color: primary,
+                  decoration: TextDecoration.underline,
+                ),
+                blockSpacing: 7,
+                listIndent: 20,
+              ),
             ),
-          ),
-          if (onCitation != null)
+          if (message.plan != null)
+            _AiPlanCard(
+              plan: message.plan!,
+              controller: controller,
+            ),
+          if (message.citations.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.only(top: 7),
-              child: TextButton.icon(
-                onPressed: onCitation,
-                style: TextButton.styleFrom(
-                  padding: EdgeInsets.zero,
-                  minimumSize: const Size(0, 36),
-                ),
-                icon: Icon(
-                  Icons.format_quote,
-                  size: 16,
-                  color: message.role == 'user' ? Colors.white : cobalt,
-                ),
-                label: Text(
-                  '查看 ${message.citations.length} 条引用',
-                  style: TextStyle(
-                    color: message.role == 'user' ? Colors.white : cobalt,
+              padding: const EdgeInsets.only(top: 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Divider(height: 14),
+                  const Text(
+                    '参考文献',
+                    style: TextStyle(
+                      color: muted,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 4),
+                  for (var index = 0;
+                      index < message.citations.length;
+                      index++)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 3),
+                      child: Text(
+                        '${index + 1}. ${message.citations[index]}',
+                        style: const TextStyle(
+                          color: muted,
+                          fontSize: 11,
+                          height: 1.35,
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
         ],
       ),
+    ),
+  );
+}
+class _ThinkingIndicator extends StatefulWidget {
+  const _ThinkingIndicator();
+
+  @override
+  State<_ThinkingIndicator> createState() => _ThinkingIndicatorState();
+}
+
+class _ThinkingIndicatorState extends State<_ThinkingIndicator>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController animation;
+
+  @override
+  void initState() {
+    super.initState();
+    animation = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    animation.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Align(
+    alignment: Alignment.centerLeft,
+    child: Padding(
+      padding: const EdgeInsets.only(top: 4, bottom: 9, left: 2),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedBuilder(
+            animation: animation,
+            builder: (context, child) => Row(
+              children: [
+                for (var index = 0; index < 3; index++)
+                  Container(
+                    width: 6,
+                    height: 6,
+                    margin: const EdgeInsets.only(right: 4),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: primary.withValues(
+                        alpha: (.28 +
+                                .72 *
+                                    (1 -
+                                        ((animation.value - index * .18)
+                                                    .abs() %
+                                                1)
+                                            .clamp(0, 1)))
+                            .toDouble(),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 5),
+          const Text(
+            '正在思考中',
+            style: TextStyle(
+              color: muted,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+class _AiPlanCard extends StatelessWidget {
+  const _AiPlanCard({required this.plan, required this.controller});
+  final AiPlanDraft plan;
+  final AppController controller;
+
+  void _save(BuildContext context, {required bool calendar}) {
+    controller.saveAiPlan(plan, scheduleCalendar: calendar);
+    showKiloSnack(
+      context,
+      calendar ? '计划已保存，并安排到未来 ${plan.weeks} 周日历' : '计划已保存到“AI 生成”',
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => Container(
+    margin: const EdgeInsets.only(top: 10),
+    padding: const EdgeInsets.fromLTRB(11, 10, 11, 9),
+    decoration: BoxDecoration(
+      color: emberTint,
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: primary.withValues(alpha: .28)),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.calendar_month_outlined, size: 18, color: primary),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                plan.title,
+                style: const TextStyle(fontWeight: FontWeight.w900),
+              ),
+            ),
+            Text(
+              '${plan.weeks} 周',
+              style: const TextStyle(fontSize: 11, color: muted),
+            ),
+          ],
+        ),
+        const SizedBox(height: 7),
+        for (final session in plan.sessions)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Text(
+              '第 ${session.dayOffset + 1} 天 · ${session.name} · ${session.exerciseIds.length} 个动作',
+              style: const TextStyle(fontSize: 12, color: secondaryInk),
+            ),
+          ),
+        const SizedBox(height: 5),
+        Wrap(
+          spacing: 7,
+          runSpacing: 6,
+          children: [
+            OutlinedButton.icon(
+              onPressed: () => _save(context, calendar: false),
+              icon: const Icon(Icons.bookmark_add_outlined, size: 17),
+              label: const Text('保存计划'),
+            ),
+            FilledButton.icon(
+              onPressed: () => _save(context, calendar: true),
+              icon: const Icon(Icons.event_available_outlined, size: 17),
+              label: const Text('保存并安排日历'),
+            ),
+          ],
+        ),
+      ],
     ),
   );
 }
@@ -8245,6 +8497,8 @@ class _RoutineExerciseEditor extends StatelessWidget {
           TextFormField(
             initialValue: '${exercise.restSeconds}',
             keyboardType: TextInputType.number,
+            onTapOutside: (_) =>
+                FocusManager.instance.primaryFocus?.unfocus(),
             decoration: const InputDecoration(labelText: '动作休息（秒）'),
             onChanged: (value) {
               exercise.restSeconds =
@@ -8348,6 +8602,8 @@ class _RoutineSetEditorBase extends StatelessWidget {
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
+                onTapOutside: (_) =>
+                    FocusManager.instance.primaryFocus?.unfocus(),
                 decoration: const InputDecoration(
                   labelText: '重量',
                   suffixText: 'kg',
@@ -8366,6 +8622,8 @@ class _RoutineSetEditorBase extends StatelessWidget {
               child: TextFormField(
                 initialValue: '${set.reps}',
                 keyboardType: TextInputType.number,
+                onTapOutside: (_) =>
+                    FocusManager.instance.primaryFocus?.unfocus(),
                 decoration: const InputDecoration(
                   labelText: '次数',
                   contentPadding: EdgeInsets.symmetric(
@@ -8460,6 +8718,8 @@ class _RoutineSetEditor extends _RoutineSetEditorBase {
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
+                  onTapOutside: (_) =>
+                      FocusManager.instance.primaryFocus?.unfocus(),
                   decoration: const InputDecoration(
                     labelText: '\u8BA1\u5212\u91CD\u91CF',
                     suffixText: 'kg',
@@ -8481,6 +8741,8 @@ class _RoutineSetEditor extends _RoutineSetEditorBase {
                 child: TextFormField(
                   initialValue: '${set.reps}',
                   keyboardType: TextInputType.number,
+                  onTapOutside: (_) =>
+                      FocusManager.instance.primaryFocus?.unfocus(),
                   decoration: const InputDecoration(
                     labelText: '\u6B21\u6570',
                     contentPadding: EdgeInsets.symmetric(
@@ -9020,36 +9282,6 @@ void _showRecordEditor(
           child: const Text('保存'),
         ),
       ],
-    ),
-  );
-}
-
-void _showCitation(BuildContext context, List<String> citations) {
-  showModalBottomSheet<void>(
-    context: context,
-    builder: (context) => SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              '回答依据',
-              style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 10),
-            for (final citation in citations)
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.format_quote, color: cobalt),
-                title: Text(citation),
-                subtitle: const Text('服务端校验后的引用摘要，可追溯到原始来源。'),
-              ),
-            const SizedBox(height: 6),
-          ],
-        ),
-      ),
     ),
   );
 }

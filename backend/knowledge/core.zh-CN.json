@@ -2,35 +2,35 @@
   {
     "id": "kn_core_progressive_overload",
     "title": "渐进超负荷的实施顺序",
-    "source": "KILO Core Knowledge v1",
+    "source": "ACSM 2026 Resistance Training Position Stand — https://pmc.ncbi.nlm.nih.gov/articles/PMC12965823/",
     "tags": ["渐进超负荷", "训练计划", "加重"],
     "content": "先保证动作技术、目标肌群感受和既定次数范围稳定，再增加负荷。常见做法是双重进阶：在同一重量下先逐步提高每组次数；当所有正式组都达到次数上限且仍保留目标 RIR 时，再小幅增加重量并回到次数区间下限。不要只因一次状态好就大幅加重，应结合最近数次训练的完成质量、睡眠和恢复判断。"
   },
   {
     "id": "kn_core_rpe_rir",
     "title": "RPE 与 RIR 的记录方法",
-    "source": "KILO Core Knowledge v1",
+    "source": "Repetitions in Reserve Is a Reliable Tool for Prescribing Resistance Training Load — https://pubmed.ncbi.nlm.nih.gov/36135029/",
     "tags": ["RPE", "RIR", "强度"],
     "content": "RIR 表示一组结束时估计还能完成的规范次数；RPE 10 约等于 0 RIR，RPE 9 约等于 1 RIR，RPE 8 约等于 2 RIR。多数增肌正式组可保留约 1–3 RIR。记录时以当组真实体感为准，不要为了追求数字而牺牲动作范围、节奏或安全。"
   },
   {
     "id": "kn_core_rest_intervals",
     "title": "组间休息时间的安排",
-    "source": "KILO Core Knowledge v1",
+    "source": "Give it a rest: systematic review and Bayesian meta-analysis — https://pubmed.ncbi.nlm.nih.gov/39205815/",
     "tags": ["组间休息", "深蹲", "卧推", "增肌"],
     "content": "组间休息应以恢复到能完成下一组目标质量为准。深蹲、硬拉、卧推、划船等复合动作通常需要约 2–4 分钟；孤立动作通常约 1–2 分钟。若下一组次数、动作速度或技术明显下降，可延长休息；若训练时间有限，可优先缩短低风险孤立动作的休息，而不是压缩高强度复合动作。"
   },
   {
     "id": "kn_core_volume",
     "title": "周训练量与有效组",
-    "source": "KILO Core Knowledge v1",
+    "source": "Resistance-training weekly volume dose-response meta-analysis — https://pubmed.ncbi.nlm.nih.gov/27433992/",
     "tags": ["训练量", "有效组", "恢复"],
     "content": "训练量应结合每个肌群的有效组、接近力竭程度和恢复情况判断，而不是只看总重量。增加训练量时每次只做小幅调整，并观察至少一到数周的表现趋势。如果力量持续下降、酸痛长期不退或训练意愿明显降低，应先检查睡眠、营养和动作安排，再考虑减少组数或安排减量。"
   },
   {
     "id": "kn_core_pain_safety",
     "title": "疼痛与训练安全边界",
-    "source": "KILO Core Knowledge v1",
+    "source": "WHO Guidelines on Physical Activity and Sedentary Behaviour — https://www.who.int/publications/i/item/9789240014886",
     "tags": ["疼痛", "安全", "医疗提示"],
     "content": "普通训练疲劳和延迟性肌肉酸痛不等同于锐痛、麻木、关节不稳或突发功能下降。出现明显锐痛、麻木、眩晕、胸痛或症状持续加重时，应停止相关动作并寻求合格医疗专业人员评估。AI 建议不能替代诊断、治疗或康复处方。"
   },

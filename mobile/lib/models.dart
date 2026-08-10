@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import 'exercise_dataset.generated.dart';
+import 'exercise_name_zh.dart';
 import 'exercise_media.dart';
 
 enum PageId { today, train, records, exercises, recognition, ai, profile }
@@ -248,11 +249,37 @@ class ChatMessage {
     required this.role,
     required this.body,
     this.citations = const [],
+    this.plan,
   });
   final String id;
   final String role;
   final String body;
   final List<String> citations;
+  final AiPlanDraft? plan;
+}
+
+class AiPlanDraft {
+  const AiPlanDraft({
+    required this.title,
+    required this.weeks,
+    required this.sessions,
+  });
+
+  final String title;
+  final int weeks;
+  final List<AiPlanSession> sessions;
+}
+
+class AiPlanSession {
+  const AiPlanSession({
+    required this.dayOffset,
+    required this.name,
+    required this.exerciseIds,
+  });
+
+  final int dayOffset;
+  final String name;
+  final List<String> exerciseIds;
 }
 
 class AiConversation {
@@ -671,7 +698,11 @@ final List<Exercise> catalog = <Exercise>[
   for (final entry in datasetExerciseEntries.entries)
     Exercise(
       id: entry.key,
-      name: entry.value.name,
+      name: chineseExerciseName(
+        entry.value.name,
+        equipment: entry.value.equipment,
+        muscle: entry.value.muscle,
+      ),
       englishName: entry.value.name,
       family: entry.value.family,
       muscle: entry.value.muscle,

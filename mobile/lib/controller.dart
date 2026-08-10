@@ -224,6 +224,7 @@ class AppController extends ChangeNotifier {
   final Set<String> selectedSetIds = <String>{};
   String? selectedPlanFolder;
   final Map<String, String> scheduledLabels = {};
+  double aiScrollOffset = 0;
   int restRemainingSeconds = 0;
   bool restRunning = false;
   String? restExerciseName;
@@ -1194,12 +1195,14 @@ class AppController extends ChangeNotifier {
   }
 
   Future<CoachAnswer> _requestCoachAnswer(String prompt) async {
+    final requestsPlan = _isAiPlanRequest(prompt);
     Future<CoachAnswer> request() async {
       final api = await _activeCoachApi();
       return api.answer(
         prompt: prompt,
         includeTrainingSummary: aiUseTrainingData,
         trainingSummary: aiUseTrainingData ? _buildAiTrainingSummary() : null,
+        exerciseCatalog: requestsPlan ? _aiExerciseCatalog() : const [],
       );
     }
 
@@ -1213,6 +1216,82 @@ class AppController extends ChangeNotifier {
       }
       rethrow;
     }
+  }
+
+  bool _isAiPlanRequest(String prompt) {
+    final normalized = prompt.toLowerCase();
+    final asksToCreate = RegExp(
+      r'(生成|制定|安排|创建|做一份|设计|帮我做|帮我排|generate|create|build|make)',
+    ).hasMatch(normalized);
+    final mentionsPlan = RegExp(
+      r'(训练计划|训练方案|健身计划|健身方案|月计划|周计划|workout plan|training plan)',
+    ).hasMatch(normalized);
+    return asksToCreate && mentionsPlan;
+  }
+
+  List<Map<String, String>> _aiExerciseCatalog() {
+    final selected = <Exercise>[];
+    final seenGroups = <String>{};
+    for (final exercise in allExercises) {
+      final key = '${exercise.equipment}|${exercise.muscle}';
+      if (selected.length < 80 &&
+          (curatedCatalog.contains(exercise) || seenGroups.add(key))) {
+        selected.add(exercise);
+      }
+      if (selected.length >= 80) break;
+    }
+    return [
+      for (final exercise in selected)
+        {
+          'id': exercise.id,
+          'name': exercise.name,
+          'equipment': exercise.equipment,
+          'muscle': exercise.muscle,
+        },
+    ];
+  }
+
+  void saveAiPlan(AiPlanDraft plan, {required bool scheduleCalendar}) {
+    final stamp = DateTime.now().microsecondsSinceEpoch;
+    for (var sessionIndex = 0;
+        sessionIndex < plan.sessions.length;
+        sessionIndex++) {
+      final session = plan.sessions[sessionIndex];
+      final validIds = session.exerciseIds
+          .where((id) => allExercises.any((exercise) => exercise.id == id))
+          .toList();
+      if (validIds.isEmpty) continue;
+      final routineName = '${plan.title} · ${session.name}';
+      if (!routineFolders.contains('AI 生成')) routineFolders.add('AI 生成');
+      routines.add(
+        Routine(
+          id: 'ai-routine-$stamp-$sessionIndex',
+          name: routineName,
+          folder: 'AI 生成',
+          exercises: [
+            for (var exerciseIndex = 0;
+                exerciseIndex < validIds.length;
+                exerciseIndex++)
+              _makeWorkout(
+                validIds[exerciseIndex],
+                'ai-$stamp-$sessionIndex-$exerciseIndex',
+              ),
+          ],
+          updatedAt: DateTime.now(),
+        ),
+      );
+      if (!scheduleCalendar) continue;
+      for (var week = 0; week < plan.weeks; week++) {
+        final dayOffset = session.dayOffset.clamp(0, 6).toInt();
+        schedule(
+          DateTime.now().add(
+            Duration(days: dayOffset + week * 7),
+          ),
+          routineName,
+        );
+      }
+    }
+    notifyListeners();
   }
 
   Future<void> sendChat(String text) async {
@@ -1274,6 +1353,7 @@ class AppController extends ChangeNotifier {
             ? remoteAnswer!.body
             : serviceError ?? 'AI 服务未返回可用回答。',
         citations: remoteAnswer?.citations ?? const [],
+        plan: remoteAnswer?.plan,
       ),
     );
     _saveActiveConversation();

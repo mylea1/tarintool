@@ -387,6 +387,7 @@ class _ThrowingCoachApi implements CoachApi {
     required String prompt,
     required bool includeTrainingSummary,
     String? trainingSummary,
+    List<Map<String, String>> exerciseCatalog = const [],
   }) async {
     throw StateError('upstream');
   }
