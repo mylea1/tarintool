@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import Any
 
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 
 class KiloApi:
@@ -13,6 +15,18 @@ class KiloApi:
         self.timeout_seconds = timeout_seconds
         self.session = requests.Session()
         self.session.headers.update({"x-kilo-gpu-key": api_key})
+        retry = Retry(
+            total=4,
+            connect=4,
+            read=2,
+            backoff_factor=0.75,
+            status_forcelist=(429, 502, 503, 504),
+            # Claim/result POSTs change queue state and must not be replayed
+            # automatically after an ambiguous network timeout.
+            allowed_methods=frozenset({"GET", "PUT"}),
+        )
+        self.session.mount("https://", HTTPAdapter(max_retries=retry))
+        self.session.mount("http://", HTTPAdapter(max_retries=retry))
 
     def claim(self) -> dict[str, Any] | None:
         response = self.session.post(
@@ -60,6 +74,14 @@ class KiloApi:
         )
         response.raise_for_status()
 
+    def heartbeat(self, job_id: str) -> None:
+        response = self.session.post(
+            f"{self.base_url}/v1/internal/gpu/jobs/{job_id}/heartbeat",
+            json={},
+            timeout=self.timeout_seconds,
+        )
+        response.raise_for_status()
+
     def fail(self, job_id: str, error_code: str) -> None:
         response = self.session.post(
             f"{self.base_url}/v1/internal/gpu/jobs/{job_id}/fail",
@@ -69,4 +91,3 @@ class KiloApi:
         )
         if response.status_code != 409:
             response.raise_for_status()
-

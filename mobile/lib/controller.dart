@@ -124,11 +124,10 @@ class PlatformTimerBridge {
 class AppController extends ChangeNotifier {
   AppController({
     AccountService? accountService,
-    RecognitionApi? recognitionApi,
+    this.recognitionApi,
     this.coachApi,
     WorkoutHistoryPersistence? workoutHistoryPersistence,
   }) : accountService = accountService ?? AccountService(),
-       recognitionApi = recognitionApi ?? UnconfiguredRecognitionApi(),
        workoutHistoryPersistence =
            workoutHistoryPersistence ??
            SharedPreferencesWorkoutHistoryPersistence() {
@@ -138,13 +137,15 @@ class AppController extends ChangeNotifier {
   }
 
   final AccountService accountService;
-  final RecognitionApi recognitionApi;
+  final RecognitionApi? recognitionApi;
   final CoachApi? coachApi;
   final WorkoutHistoryPersistence workoutHistoryPersistence;
   Future<void> _historyWriteChain = Future<void>.value();
   String? _loadedHistoryUserId;
   HttpCoachApi? _defaultCoachApi;
   String? _defaultCoachApiBaseUrl;
+  HttpRecognitionApi? _defaultRecognitionApi;
+  String? _defaultRecognitionApiBaseUrl;
 
   AccountUser? get currentUser => accountService.currentUser;
   bool get isAuthenticated => accountService.isAuthenticated;
@@ -157,6 +158,7 @@ class AppController extends ChangeNotifier {
 
   AuthResult loginWithPhone(String identifier, {String? password}) {
     _defaultCoachApi?.clearSession();
+    _defaultRecognitionApi?.clearSession();
     final result = accountService.loginWithPhone(
       identifier,
       password: password,
@@ -171,6 +173,7 @@ class AppController extends ChangeNotifier {
 
   void logout() {
     _defaultCoachApi?.clearSession();
+    _defaultRecognitionApi?.clearSession();
     accountService.logout();
     _loadedHistoryUserId = null;
     history.clear();
@@ -1129,7 +1132,7 @@ class AppController extends ChangeNotifier {
       if (recognitionProgress >= 1) {
         recognitionProgress = 1;
         recognitionStatus = RecognitionStatus.processing;
-        _submitRecognition();
+        unawaited(_submitRecognition());
         _recognitionTicker?.cancel();
       }
       notifyListeners();
@@ -1137,11 +1140,12 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void _submitRecognition() {
-    // The local unconfigured adapter must never consume a credit. A real
-    // adapter reserves immediately before its network submission and returns
-    // the credit when the request fails.
-    if (recognitionApi is! UnconfiguredRecognitionApi && isAuthenticated) {
+  Future<void> _submitRecognition() async {
+    try {
+      final api = await _activeRecognitionApi();
+      if (!isAuthenticated) {
+        throw const RecognitionApiException('recognition_unauthenticated');
+      }
       _recognitionReservation = accountService.reserveRecognition();
       if (_recognitionReservation == null) {
         recognitionStatus = RecognitionStatus.error;
@@ -1155,41 +1159,41 @@ class AppController extends ChangeNotifier {
         notifyListeners();
         return;
       }
+      final mediaPath = selectedMediaPath;
+      if (mediaPath == null || mediaPath.isEmpty) {
+        throw const RecognitionApiException('recognition_file_missing');
+      }
+      final result = await api.analyze(
+        exerciseId: recognitionExerciseId,
+        camera: recognitionCamera,
+        scenario: scenario,
+        mediaPath: mediaPath,
+      );
+      final succeeded =
+          result.error == null &&
+          result.status != RecognitionStatus.error &&
+          result.status != RecognitionStatus.offline;
+      if (succeeded) {
+        _recognitionReservation?.commit();
+      } else {
+        _recognitionReservation?.rollback();
+      }
+      _recognitionReservation = null;
+      recognitionResult = result;
+      recognitionStatus = result.status;
+    } catch (_) {
+      _recognitionReservation?.rollback();
+      _recognitionReservation = null;
+      recognitionStatus = RecognitionStatus.error;
+      recognitionResult = const RecognitionResult(
+        status: RecognitionStatus.error,
+        confidence: 0,
+        repetitions: 0,
+        summary: '识别服务暂时不可用，请稍后重试。',
+        error: 'service_error',
+      );
     }
-    recognitionApi
-        .analyze(
-          exerciseId: recognitionExerciseId,
-          camera: recognitionCamera,
-          scenario: scenario,
-        )
-        .then((result) {
-          final succeeded =
-              result.error == null &&
-              result.status != RecognitionStatus.error &&
-              result.status != RecognitionStatus.offline;
-          if (succeeded) {
-            _recognitionReservation?.commit();
-          } else {
-            _recognitionReservation?.rollback();
-          }
-          _recognitionReservation = null;
-          recognitionResult = result;
-          recognitionStatus = result.status;
-          notifyListeners();
-        })
-        .catchError((Object _) {
-          _recognitionReservation?.rollback();
-          _recognitionReservation = null;
-          recognitionStatus = RecognitionStatus.error;
-          recognitionResult = const RecognitionResult(
-            status: RecognitionStatus.error,
-            confidence: 0,
-            repetitions: 0,
-            summary: '识别服务暂时不可用，请稍后重试。',
-            error: 'service_error',
-          );
-          notifyListeners();
-        });
+    notifyListeners();
   }
 
   void resetRecognition() {
@@ -1215,6 +1219,32 @@ class AppController extends ChangeNotifier {
     aiUseTrainingData = value;
     aiConsentSeen = true;
     notifyListeners();
+  }
+
+  Future<RecognitionApi> _activeRecognitionApi() async {
+    final injected = recognitionApi;
+    if (injected != null) return injected;
+
+    final baseUrl = aiBaseUrl.trim();
+    if (baseUrl.isEmpty) {
+      throw const RecognitionApiException('recognition_base_url_missing');
+    }
+    if (_defaultRecognitionApi == null ||
+        _defaultRecognitionApiBaseUrl != baseUrl) {
+      _defaultRecognitionApi = HttpRecognitionApi(baseUrl: baseUrl);
+      _defaultRecognitionApiBaseUrl = baseUrl;
+    }
+    final api = _defaultRecognitionApi!;
+    if (!api.hasSession) {
+      final identifier = currentUser?.identifier;
+      if (identifier != '123' && identifier != '1234') {
+        throw const RecognitionApiException(
+          'recognition_account_not_synced',
+        );
+      }
+      await api.signIn(identifier: identifier!, password: identifier);
+    }
+    return api;
   }
 
   Future<CoachApi> _activeCoachApi() async {

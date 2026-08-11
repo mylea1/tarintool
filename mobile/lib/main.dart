@@ -4341,7 +4341,7 @@ class RecognitionPage extends StatelessWidget {
               const SizedBox(width: 10),
               const Expanded(
                 child: Text(
-                  '视频默认只保存在本地。识别服务未配置前不会生成分析报告。',
+                  '仅在点击开始分析后上传视频，用于生成骨骼识别报告。',
                   style: TextStyle(fontSize: 12, color: secondaryInk),
                 ),
               ),

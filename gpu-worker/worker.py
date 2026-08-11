@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+import random
 import signal
 import tempfile
 import time
@@ -15,7 +16,7 @@ logging.basicConfig(
     level=os.getenv("KILO_LOG_LEVEL", "INFO").upper(),
     format="%(asctime)s %(levelname)s %(message)s",
 )
-LOGGER = logging.getLogger("kilo-gpu-worker")
+LOGGER = logging.getLogger("kilo-compute-worker")
 STOP = False
 
 
@@ -35,9 +36,13 @@ def safe_error_code(error: Exception) -> str:
     message = str(error).lower()
     if "invalid_video" in message or "empty_video" in message:
         return "invalid_video"
-    if "cuda" in message or "out of memory" in message:
+    if "video_too_long" in message:
+        return "video_too_long"
+    if "cuda" in message:
         return "gpu_resource_error"
-    return "gpu_processing_failed"
+    if "out of memory" in message or "cannot allocate memory" in message:
+        return "compute_resource_error"
+    return "compute_processing_failed"
 
 
 def main() -> None:
@@ -47,10 +52,21 @@ def main() -> None:
         int(os.getenv("KILO_HTTP_TIMEOUT_SECONDS", "120")),
     )
     model_path = os.getenv("KILO_MODEL_PATH", "/opt/kilo/models/yolo11n-pose.pt")
-    analyzer = PoseAnalyzer(model_path, float(os.getenv("KILO_POSE_CONFIDENCE", "0.35")))
+    device = os.getenv("KILO_INFERENCE_DEVICE", "cpu").strip().lower()
+    analyzer = PoseAnalyzer(
+        model_path,
+        float(os.getenv("KILO_POSE_CONFIDENCE", "0.35")),
+        device=device,
+        image_size=int(os.getenv("KILO_INFERENCE_IMAGE_SIZE", "512")),
+        target_fps=float(os.getenv("KILO_INFERENCE_FPS", "10")),
+        max_duration_seconds=float(os.getenv("KILO_MAX_VIDEO_SECONDS", "45")),
+        max_dimension=int(os.getenv("KILO_MAX_VIDEO_DIMENSION", "1280")),
+        cpu_threads=int(os.getenv("KILO_CPU_THREADS", "4")),
+    )
     poll_seconds = max(1.0, float(os.getenv("KILO_POLL_SECONDS", "5")))
+    heartbeat_seconds = max(10.0, float(os.getenv("KILO_HEARTBEAT_SECONDS", "30")))
     once = os.getenv("KILO_RUN_ONCE", "false").lower() == "true"
-    LOGGER.info("worker_ready model=%s", model_path)
+    LOGGER.info("worker_ready model=%s device=%s", model_path, device)
 
     while not STOP:
         job = None
@@ -67,10 +83,25 @@ def main() -> None:
                 workdir = Path(directory)
                 input_path = workdir / "input.mp4"
                 api.download_input(job_id, input_path)
-                output = analyzer.analyze(input_path, workdir, str(job.get("exerciseId", "")))
+                last_heartbeat = 0.0
+
+                def report_progress(frame: int, total: int) -> None:
+                    nonlocal last_heartbeat
+                    now = time.monotonic()
+                    if now - last_heartbeat >= heartbeat_seconds:
+                        api.heartbeat(job_id)
+                        last_heartbeat = now
+                        LOGGER.info("job_progress id=%s frame=%s total=%s", job_id, frame, total)
+
+                output = analyzer.analyze(
+                    input_path,
+                    workdir,
+                    str(job.get("exerciseId", "")),
+                    progress=report_progress,
+                )
                 api.upload_artifact(job_id, "preview", output.preview_path, "image/jpeg")
                 api.upload_artifact(job_id, "overlay", output.overlay_path, "video/mp4")
-                api.complete(job_id, output.result, "kilo-yolo11n-pose-v1")
+                api.complete(job_id, output.result, f"kilo-yolo11n-pose-v2-{device}")
             LOGGER.info("job_completed id=%s", job_id)
             if once:
                 return
@@ -85,11 +116,10 @@ def main() -> None:
                     LOGGER.exception("job_failure_report_failed id=%s", job["id"])
             if once:
                 raise
-            time.sleep(poll_seconds)
+            time.sleep(poll_seconds + random.uniform(0, min(1.0, poll_seconds / 4)))
 
 
 if __name__ == "__main__":
     signal.signal(signal.SIGTERM, stop_worker)
     signal.signal(signal.SIGINT, stop_worker)
     main()
-

@@ -114,6 +114,8 @@ test('recognition upload, GPU protocol, media authorization and result', async (
   assert.equal(uploadResponse.status, 200);
   const claim = await api('/v1/internal/gpu/jobs/claim', { method: 'POST', headers: { 'x-kilo-gpu-key': 'gpu-test-key-123456789012345678901234', 'content-type': 'application/json' }, body: '{}' });
   assert.equal(claim.response.status, 200); assert.equal(claim.body.job.id, created.body.id);
+  const heartbeat = await api(`/v1/internal/gpu/jobs/${created.body.id}/heartbeat`, { method: 'POST', headers: { 'x-kilo-gpu-key': 'gpu-test-key-123456789012345678901234', 'content-type': 'application/json' }, body: '{}' });
+  assert.equal(heartbeat.response.status, 200); assert.equal(heartbeat.body.status, 'processing');
   const input = await fetch(`${base}/v1/internal/gpu/jobs/${created.body.id}/input`, { headers: { 'x-kilo-gpu-key': 'gpu-test-key-123456789012345678901234' } }); assert.equal(input.status, 200); assert.equal(input.headers.get('content-type'), 'video/mp4'); assert.equal(await input.text(), 'test');
   const artifact = await api(`/v1/internal/gpu/jobs/${created.body.id}/artifact`, { method: 'POST', headers: { 'x-kilo-gpu-key': 'gpu-test-key-123456789012345678901234' }, body: JSON.stringify({ kind: 'preview', contentType: 'image/png', dataBase64: Buffer.from('png').toString('base64') }) }); assert.equal(artifact.response.status, 200);
   const done = await api(`/v1/internal/gpu/jobs/${created.body.id}/result`, { method: 'POST', headers: { 'x-kilo-gpu-key': 'gpu-test-key-123456789012345678901234' }, body: JSON.stringify({ result: { status: 'complete', confidence: 0.9, repetitions: 8, summary: 'ok' }, modelVersion: 'test-v1' }) }); assert.equal(done.response.status, 200); assert.equal(done.body.status, 'completed');

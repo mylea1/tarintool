@@ -1,0 +1,62 @@
+FROM python:3.11-slim-bookworm
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    KILO_MODEL_PATH=/opt/kilo/models/yolo11n-pose.pt \
+    KILO_INFERENCE_DEVICE=cpu \
+    KILO_CPU_THREADS=4 \
+    KILO_INFERENCE_IMAGE_SIZE=512 \
+    KILO_INFERENCE_FPS=10 \
+    KILO_MAX_VIDEO_SECONDS=45 \
+    KILO_MAX_VIDEO_DIMENSION=1280 \
+    OMP_NUM_THREADS=4 \
+    MKL_NUM_THREADS=4 \
+    OPENBLAS_NUM_THREADS=4 \
+    MALLOC_ARENA_MAX=2
+
+RUN sed -i 's|deb.debian.org|mirrors.ustc.edu.cn|g; s|security.debian.org|mirrors.ustc.edu.cn/debian-security|g' /etc/apt/sources.list.d/debian.sources \
+    && apt-get update \
+    # opencv-python-headless ships its own video backend; the Worker never
+    # invokes the ffmpeg CLI, so avoid hundreds of desktop/media packages.
+    && apt-get install -y --no-install-recommends libglib2.0-0 libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /opt/kilo/worker
+
+COPY requirements.txt ./requirements.txt
+
+# PyTorch's CPU wheel is published through its own official index. The rest of
+# the Python dependencies continue to use the USTC mirror.
+RUN pip install --no-cache-dir \
+      --no-deps \
+      --index-url https://download.pytorch.org/whl/cpu \
+      torch==2.5.1+cpu torchvision==0.20.1+cpu \
+    && pip install --no-cache-dir \
+      --index-url https://mirrors.ustc.edu.cn/pypi/simple \
+      filelock fsspec jinja2 networkx pillow sympy==1.13.1 typing-extensions \
+    && pip install --no-cache-dir \
+      --index-url https://mirrors.ustc.edu.cn/pypi/simple \
+      -r requirements.txt
+
+# Ultralytics declares the desktop OpenCV package as a transitive dependency.
+# The worker is headless, so make the headless wheel the final cv2 provider and
+# avoid pulling X11/libxcb libraries into the production image.
+RUN pip uninstall -y opencv-python \
+    && pip install --no-cache-dir --force-reinstall --no-deps \
+      --index-url https://mirrors.ustc.edu.cn/pypi/simple \
+      opencv-python-headless==4.10.0.84
+
+ENV YOLO_CONFIG_DIR=/tmp
+
+RUN mkdir -p /opt/kilo/models
+COPY yolo11n-pose.pt /opt/kilo/models/yolo11n-pose.pt
+
+COPY . .
+
+RUN useradd --create-home --uid 10001 kilo \
+    && chown -R kilo:kilo /opt/kilo
+
+USER kilo
+
+CMD ["python", "worker.py"]

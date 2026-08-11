@@ -753,8 +753,9 @@ async function handleRequest(req, res, ctx) {
     const user = authenticate(req, ctx); const job = assertJobOwner(ctx.db, decodeURIComponent(mediaMatch[1]), user.id); const kind = mediaMatch[2]; const key = kind === 'input' ? job.input_key : kind === 'overlay' ? job.overlay_key : job.preview_key; if (!key || !ctx.storage.exists(key)) throw httpError(404, 'media_not_found'); const stream = ctx.storage.createReadStream(key); const stat = ctx.storage.stat(key); const origin = parseOrigin(req, ctx.cfg); const headers = { 'content-length': stat.size, 'content-type': mediaContentType(key), 'content-disposition': 'inline', 'cache-control': 'private, max-age=300', 'x-content-type-options': 'nosniff' }; if (origin) headers['access-control-allow-origin'] = origin; res.writeHead(200, headers); stream.pipe(res); return;
   }
 
-  // GPU worker protocol. It never trusts user bearer sessions; only the
-  // configured shared key can claim or write a job.
+  // Compute-worker protocol. The route name stays /gpu/ for backwards
+  // compatibility, but both the current CPU worker and a future GPU worker use
+  // the same authenticated queue.
   if (req.method === 'POST' && url.pathname === '/v1/internal/gpu/jobs/claim') {
     gpuAuth(req, ctx); const result = transaction(ctx.db, () => {
       const cutoff = new Date(Date.now() - ctx.cfg.gpuClaimTimeoutSeconds * 1000).toISOString();
@@ -764,10 +765,15 @@ async function handleRequest(req, res, ctx) {
       const job = ctx.db.prepare("SELECT * FROM recognition_jobs WHERE status = 'queued' AND input_key <> '' ORDER BY created_at LIMIT 1").get(); if (!job) return null; ctx.db.prepare("UPDATE recognition_jobs SET status = 'processing', updated_at = ? WHERE id = ? AND status = 'queued'").run(nowIso(), job.id); return ctx.db.prepare('SELECT * FROM recognition_jobs WHERE id = ?').get(job.id);
     }); if (!result) { writeJson(res, 204, {}, req, ctx.cfg); return; } writeJson(res, 200, { job: { id: result.id, exerciseId: result.exercise_id, camera: result.camera, status: result.status, inputUrl: `${ctx.cfg.publicBaseUrl}/v1/internal/gpu/jobs/${encodeURIComponent(result.id)}/input` } }, req, ctx.cfg); return;
   }
-  const gpuJobMatch = url.pathname.match(/^\/v1\/internal\/gpu\/jobs\/([^/]+)\/(input|artifact|result|fail)$/);
+  const gpuJobMatch = url.pathname.match(/^\/v1\/internal\/gpu\/jobs\/([^/]+)\/(input|artifact|heartbeat|result|fail)$/);
   if (gpuJobMatch) {
     gpuAuth(req, ctx); const id = decodeURIComponent(gpuJobMatch[1]); const job = ctx.db.prepare('SELECT * FROM recognition_jobs WHERE id = ?').get(id); if (!job) throw httpError(404, 'job_not_found'); const action = gpuJobMatch[2];
     if (action === 'input' && req.method === 'GET') { if (!job.input_key || !ctx.storage.exists(job.input_key)) throw httpError(404, 'media_not_found'); const stat = ctx.storage.stat(job.input_key); res.writeHead(200, { 'content-length': stat.size, 'content-type': mediaContentType(job.input_key), 'content-disposition': 'inline', 'cache-control': 'no-store' }); ctx.storage.createReadStream(job.input_key).pipe(res); return; }
+    if (action === 'heartbeat' && req.method === 'POST') {
+      const touched = ctx.db.prepare("UPDATE recognition_jobs SET updated_at = ? WHERE id = ? AND status = 'processing'").run(nowIso(), id);
+      if (!touched.changes) throw httpError(409, 'invalid_job_state');
+      writeJson(res, 200, { id, status: 'processing' }, req, ctx.cfg); return;
+    }
     if (action === 'artifact' && req.method === 'PUT' && req.headers['x-artifact-kind']) {
       if (job.status !== 'processing') throw httpError(409, 'invalid_job_state');
       const kind = String(req.headers['x-artifact-kind']).trim();

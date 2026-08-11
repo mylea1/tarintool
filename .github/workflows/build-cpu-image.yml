@@ -1,8 +1,11 @@
-name: Build GPU worker image
+name: Build CPU worker image
 
 on:
-  # GPU is a later scaling path. Keep this build manually available without
-  # spending CI minutes whenever the active CPU worker changes.
+  push:
+    branches: [master]
+    paths:
+      - "gpu-worker/**"
+      - ".github/workflows/build-cpu-image.yml"
   workflow_dispatch:
 
 permissions:
@@ -10,7 +13,7 @@ permissions:
   packages: write
 
 concurrency:
-  group: gpu-worker-image-${{ github.ref }}
+  group: cpu-worker-image-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -25,7 +28,7 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Test protocol-independent worker logic
+      - name: Test worker logic
         working-directory: gpu-worker
         run: python -m unittest discover -s tests -v
 
@@ -43,16 +46,16 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository_owner }}/tarintool-gpu-worker
+          images: ghcr.io/${{ github.repository_owner }}/tarintool-cpu-worker
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha,prefix=sha-
 
-      - name: Build and publish image
+      - name: Build and publish CPU image
         uses: docker/build-push-action@v6
         with:
           context: ./gpu-worker
-          file: ./gpu-worker/Dockerfile
+          file: ./gpu-worker/Dockerfile.cpu
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

@@ -1,0 +1,25 @@
+[Unit]
+Description=KILO BetterCoach CPU recognition worker
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/kilo/cpu-worker.env
+ExecStartPre=/bin/sh -c '/usr/bin/docker inspect kilo-cpu-worker >/dev/null 2>&1 && /usr/bin/docker rm -f kilo-cpu-worker >/dev/null || true'
+ExecStart=/usr/bin/docker run --rm --name kilo-cpu-worker \
+  --env-file /etc/kilo/cpu-worker.env \
+  --cpus=4 --memory=7g --memory-swap=7g \
+  --pids-limit=512 \
+  --read-only --tmpfs /tmp:size=4g,mode=1777 \
+  --security-opt=no-new-privileges \
+  ghcr.io/mylea1/tarintool-cpu-worker:latest
+ExecStop=/usr/bin/docker stop --timeout=30 kilo-cpu-worker
+Restart=always
+RestartSec=5
+TimeoutStartSec=600
+TimeoutStopSec=45
+
+[Install]
+WantedBy=multi-user.target

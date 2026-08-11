@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import cv2
 import numpy as np
+import torch
 from ultralytics import YOLO
 
 from .angles import RepetitionCounter, joint_angle
@@ -25,11 +26,41 @@ class AnalysisOutput:
 
 
 class PoseAnalyzer:
-    def __init__(self, model_path: str, confidence: float = 0.35) -> None:
+    def __init__(
+        self,
+        model_path: str,
+        confidence: float = 0.35,
+        *,
+        device: str = "cpu",
+        image_size: int = 512,
+        target_fps: float = 10.0,
+        max_duration_seconds: float = 45.0,
+        max_dimension: int = 1280,
+        cpu_threads: int = 4,
+    ) -> None:
+        if device == "cpu":
+            torch.set_num_threads(max(1, cpu_threads))
+            torch.set_num_interop_threads(1)
+            cv2.setNumThreads(1)
         self.model = YOLO(model_path)
+        try:
+            self.model.fuse()
+        except (AttributeError, RuntimeError):
+            pass
         self.confidence = confidence
+        self.device = device
+        self.image_size = image_size
+        self.target_fps = max(1.0, target_fps)
+        self.max_duration_seconds = max(1.0, max_duration_seconds)
+        self.max_dimension = max(320, max_dimension)
 
-    def analyze(self, source: Path, output_dir: Path, exercise_id: str) -> AnalysisOutput:
+    def analyze(
+        self,
+        source: Path,
+        output_dir: Path,
+        exercise_id: str,
+        progress: Callable[[int, int], None] | None = None,
+    ) -> AnalysisOutput:
         capture = cv2.VideoCapture(str(source))
         if not capture.isOpened():
             raise ValueError("invalid_video")
@@ -37,17 +68,28 @@ class PoseAnalyzer:
         width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
         height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
         fps = float(capture.get(cv2.CAP_PROP_FPS) or 30.0)
+        source_frames = int(capture.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
         if width <= 0 or height <= 0:
             capture.release()
             raise ValueError("invalid_video_dimensions")
+        duration = source_frames / fps if source_frames > 0 else 0.0
+        if duration > self.max_duration_seconds:
+            capture.release()
+            raise ValueError("video_too_long")
+
+        scale = min(1.0, self.max_dimension / max(width, height))
+        output_width = max(2, int(width * scale) // 2 * 2)
+        output_height = max(2, int(height * scale) // 2 * 2)
+        inference_stride = max(1, round(fps / self.target_fps))
 
         overlay_path = output_dir / "overlay.mp4"
         preview_path = output_dir / "preview.jpg"
+        output_fps = max(1.0, fps / inference_stride)
         writer = cv2.VideoWriter(
             str(overlay_path),
             cv2.VideoWriter_fourcc(*"mp4v"),
-            max(1.0, fps),
-            (width, height),
+            output_fps,
+            (output_width, output_height),
         )
         if not writer.isOpened():
             capture.release()
@@ -58,7 +100,10 @@ class PoseAnalyzer:
         confidence_total = 0.0
         detected_frames = 0
         frame_count = 0
+        inference_frames = 0
         preview_written = False
+        last_points = None
+        last_scores = None
 
         try:
             while True:
@@ -66,8 +111,25 @@ class PoseAnalyzer:
                 if not ok:
                     break
                 frame_count += 1
-                prediction = self.model.predict(frame, conf=self.confidence, verbose=False)[0]
-                points, scores = self._best_pose(prediction)
+                if frame_count > int(self.max_duration_seconds * fps) + 1:
+                    raise ValueError("video_too_long")
+                should_infer = (frame_count - 1) % inference_stride == 0
+                if not should_infer:
+                    if progress is not None:
+                        progress(frame_count, source_frames)
+                    continue
+                if scale < 1.0:
+                    frame = cv2.resize(frame, (output_width, output_height), interpolation=cv2.INTER_AREA)
+                inference_frames += 1
+                prediction = self.model.predict(
+                    frame,
+                    conf=self.confidence,
+                    device=self.device,
+                    imgsz=self.image_size,
+                    verbose=False,
+                )[0]
+                last_points, last_scores = self._best_pose(prediction)
+                points, scores = last_points, last_scores
                 if points is not None and scores is not None:
                     detected_frames += 1
                     confidence_total += float(np.mean(scores[scores > 0])) if np.any(scores > 0) else 0.0
@@ -82,6 +144,8 @@ class PoseAnalyzer:
                 if not preview_written and detected_frames:
                     cv2.imwrite(str(preview_path), frame, [cv2.IMWRITE_JPEG_QUALITY, 88])
                     preview_written = True
+                if progress is not None:
+                    progress(frame_count, source_frames)
         finally:
             writer.release()
             capture.release()
@@ -89,11 +153,11 @@ class PoseAnalyzer:
         if not frame_count:
             raise ValueError("empty_video")
         if not preview_written:
-            fallback = np.zeros((height, width, 3), dtype=np.uint8)
-            cv2.putText(fallback, "No pose detected", (20, max(50, height // 2)), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (230, 230, 230), 2)
+            fallback = np.zeros((output_height, output_width, 3), dtype=np.uint8)
+            cv2.putText(fallback, "No pose detected", (20, max(50, output_height // 2)), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (230, 230, 230), 2)
             cv2.imwrite(str(preview_path), fallback, [cv2.IMWRITE_JPEG_QUALITY, 88])
 
-        detection_rate = detected_frames / frame_count
+        detection_rate = detected_frames / inference_frames if inference_frames else 0.0
         pose_confidence = confidence_total / detected_frames if detected_frames else 0.0
         overall_confidence = round(min(1.0, detection_rate * pose_confidence), 4)
         summary = "动作骨骼提取完成" if detected_frames else "未检测到稳定人体骨骼，请调整机位和光线后重试"
@@ -105,8 +169,14 @@ class PoseAnalyzer:
             "metrics": {
                 "frames": frame_count,
                 "detectedFrames": detected_frames,
+                "inferenceFrames": inference_frames,
+                "inferenceStride": inference_stride,
                 "detectionRate": round(detection_rate, 4),
                 "fps": round(fps, 2),
+                "outputFps": round(output_fps, 2),
+                "durationSeconds": round(frame_count / fps, 2),
+                "outputWidth": output_width,
+                "outputHeight": output_height,
             },
         }
         return AnalysisOutput(result, overlay_path, preview_path)
@@ -140,4 +210,3 @@ class PoseAnalyzer:
         if any(token in normalized for token in ("curl", "弯举", "二头")):
             return 5, 7, 9, 65.0, 145.0
         return 5, 7, 9, 80.0, 155.0
-
