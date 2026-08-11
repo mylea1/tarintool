@@ -1,4 +1,4 @@
-# KILO 男性硬核健身产品
+# 形域智能训练
 
 这是一个与女性照片日记应用完全隔离的商业产品原型。当前阶段优先验证移动端形态的 Web 高保真交互，再冻结数据契约并进入 Flutter iOS/Android 正式客户端开发。
 
@@ -47,7 +47,7 @@ npm run build
 
 ## Flutter 移动端
 
-`mobile/` 是与根目录旧 Flutter/BetterCoach 工程隔离的 KILO Strength Android/iOS 主应用，业务状态和交互以 `web-prototype/` 为基线。Android 可离线复用本机 Gradle 分发版构建 Debug APK：
+`mobile/` 是与根目录旧 Flutter/BetterCoach 工程隔离的形域 Android/iOS 主应用，业务状态和交互以 `web-prototype/` 为基线。Android 可离线复用本机 Gradle 分发版构建 Debug APK：
 
 ```powershell
 cd "E:\fitness app\strength-pro\mobile"

@@ -244,7 +244,7 @@ class WorkoutTimerService : Service() {
 
         val builder = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle("炽练 · $exerciseName")
+            .setContentTitle("形域 · $exerciseName")
             .setContentText(content)
             .setSubText(if (restActive) "组间休息" else "训练进行中")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
@@ -305,7 +305,7 @@ class WorkoutTimerService : Service() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val channel = NotificationChannel(
             NOTIFICATION_CHANNEL_ID,
-            "炽练训练计时",
+            "形域训练计时",
             NotificationManager.IMPORTANCE_HIGH,
         ).apply {
             description = "训练总时长和组间休息倒计时"

@@ -3,7 +3,7 @@ import AppIntents
 
 @available(iOS 16.1, *)
 struct KiloPauseTimerIntent: LiveActivityIntent {
-    static var title: LocalizedStringResource = "暂停 KILO 计时"
+    static var title: LocalizedStringResource = "暂停形域计时"
     static var description = IntentDescription("暂停当前训练休息计时。")
 
     func perform() async throws -> some IntentResult {
@@ -25,7 +25,7 @@ struct KiloSkipRestIntent: LiveActivityIntent {
 
 @available(iOS 16.1, *)
 struct KiloFinishWorkoutIntent: LiveActivityIntent {
-    static var title: LocalizedStringResource = "结束 KILO 训练"
+    static var title: LocalizedStringResource = "结束形域训练"
     static var description = IntentDescription("结束当前训练并保存记录。")
 
     func perform() async throws -> some IntentResult {

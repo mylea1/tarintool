@@ -1,6 +1,6 @@
-# KILO Strength（Flutter 移动端）
+# 形域（Flutter 移动端）
 
-`mobile/` 是 KILO Strength 的 Android/iOS Flutter 实现，与 `web-prototype/` 共用产品交互和状态契约。旧的根目录 Flutter 工程不属于本项目。
+`mobile/` 是形域的 Android/iOS Flutter 实现，与 `web-prototype/` 共用产品交互和状态契约。旧的根目录 Flutter 工程不属于本项目。
 
 ## 已实现能力
 
@@ -71,7 +71,7 @@ flutter build apk --debug
 
 ## Android 锁屏通知验收（One UI）
 
-在 Android 13+ 首次开始训练时允许“通知”权限。训练开始即启动 foreground service；完成一组后，将应用切到后台或锁屏，`KILO · 训练中` 通知应保持公开可见并显示总训练时长与休息 `mm:ss`；“跳过休息”只清除休息状态，整次训练结束才移除 ongoing 通知。Samsung One UI 设备若倒计时停止，请在“设置 → 应用 → KILO Strength → 电池”选择“不受限制”，在“通知 → 锁屏通知”启用显示内容，并确认系统未限制后台活动。Android 14 需要允许应用使用对应 foreground service 类型；通知权限被拒绝时 Flutter 计时仍可用，但锁屏卡片不可见。
+在 Android 13+ 首次开始训练时允许“通知”权限。训练开始即启动 foreground service；完成一组后，将应用切到后台或锁屏，`形域 · 训练中` 通知应保持公开可见并显示总训练时长与休息 `mm:ss`；“跳过休息”只清除休息状态，整次训练结束才移除 ongoing 通知。Samsung One UI 设备若倒计时停止，请在“设置 → 应用 → 形域 → 电池”选择“不受限制”，在“通知 → 锁屏通知”启用显示内容，并确认系统未限制后台活动。Android 14 需要允许应用使用对应 foreground service 类型；通知权限被拒绝时 Flutter 计时仍可用，但锁屏卡片不可见。
 
 ## AI 服务配置
 

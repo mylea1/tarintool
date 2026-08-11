@@ -38,9 +38,9 @@ const kiloAppVersion = '1.0.10';
 const kiloAppBuild = '11';
 const kiloAppVersionLabel = '$kiloAppVersion ($kiloAppBuild)';
 const kiloAppNavigationLabel = '新版导航：训练/记录、AI/识别已合并';
-const emberBrandName = '炽练';
-const emberBrandEnglish = 'EMBER';
-const emberLogoAsset = 'assets/branding/ember-mark.png';
+const brandName = '形域';
+const brandEnglish = 'XINGYU';
+const brandLogoAsset = 'assets/branding/xingyu-mark.png';
 
 void main() => runApp(const KiloApp());
 
@@ -109,10 +109,10 @@ class _KiloAppState extends State<KiloApp> {
           !controller.isAuthenticated;
       return MaterialApp(
         debugShowCheckedModeBanner: false,
-        title: '$emberBrandName $emberBrandEnglish',
+        title: '$brandName $brandEnglish',
         theme: _theme,
         home: !durableStateReady || !splashElapsed
-            ? const EmberSplashPage()
+            ? const BrandSplashPage()
             : showLogin
             ? LoginPage(controller: controller)
             : KiloShell(controller: controller),
@@ -263,29 +263,29 @@ class AccountLoadingPage extends StatelessWidget {
   );
 }
 
-class EmberLogo extends StatelessWidget {
-  const EmberLogo({super.key, this.size = 48});
+class BrandLogo extends StatelessWidget {
+  const BrandLogo({super.key, this.size = 48});
 
   final double size;
 
   @override
   Widget build(BuildContext context) => Image.asset(
-    emberLogoAsset,
+    brandLogoAsset,
     width: size,
     height: size,
     fit: BoxFit.contain,
-    semanticLabel: '$emberBrandName $emberBrandEnglish 标志',
+    semanticLabel: '$brandName $brandEnglish 标志',
   );
 }
 
-class EmberSplashPage extends StatefulWidget {
-  const EmberSplashPage({super.key});
+class BrandSplashPage extends StatefulWidget {
+  const BrandSplashPage({super.key});
 
   @override
-  State<EmberSplashPage> createState() => _EmberSplashPageState();
+  State<BrandSplashPage> createState() => _BrandSplashPageState();
 }
 
-class _EmberSplashPageState extends State<EmberSplashPage>
+class _BrandSplashPageState extends State<BrandSplashPage>
     with SingleTickerProviderStateMixin {
   late final AnimationController animation;
   late final Animation<double> scale;
@@ -321,14 +321,14 @@ class _EmberSplashPageState extends State<EmberSplashPage>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const EmberLogo(size: 104),
+                const BrandLogo(size: 104),
                 const SizedBox(height: 12),
                 Text(
-                  emberBrandName,
+                  brandName,
                   style: Theme.of(context).textTheme.headlineLarge,
                 ),
                 const Text(
-                  emberBrandEnglish,
+                  brandEnglish,
                   style: TextStyle(
                     color: primary,
                     fontWeight: FontWeight.w900,
@@ -432,14 +432,14 @@ class _LoginPageState extends State<LoginPage> {
                   children: [
                     const Row(
                       children: [
-                        EmberLogo(size: 66),
+                        BrandLogo(size: 66),
                         SizedBox(width: 12),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                emberBrandEnglish,
+                                brandEnglish,
                                 style: TextStyle(
                                   color: primary,
                                   fontWeight: FontWeight.w900,
@@ -447,7 +447,7 @@ class _LoginPageState extends State<LoginPage> {
                                 ),
                               ),
                               Text(
-                                emberBrandName,
+                                brandName,
                                 style: TextStyle(
                                   color: ink,
                                   fontSize: 27,
@@ -701,7 +701,7 @@ class _TopBar extends StatelessWidget {
           Expanded(
             child: Row(
               children: [
-                const EmberLogo(size: 35),
+                const BrandLogo(size: 35),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -5334,11 +5334,11 @@ class _AccountMembershipCard extends StatelessWidget {
 
   String _membershipCaption(EntitlementSnapshot entitlement) {
     if (entitlement.membership == MembershipPlan.forever) {
-      return 'EMBER PRO · 永久有效';
+      return '形域 PRO · 永久有效';
     }
     final expiresAt = entitlement.membershipExpiresAt;
     if (expiresAt == null) return '基础权益 · 可随时升级';
-    return 'EMBER PRO · ${expiresAt.year}.${expiresAt.month.toString().padLeft(2, '0')}.${expiresAt.day.toString().padLeft(2, '0')} 到期';
+    return '形域 PRO · ${expiresAt.year}.${expiresAt.month.toString().padLeft(2, '0')}.${expiresAt.day.toString().padLeft(2, '0')} 到期';
   }
 
   @override
@@ -5774,7 +5774,7 @@ class ProfilePage extends StatelessWidget {
               const _ProfileSettingRow(
                 key: Key('app-version-row'),
                 icon: Icons.info_outline,
-                title: '关于炽练',
+                title: '关于形域',
                 caption: '版本 $kiloAppVersionLabel · $kiloAppNavigationLabel',
               ),
             ],
