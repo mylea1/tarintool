@@ -24,6 +24,18 @@ npm start
 - 识别任务为 `create -> upload -> queued -> processing -> completed/failed` 状态机。上传 token 仅 15 分钟有效；GPU 只接受 `KILO_GPU_API_KEY`，原始视频、overlay 和 preview 均经过大小、MIME 和路径校验。artifact 支持 `PUT` 流式上传（`x-artifact-kind: overlay|preview`），大文件不受 JSON body 限制。
 - 训练摘要只有请求显式 `useTrainingData: true` 时才注入 AI；对话仅发送近期窗口和可选 `memory_summary`，不会每次上传全部历史。
 
+## 训练方法知识库测试
+
+部署或更新后执行 `npm run seed:knowledge`，会同时写入通用知识与 `knowledge/training-framework.zh-CN.json`。新增内容只保留训练思想、计划结构、进退阶、恢复和安全边界，不启用人物角色、称呼或语言模仿。在 App 的现有 AI 对话中直接输入以下内容即可测试，无需更新客户端：
+
+```text
+帮我安排每周三天的增肌计划，并说明每两周怎么复盘
+卧推时肩膀不舒服，我应该如何调整？
+训练状态连续下降时，计划该怎么改？
+```
+
+计划仍使用现有 `<KILO_PLAN>` 数据契约，因此 App 可以继续查看动作、组数、重量、次数、休息并保存到日历。
+
 ## 测试
 
 ```powershell

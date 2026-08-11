@@ -6,8 +6,11 @@ import { openDatabase, closeDatabase, transaction } from '../src/db.mjs';
 import { nowIso } from '../src/security.mjs';
 
 const backendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const sourcePath = path.join(backendRoot, 'knowledge', 'core.zh-CN.json');
-const chunks = JSON.parse(fs.readFileSync(sourcePath, 'utf8'));
+const sourcePaths = [
+  path.join(backendRoot, 'knowledge', 'core.zh-CN.json'),
+  path.join(backendRoot, 'knowledge', 'training-framework.zh-CN.json'),
+];
+const chunks = sourcePaths.flatMap((sourcePath) => JSON.parse(fs.readFileSync(sourcePath, 'utf8')));
 const db = openDatabase(config.databasePath);
 
 try {
