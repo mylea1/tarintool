@@ -98,9 +98,11 @@ def main() -> None:
                     workdir,
                     str(job.get("exerciseId", "")),
                     progress=report_progress,
+                    include_overlay=bool(job.get("includeOverlay", True)),
                 )
                 api.upload_artifact(job_id, "preview", output.preview_path, "image/jpeg")
-                api.upload_artifact(job_id, "overlay", output.overlay_path, "video/mp4")
+                if output.overlay_path is not None:
+                    api.upload_artifact(job_id, "overlay", output.overlay_path, "video/mp4")
                 api.complete(job_id, output.result, f"kilo-yolo11n-pose-v2-{device}")
             LOGGER.info("job_completed id=%s", job_id)
             if once:

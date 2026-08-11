@@ -51,16 +51,40 @@ class PlatformTimerBridge {
   static Future<void> startWorkout({
     required int elapsedSeconds,
     required String workoutName,
+    required String exercise,
+    required int completedSets,
+    required int totalSets,
   }) async {
     try {
       await _channel.invokeMethod<void>('startWorkout', {
         'elapsedSeconds': elapsedSeconds,
         'workoutName': workoutName,
+        'exercise': exercise,
+        'completedSets': completedSets,
+        'totalSets': totalSets,
       });
     } on MissingPluginException {
       // The native foreground service is optional in widget tests and previews.
     } on PlatformException catch (_) {
       // UI state remains authoritative when the system capability is unavailable.
+    }
+  }
+
+  static Future<void> updateWorkoutState({
+    required String exercise,
+    required int completedSets,
+    required int totalSets,
+  }) async {
+    try {
+      await _channel.invokeMethod<void>('updateWorkoutState', {
+        'exercise': exercise,
+        'completedSets': completedSets,
+        'totalSets': totalSets,
+      });
+    } on MissingPluginException {
+      // Optional capability.
+    } on PlatformException catch (_) {
+      // Optional capability.
     }
   }
 
@@ -134,6 +158,7 @@ class AppController extends ChangeNotifier {
     _seed();
     PlatformTimerBridge.setRestSkippedHandler(skipRest);
     this.accountService.addListener(_handleAccountChanged);
+    unawaited(loadRecognitionCapabilities());
   }
 
   final AccountService accountService;
@@ -146,6 +171,7 @@ class AppController extends ChangeNotifier {
   String? _defaultCoachApiBaseUrl;
   HttpRecognitionApi? _defaultRecognitionApi;
   String? _defaultRecognitionApiBaseUrl;
+  bool _disposed = false;
 
   AccountUser? get currentUser => accountService.currentUser;
   bool get isAuthenticated => accountService.isAuthenticated;
@@ -266,9 +292,17 @@ class AppController extends ChangeNotifier {
   String muscleFilter = '全部';
   String equipmentFilter = '全部';
   RecognitionStatus recognitionStatus = RecognitionStatus.idle;
+  RecognitionStage recognitionStage = RecognitionStage.idle;
   double recognitionProgress = 0;
-  String recognitionExerciseId = 'bench_press';
-  String recognitionCamera = '侧前方 30-45°';
+  int recognitionElapsedSeconds = 0;
+  bool recognitionIncludeOverlay = true;
+  List<RecognitionCapability> recognitionCapabilities =
+      fallbackRecognitionCapabilities;
+  bool recognitionCapabilitiesLoading = false;
+  String recognitionExerciseId =
+      fallbackRecognitionCapabilities.first.exerciseId;
+  String recognitionCamera =
+      fallbackRecognitionCapabilities.first.cameras.first.id;
   bool savedCue = false;
   bool analysisAttached = false;
   bool aiUseTrainingData = false;
@@ -296,6 +330,76 @@ class AppController extends ChangeNotifier {
   QuotaReservation? _recognitionReservation;
 
   List<Exercise> get allExercises => [...catalog, ...customExercises];
+
+  List<Exercise> get recognitionExercises => recognitionCapabilities
+      .map((item) => allExercises.where((e) => e.id == item.exerciseId))
+      .where((matches) => matches.isNotEmpty)
+      .map((matches) => matches.first)
+      .toList(growable: false);
+
+  RecognitionCapability get selectedRecognitionCapability =>
+      recognitionCapabilities.firstWhere(
+        (item) => item.exerciseId == recognitionExerciseId,
+        orElse: () => recognitionCapabilities.first,
+      );
+
+  RecognitionCameraOption get selectedRecognitionCamera =>
+      selectedRecognitionCapability.cameras.firstWhere(
+        (item) => item.id == recognitionCamera,
+        orElse: () => selectedRecognitionCapability.cameras.first,
+      );
+
+  void selectRecognitionExercise(String exerciseId) {
+    final capability = recognitionCapabilities.firstWhere(
+      (item) => item.exerciseId == exerciseId,
+      orElse: () => recognitionCapabilities.first,
+    );
+    recognitionExerciseId = capability.exerciseId;
+    recognitionCamera = capability.cameras.first.id;
+    notifyListeners();
+  }
+
+  void selectRecognitionCamera(String cameraId) {
+    if (!selectedRecognitionCapability.cameras.any(
+      (item) => item.id == cameraId,
+    )) {
+      return;
+    }
+    recognitionCamera = cameraId;
+    notifyListeners();
+  }
+
+  Future<void> loadRecognitionCapabilities() async {
+    if (recognitionCapabilitiesLoading) return;
+    recognitionCapabilitiesLoading = true;
+    notifyListeners();
+    try {
+      final api =
+          _defaultRecognitionApi ??
+          HttpRecognitionApi(
+            baseUrl: aiBaseUrl.trim().isEmpty
+                ? defaultCoachApiBaseUrl
+                : aiBaseUrl.trim(),
+          );
+      final loaded = await api.capabilities();
+      if (_disposed) return;
+      if (loaded.isNotEmpty) recognitionCapabilities = loaded;
+      if (!recognitionCapabilities.any(
+        (item) => item.exerciseId == recognitionExerciseId,
+      )) {
+        recognitionExerciseId = recognitionCapabilities.first.exerciseId;
+      }
+      final capability = selectedRecognitionCapability;
+      if (!capability.cameras.any((item) => item.id == recognitionCamera)) {
+        recognitionCamera = capability.cameras.first.id;
+      }
+    } finally {
+      if (!_disposed) {
+        recognitionCapabilitiesLoading = false;
+        notifyListeners();
+      }
+    }
+  }
 
   List<Exercise> get visibleExercises {
     final query = search.trim().toLowerCase();
@@ -388,6 +492,24 @@ class AppController extends ChangeNotifier {
   WorkoutExercise createWorkoutExercise(String exerciseId, String id) =>
       _makeWorkout(exerciseId, id);
 
+  WorkoutExercise createBlankWorkoutExercise(String exerciseId, String id) =>
+      WorkoutExercise(
+        id: id,
+        exerciseId: exerciseId,
+        restSeconds: 0,
+        sets: [
+          WorkoutSet(
+            id: '$id-set-0',
+            weight: 0,
+            plannedWeight: null,
+            reps: 0,
+            targetMin: 0,
+            targetMax: 0,
+            restSeconds: 0,
+          ),
+        ],
+      );
+
   void selectPage(PageId next) {
     switch (next) {
       case PageId.records:
@@ -477,6 +599,9 @@ class AppController extends ChangeNotifier {
     PlatformTimerBridge.startWorkout(
       elapsedSeconds: 0,
       workoutName: workoutName,
+      exercise: _platformExerciseName(),
+      completedSets: completedSets,
+      totalSets: totalSets,
     );
     notifyListeners();
   }
@@ -503,6 +628,9 @@ class AppController extends ChangeNotifier {
       PlatformTimerBridge.startWorkout(
         elapsedSeconds: workoutElapsedSeconds,
         workoutName: workoutName,
+        exercise: _platformExerciseName(),
+        completedSets: completedSets,
+        totalSets: totalSets,
       );
     }
     if (restRunning) {
@@ -546,7 +674,23 @@ class AppController extends ChangeNotifier {
       _restTicker?.cancel();
       PlatformTimerBridge.clearRest();
     }
+    _syncPlatformWorkoutState(parent);
     notifyListeners();
+  }
+
+  String _platformExerciseName([WorkoutExercise? preferred]) {
+    final exercise = preferred ?? (workout.isEmpty ? null : workout.first);
+    if (exercise == null) return '准备训练';
+    return displayExerciseName(findExercise(exercise.exerciseId));
+  }
+
+  void _syncPlatformWorkoutState([WorkoutExercise? preferred]) {
+    if (!workoutStarted || !workoutTimerStarted) return;
+    PlatformTimerBridge.updateWorkoutState(
+      exercise: _platformExerciseName(preferred),
+      completedSets: completedSets,
+      totalSets: totalSets,
+    );
   }
 
   void triggerCompletionBurst([String? setId]) {
@@ -643,6 +787,31 @@ class AppController extends ChangeNotifier {
     final now = DateTime.now();
     final wasFreeWorkout = freeWorkout;
     final historySnapshot = workout.map((item) => item.copy()).toList();
+    final prs = <String>[];
+    for (final exercise in historySnapshot) {
+      final currentBest = exercise.sets
+          .where((set) => set.completed && set.weight > 0)
+          .fold<double>(
+            0,
+            (best, set) => set.weight > best ? set.weight : best,
+          );
+      if (currentBest <= 0) continue;
+      var previousBest = 0.0;
+      for (final previousRecord in history) {
+        for (final previousExercise in previousRecord.exercises.where(
+          (item) => item.exerciseId == exercise.exerciseId,
+        )) {
+          for (final set in previousExercise.sets.where(
+            (set) => set.completed,
+          )) {
+            if (set.weight > previousBest) previousBest = set.weight;
+          }
+        }
+      }
+      if (currentBest > previousBest) {
+        prs.add(displayExerciseName(findExercise(exercise.exerciseId)));
+      }
+    }
     final record = WorkoutRecord(
       id: 'history-${now.microsecondsSinceEpoch}',
       name: workoutName,
@@ -657,7 +826,7 @@ class AppController extends ChangeNotifier {
           .length,
       note: note,
       exerciseIds: workout.map((item) => item.exerciseId).toList(),
-      prs: const [],
+      prs: prs,
       exercises: historySnapshot,
     );
     history.insert(0, record);
@@ -724,18 +893,41 @@ class AppController extends ChangeNotifier {
       '自由训练 ${date.month.toString().padLeft(2, '0')}月${date.day.toString().padLeft(2, '0')}日 ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
 
   void addSet(WorkoutExercise exercise) {
-    final last = exercise.sets.isEmpty ? null : exercise.sets.last;
-    final firstFreeSet = freeWorkout && last == null;
     exercise.sets.add(
       WorkoutSet(
         id: 'set-${DateTime.now().microsecondsSinceEpoch}',
-        type: last?.type ?? 'work',
-        weight: firstFreeSet ? 0 : last?.weight ?? 0,
-        plannedWeight: freeWorkout ? null : last?.plannedWeight ?? last?.weight,
-        reps: firstFreeSet ? 0 : last?.reps ?? 8,
-        restSeconds: exercise.restSeconds,
+        type: 'work',
+        weight: 0,
+        plannedWeight: null,
+        reps: 0,
+        targetMin: 0,
+        targetMax: 0,
+        restSeconds: 0,
       ),
     );
+    _syncPlatformWorkoutState(exercise);
+    notifyListeners();
+  }
+
+  bool reusePreviousValues(WorkoutExercise exercise) {
+    var reused = false;
+    for (var index = 0; index < exercise.sets.length; index++) {
+      final previous = previousSetFor(exercise.exerciseId, index);
+      if (previous == null) continue;
+      exercise.sets[index].weight = previous.weight;
+      exercise.sets[index].reps = previous.reps;
+      reused = true;
+    }
+    if (reused) notifyListeners();
+    return reused;
+  }
+
+  void clearExerciseValues(WorkoutExercise exercise) {
+    for (final set in exercise.sets) {
+      set.weight = 0;
+      set.reps = 0;
+      if (freeWorkout) set.plannedWeight = null;
+    }
     notifyListeners();
   }
 
@@ -787,11 +979,15 @@ class AppController extends ChangeNotifier {
             id: 'we-${DateTime.now().microsecondsSinceEpoch}',
             exerciseId: id,
             sets: <WorkoutSet>[],
-            restSeconds: defaultRestSeconds,
+            restSeconds: 0,
           )
-        : _makeWorkout(id, 'we-${DateTime.now().microsecondsSinceEpoch}');
+        : createBlankWorkoutExercise(
+            id,
+            'we-${DateTime.now().microsecondsSinceEpoch}',
+          );
     workout.add(item);
     workoutDraft = true;
+    _syncPlatformWorkoutState(item);
     notifyListeners();
   }
 
@@ -1121,22 +1317,40 @@ class AppController extends ChangeNotifier {
   }
 
   void startRecognition() {
-    if (recognitionStatus != RecognitionStatus.ready) return;
+    if (recognitionStatus != RecognitionStatus.ready &&
+        recognitionStatus != RecognitionStatus.error) {
+      return;
+    }
+    if (selectedMediaPath == null || selectedMediaPath!.isEmpty) return;
     _recognitionReservation?.rollback();
     _recognitionReservation = null;
     recognitionStatus = RecognitionStatus.processing;
-    recognitionProgress = 0.08;
+    recognitionStage = RecognitionStage.preparing;
+    recognitionProgress = 0;
+    recognitionElapsedSeconds = 0;
+    recognitionResult = null;
+    mediaError = null;
     _recognitionTicker?.cancel();
-    _recognitionTicker = Timer.periodic(const Duration(milliseconds: 180), (_) {
-      recognitionProgress = (recognitionProgress + .1).clamp(0, 1);
-      if (recognitionProgress >= 1) {
-        recognitionProgress = 1;
-        recognitionStatus = RecognitionStatus.processing;
-        unawaited(_submitRecognition());
-        _recognitionTicker?.cancel();
-      }
-      notifyListeners();
+    _recognitionTicker = Timer.periodic(const Duration(seconds: 1), (_) {
+      recognitionElapsedSeconds += 1;
+      if (!_disposed) notifyListeners();
     });
+    notifyListeners();
+    unawaited(_submitRecognition());
+  }
+
+  void setRecognitionIncludeOverlay(bool value) {
+    if (recognitionStatus == RecognitionStatus.processing) return;
+    recognitionIncludeOverlay = value;
+    notifyListeners();
+  }
+
+  void _updateRecognitionProgress(RecognitionProgressUpdate update) {
+    if (_disposed || recognitionStatus != RecognitionStatus.processing) return;
+    recognitionStage = update.stage;
+    if (update.fraction != null) {
+      recognitionProgress = update.fraction!.clamp(0, 1);
+    }
     notifyListeners();
   }
 
@@ -1156,6 +1370,7 @@ class AppController extends ChangeNotifier {
           summary: '识别额度已用完，请等待每周补充或完成一次有效训练。',
           error: 'quota_exhausted',
         );
+        _recognitionTicker?.cancel();
         notifyListeners();
         return;
       }
@@ -1168,6 +1383,8 @@ class AppController extends ChangeNotifier {
         camera: recognitionCamera,
         scenario: scenario,
         mediaPath: mediaPath,
+        includeOverlay: recognitionIncludeOverlay,
+        onProgress: _updateRecognitionProgress,
       );
       final succeeded =
           result.error == null &&
@@ -1181,18 +1398,50 @@ class AppController extends ChangeNotifier {
       _recognitionReservation = null;
       recognitionResult = result;
       recognitionStatus = result.status;
-    } catch (_) {
+    } on RecognitionApiException catch (error) {
       _recognitionReservation?.rollback();
       _recognitionReservation = null;
       recognitionStatus = RecognitionStatus.error;
-      recognitionResult = const RecognitionResult(
+      recognitionResult = RecognitionResult(
         status: RecognitionStatus.error,
         confidence: 0,
         repetitions: 0,
-        summary: '识别服务暂时不可用，请稍后重试。',
-        error: 'service_error',
+        summary: recognitionErrorMessage(error.code),
+        error: error.code,
+      );
+    } catch (error) {
+      _recognitionReservation?.rollback();
+      _recognitionReservation = null;
+      recognitionStatus = RecognitionStatus.error;
+      recognitionResult = RecognitionResult(
+        status: RecognitionStatus.error,
+        confidence: 0,
+        repetitions: 0,
+        summary: recognitionErrorMessage('unexpected_error'),
+        error: 'unexpected_error',
       );
     }
+    _recognitionTicker?.cancel();
+    notifyListeners();
+  }
+
+  void addExercises(Iterable<String> ids) {
+    WorkoutExercise? latest;
+    for (final id in ids) {
+      if (workout.any((item) => item.exerciseId == id)) continue;
+      final stamp = DateTime.now().microsecondsSinceEpoch;
+      latest = freeWorkout
+          ? WorkoutExercise(
+              id: 'we-$stamp-$id',
+              exerciseId: id,
+              sets: <WorkoutSet>[],
+              restSeconds: 0,
+            )
+          : createBlankWorkoutExercise(id, 'we-$stamp-$id');
+      workout.add(latest);
+    }
+    workoutDraft = true;
+    _syncPlatformWorkoutState(latest);
     notifyListeners();
   }
 
@@ -1200,7 +1449,10 @@ class AppController extends ChangeNotifier {
     _recognitionReservation?.rollback();
     _recognitionReservation = null;
     recognitionStatus = RecognitionStatus.idle;
+    recognitionStage = RecognitionStage.idle;
     recognitionProgress = 0;
+    recognitionElapsedSeconds = 0;
+    _recognitionTicker?.cancel();
     analysisAttached = false;
     recognitionResult = null;
     selectedMediaPath = null;
@@ -1238,9 +1490,7 @@ class AppController extends ChangeNotifier {
     if (!api.hasSession) {
       final identifier = currentUser?.identifier;
       if (identifier != '123' && identifier != '1234') {
-        throw const RecognitionApiException(
-          'recognition_account_not_synced',
-        );
+        throw const RecognitionApiException('recognition_account_not_synced');
       }
       await api.signIn(identifier: identifier!, password: identifier);
     }
@@ -1271,8 +1521,28 @@ class AppController extends ChangeNotifier {
   }
 
   String _buildAiTrainingSummary() {
-    if (history.isEmpty) return '用户尚无已完成训练记录。';
     final lines = <String>[];
+    if (workoutStarted || workoutDraft) {
+      lines.add(
+        '当前训练「$workoutName」：训练时长 ${currentElapsed ~/ 60} 分钟，'
+        '已完成 $completedSets/$totalSets 组，当前训练量 ${workoutVolume.toStringAsFixed(1)} kg。',
+      );
+      for (final exercise in workout.take(12)) {
+        final sets = exercise.sets
+            .take(12)
+            .map((set) {
+              final status = set.completed ? '已完成' : '未完成';
+              return '$status ${set.weight.toStringAsFixed(1)} kg × ${set.reps}'
+                  '${set.note.trim().isEmpty ? '' : '，备注：${set.note.trim()}'}';
+            })
+            .join('；');
+        if (sets.isNotEmpty) {
+          lines.add('${findExercise(exercise.exerciseId).name}：$sets');
+        }
+      }
+    }
+    if (history.isEmpty && lines.isEmpty) return '用户尚无训练记录。';
+    if (history.isNotEmpty) lines.add('最近已完成训练：');
     for (final record in history.take(5)) {
       lines.add(
         '${record.date.toIso8601String().split('T').first} ${record.name}：'
@@ -1295,14 +1565,18 @@ class AppController extends ChangeNotifier {
     return lines.join('\n');
   }
 
-  Future<CoachAnswer> _requestCoachAnswer(String prompt) async {
+  Future<CoachAnswer> _requestCoachAnswer(
+    String prompt, {
+    bool includeTrainingContext = false,
+  }) async {
     final requestsPlan = _isAiPlanRequest(prompt);
+    final includeSummary = aiUseTrainingData || includeTrainingContext;
     Future<CoachAnswer> request() async {
       final api = await _activeCoachApi();
       return api.answer(
         prompt: prompt,
-        includeTrainingSummary: aiUseTrainingData,
-        trainingSummary: aiUseTrainingData ? _buildAiTrainingSummary() : null,
+        includeTrainingSummary: includeSummary,
+        trainingSummary: includeSummary ? _buildAiTrainingSummary() : null,
         exerciseCatalog: requestsPlan ? _aiExerciseCatalog() : const [],
       );
     }
@@ -1455,7 +1729,16 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> sendChat(String text) async {
+  Future<void> sendTodayWorkoutForReview() => sendChat(
+    '请评价我今天正在进行或最近完成的训练：总结完成情况、训练容量和主要肌群，'
+    '指出下一次可调整的重量或次数。每条增减重量建议都必须说明依据；如果数据不足，请明确说明。',
+    includeTrainingContext: true,
+  );
+
+  Future<void> sendChat(
+    String text, {
+    bool includeTrainingContext = false,
+  }) async {
     final trimmed = text.trim();
     if (trimmed.isEmpty || aiTyping) return;
     chat.add(
@@ -1486,7 +1769,10 @@ class AppController extends ChangeNotifier {
       }
       if (serviceError == null) {
         try {
-          remoteAnswer = await _requestCoachAnswer(trimmed);
+          remoteAnswer = await _requestCoachAnswer(
+            trimmed,
+            includeTrainingContext: includeTrainingContext,
+          );
           if (remoteAnswer.body.trim().isNotEmpty) {
             aiReservation?.commit();
           } else {
@@ -1529,6 +1815,7 @@ class AppController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     accountService.removeListener(_handleAccountChanged);
     PlatformTimerBridge.setRestSkippedHandler(null);
     _workoutTicker?.cancel();

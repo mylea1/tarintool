@@ -107,6 +107,7 @@ CREATE TABLE IF NOT EXISTS recognition_jobs (
   user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   exercise_id TEXT NOT NULL,
   camera TEXT NOT NULL,
+  include_overlay INTEGER NOT NULL DEFAULT 1,
   status TEXT NOT NULL CHECK (status IN ('created', 'uploading', 'queued', 'processing', 'completed', 'failed', 'cancelled', 'expired')),
   upload_token_hash TEXT NOT NULL,
   upload_expires_at TEXT,

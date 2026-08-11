@@ -40,6 +40,11 @@ struct KiloLiveActivityWidget: Widget {
                             Text(context.state.restEndsAt == nil ? "保持节奏，完成下一组" : "组间休息")
                                 .font(.caption2)
                                 .foregroundStyle(.white.opacity(0.72))
+                            if context.state.totalSets > 0 {
+                                Text("\(context.state.completedSets)/\(context.state.totalSets) 组")
+                                    .font(.caption2.weight(.bold))
+                                    .foregroundStyle(.white.opacity(0.9))
+                            }
                         }
                         Spacer()
                         KiloRestTimer(state: context.state)
@@ -93,6 +98,11 @@ struct KiloLiveActivityWidget: Widget {
                         .font(.caption)
                         .foregroundStyle(secondaryText)
                         .lineLimit(1)
+                    if context.state.totalSets > 0 {
+                        Text("已完成 \(context.state.completedSets)/\(context.state.totalSets) 组")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(secondaryText)
+                    }
                 }
                 Spacer(minLength: 8)
                 VStack(alignment: .trailing, spacing: 3) {

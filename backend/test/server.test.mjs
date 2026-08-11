@@ -42,6 +42,11 @@ test.after(async () => { await server.closeGracefully(); await fs.rm(root, { rec
 
 test('health, auth and admin role boundaries', async () => {
   assert.equal((await api('/health')).body.ok, true);
+  const capabilities = await api('/v1/analysis/capabilities');
+  assert.equal(capabilities.response.status, 200);
+  assert.equal(capabilities.body.exercises.some((item) => item.exerciseId === 'barbell_squat'), true);
+  assert.equal(capabilities.body.exercises.some((item) => item.exerciseId === 'lat_pulldown'), true);
+  assert.equal(capabilities.body.exercises.some((item) => item.exerciseId === 'bench_press'), false);
   const adminEntitlements = await api('/v1/me/entitlements', { headers: { authorization: `Bearer ${adminToken}` } });
   assert.equal(adminEntitlements.body.membership, 'forever'); assert.equal(adminEntitlements.body.membershipExpiresAt, null); assert.ok(adminEntitlements.body.aiRemaining >= 20); assert.ok(adminEntitlements.body.recognitionRemaining >= 3); assert.ok(adminEntitlements.body.recognitionWeeklyGrant >= 3);
   const unauth = await api('/v1/me/entitlements'); assert.equal(unauth.response.status, 401);
@@ -108,12 +113,13 @@ test('AI missing configuration rolls quota back and does not persist a fake answ
 });
 
 test('recognition upload, GPU protocol, media authorization and result', async () => {
-  const created = await api('/v1/analysis/jobs', { method: 'POST', headers: { authorization: `Bearer ${user2Token}` }, body: JSON.stringify({ exerciseId: 'squat', camera: 'front' }) });
+  const created = await api('/v1/analysis/jobs', { method: 'POST', headers: { authorization: `Bearer ${user2Token}` }, body: JSON.stringify({ exerciseId: 'barbell_squat', camera: 'side', includeOverlay: false }) });
+  assert.equal(created.body.includeOverlay, false);
   assert.equal(created.response.status, 202); const issuedUpload = new URL(created.body.upload.url); const upload = new URL(`${issuedUpload.pathname}${issuedUpload.search}`, base);
   const uploadResponse = await fetch(upload, { method: 'PUT', headers: { 'content-type': 'video/mp4', 'content-length': '4' }, body: Buffer.from('test') });
   assert.equal(uploadResponse.status, 200);
   const claim = await api('/v1/internal/gpu/jobs/claim', { method: 'POST', headers: { 'x-kilo-gpu-key': 'gpu-test-key-123456789012345678901234', 'content-type': 'application/json' }, body: '{}' });
-  assert.equal(claim.response.status, 200); assert.equal(claim.body.job.id, created.body.id);
+  assert.equal(claim.response.status, 200); assert.equal(claim.body.job.id, created.body.id); assert.equal(claim.body.job.includeOverlay, false);
   const heartbeat = await api(`/v1/internal/gpu/jobs/${created.body.id}/heartbeat`, { method: 'POST', headers: { 'x-kilo-gpu-key': 'gpu-test-key-123456789012345678901234', 'content-type': 'application/json' }, body: '{}' });
   assert.equal(heartbeat.response.status, 200); assert.equal(heartbeat.body.status, 'processing');
   const input = await fetch(`${base}/v1/internal/gpu/jobs/${created.body.id}/input`, { headers: { 'x-kilo-gpu-key': 'gpu-test-key-123456789012345678901234' } }); assert.equal(input.status, 200); assert.equal(input.headers.get('content-type'), 'video/mp4'); assert.equal(await input.text(), 'test');
@@ -125,14 +131,14 @@ test('recognition upload, GPU protocol, media authorization and result', async (
 
 test('recognition rejects unsafe or oversized uploads', async () => {
   const before = (await api('/v1/me/entitlements', { headers: { authorization: `Bearer ${user2Token}` } })).body.recognitionRemaining;
-  const created = await api('/v1/analysis/jobs', { method: 'POST', headers: { authorization: `Bearer ${user2Token}` }, body: JSON.stringify({ exerciseId: 'squat', camera: 'front' }) });
+  const created = await api('/v1/analysis/jobs', { method: 'POST', headers: { authorization: `Bearer ${user2Token}` }, body: JSON.stringify({ exerciseId: 'barbell_squat', camera: 'side' }) });
   const issuedUpload = new URL(created.body.upload.url); const upload = new URL(`${issuedUpload.pathname}${issuedUpload.search}`, base); const badType = await fetch(upload, { method: 'PUT', headers: { 'content-type': 'text/plain' }, body: 'x' }); assert.equal(badType.status, 415);
   const after = (await api('/v1/me/entitlements', { headers: { authorization: `Bearer ${user2Token}` } })).body.recognitionRemaining; assert.equal(after, before);
 });
 
 test('upload token expires after fifteen minutes and rolls back quota', async () => {
   const before = (await api('/v1/me/entitlements', { headers: { authorization: `Bearer ${user2Token}` } })).body.recognitionRemaining;
-  const created = await api('/v1/analysis/jobs', { method: 'POST', headers: { authorization: `Bearer ${user2Token}` }, body: JSON.stringify({ exerciseId: 'bench_press', camera: 'side' }) });
+  const created = await api('/v1/analysis/jobs', { method: 'POST', headers: { authorization: `Bearer ${user2Token}` }, body: JSON.stringify({ exerciseId: 'hip_thrust', camera: 'side' }) });
   const issuedUpload = new URL(created.body.upload.url); const upload = new URL(`${issuedUpload.pathname}${issuedUpload.search}`, base);
   server.context.db.prepare('UPDATE recognition_jobs SET upload_expires_at = ? WHERE id = ?').run(new Date(Date.now() - 1000).toISOString(), created.body.id);
   const expired = await fetch(upload, { method: 'PUT', headers: { 'content-type': 'video/mp4' }, body: Buffer.from('expired') });
@@ -142,7 +148,7 @@ test('upload token expires after fifteen minutes and rolls back quota', async ()
 });
 
 test('stream artifact accepts payload above JSON limit and preserves media type', async () => {
-  const created = await api('/v1/analysis/jobs', { method: 'POST', headers: { authorization: `Bearer ${user2Token}` }, body: JSON.stringify({ exerciseId: 'deadlift', camera: 'front' }) });
+  const created = await api('/v1/analysis/jobs', { method: 'POST', headers: { authorization: `Bearer ${user2Token}` }, body: JSON.stringify({ exerciseId: 'lat_pulldown', camera: 'rear' }) });
   const issuedUpload = new URL(created.body.upload.url); const upload = new URL(`${issuedUpload.pathname}${issuedUpload.search}`, base);
   const uploadResponse = await fetch(upload, { method: 'PUT', headers: { 'content-type': 'video/mp4' }, body: Buffer.from('input') }); assert.equal(uploadResponse.status, 200);
   const claim = await api('/v1/internal/gpu/jobs/claim', { method: 'POST', headers: { 'x-kilo-gpu-key': 'gpu-test-key-123456789012345678901234', 'content-type': 'application/json' }, body: '{}' }); assert.equal(claim.response.status, 200);

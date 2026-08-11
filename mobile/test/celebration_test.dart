@@ -71,6 +71,8 @@ void main() {
     );
     expect(find.text('训练时长'), findsOneWidget);
     expect(find.text('有效组数'), findsOneWidget);
+    expect(find.text('主要肌群'), findsOneWidget);
+    expect(find.text('本次 PR'), findsOneWidget);
     expect(
       find.byKey(const Key('workout-celebration-records')),
       findsOneWidget,

@@ -1,12 +1,56 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kilo_strength/account_membership.dart';
+import 'package:kilo_strength/ai_api.dart';
 import 'package:kilo_strength/controller.dart';
 import 'package:kilo_strength/models.dart';
 import 'package:kilo_strength/workout_history_persistence.dart';
 
+class _CapturingCoachApi implements CoachApi {
+  bool? includeTrainingSummary;
+  String? trainingSummary;
+
+  @override
+  Future<CoachAnswer> answer({
+    required String prompt,
+    required bool includeTrainingSummary,
+    String? trainingSummary,
+    List<Map<String, String>> exerciseCatalog = const [],
+  }) async {
+    this.includeTrainingSummary = includeTrainingSummary;
+    this.trainingSummary = trainingSummary;
+    return const CoachAnswer(body: '训练评价已生成');
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  test('today workout review includes live sets and notes for AI', () async {
+    final api = _CapturingCoachApi();
+    final controller = AppController(coachApi: api);
+    try {
+      controller.startWorkout(name: '今日练胸', autoStartTimer: false);
+      controller.addExercise('bench_press');
+      final exercise = controller.workout.single;
+      controller.addSet(exercise);
+      exercise.sets.single
+        ..weight = 50
+        ..reps = 8
+        ..note = '最后两次速度变慢'
+        ..completed = true;
+
+      await controller.sendTodayWorkoutForReview();
+
+      expect(api.includeTrainingSummary, isTrue);
+      expect(api.trainingSummary, contains('今日练胸'));
+      expect(api.trainingSummary, contains('50.0 kg × 8'));
+      expect(api.trainingSummary, contains('最后两次速度变慢'));
+      expect(controller.chat.last.body, '训练评价已生成');
+    } finally {
+      controller.dispose();
+    }
+  });
 
   test('completed history survives controller recreation per user', () async {
     final persistence = InMemoryWorkoutHistoryPersistence();
@@ -209,7 +253,7 @@ void main() {
       exercise.sets.first.reps = 5;
       controller.addSet(exercise);
       expect(exercise.sets.last.plannedWeight, isNull);
-      expect(exercise.sets.last.weight, 62.5);
+      expect(exercise.sets.last.weight, 0);
       exercise.sets.first.completed = true;
       controller.finishWorkout();
 
@@ -257,7 +301,7 @@ void main() {
   });
 
   test(
-    'every free-workout exercise inherits rest and later actions restart timer',
+    'free-workout rest starts for every action after the user sets it',
     () async {
       const channel = MethodChannel('kilo.platform.timer');
       final calls = <String>[];
@@ -272,8 +316,9 @@ void main() {
         controller.addExercise('bench_press');
         final exercise = controller.workout.single;
         controller.addSet(exercise);
-        expect(exercise.restSeconds, controller.defaultRestSeconds);
-        expect(exercise.sets.single.restSeconds, controller.defaultRestSeconds);
+        expect(exercise.restSeconds, 0);
+        expect(exercise.sets.single.restSeconds, 0);
+        controller.updateExerciseRest(exercise, 90);
         final burstBefore = controller.completionBurstId;
         controller.completeSet(exercise.sets.single, exercise);
         await Future<void>.delayed(Duration.zero);
@@ -286,15 +331,13 @@ void main() {
         controller.addExercise('squat');
         final secondExercise = controller.workout.last;
         controller.addSet(secondExercise);
-        expect(secondExercise.restSeconds, controller.defaultRestSeconds);
-        expect(
-          secondExercise.sets.single.restSeconds,
-          controller.defaultRestSeconds,
-        );
+        expect(secondExercise.restSeconds, 0);
+        expect(secondExercise.sets.single.restSeconds, 0);
+        controller.updateExerciseRest(secondExercise, 75);
         controller.completeSet(secondExercise.sets.single, secondExercise);
         await Future<void>.delayed(Duration.zero);
         expect(controller.restRunning, isTrue);
-        expect(controller.restRemainingSeconds, controller.defaultRestSeconds);
+        expect(controller.restRemainingSeconds, 75);
 
         controller.completeSet(secondExercise.sets.single, secondExercise);
         controller.updateExerciseRest(secondExercise, 0);

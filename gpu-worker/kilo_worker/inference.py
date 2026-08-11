@@ -21,7 +21,7 @@ SKELETON = (
 @dataclass(frozen=True)
 class AnalysisOutput:
     result: dict[str, Any]
-    overlay_path: Path
+    overlay_path: Path | None
     preview_path: Path
 
 
@@ -60,6 +60,7 @@ class PoseAnalyzer:
         output_dir: Path,
         exercise_id: str,
         progress: Callable[[int, int], None] | None = None,
+        include_overlay: bool = True,
     ) -> AnalysisOutput:
         capture = cv2.VideoCapture(str(source))
         if not capture.isOpened():
@@ -90,8 +91,8 @@ class PoseAnalyzer:
             cv2.VideoWriter_fourcc(*"mp4v"),
             output_fps,
             (output_width, output_height),
-        )
-        if not writer.isOpened():
+        ) if include_overlay else None
+        if writer is not None and not writer.isOpened():
             capture.release()
             raise RuntimeError("video_writer_unavailable")
 
@@ -140,14 +141,16 @@ class PoseAnalyzer:
                         counter.update(angle)
                         cv2.putText(frame, f"Angle {angle:.0f}", (20, 74), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (255, 179, 71), 2)
                 cv2.putText(frame, f"Reps {counter.count}", (20, 42), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (48, 210, 122), 2)
-                writer.write(frame)
+                if writer is not None:
+                    writer.write(frame)
                 if not preview_written and detected_frames:
                     cv2.imwrite(str(preview_path), frame, [cv2.IMWRITE_JPEG_QUALITY, 88])
                     preview_written = True
                 if progress is not None:
                     progress(frame_count, source_frames)
         finally:
-            writer.release()
+            if writer is not None:
+                writer.release()
             capture.release()
 
         if not frame_count:
@@ -179,7 +182,7 @@ class PoseAnalyzer:
                 "outputHeight": output_height,
             },
         }
-        return AnalysisOutput(result, overlay_path, preview_path)
+        return AnalysisOutput(result, overlay_path if include_overlay else None, preview_path)
 
     @staticmethod
     def _best_pose(prediction: Any) -> tuple[np.ndarray | None, np.ndarray | None]:

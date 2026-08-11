@@ -40,7 +40,16 @@ import UserNotifications
         case "startWorkout":
           await liveActivity.startWorkout(
             name: arguments["workoutName"] as? String ?? "自由训练",
-            elapsedSeconds: arguments["elapsedSeconds"] as? Int ?? 0
+            elapsedSeconds: arguments["elapsedSeconds"] as? Int ?? 0,
+            exercise: arguments["exercise"] as? String ?? "准备训练",
+            completedSets: arguments["completedSets"] as? Int ?? 0,
+            totalSets: arguments["totalSets"] as? Int ?? 0
+          )
+        case "updateWorkoutState":
+          await liveActivity.updateWorkoutState(
+            exercise: arguments["exercise"] as? String ?? "准备训练",
+            completedSets: arguments["completedSets"] as? Int ?? 0,
+            totalSets: arguments["totalSets"] as? Int ?? 0
           )
         case "startTimer", "updateTimer":
           await liveActivity.updateRest(

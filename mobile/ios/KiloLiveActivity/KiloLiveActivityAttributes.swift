@@ -10,6 +10,8 @@ struct KiloLiveActivityAttributes: ActivityAttributes {
         var pausedElapsedSeconds: Int
         var pausedRestSeconds: Int
         var isPaused: Bool
+        var completedSets: Int
+        var totalSets: Int
     }
 
     var workoutName: String

@@ -41,7 +41,21 @@ class MainActivity : FlutterActivity() {
                         enqueueServiceCommand(
                             Intent(this, WorkoutTimerService::class.java)
                                 .setAction(WorkoutTimerService.ACTION_START_WORKOUT)
-                                .putExtra(WorkoutTimerService.EXTRA_ELAPSED_SECONDS, elapsedSeconds),
+                                .putExtra(WorkoutTimerService.EXTRA_ELAPSED_SECONDS, elapsedSeconds)
+                                .putExtra(WorkoutTimerService.EXTRA_EXERCISE, call.argument<String>("exercise"))
+                                .putExtra(WorkoutTimerService.EXTRA_COMPLETED_SETS, call.argument<Number>("completedSets")?.toInt() ?: 0)
+                                .putExtra(WorkoutTimerService.EXTRA_TOTAL_SETS, call.argument<Number>("totalSets")?.toInt() ?: 0),
+                        )
+                        result.success(null)
+                    }
+
+                    "updateWorkoutState" -> {
+                        enqueueServiceCommand(
+                            Intent(this, WorkoutTimerService::class.java)
+                                .setAction(WorkoutTimerService.ACTION_UPDATE_WORKOUT)
+                                .putExtra(WorkoutTimerService.EXTRA_EXERCISE, call.argument<String>("exercise"))
+                                .putExtra(WorkoutTimerService.EXTRA_COMPLETED_SETS, call.argument<Number>("completedSets")?.toInt() ?: 0)
+                                .putExtra(WorkoutTimerService.EXTRA_TOTAL_SETS, call.argument<Number>("totalSets")?.toInt() ?: 0),
                         )
                         result.success(null)
                     }

@@ -13,6 +13,8 @@ abstract interface class RecognitionApi {
     required String camera,
     required String scenario,
     required String mediaPath,
+    bool includeOverlay = true,
+    void Function(RecognitionProgressUpdate update)? onProgress,
   });
 }
 
@@ -25,6 +27,7 @@ class RecognitionResult {
     this.error,
     this.overlayUrl,
     this.previewUrl,
+    this.mediaHeaders = const <String, String>{},
   });
 
   final RecognitionStatus status;
@@ -34,6 +37,7 @@ class RecognitionResult {
   final String? error;
   final String? overlayUrl;
   final String? previewUrl;
+  final Map<String, String> mediaHeaders;
 }
 
 class HttpRecognitionApi implements RecognitionApi {
@@ -81,12 +85,52 @@ class HttpRecognitionApi implements RecognitionApi {
 
   void clearSession() => _sessionToken = null;
 
+  Future<List<RecognitionCapability>> capabilities() async {
+    try {
+      final response = await _client
+          .get(Uri.parse('$_origin/v1/analysis/capabilities'))
+          .timeout(requestTimeout);
+      final payload = _decodeResponse(response, 'recognition_capabilities');
+      final rawItems = payload['exercises'];
+      if (rawItems is! List<dynamic>) return fallbackRecognitionCapabilities;
+      final result = <RecognitionCapability>[];
+      for (final raw in rawItems.whereType<Map<String, dynamic>>()) {
+        final exerciseId = (raw['exerciseId'] ?? '').toString();
+        final rawCameras = raw['cameras'];
+        if (exerciseId.isEmpty || rawCameras is! List<dynamic>) continue;
+        final cameras = <RecognitionCameraOption>[];
+        for (final camera in rawCameras.whereType<Map<String, dynamic>>()) {
+          final id = (camera['id'] ?? '').toString();
+          final label = (camera['label'] ?? '').toString();
+          if (id.isEmpty || label.isEmpty) continue;
+          cameras.add(
+            RecognitionCameraOption(
+              id: id,
+              label: label,
+              hint: (camera['hint'] ?? '').toString(),
+            ),
+          );
+        }
+        if (cameras.isNotEmpty) {
+          result.add(
+            RecognitionCapability(exerciseId: exerciseId, cameras: cameras),
+          );
+        }
+      }
+      return result.isEmpty ? fallbackRecognitionCapabilities : result;
+    } catch (_) {
+      return fallbackRecognitionCapabilities;
+    }
+  }
+
   @override
   Future<RecognitionResult> analyze({
     required String exerciseId,
     required String camera,
     required String scenario,
     required String mediaPath,
+    bool includeOverlay = true,
+    void Function(RecognitionProgressUpdate update)? onProgress,
   }) async {
     final token = _sessionToken;
     if (token == null || token.isEmpty) {
@@ -98,6 +142,9 @@ class HttpRecognitionApi implements RecognitionApi {
     }
 
     try {
+      onProgress?.call(
+        const RecognitionProgressUpdate(stage: RecognitionStage.preparing),
+      );
       final createdResponse = await _client
           .post(
             Uri.parse('$_origin/v1/analysis/jobs'),
@@ -109,6 +156,7 @@ class HttpRecognitionApi implements RecognitionApi {
               'exerciseId': exerciseId,
               'camera': camera,
               'scenario': scenario,
+              'includeOverlay': includeOverlay,
             }),
           )
           .timeout(requestTimeout);
@@ -122,8 +170,12 @@ class HttpRecognitionApi implements RecognitionApi {
         throw const RecognitionApiException('recognition_job_invalid');
       }
 
-      await _upload(file, _urlAgainstConfiguredOrigin(uploadUrl));
-      return await _poll(jobId, token);
+      await _upload(
+        file,
+        _urlAgainstConfiguredOrigin(uploadUrl),
+        onProgress: onProgress,
+      );
+      return await _poll(jobId, token, onProgress: onProgress);
     } on TimeoutException {
       throw const RecognitionApiException('recognition_timeout');
     } on SocketException {
@@ -133,12 +185,39 @@ class HttpRecognitionApi implements RecognitionApi {
     }
   }
 
-  Future<void> _upload(File file, Uri uri) async {
+  Future<void> _upload(
+    File file,
+    Uri uri, {
+    void Function(RecognitionProgressUpdate update)? onProgress,
+  }) async {
     final request = http.StreamedRequest('PUT', uri);
     request.headers['Content-Type'] = _contentType(file.path);
-    request.contentLength = await file.length();
+    final totalBytes = await file.length();
+    request.contentLength = totalBytes;
     final responseFuture = _client.send(request).timeout(uploadTimeout);
-    await request.sink.addStream(file.openRead());
+    var sentBytes = 0;
+    onProgress?.call(
+      RecognitionProgressUpdate(
+        stage: RecognitionStage.uploading,
+        fraction: 0,
+        sentBytes: 0,
+        totalBytes: totalBytes,
+      ),
+    );
+    await request.sink.addStream(
+      file.openRead().map((chunk) {
+        sentBytes += chunk.length;
+        onProgress?.call(
+          RecognitionProgressUpdate(
+            stage: RecognitionStage.uploading,
+            fraction: totalBytes == 0 ? 0 : sentBytes / totalBytes,
+            sentBytes: sentBytes,
+            totalBytes: totalBytes,
+          ),
+        );
+        return chunk;
+      }),
+    );
     await request.sink.close();
     final response = await responseFuture;
     if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -150,18 +229,58 @@ class HttpRecognitionApi implements RecognitionApi {
     await response.stream.drain<void>();
   }
 
-  Future<RecognitionResult> _poll(String jobId, String token) async {
+  Future<RecognitionResult> _poll(
+    String jobId,
+    String token, {
+    void Function(RecognitionProgressUpdate update)? onProgress,
+  }) async {
     final deadline = DateTime.now().add(resultTimeout);
+    var lastStage = RecognitionStage.idle;
+    var consecutiveNetworkFailures = 0;
     while (DateTime.now().isBefore(deadline)) {
-      final response = await _client
-          .get(
-            Uri.parse('$_origin/v1/analysis/jobs/$jobId'),
-            headers: {'Authorization': 'Bearer $token'},
-          )
-          .timeout(requestTimeout);
-      final payload = _decodeResponse(response, 'recognition_status');
+      Map<String, dynamic> payload;
+      try {
+        final response = await _client
+            .get(
+              Uri.parse('$_origin/v1/analysis/jobs/$jobId'),
+              headers: {'Authorization': 'Bearer $token'},
+            )
+            .timeout(requestTimeout);
+        payload = _decodeResponse(response, 'recognition_status');
+        consecutiveNetworkFailures = 0;
+      } on TimeoutException {
+        consecutiveNetworkFailures += 1;
+        if (consecutiveNetworkFailures >= 3) rethrow;
+        await Future<void>.delayed(pollInterval);
+        continue;
+      } on SocketException {
+        consecutiveNetworkFailures += 1;
+        if (consecutiveNetworkFailures >= 3) rethrow;
+        await Future<void>.delayed(pollInterval);
+        continue;
+      } on http.ClientException {
+        consecutiveNetworkFailures += 1;
+        if (consecutiveNetworkFailures >= 3) rethrow;
+        await Future<void>.delayed(pollInterval);
+        continue;
+      } on RecognitionApiException catch (error) {
+        if (!RegExp(r'^recognition_status_http_5\d\d$').hasMatch(error.code)) {
+          rethrow;
+        }
+        consecutiveNetworkFailures += 1;
+        if (consecutiveNetworkFailures >= 3) rethrow;
+        await Future<void>.delayed(pollInterval);
+        continue;
+      }
       final status = (payload['status'] ?? '').toString();
-      if (status == 'completed') return _completedResult(payload);
+      final stage = status == 'processing'
+          ? RecognitionStage.analyzing
+          : RecognitionStage.queued;
+      if (stage != lastStage) {
+        lastStage = stage;
+        onProgress?.call(RecognitionProgressUpdate(stage: stage));
+      }
+      if (status == 'completed') return _completedResult(payload, token);
       if (status == 'failed' || status == 'cancelled' || status == 'expired') {
         final error = (payload['error'] ?? status).toString();
         return RecognitionResult(
@@ -177,7 +296,10 @@ class HttpRecognitionApi implements RecognitionApi {
     throw const RecognitionApiException('recognition_result_timeout');
   }
 
-  RecognitionResult _completedResult(Map<String, dynamic> payload) {
+  RecognitionResult _completedResult(
+    Map<String, dynamic> payload,
+    String token,
+  ) {
     final result = payload['result'];
     final body = result is Map<String, dynamic>
         ? result
@@ -196,6 +318,7 @@ class HttpRecognitionApi implements RecognitionApi {
       summary: (body['summary'] ?? '动作分析已完成').toString(),
       overlayUrl: _optionalMediaUrl(mediaMap['overlay']),
       previewUrl: _optionalMediaUrl(mediaMap['preview']),
+      mediaHeaders: {'Authorization': 'Bearer $token'},
     );
   }
 
@@ -235,13 +358,29 @@ class HttpRecognitionApi implements RecognitionApi {
     };
   }
 
-  static String _errorSummary(String error) => switch (error) {
+  static String _errorSummary(String error) => recognitionErrorMessage(error);
+}
+
+String recognitionErrorMessage(String error) => switch (error) {
     'video_too_long' => '视频时长超出限制，请裁剪后重试。',
     'invalid_video' => '无法读取该视频，请重新选择。',
+    'invalid_video_dimensions' => '无法读取视频尺寸，请转换为 MP4 后重试。',
+    'empty_video' => '视频中没有可分析的画面，请重新选择。',
+    'video_writer_unavailable' => '服务器暂时无法生成结果视频，请稍后重试。',
     'quota_exhausted' => '本周动作识别次数已用完。',
-    _ => '动作识别失败，请稍后重试。',
+    'recognition_timeout' || 'recognition_result_timeout' =>
+      '服务器分析超时，视频已保留，请稍后直接重试。',
+    'recognition_network' => '网络连接中断，视频已保留，请检查网络后重试。',
+    'recognition_unauthenticated' || 'recognition_auth_token_missing' =>
+      '登录状态已失效，请重新登录后重试。',
+    'recognition_exercise_unsupported' ||
+    'recognition_camera_unsupported' => '当前动作或机位暂不受识别服务支持。',
+    _ when error.startsWith('recognition_upload_http_') =>
+      '视频上传失败，视频已保留，请直接重试。',
+    _ when error.startsWith('recognition_create_http_') =>
+      '无法创建识别任务，请稍后重试。',
+    _ => '动作识别失败（$error），视频已保留，可直接重试。',
   };
-}
 
 class RecognitionApiException implements Exception {
   const RecognitionApiException(this.code);
@@ -259,6 +398,8 @@ class UnconfiguredRecognitionApi implements RecognitionApi {
     required String camera,
     required String scenario,
     required String mediaPath,
+    bool includeOverlay = true,
+    void Function(RecognitionProgressUpdate update)? onProgress,
   }) async {
     return const RecognitionResult(
       status: RecognitionStatus.error,

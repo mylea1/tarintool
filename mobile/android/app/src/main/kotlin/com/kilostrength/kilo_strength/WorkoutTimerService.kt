@@ -37,6 +37,8 @@ class WorkoutTimerService : Service() {
     private var restEndAt = 0L
     private var restRemainingAtPause = 0L
     private var exerciseName = "训练"
+    private var completedSets = 0
+    private var totalSets = 0
 
     private val tick = object : Runnable {
         override fun run() {
@@ -96,6 +98,7 @@ class WorkoutTimerService : Service() {
 
         when (action) {
             ACTION_START_WORKOUT -> startWorkout(commandIntent)
+            ACTION_UPDATE_WORKOUT -> updateWorkoutState(commandIntent)
             ACTION_START_REST -> updateRest(commandIntent)
             ACTION_UPDATE_REST -> updateRest(commandIntent)
             ACTION_CLEAR_REST -> clearRestInternal(notify = false)
@@ -120,12 +123,20 @@ class WorkoutTimerService : Service() {
         workoutPaused = false
         workoutElapsedAtPause = elapsed
         workoutStartedAt = System.currentTimeMillis() - elapsed * 1000L
+        updateWorkoutState(intent)
         // A resumed workout may have an existing rest; Flutter follows this
         // command with updateTimer when appropriate.
         if (restActive && restPaused) {
             restPaused = false
             restEndAt = System.currentTimeMillis() + restRemainingAtPause * 1000L
         }
+    }
+
+    private fun updateWorkoutState(intent: Intent) {
+        exerciseName = intent.getStringExtra(EXTRA_EXERCISE)?.trim().orEmpty()
+            .ifEmpty { exerciseName }
+        completedSets = intent.getIntExtra(EXTRA_COMPLETED_SETS, completedSets).coerceAtLeast(0)
+        totalSets = intent.getIntExtra(EXTRA_TOTAL_SETS, totalSets).coerceAtLeast(0)
     }
 
     private fun updateRest(intent: Intent) {
@@ -173,6 +184,9 @@ class WorkoutTimerService : Service() {
         workoutPaused = false
         workoutStartedAt = 0L
         workoutElapsedAtPause = 0L
+        completedSets = 0
+        totalSets = 0
+        exerciseName = "训练"
         clearRestInternal(notify = false)
         persistState()
         handler.removeCallbacksAndMessages(null)
@@ -218,11 +232,12 @@ class WorkoutTimerService : Service() {
     private fun buildNotification(now: Long): Notification {
         val workoutElapsed = formatDuration(workoutElapsedSeconds(now))
         val restRemaining = if (restActive) restRemainingSeconds(now) else 0L
+        val setProgress = if (totalSets > 0) " · $completedSets/$totalSets 组" else ""
         val content = when {
-            restActive && restPaused -> "休息已暂停 ${formatRest(restRemaining)} · 训练 $workoutElapsed"
-            restActive -> "休息 ${formatRest(restRemaining)} · 训练 $workoutElapsed"
-            workoutPaused -> "训练已暂停 · $workoutElapsed"
-            else -> "训练 $workoutElapsed"
+            restActive && restPaused -> "休息已暂停 ${formatRest(restRemaining)} · 训练 $workoutElapsed$setProgress"
+            restActive -> "休息 ${formatRest(restRemaining)} · 训练 $workoutElapsed$setProgress"
+            workoutPaused -> "训练已暂停 · $workoutElapsed$setProgress"
+            else -> "训练 $workoutElapsed$setProgress"
         }
 
         val openIntent = Intent(this, MainActivity::class.java).apply {
@@ -325,6 +340,8 @@ class WorkoutTimerService : Service() {
         restEndAt = preferences.getLong(KEY_REST_END_AT, 0L)
         restRemainingAtPause = preferences.getLong(KEY_REST_REMAINING_PAUSED, 0L)
         exerciseName = preferences.getString(KEY_EXERCISE, "训练") ?: "训练"
+        completedSets = preferences.getInt(KEY_COMPLETED_SETS, 0)
+        totalSets = preferences.getInt(KEY_TOTAL_SETS, 0)
         if (workoutActive) {
             if (restActive && !restPaused && restEndAt <= System.currentTimeMillis()) {
                 clearRestInternal(notify = false)
@@ -345,11 +362,14 @@ class WorkoutTimerService : Service() {
             .putLong(KEY_REST_END_AT, restEndAt)
             .putLong(KEY_REST_REMAINING_PAUSED, restRemainingAtPause)
             .putString(KEY_EXERCISE, exerciseName)
+            .putInt(KEY_COMPLETED_SETS, completedSets)
+            .putInt(KEY_TOTAL_SETS, totalSets)
             .apply()
     }
 
     companion object {
         const val ACTION_START_WORKOUT = "com.kilostrength.kilo_strength.START_WORKOUT"
+        const val ACTION_UPDATE_WORKOUT = "com.kilostrength.kilo_strength.UPDATE_WORKOUT"
         const val ACTION_START_REST = "com.kilostrength.kilo_strength.START_REST"
         const val ACTION_UPDATE_REST = "com.kilostrength.kilo_strength.UPDATE_REST"
         const val ACTION_CLEAR_REST = "com.kilostrength.kilo_strength.CLEAR_REST"
@@ -361,8 +381,10 @@ class WorkoutTimerService : Service() {
         const val EXTRA_EXERCISE = "exercise"
         const val EXTRA_SECONDS = "seconds"
         const val EXTRA_ELAPSED_SECONDS = "elapsedSeconds"
+        const val EXTRA_COMPLETED_SETS = "completedSets"
+        const val EXTRA_TOTAL_SETS = "totalSets"
 
-        private const val NOTIFICATION_CHANNEL_ID = "kilo_workout_v3"
+        private const val NOTIFICATION_CHANNEL_ID = "kilo_workout_v4"
         private const val NOTIFICATION_ID = 704
         private const val REQUEST_OPEN = 705
         private const val REQUEST_SKIP = 706
@@ -377,5 +399,7 @@ class WorkoutTimerService : Service() {
         private const val KEY_REST_END_AT = "restEndAt"
         private const val KEY_REST_REMAINING_PAUSED = "restRemainingAtPause"
         private const val KEY_EXERCISE = "exerciseName"
+        private const val KEY_COMPLETED_SETS = "completedSets"
+        private const val KEY_TOTAL_SETS = "totalSets"
     }
 }

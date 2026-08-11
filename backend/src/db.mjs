@@ -19,6 +19,11 @@ export function openDatabase(databasePath) {
   if (!columns.some((column) => column.name === 'upload_expires_at')) {
     db.exec('ALTER TABLE recognition_jobs ADD COLUMN upload_expires_at TEXT');
   }
+  if (!columns.some((column) => column.name === 'include_overlay')) {
+    db.exec(
+      'ALTER TABLE recognition_jobs ADD COLUMN include_overlay INTEGER NOT NULL DEFAULT 1',
+    );
+  }
   return db;
 }
 

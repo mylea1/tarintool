@@ -20,6 +20,39 @@ const MEDIA_CONTENT_TYPES = new Map([
   ['.mp4', 'video/mp4'], ['.mov', 'video/quicktime'], ['.webm', 'video/webm'],
   ['.jpg', 'image/jpeg'], ['.jpeg', 'image/jpeg'], ['.png', 'image/png'], ['.webp', 'image/webp'],
 ]);
+const RECOGNITION_CAPABILITIES = [
+  {
+    exerciseId: 'barbell_squat',
+    cameras: [
+      { id: 'side', label: '正侧面', hint: '镜头与髋部同高，完整拍到头、髋、膝和脚。' },
+      { id: 'side_rear', label: '侧后方', hint: '从侧后方完整拍到双脚与杠铃，便于观察膝髋轨迹。' },
+    ],
+  },
+  {
+    exerciseId: 'hip_thrust',
+    cameras: [
+      { id: 'side', label: '正侧面', hint: '镜头与髋部同高，完整拍到肩、髋和膝，避免器械遮挡。' },
+    ],
+  },
+  {
+    exerciseId: 'romanian_deadlift',
+    cameras: [
+      { id: 'side', label: '正侧面', hint: '完整拍到头、肩、髋、膝和脚，镜头保持水平。' },
+      { id: 'side_rear', label: '侧后方', hint: '侧后方约 30° 拍摄，确保杠铃与下肢轨迹无遮挡。' },
+    ],
+  },
+  {
+    exerciseId: 'lat_pulldown',
+    cameras: [
+      { id: 'rear', label: '正后方', hint: '镜头正对座椅后方，完整拍到双臂、肩胛和躯干。' },
+      { id: 'side', label: '正侧面', hint: '镜头与肩部同高，完整拍到手、肩、髋与下拉轨迹。' },
+    ],
+  },
+];
+const RECOGNITION_EXERCISE_IDS = new Set(RECOGNITION_CAPABILITIES.map((item) => item.exerciseId));
+const RECOGNITION_CAMERAS = new Map(
+  RECOGNITION_CAPABILITIES.map((item) => [item.exerciseId, new Set(item.cameras.map((camera) => camera.id))]),
+);
 
 export class HttpError extends Error {
   constructor(status, code, detail = undefined) {
@@ -48,6 +81,7 @@ function publicJob(row, cfg) {
     id: row.id,
     exerciseId: row.exercise_id,
     camera: row.camera,
+    includeOverlay: Boolean(row.include_overlay),
     status: row.status,
     uploadExpiresAt: row.upload_expires_at,
     createdAt: row.created_at,
@@ -491,6 +525,12 @@ async function handleRequest(req, res, ctx) {
       },
     }, req, ctx.cfg); return;
   }
+  if (req.method === 'GET' && url.pathname === '/v1/analysis/capabilities') {
+    writeJson(res, 200, {
+      modelVersion: 'bettercoach-cpu-v1',
+      exercises: RECOGNITION_CAPABILITIES,
+    }, req, ctx.cfg); return;
+  }
 
   // Explicitly configured test credentials are seeded at startup; no test
   // account exists when KILO_ENABLE_TEST_ADMIN is false.
@@ -661,7 +701,7 @@ async function handleRequest(req, res, ctx) {
       const recent = conversationMessages(ctx.db, conversationId, 20);
       const knowledge = knowledgeSearch(ctx.db, question, 5);
       const messages = [{ role: 'system', content: `你是 KILO Strength 健身训练助手。提供一般训练、恢复和动作记录建议，不进行医疗诊断。证据不足时明确说明。
-回答使用简洁 Markdown：用标题、加粗、列表组织内容，但不要堆叠格式。只总结知识库结论，不要大段照搬原文。不要在正文中写文献名称、来源列表、脚注编号或“根据某文献”；客户端会在回答结尾统一展示服务端检索到的来源。` }];
+回答使用简洁 Markdown：用标题、加粗、列表组织内容，但不要堆叠格式。只总结知识库结论，不要大段照搬原文。不要在正文中写文献名称、来源列表、脚注编号或“根据某文献”；客户端会在回答结尾统一展示服务端检索到的来源。凡是建议用户增加或降低重量、次数、组数或休息时间，必须紧接着说明依据（历史表现、完成质量、备注、训练目标或恢复状态）；没有足够数据时必须明确说这是保守起点而非个性化结论。` }];
       if (conversation.memory_summary) messages.push({ role: 'system', content: `长期记忆摘要：${conversation.memory_summary.slice(0, 3000)}` });
       if (knowledge.length) messages.push({ role: 'system', content: `知识库参考：\n${knowledge.map((item) => `${item.title}: ${item.content.slice(0, 1200)}`).join('\n')}` });
       for (const message of recent) messages.push({ role: message.role, content: message.content });
@@ -717,10 +757,10 @@ async function handleRequest(req, res, ctx) {
 
   // Recognition service: user-facing job creation, upload and result.
   if (req.method === 'POST' && ['/v1/analysis/jobs', '/v1/recognition/jobs'].includes(url.pathname)) {
-    const user = authenticate(req, ctx); const body = await readBody(req, ctx.cfg.maxJsonBytes); const exerciseId = requireString(body.exerciseId, 'exercise_id_required', 200); const camera = requireString(body.camera, 'camera_required', 100); const id = randomId('job_'); const quotaRequestId = `recognition:${id}`; const uploadToken = randomToken(); const stamp = nowIso(); const uploadExpiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+    const user = authenticate(req, ctx); const body = await readBody(req, ctx.cfg.maxJsonBytes); const exerciseId = requireString(body.exerciseId, 'exercise_id_required', 200); const camera = requireString(body.camera, 'camera_required', 100); const includeOverlay = body.includeOverlay !== false; if (!RECOGNITION_EXERCISE_IDS.has(exerciseId)) throw httpError(400, 'recognition_exercise_unsupported'); if (!RECOGNITION_CAMERAS.get(exerciseId)?.has(camera)) throw httpError(400, 'recognition_camera_unsupported'); const id = randomId('job_'); const quotaRequestId = `recognition:${id}`; const uploadToken = randomToken(); const stamp = nowIso(); const uploadExpiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
     const job = transaction(ctx.db, () => {
       reserveQuotaInternal(ctx.db, user.id, 'recognition', quotaRequestId);
-      ctx.db.prepare(`INSERT INTO recognition_jobs (id, user_id, exercise_id, camera, status, upload_token_hash, upload_expires_at, input_key, result_json, overlay_key, preview_key, error_code, model_version, quota_request_id, created_at, updated_at) VALUES (?, ?, ?, ?, 'created', ?, ?, '', NULL, NULL, NULL, NULL, NULL, ?, ?, ?)`).run(id, user.id, exerciseId, camera, sha256(uploadToken, ctx.cfg.sessionPepper), uploadExpiresAt, quotaRequestId, stamp, stamp);
+      ctx.db.prepare(`INSERT INTO recognition_jobs (id, user_id, exercise_id, camera, include_overlay, status, upload_token_hash, upload_expires_at, input_key, result_json, overlay_key, preview_key, error_code, model_version, quota_request_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 'created', ?, ?, '', NULL, NULL, NULL, NULL, NULL, ?, ?, ?)`).run(id, user.id, exerciseId, camera, includeOverlay ? 1 : 0, sha256(uploadToken, ctx.cfg.sessionPepper), uploadExpiresAt, quotaRequestId, stamp, stamp);
       return ctx.db.prepare('SELECT * FROM recognition_jobs WHERE id = ?').get(id);
     });
     writeJson(res, 202, { ...publicJob(job, ctx.cfg), upload: { method: 'PUT', url: `${ctx.cfg.publicBaseUrl}/v1/analysis/jobs/${encodeURIComponent(id)}/upload?token=${encodeURIComponent(uploadToken)}`, expiresInSeconds: 900, expiresAt: uploadExpiresAt } }, req, ctx.cfg); return;
@@ -763,7 +803,7 @@ async function handleRequest(req, res, ctx) {
       // back in the queue so another worker can retry without double charging.
       ctx.db.prepare("UPDATE recognition_jobs SET status = 'queued', error_code = NULL, updated_at = ? WHERE status = 'processing' AND updated_at < ?").run(nowIso(), cutoff);
       const job = ctx.db.prepare("SELECT * FROM recognition_jobs WHERE status = 'queued' AND input_key <> '' ORDER BY created_at LIMIT 1").get(); if (!job) return null; ctx.db.prepare("UPDATE recognition_jobs SET status = 'processing', updated_at = ? WHERE id = ? AND status = 'queued'").run(nowIso(), job.id); return ctx.db.prepare('SELECT * FROM recognition_jobs WHERE id = ?').get(job.id);
-    }); if (!result) { writeJson(res, 204, {}, req, ctx.cfg); return; } writeJson(res, 200, { job: { id: result.id, exerciseId: result.exercise_id, camera: result.camera, status: result.status, inputUrl: `${ctx.cfg.publicBaseUrl}/v1/internal/gpu/jobs/${encodeURIComponent(result.id)}/input` } }, req, ctx.cfg); return;
+    }); if (!result) { writeJson(res, 204, {}, req, ctx.cfg); return; } writeJson(res, 200, { job: { id: result.id, exerciseId: result.exercise_id, camera: result.camera, includeOverlay: Boolean(result.include_overlay), status: result.status, inputUrl: `${ctx.cfg.publicBaseUrl}/v1/internal/gpu/jobs/${encodeURIComponent(result.id)}/input` } }, req, ctx.cfg); return;
   }
   const gpuJobMatch = url.pathname.match(/^\/v1\/internal\/gpu\/jobs\/([^/]+)\/(input|artifact|heartbeat|result|fail)$/);
   if (gpuJobMatch) {

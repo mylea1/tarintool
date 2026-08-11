@@ -20,6 +20,23 @@ enum RecognitionStatus {
   error,
 }
 
+enum RecognitionStage { idle, preparing, uploading, queued, analyzing }
+
+@immutable
+class RecognitionProgressUpdate {
+  const RecognitionProgressUpdate({
+    required this.stage,
+    this.fraction,
+    this.sentBytes,
+    this.totalBytes,
+  });
+
+  final RecognitionStage stage;
+  final double? fraction;
+  final int? sentBytes;
+  final int? totalBytes;
+}
+
 @immutable
 class Exercise {
   const Exercise({
@@ -45,6 +62,88 @@ class Exercise {
   final String cue;
   final String loadMode;
 }
+
+@immutable
+class RecognitionCameraOption {
+  const RecognitionCameraOption({
+    required this.id,
+    required this.label,
+    required this.hint,
+  });
+
+  final String id;
+  final String label;
+  final String hint;
+}
+
+@immutable
+class RecognitionCapability {
+  const RecognitionCapability({
+    required this.exerciseId,
+    required this.cameras,
+  });
+
+  final String exerciseId;
+  final List<RecognitionCameraOption> cameras;
+}
+
+const fallbackRecognitionCapabilities = <RecognitionCapability>[
+  RecognitionCapability(
+    exerciseId: 'barbell_squat',
+    cameras: [
+      RecognitionCameraOption(
+        id: 'side',
+        label: '正侧面',
+        hint: '镜头与髋部同高，完整拍到头、髋、膝和脚。',
+      ),
+      RecognitionCameraOption(
+        id: 'side_rear',
+        label: '侧后方',
+        hint: '从侧后方完整拍到双脚与杠铃，便于观察膝髋轨迹。',
+      ),
+    ],
+  ),
+  RecognitionCapability(
+    exerciseId: 'hip_thrust',
+    cameras: [
+      RecognitionCameraOption(
+        id: 'side',
+        label: '正侧面',
+        hint: '镜头与髋部同高，完整拍到肩、髋和膝，避免器械遮挡。',
+      ),
+    ],
+  ),
+  RecognitionCapability(
+    exerciseId: 'romanian_deadlift',
+    cameras: [
+      RecognitionCameraOption(
+        id: 'side',
+        label: '正侧面',
+        hint: '完整拍到头、肩、髋、膝和脚，镜头保持水平。',
+      ),
+      RecognitionCameraOption(
+        id: 'side_rear',
+        label: '侧后方',
+        hint: '侧后方约 30° 拍摄，确保杠铃与下肢轨迹无遮挡。',
+      ),
+    ],
+  ),
+  RecognitionCapability(
+    exerciseId: 'lat_pulldown',
+    cameras: [
+      RecognitionCameraOption(
+        id: 'rear',
+        label: '正后方',
+        hint: '镜头正对座椅后方，完整拍到双臂、肩胛和躯干。',
+      ),
+      RecognitionCameraOption(
+        id: 'side',
+        label: '正侧面',
+        hint: '镜头与肩部同高，完整拍到手、肩、髋与下拉轨迹。',
+      ),
+    ],
+  ),
+];
 
 class WorkoutSet {
   WorkoutSet({

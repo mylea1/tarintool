@@ -1,7 +1,10 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter/services.dart';
+import 'package:video_player/video_player.dart';
 
 import 'account_membership.dart';
 import 'controller.dart';
@@ -269,12 +272,15 @@ class BrandLogo extends StatelessWidget {
   final double size;
 
   @override
-  Widget build(BuildContext context) => Image.asset(
-    brandLogoAsset,
-    width: size,
-    height: size,
-    fit: BoxFit.contain,
-    semanticLabel: '$brandName $brandEnglish 标志',
+  Widget build(BuildContext context) => ClipRRect(
+    borderRadius: BorderRadius.circular(size * .22),
+    child: Image.asset(
+      brandLogoAsset,
+      width: size,
+      height: size,
+      fit: BoxFit.cover,
+      semanticLabel: '$brandName $brandEnglish 标志',
+    ),
   );
 }
 
@@ -1528,6 +1534,7 @@ class _UnderlineTabs extends StatelessWidget {
               selected: items[index].selected,
               label: labels[index],
               child: InkWell(
+                key: Key(items[index].label),
                 onTap: items[index].onTap,
                 child: Container(
                   constraints: const BoxConstraints(minHeight: 44),
@@ -2363,6 +2370,34 @@ class _WorkoutExerciseCard extends StatelessWidget {
                       );
                     },
                   ),
+                  Row(
+                    children: [
+                      TextButton.icon(
+                        key: Key('reuse-previous-${exercise.id}'),
+                        onPressed: () {
+                          final reused = controller.reusePreviousValues(
+                            exercise,
+                          );
+                          showKiloSnack(
+                            context,
+                            reused ? '已带入上次完成数据' : '暂无可带入的历史数据',
+                          );
+                        },
+                        icon: const Icon(Icons.history, size: 17),
+                        label: const Text('带入上次'),
+                      ),
+                      TextButton.icon(
+                        key: Key('clear-values-${exercise.id}'),
+                        onPressed: () {
+                          controller.clearExerciseValues(exercise);
+                          showKiloSnack(context, '重量和次数已清空');
+                        },
+                        icon: const Icon(Icons.backspace_outlined, size: 17),
+                        label: const Text('清空'),
+                      ),
+                      const Spacer(),
+                    ],
+                  ),
                   Align(
                     alignment: Alignment.centerLeft,
                     child: TextButton.icon(
@@ -2408,6 +2443,10 @@ String _setTypeShort(String type) => switch (type) {
 String _displayWeight(double value) => value == value.roundToDouble()
     ? value.toStringAsFixed(0)
     : value.toStringAsFixed(1);
+
+String _editableWeight(double value) => value <= 0 ? '' : _displayWeight(value);
+
+String _editableCount(int value) => value <= 0 ? '' : '$value';
 
 class _SetColumns {
   const _SetColumns({
@@ -2829,7 +2868,8 @@ class _SetRow extends StatelessWidget {
                 SizedBox(
                   width: columns.weight,
                   child: TextFormField(
-                    initialValue: _displayWeight(set.weight),
+                    key: ValueKey('weight-${set.id}-${set.weight}'),
+                    initialValue: _editableWeight(set.weight),
                     enabled: !set.completed,
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
@@ -2846,7 +2886,7 @@ class _SetRow extends StatelessWidget {
                     ),
                     decoration: _inputDecoration(completed: set.completed),
                     onChanged: (value) {
-                      set.weight = double.tryParse(value) ?? set.weight;
+                      set.weight = double.tryParse(value) ?? 0;
                     },
                   ),
                 ),
@@ -2854,7 +2894,8 @@ class _SetRow extends StatelessWidget {
                 SizedBox(
                   width: columns.reps,
                   child: TextFormField(
-                    initialValue: '${set.reps}',
+                    key: ValueKey('reps-${set.id}-${set.reps}'),
+                    initialValue: _editableCount(set.reps),
                     enabled: !set.completed,
                     keyboardType: TextInputType.number,
                     onTapOutside: (_) =>
@@ -2869,7 +2910,7 @@ class _SetRow extends StatelessWidget {
                     ),
                     decoration: _inputDecoration(completed: set.completed),
                     onChanged: (value) {
-                      set.reps = int.tryParse(value) ?? set.reps;
+                      set.reps = int.tryParse(value) ?? 0;
                     },
                   ),
                 ),
@@ -4161,10 +4202,17 @@ class RecognitionPage extends StatelessWidget {
                       color: paper,
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(
-                      Icons.document_scanner_outlined,
-                      color: cobalt,
-                    ),
+                    child:
+                        controller.recognitionStatus ==
+                            RecognitionStatus.processing
+                        ? const Padding(
+                            padding: EdgeInsets.all(11),
+                            child: CircularProgressIndicator(strokeWidth: 3),
+                          )
+                        : const Icon(
+                            Icons.document_scanner_outlined,
+                            color: cobalt,
+                          ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -4187,55 +4235,146 @@ class RecognitionPage extends StatelessWidget {
                   ),
                 ],
               ),
+              if (controller.selectedMediaPath != null) ...[
+                const SizedBox(height: 14),
+                _SelectedRecognitionVideo(
+                  path: controller.selectedMediaPath!,
+                  name: controller.selectedMediaName ?? '已选择视频',
+                  sizeLabel: _formatBytes(controller.selectedMediaBytes),
+                  enabled:
+                      controller.recognitionStatus !=
+                      RecognitionStatus.processing,
+                  onClear: controller.resetRecognition,
+                ),
+              ],
+              if (controller.recognitionStatus ==
+                  RecognitionStatus.processing) ...[
+                const SizedBox(height: 14),
+                _RecognitionProcessingPanel(controller: controller),
+              ],
               const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                initialValue: controller.recognitionExerciseId,
-                isExpanded: true,
-                decoration: const InputDecoration(labelText: '动作'),
-                items: [
-                  for (final item in controller.allExercises)
-                    DropdownMenuItem(
-                      value: item.id,
-                      child: Text(
-                        controller.displayExerciseName(item),
-                        overflow: TextOverflow.ellipsis,
+              const _RecognitionFieldLabel('识别动作'),
+              if (controller.recognitionCapabilitiesLoading)
+                const LinearProgressIndicator(minHeight: 2)
+              else
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final width = (constraints.maxWidth - 10) / 2;
+                    return Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: [
+                        for (final capability
+                            in controller.recognitionCapabilities)
+                          SizedBox(
+                            width: width,
+                            child: _RecognitionExerciseChoice(
+                              controller: controller,
+                              capability: capability,
+                            ),
+                          ),
+                      ],
+                    );
+                  },
+                ),
+              const _RecognitionFieldLabel('拍摄机位'),
+              Row(
+                children: [
+                  for (
+                    var index = 0;
+                    index <
+                        controller.selectedRecognitionCapability.cameras.length;
+                    index++
+                  ) ...[
+                    if (index > 0) const SizedBox(width: 8),
+                    Expanded(
+                      child: _RecognitionCameraChoice(
+                        controller: controller,
+                        camera: controller
+                            .selectedRecognitionCapability
+                            .cameras[index],
                       ),
                     ),
+                  ],
                 ],
-                onChanged: (value) {
-                  if (value != null) {
-                    controller.recognitionExerciseId = value;
-                    controller.refresh();
-                  }
-                },
               ),
               const SizedBox(height: 10),
-              DropdownButtonFormField<String>(
-                initialValue: controller.recognitionCamera,
-                isExpanded: true,
-                decoration: const InputDecoration(labelText: '机位'),
-                items: const [
-                  DropdownMenuItem(
-                    value: '侧前方 30-45°',
-                    child: Text('侧前方 30-45°', overflow: TextOverflow.ellipsis),
-                  ),
-                  DropdownMenuItem(value: '正侧面', child: Text('正侧面')),
-                  DropdownMenuItem(value: '正面', child: Text('正面')),
-                ],
-                onChanged: (value) {
-                  if (value != null) {
-                    controller.recognitionCamera = value;
-                    controller.refresh();
-                  }
-                },
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8EEE7),
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(
+                      Icons.tips_and_updates_outlined,
+                      size: 18,
+                      color: primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        controller.selectedRecognitionCamera.hint,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          height: 1.45,
+                          color: secondaryInk,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.fromLTRB(11, 7, 5, 7),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(13),
+                  border: Border.all(color: hairline),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.accessibility_new_rounded,
+                      size: 20,
+                      color: primary,
+                    ),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '返回骨骼标注视频',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          Text(
+                            '关闭后仅返回数据、文字和预览图',
+                            style: TextStyle(fontSize: 10, color: quiet),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Switch(
+                      key: const Key('recognition-overlay-switch'),
+                      value: controller.recognitionIncludeOverlay,
+                      onChanged:
+                          controller.recognitionStatus ==
+                              RecognitionStatus.processing
+                          ? null
+                          : controller.setRecognitionIncludeOverlay,
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 12),
-              if (controller.recognitionStatus == RecognitionStatus.processing)
-                LinearProgressIndicator(
-                  value: controller.recognitionProgress,
-                  minHeight: 7,
-                  borderRadius: BorderRadius.circular(7),
-                ),
               if (controller.recognitionResult != null &&
                   controller.recognitionStatus != RecognitionStatus.processing)
                 _RecognitionReport(
@@ -4248,6 +4387,8 @@ class RecognitionPage extends StatelessWidget {
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: controller.mediaPicking
+                          || controller.recognitionStatus ==
+                              RecognitionStatus.processing
                           ? null
                           : controller.pickVideo,
                       icon: controller.mediaPicking
@@ -4267,46 +4408,22 @@ class RecognitionPage extends StatelessWidget {
                           controller.recognitionStatus ==
                               RecognitionStatus.ready
                           ? '开始分析'
+                          : controller.recognitionStatus ==
+                                RecognitionStatus.error
+                          ? '重新分析'
                           : '查看状态',
                       icon: Icons.analytics_outlined,
                       onPressed:
                           controller.recognitionStatus ==
-                              RecognitionStatus.ready
+                                  RecognitionStatus.ready ||
+                              controller.recognitionStatus ==
+                                  RecognitionStatus.error
                           ? controller.startRecognition
                           : null,
                     ),
                   ),
                 ],
               ),
-              if (controller.selectedMediaName != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 9),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.video_file_outlined,
-                        size: 17,
-                        color: cobalt,
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          '${controller.selectedMediaName} · ${_formatBytes(controller.selectedMediaBytes)}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: secondaryInk,
-                          ),
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: controller.resetRecognition,
-                        child: const Text('清除'),
-                      ),
-                    ],
-                  ),
-                ),
               if (controller.mediaError != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
@@ -4351,6 +4468,541 @@ class RecognitionPage extends StatelessWidget {
       ),
     ],
   );
+}
+
+class _RecognitionFieldLabel extends StatelessWidget {
+  const _RecognitionFieldLabel(this.label);
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(top: 14, bottom: 8),
+    child: Text(
+      label,
+      style: const TextStyle(
+        color: secondaryInk,
+        fontSize: 12,
+        fontWeight: FontWeight.w700,
+      ),
+    ),
+  );
+}
+
+class _SelectedRecognitionVideo extends StatefulWidget {
+  const _SelectedRecognitionVideo({
+    required this.path,
+    required this.name,
+    required this.sizeLabel,
+    required this.enabled,
+    required this.onClear,
+  });
+
+  final String path;
+  final String name;
+  final String sizeLabel;
+  final bool enabled;
+  final VoidCallback onClear;
+
+  @override
+  State<_SelectedRecognitionVideo> createState() =>
+      _SelectedRecognitionVideoState();
+}
+
+class _SelectedRecognitionVideoState
+    extends State<_SelectedRecognitionVideo> {
+  VideoPlayerController? _video;
+  Object? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _openVideo();
+  }
+
+  @override
+  void didUpdateWidget(covariant _SelectedRecognitionVideo oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.path != widget.path) {
+      _video?.dispose();
+      _video = null;
+      _error = null;
+      _openVideo();
+    }
+  }
+
+  Future<void> _openVideo() async {
+    try {
+      final controller = VideoPlayerController.file(File(widget.path));
+      await controller.initialize();
+      await controller.setLooping(true);
+      if (!mounted) {
+        await controller.dispose();
+        return;
+      }
+      setState(() => _video = controller);
+    } catch (error) {
+      if (mounted) setState(() => _error = error);
+    }
+  }
+
+  void _togglePlayback() {
+    final video = _video;
+    if (video == null || !video.value.isInitialized) return;
+    setState(() {
+      if (video.value.isPlaying) {
+        video.pause();
+      } else {
+        video.play();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _video?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final video = _video;
+    final initialized = video?.value.isInitialized == true;
+    final readyVideo = initialized ? video : null;
+    final aspectRatio = readyVideo != null && readyVideo.value.aspectRatio > 0
+        ? readyVideo.value.aspectRatio
+        : 16 / 9;
+    return Container(
+      key: const Key('recognition-video-preview'),
+      decoration: BoxDecoration(
+        color: const Color(0xFF211A17),
+        borderRadius: BorderRadius.circular(17),
+        border: Border.all(color: hairline),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          AspectRatio(
+            aspectRatio: aspectRatio,
+            child: InkWell(
+              onTap: initialized ? _togglePlayback : null,
+              child: Stack(
+                fit: StackFit.expand,
+                alignment: Alignment.center,
+                children: [
+                  if (readyVideo != null)
+                    VideoPlayer(readyVideo)
+                  else
+                    const ColoredBox(color: Color(0xFF211A17)),
+                  if (!initialized && _error == null)
+                    const Center(
+                      child: CircularProgressIndicator(color: Colors.white),
+                    ),
+                  if (_error != null)
+                    const Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.video_file_outlined,
+                            color: Colors.white,
+                            size: 34,
+                          ),
+                          SizedBox(height: 6),
+                          Text(
+                            '暂时无法生成本地预览',
+                            style: TextStyle(color: Colors.white),
+                          ),
+                        ],
+                      ),
+                    ),
+                  if (readyVideo != null && !readyVideo.value.isPlaying)
+                    Center(
+                      child: Container(
+                        width: 54,
+                        height: 54,
+                        decoration: const BoxDecoration(
+                          color: Color(0xE6D95718),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.play_arrow_rounded,
+                          color: Colors.white,
+                          size: 34,
+                        ),
+                      ),
+                    ),
+                  if (readyVideo != null && readyVideo.value.isPlaying)
+                    const Positioned(
+                      right: 10,
+                      bottom: 10,
+                      child: Icon(
+                        Icons.pause_circle_filled_rounded,
+                        color: Colors.white,
+                        size: 28,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          Container(
+            color: Colors.white,
+            padding: const EdgeInsets.fromLTRB(12, 8, 5, 8),
+            child: Row(
+              children: [
+                const Icon(Icons.movie_outlined, size: 18, color: primary),
+                const SizedBox(width: 7),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      Text(
+                        '${widget.sizeLabel} · 点击画面播放',
+                        style: const TextStyle(fontSize: 10, color: quiet),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  tooltip: '清除视频',
+                  onPressed: widget.enabled ? widget.onClear : null,
+                  icon: const Icon(Icons.close_rounded, size: 20),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RecognitionProcessingPanel extends StatefulWidget {
+  const _RecognitionProcessingPanel({required this.controller});
+  final AppController controller;
+
+  @override
+  State<_RecognitionProcessingPanel> createState() =>
+      _RecognitionProcessingPanelState();
+}
+
+class _RecognitionProcessingPanelState extends State<_RecognitionProcessingPanel>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulse;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulse = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+      lowerBound: .82,
+      upperBound: 1,
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = widget.controller;
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final stage = controller.recognitionStage;
+    final elapsed = controller.recognitionElapsedSeconds;
+    final time =
+        '${(elapsed ~/ 60).toString().padLeft(2, '0')}:${(elapsed % 60).toString().padLeft(2, '0')}';
+    return Container(
+      key: const Key('recognition-processing-panel'),
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFEEE3),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFF4C4A7)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              ScaleTransition(
+                scale: reduceMotion
+                    ? const AlwaysStoppedAnimation<double>(1)
+                    : _pulse,
+                child: SizedBox(
+                  width: 44,
+                  height: 44,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      const CircularProgressIndicator(
+                        strokeWidth: 3,
+                        color: primary,
+                        backgroundColor: Color(0xFFF7CBB2),
+                      ),
+                      Icon(_recognitionStageIcon(stage), color: primary, size: 20),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 11),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _recognitionStageTitle(stage),
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '已等待 $time · 可以暂时离开此页',
+                      style: const TextStyle(fontSize: 11, color: secondaryInk),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              _RecognitionStageChip(
+                label: '上传',
+                done: stage.index > RecognitionStage.uploading.index,
+                active: stage == RecognitionStage.preparing ||
+                    stage == RecognitionStage.uploading,
+              ),
+              const SizedBox(width: 6),
+              _RecognitionStageChip(
+                label: '排队',
+                done: stage.index > RecognitionStage.queued.index,
+                active: stage == RecognitionStage.queued,
+              ),
+              const SizedBox(width: 6),
+              _RecognitionStageChip(
+                label: '分析',
+                done: false,
+                active: stage == RecognitionStage.analyzing,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (stage == RecognitionStage.uploading)
+            LinearProgressIndicator(
+              value: controller.recognitionProgress,
+              minHeight: 7,
+              borderRadius: BorderRadius.circular(7),
+            )
+          else
+            const LinearProgressIndicator(
+              minHeight: 7,
+              borderRadius: BorderRadius.all(Radius.circular(7)),
+            ),
+          const SizedBox(height: 8),
+          Text(
+            _recognitionStageDetail(stage),
+            style: const TextStyle(fontSize: 11, height: 1.45, color: secondaryInk),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RecognitionStageChip extends StatelessWidget {
+  const _RecognitionStageChip({
+    required this.label,
+    required this.done,
+    required this.active,
+  });
+  final String label;
+  final bool done;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) => Expanded(
+    child: AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      padding: const EdgeInsets.symmetric(vertical: 7),
+      decoration: BoxDecoration(
+        color: done
+            ? successContainer
+            : active
+            ? Colors.white
+            : const Color(0xFFF3E8E1),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: active ? primary : Colors.transparent),
+      ),
+      child: Text(
+        '${done ? '✓ ' : ''}$label',
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          fontSize: 11,
+          color: done ? success : active ? primary : quiet,
+          fontWeight: done || active ? FontWeight.w800 : FontWeight.w600,
+        ),
+      ),
+    ),
+  );
+}
+
+String _recognitionStageTitle(RecognitionStage stage) => switch (stage) {
+  RecognitionStage.preparing => '正在创建识别任务',
+  RecognitionStage.uploading => '正在上传视频',
+  RecognitionStage.queued => '视频已上传，等待服务器处理',
+  RecognitionStage.analyzing => '正在分析动作轨迹',
+  RecognitionStage.idle => '正在准备',
+};
+
+String _recognitionStageDetail(RecognitionStage stage) => switch (stage) {
+  RecognitionStage.preparing => '正在检查登录状态和识别额度。',
+  RecognitionStage.uploading => '请保持网络连接，上传完成后会自动进入处理队列。',
+  RecognitionStage.queued => 'CPU Worker 正在领取任务，请勿重复提交。',
+  RecognitionStage.analyzing => '正在逐帧提取骨骼关键点，短视频通常需要约 1 分钟。',
+  RecognitionStage.idle => '正在连接识别服务。',
+};
+
+IconData _recognitionStageIcon(RecognitionStage stage) => switch (stage) {
+  RecognitionStage.preparing => Icons.pending_actions_outlined,
+  RecognitionStage.uploading => Icons.cloud_upload_outlined,
+  RecognitionStage.queued => Icons.hourglass_top_rounded,
+  RecognitionStage.analyzing => Icons.accessibility_new_rounded,
+  RecognitionStage.idle => Icons.sync_rounded,
+};
+
+class _RecognitionExerciseChoice extends StatelessWidget {
+  const _RecognitionExerciseChoice({
+    required this.controller,
+    required this.capability,
+  });
+
+  final AppController controller;
+  final RecognitionCapability capability;
+
+  @override
+  Widget build(BuildContext context) {
+    final exercise = findExercise(capability.exerciseId);
+    final selected = controller.recognitionExerciseId == capability.exerciseId;
+    return Material(
+      color: selected ? primaryContainer : Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(15),
+        side: BorderSide(
+          color: selected ? primary : hairline,
+          width: selected ? 1.7 : 1,
+        ),
+      ),
+      child: InkWell(
+        key: Key('recognition-exercise-${capability.exerciseId}'),
+        borderRadius: BorderRadius.circular(15),
+        onTap: () =>
+            controller.selectRecognitionExercise(capability.exerciseId),
+        child: Padding(
+          padding: const EdgeInsets.all(11),
+          child: Row(
+            children: [
+              _ExerciseThumb(exerciseId: capability.exerciseId, size: 38),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      controller.displayExerciseName(exercise),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: selected ? primary : ink,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${capability.cameras.length} 个推荐机位',
+                      style: const TextStyle(fontSize: 10, color: quiet),
+                    ),
+                  ],
+                ),
+              ),
+              if (selected)
+                const Icon(Icons.check_circle, size: 18, color: primary),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RecognitionCameraChoice extends StatelessWidget {
+  const _RecognitionCameraChoice({
+    required this.controller,
+    required this.camera,
+  });
+
+  final AppController controller;
+  final RecognitionCameraOption camera;
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = controller.recognitionCamera == camera.id;
+    final icon = switch (camera.id) {
+      'front' => Icons.person_outline,
+      'front_45' => Icons.threesixty,
+      _ => Icons.view_sidebar_outlined,
+    };
+    return Material(
+      color: selected ? primaryContainer : Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(
+          color: selected ? primary : hairline,
+          width: selected ? 1.7 : 1,
+        ),
+      ),
+      child: InkWell(
+        key: Key('recognition-camera-${camera.id}'),
+        borderRadius: BorderRadius.circular(14),
+        onTap: () => controller.selectRecognitionCamera(camera.id),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 12),
+          child: Column(
+            children: [
+              Icon(icon, color: selected ? primary : secondaryInk, size: 21),
+              const SizedBox(height: 5),
+              Text(
+                camera.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                  color: selected ? primary : secondaryInk,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _RecognitionReport extends StatelessWidget {
@@ -4403,6 +5055,13 @@ class _RecognitionReport extends StatelessWidget {
               style: const TextStyle(fontSize: 12, color: secondaryInk),
             ),
           ),
+        if (result.overlayUrl != null) ...[
+          const SizedBox(height: 10),
+          _NetworkRecognitionVideo(
+            url: result.overlayUrl!,
+            headers: result.mediaHeaders,
+          ),
+        ],
         if (result.status == RecognitionStatus.complete ||
             result.status == RecognitionStatus.lowConfidence)
           Align(
@@ -4418,6 +5077,128 @@ class _RecognitionReport extends StatelessWidget {
       ],
     ),
   );
+}
+
+class _NetworkRecognitionVideo extends StatefulWidget {
+  const _NetworkRecognitionVideo({required this.url, required this.headers});
+  final String url;
+  final Map<String, String> headers;
+
+  @override
+  State<_NetworkRecognitionVideo> createState() =>
+      _NetworkRecognitionVideoState();
+}
+
+class _NetworkRecognitionVideoState extends State<_NetworkRecognitionVideo> {
+  VideoPlayerController? _video;
+  Object? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _initialize();
+  }
+
+  Future<void> _initialize() async {
+    try {
+      final video = VideoPlayerController.networkUrl(
+        Uri.parse(widget.url),
+        httpHeaders: widget.headers,
+      );
+      await video.initialize();
+      await video.setLooping(true);
+      if (!mounted) {
+        await video.dispose();
+        return;
+      }
+      setState(() => _video = video);
+    } catch (error) {
+      if (mounted) setState(() => _error = error);
+    }
+  }
+
+  @override
+  void dispose() {
+    _video?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final video = _video;
+    return Container(
+      key: const Key('recognition-overlay-video'),
+      decoration: BoxDecoration(
+        color: const Color(0xFF211A17),
+        borderRadius: BorderRadius.circular(13),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: AspectRatio(
+        aspectRatio: video?.value.isInitialized == true &&
+                video!.value.aspectRatio > 0
+            ? video.value.aspectRatio
+            : 16 / 9,
+        child: InkWell(
+          onTap: video?.value.isInitialized == true
+              ? () => setState(() {
+                  video!.value.isPlaying ? video.pause() : video.play();
+                })
+              : null,
+          child: Stack(
+            fit: StackFit.expand,
+            alignment: Alignment.center,
+            children: [
+              if (video?.value.isInitialized == true)
+                VideoPlayer(video!)
+              else
+                const ColoredBox(color: Color(0xFF211A17)),
+              if (video == null && _error == null)
+                const Center(
+                  child: CircularProgressIndicator(color: Colors.white),
+                ),
+              if (_error != null)
+                const Center(
+                  child: Text(
+                    '标注视频加载失败，可稍后重试',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              if (video?.value.isInitialized == true &&
+                  video?.value.isPlaying != true)
+                const Center(
+                  child: CircleAvatar(
+                    radius: 25,
+                    backgroundColor: Color(0xE6D95718),
+                    child: Icon(
+                      Icons.play_arrow_rounded,
+                      color: Colors.white,
+                      size: 32,
+                    ),
+                  ),
+                ),
+              const Positioned(
+                left: 9,
+                bottom: 8,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Color(0xB3000000),
+                    borderRadius: BorderRadius.all(Radius.circular(8)),
+                  ),
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                    child: Text(
+                      '骨骼标注结果 · 点击播放',
+                      style: TextStyle(color: Colors.white, fontSize: 10),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 String _recognitionLabel(RecognitionStatus status) => switch (status) {
@@ -4540,6 +5321,28 @@ class _AiPageState extends State<AiPage> {
                         ),
                       ),
                     ],
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.tonalIcon(
+                    key: const Key('ai-review-today-workout'),
+                    onPressed:
+                        controller.aiTyping ||
+                            (!controller.workoutStarted &&
+                                !controller.workoutDraft &&
+                                controller.history.isEmpty)
+                        ? null
+                        : () {
+                            followLatest = true;
+                            controller.sendTodayWorkoutForReview();
+                            _scrollToLatest();
+                          },
+                    icon: const Icon(Icons.auto_awesome, size: 18),
+                    label: const Text('把今天的训练和备注发给 AI 评价'),
                   ),
                 ),
               ),
@@ -7360,6 +8163,8 @@ void _showExercisePicker(
   BuildContext context,
   AppController controller, {
   WorkoutExercise? replacing,
+  Routine? routine,
+  VoidCallback? onChanged,
 }) {
   showModalBottomSheet<void>(
     context: context,
@@ -7367,15 +8172,27 @@ void _showExercisePicker(
     useSafeArea: true,
     showDragHandle: true,
     builder: (context) => SafeArea(
-      child: _ExercisePickerSheet(controller: controller, replacing: replacing),
+      child: _ExercisePickerSheet(
+        controller: controller,
+        replacing: replacing,
+        routine: routine,
+        onChanged: onChanged,
+      ),
     ),
   );
 }
 
 class _ExercisePickerSheet extends StatefulWidget {
-  const _ExercisePickerSheet({required this.controller, this.replacing});
+  const _ExercisePickerSheet({
+    required this.controller,
+    this.replacing,
+    this.routine,
+    this.onChanged,
+  });
   final AppController controller;
   final WorkoutExercise? replacing;
+  final Routine? routine;
+  final VoidCallback? onChanged;
 
   @override
   State<_ExercisePickerSheet> createState() => _ExercisePickerSheetState();
@@ -7384,6 +8201,8 @@ class _ExercisePickerSheet extends StatefulWidget {
 class _ExercisePickerSheetState extends State<_ExercisePickerSheet> {
   late final TextEditingController query;
   String muscle = '全部';
+  String equipment = '全部';
+  final Set<String> selectedIds = <String>{};
 
   @override
   void initState() {
@@ -7408,16 +8227,44 @@ class _ExercisePickerSheetState extends State<_ExercisePickerSheet> {
       final muscleMatch =
           muscle == '全部' ||
           widget.controller.muscleGroupFor(item.muscle) == muscle;
-      return queryMatch && muscleMatch;
+      final equipmentMatch = equipment == '全部' || item.equipment == equipment;
+      return queryMatch && muscleMatch && equipmentMatch;
     }).toList();
   }
 
   void choose(Exercise exercise) {
+    FocusManager.instance.primaryFocus?.unfocus();
     final replacing = widget.replacing;
-    if (replacing == null) {
-      widget.controller.addExercise(exercise.id);
-    } else {
+    if (replacing != null) {
       widget.controller.replaceExercise(replacing.id, exercise.id);
+      Navigator.pop(context);
+      return;
+    }
+    setState(() {
+      if (!selectedIds.add(exercise.id)) selectedIds.remove(exercise.id);
+    });
+  }
+
+  void addSelected() {
+    if (selectedIds.isEmpty) return;
+    final routine = widget.routine;
+    if (routine == null) {
+      widget.controller.addExercises(selectedIds);
+    } else {
+      for (final exerciseId in selectedIds) {
+        if (routine.exercises.any((item) => item.exerciseId == exerciseId)) {
+          continue;
+        }
+        routine.exercises.add(
+          widget.controller.createBlankWorkoutExercise(
+            exerciseId,
+            'routine-${DateTime.now().microsecondsSinceEpoch}-$exerciseId',
+          ),
+        );
+      }
+      routine.updatedAt = DateTime.now();
+      widget.controller.refresh();
+      widget.onChanged?.call();
     }
     Navigator.pop(context);
   }
@@ -7435,6 +8282,17 @@ class _ExercisePickerSheetState extends State<_ExercisePickerSheet> {
       '手臂': '手臂',
       '核心': '核心',
     };
+    final equipments =
+        <String>{
+          '全部',
+          for (final item in widget.controller.allExercises) item.equipment,
+        }.toList()..sort(
+          (a, b) => a == '全部'
+              ? -1
+              : b == '全部'
+              ? 1
+              : a.compareTo(b),
+        );
     return SizedBox(
       key: const Key('exercise-picker'),
       height: MediaQuery.sizeOf(context).height * .84,
@@ -7511,6 +8369,29 @@ class _ExercisePickerSheetState extends State<_ExercisePickerSheet> {
                 },
               ),
             ),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 36,
+              child: ListView.separated(
+                key: const Key('exercise-picker-equipment-strip'),
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 1),
+                itemCount: equipments.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 7),
+                itemBuilder: (context, index) {
+                  final value = equipments[index];
+                  return FilterChip(
+                    key: Key('exercise-picker-equipment-$value'),
+                    label: Text(value == '全部' ? '全部器械' : value),
+                    selected: equipment == value,
+                    showCheckmark: false,
+                    visualDensity: VisualDensity.compact,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    onSelected: (_) => setState(() => equipment = value),
+                  );
+                },
+              ),
+            ),
             const SizedBox(height: 9),
             Text(
               muscle == '全部'
@@ -7557,15 +8438,25 @@ class _ExercisePickerSheetState extends State<_ExercisePickerSheet> {
                           trailing: IconButton.filled(
                             key: Key('exercise-picker-add-${exercise.id}'),
                             style: IconButton.styleFrom(
-                              backgroundColor: cobalt,
-                              foregroundColor: Colors.white,
+                              backgroundColor: selectedIds.contains(exercise.id)
+                                  ? primary
+                                  : primaryContainer,
+                              foregroundColor: selectedIds.contains(exercise.id)
+                                  ? Colors.white
+                                  : primary,
                             ),
-                            tooltip: widget.replacing == null ? '添加动作' : '替换动作',
+                            tooltip: widget.replacing != null
+                                ? '替换动作'
+                                : selectedIds.contains(exercise.id)
+                                ? '取消选择'
+                                : '选择动作',
                             onPressed: () => choose(exercise),
                             icon: Icon(
-                              widget.replacing == null
-                                  ? Icons.add
-                                  : Icons.swap_horiz,
+                              widget.replacing != null
+                                  ? Icons.swap_horiz
+                                  : selectedIds.contains(exercise.id)
+                                  ? Icons.check
+                                  : Icons.add,
                               size: 18,
                             ),
                           ),
@@ -7574,6 +8465,22 @@ class _ExercisePickerSheetState extends State<_ExercisePickerSheet> {
                       },
                     ),
             ),
+            if (widget.replacing == null) ...[
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  key: const Key('exercise-picker-add-selected'),
+                  onPressed: selectedIds.isEmpty ? null : addSelected,
+                  icon: const Icon(Icons.playlist_add_check),
+                  label: Text(
+                    selectedIds.isEmpty
+                        ? '选择动作'
+                        : '添加 ${selectedIds.length} 个动作',
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -7837,15 +8744,28 @@ class _WorkoutCelebration extends StatelessWidget {
     return '${(completed * 100 / total).round()}%';
   }
 
+  String _primaryMuscles() {
+    final counts = <String, int>{};
+    for (final exerciseId in record.exerciseIds) {
+      final group = controller.muscleGroupFor(findExercise(exerciseId).muscle);
+      counts[group] = (counts[group] ?? 0) + 1;
+    }
+    final sorted = counts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    return sorted.isEmpty
+        ? '—'
+        : sorted.take(2).map((item) => item.key).join(' · ');
+  }
+
   @override
   Widget build(BuildContext context) {
     final reducedMotion = MediaQuery.disableAnimationsOf(context);
-    final exerciseCount = record.exerciseIds.toSet().length;
     final metrics = <(String, String, IconData)>[
       ('训练时长', _duration(), Icons.timer_outlined),
       ('训练容量', _volume(), Icons.fitness_center_outlined),
       ('有效组数', '${record.effectiveSets}', Icons.check_circle_outline),
-      ('动作数量', '$exerciseCount', Icons.category_outlined),
+      ('主要肌群', _primaryMuscles(), Icons.accessibility_new),
+      ('本次 PR', '${record.prs.length}', Icons.emoji_events_outlined),
       ('完成率', _completionRate(), Icons.task_alt_outlined),
     ];
     final hero = reducedMotion
@@ -8118,7 +9038,7 @@ void _startPlanSession(
   final session = plan.sessions.first;
   controller.startWorkout(
     source: session.exerciseIds
-        .map((id) => controller.createWorkoutExercise(id, 'plan-$id'))
+        .map((id) => controller.createBlankWorkoutExercise(id, 'plan-$id'))
         .toList(),
     name: session.name,
   );
@@ -8648,57 +9568,12 @@ void _showRoutinePicker(
   AppController controller,
   Routine routine, {
   VoidCallback? onChanged,
-}) {
-  showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    builder: (context) => SafeArea(
-      child: SizedBox(
-        height: MediaQuery.sizeOf(context).height * .76,
-        child: Column(
-          children: [
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Text(
-                '添加动作到模板',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
-              ),
-            ),
-            Expanded(
-              child: ListView(
-                children: [
-                  for (final exercise in controller.allExercises)
-                    ListTile(
-                      leading: _ExerciseThumb(
-                        exerciseId: exercise.id,
-                        size: 38,
-                      ),
-                      title: Text(controller.displayExerciseName(exercise)),
-                      subtitle: Text(
-                        '${exercise.muscle} · ${exercise.equipment}',
-                      ),
-                      onTap: () {
-                        routine.exercises.add(
-                          controller.createWorkoutExercise(
-                            exercise.id,
-                            'routine-${DateTime.now().microsecondsSinceEpoch}',
-                          ),
-                        );
-                        routine.updatedAt = DateTime.now();
-                        controller.refresh();
-                        onChanged?.call();
-                        Navigator.pop(context);
-                      },
-                    ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
-}
+}) => _showExercisePicker(
+  context,
+  controller,
+  routine: routine,
+  onChanged: onChanged,
+);
 
 void _showRoutineEditor(
   BuildContext context,
@@ -8936,13 +9811,12 @@ class _RoutineExerciseEditor extends StatelessWidget {
             ],
           ),
           TextFormField(
-            initialValue: '${exercise.restSeconds}',
+            initialValue: _editableCount(exercise.restSeconds),
             keyboardType: TextInputType.number,
             onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
             decoration: const InputDecoration(labelText: '动作休息（秒）'),
             onChanged: (value) {
-              exercise.restSeconds =
-                  int.tryParse(value) ?? exercise.restSeconds;
+              exercise.restSeconds = int.tryParse(value) ?? 0;
             },
           ),
           const SizedBox(height: 6),
@@ -8961,15 +9835,16 @@ class _RoutineExerciseEditor extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: TextButton.icon(
               onPressed: () {
-                final last = exercise.sets.isEmpty ? null : exercise.sets.last;
                 exercise.sets.add(
                   WorkoutSet(
                     id: 'routine-set-${DateTime.now().microsecondsSinceEpoch}',
-                    type: last?.type ?? 'work',
-                    weight: last?.weight ?? 0,
-                    plannedWeight: last?.plannedWeight ?? last?.weight,
-                    reps: last?.reps ?? 8,
-                    restSeconds: exercise.restSeconds,
+                    type: 'work',
+                    weight: 0,
+                    plannedWeight: null,
+                    reps: 0,
+                    targetMin: 0,
+                    targetMax: 0,
+                    restSeconds: 0,
                   ),
                 );
                 controller.refresh();
@@ -9038,7 +9913,7 @@ class _RoutineSetEditorBase extends StatelessWidget {
             SizedBox(
               width: 68,
               child: TextFormField(
-                initialValue: '${set.weight}',
+                initialValue: _editableWeight(set.weight),
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
@@ -9053,14 +9928,14 @@ class _RoutineSetEditorBase extends StatelessWidget {
                   ),
                 ),
                 onChanged: (value) {
-                  set.weight = double.tryParse(value) ?? set.weight;
+                  set.weight = double.tryParse(value) ?? 0;
                 },
               ),
             ),
             SizedBox(
               width: 62,
               child: TextFormField(
-                initialValue: '${set.reps}',
+                initialValue: _editableCount(set.reps),
                 keyboardType: TextInputType.number,
                 onTapOutside: (_) =>
                     FocusManager.instance.primaryFocus?.unfocus(),
@@ -9072,7 +9947,7 @@ class _RoutineSetEditorBase extends StatelessWidget {
                   ),
                 ),
                 onChanged: (value) {
-                  set.reps = int.tryParse(value) ?? set.reps;
+                  set.reps = int.tryParse(value) ?? 0;
                 },
               ),
             ),
@@ -9154,7 +10029,9 @@ class _RoutineSetEditor extends _RoutineSetEditorBase {
             children: [
               Expanded(
                 child: TextFormField(
-                  initialValue: '${set.plannedWeight ?? set.weight}',
+                  initialValue: set.plannedWeight == null
+                      ? _editableWeight(set.weight)
+                      : _editableWeight(set.plannedWeight!),
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
@@ -9170,8 +10047,13 @@ class _RoutineSetEditor extends _RoutineSetEditorBase {
                   ),
                   onChanged: (value) {
                     final weight = double.tryParse(value);
-                    if (weight == null) return;
-                    controller.updatePlannedWeight(set, weight);
+                    if (weight == null) {
+                      set.plannedWeight = null;
+                      set.weight = 0;
+                      controller.refresh();
+                    } else {
+                      controller.updatePlannedWeight(set, weight);
+                    }
                   },
                 ),
               ),
@@ -9179,7 +10061,7 @@ class _RoutineSetEditor extends _RoutineSetEditorBase {
               SizedBox(
                 width: 84,
                 child: TextFormField(
-                  initialValue: '${set.reps}',
+                  initialValue: _editableCount(set.reps),
                   keyboardType: TextInputType.number,
                   onTapOutside: (_) =>
                       FocusManager.instance.primaryFocus?.unfocus(),
@@ -9191,9 +10073,7 @@ class _RoutineSetEditor extends _RoutineSetEditorBase {
                     ),
                   ),
                   onChanged: (value) {
-                    final reps = int.tryParse(value);
-                    if (reps == null) return;
-                    set.reps = reps;
+                    set.reps = int.tryParse(value) ?? 0;
                     controller.refresh();
                   },
                 ),

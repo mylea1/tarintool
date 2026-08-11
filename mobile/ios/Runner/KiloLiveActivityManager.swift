@@ -14,7 +14,7 @@ final class KiloLiveActivityManager {
 
     private init() {}
 
-    func startWorkout(name: String, elapsedSeconds: Int) async {
+    func startWorkout(name: String, elapsedSeconds: Int, exercise: String, completedSets: Int, totalSets: Int) async {
         guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
         let now = Date()
         var state = currentState ?? KiloLiveActivityAttributes.ContentState(
@@ -24,12 +24,17 @@ final class KiloLiveActivityManager {
             restEndsAt: nil,
             pausedElapsedSeconds: max(0, elapsedSeconds),
             pausedRestSeconds: 0,
-            isPaused: false
+            isPaused: false,
+            completedSets: max(0, completedSets),
+            totalSets: max(0, totalSets)
         )
         state.workoutStartedAt = now.addingTimeInterval(TimeInterval(-max(0, elapsedSeconds)))
         state.pausedElapsedSeconds = max(0, elapsedSeconds)
         state.pausedRestSeconds = 0
         state.isPaused = false
+        state.exerciseName = exercise
+        state.completedSets = max(0, completedSets)
+        state.totalSets = max(0, totalSets)
         currentState = state
 
         if let activity = activeActivity {
@@ -46,6 +51,15 @@ final class KiloLiveActivityManager {
             // Flutter remains authoritative when Live Activities are disabled
             // or the extension is not available on the current device.
         }
+    }
+
+    func updateWorkoutState(exercise: String, completedSets: Int, totalSets: Int) async {
+        guard let activity = activeActivity, var state = currentState else { return }
+        state.exerciseName = exercise
+        state.completedSets = max(0, completedSets)
+        state.totalSets = max(0, totalSets)
+        currentState = state
+        await activity.update(using: state)
     }
 
     func updateRest(exercise: String, seconds: Int) async {

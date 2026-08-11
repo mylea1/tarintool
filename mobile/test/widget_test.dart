@@ -159,12 +159,17 @@ void main() {
     await tester.tap(find.byKey(const Key('first-action-button')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('exercise-picker')), findsOneWidget);
-    await tester.scrollUntilVisible(
-      find.byKey(const Key('exercise-picker-item-bench_press')),
-      220,
-      scrollable: find.byType(Scrollable).last,
+    await tester.enterText(
+      find.byKey(const Key('exercise-picker-search')),
+      '杠铃卧推',
     );
+    await tester.pump();
     await tester.tap(find.byKey(const Key('exercise-picker-item-bench_press')));
+    await tester.pump();
+    await tester.ensureVisible(
+      find.byKey(const Key('exercise-picker-add-selected')),
+    );
+    await tester.tap(find.byKey(const Key('exercise-picker-add-selected')));
     await tester.pumpAndSettle();
     expect(controller.workout, hasLength(1));
     expect(controller.workout.single.sets, isEmpty);
@@ -296,7 +301,62 @@ void main() {
   });
 
   testWidgets(
-    'exercise picker searches and filters without changing library state',
+    'recognition choices use backend capability cards at compact width',
+    (tester) async {
+      tester.view.physicalSize = const Size(320, 812);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+      final controller = AppController();
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(KiloApp(initialController: controller));
+      await _openRoute(tester, 'AI');
+      await tester.tap(find.byKey(const Key('ai-recognition')));
+      await tester.pump();
+
+      expect(find.byType(DropdownButton<String>), findsNothing);
+      for (final capability in fallbackRecognitionCapabilities) {
+        expect(
+          find.byKey(Key('recognition-exercise-${capability.exerciseId}')),
+          findsOneWidget,
+        );
+      }
+      expect(
+        find.byKey(const Key('recognition-camera-side')),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('recognition keeps video visible and exposes live processing stages', (
+    tester,
+  ) async {
+    final controller = AppController();
+    addTearDown(controller.dispose);
+    controller.selectedMediaPath = 'missing-test-video.mp4';
+    controller.selectedMediaName = '训练视频.mp4';
+    controller.selectedMediaBytes = 3 * 1024 * 1024;
+    controller.recognitionStatus = RecognitionStatus.processing;
+    controller.recognitionStage = RecognitionStage.analyzing;
+    controller.recognitionElapsedSeconds = 72;
+    await tester.pumpWidget(KiloApp(initialController: controller));
+    await _openRoute(tester, 'AI');
+    await tester.tap(find.byKey(const Key('ai-recognition')));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.byKey(const Key('recognition-video-preview')), findsOneWidget);
+    expect(find.byKey(const Key('recognition-processing-panel')), findsOneWidget);
+    expect(find.text('正在分析动作轨迹'), findsWidgets);
+    expect(find.textContaining('01:12'), findsOneWidget);
+    expect(find.byKey(const Key('recognition-overlay-switch')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'exercise picker filters and adds multiple actions without changing library state',
     (tester) async {
       final controller = AppController();
       addTearDown(() {
@@ -335,8 +395,24 @@ void main() {
       expect(find.text('没有匹配动作，试试清空搜索或切换部位。'), findsNothing);
       expect(controller.search, originalSearch);
       expect(controller.muscleFilter, originalMuscle);
-      await tester.tap(find.byTooltip('关闭动作选择'));
+      await tester.tap(
+        find.byKey(const Key('exercise-picker-item-bench_press')),
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('exercise-picker-filter-全部')));
+      await tester.enterText(
+        find.byKey(const Key('exercise-picker-search')),
+        '高脚杯深蹲',
+      );
+      await tester.pump();
+      await tester.tap(
+        find.byKey(const Key('exercise-picker-item-goblet_squat')),
+      );
+      await tester.pump();
+      expect(find.text('添加 2 个动作'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('exercise-picker-add-selected')));
       await tester.pumpAndSettle();
+      expect(controller.workout, hasLength(2));
       controller.finishWorkout();
       await tester.pump();
     },
@@ -476,6 +552,11 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('exercise-picker-filter-腿')));
     await tester.pump();
+    await tester.scrollUntilVisible(
+      find.text('高脚杯深蹲'),
+      120,
+      scrollable: find.byType(Scrollable).last,
+    );
     expect(find.text('高脚杯深蹲'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.tap(find.byTooltip('关闭动作选择'));
