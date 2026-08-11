@@ -22,10 +22,12 @@ class MainActivity : FlutterActivity() {
     private var timerChannel: MethodChannel? = null
     private var skipReceiver: BroadcastReceiver? = null
     private var notificationPermissionRequested = false
+    private var pendingWorkoutOpen = false
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         registerRestSkippedReceiver()
+        pendingWorkoutOpen = intent?.getBooleanExtra(EXTRA_OPEN_WORKOUT, false) == true
 
         timerChannel = MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
@@ -33,6 +35,12 @@ class MainActivity : FlutterActivity() {
         ).also { channel ->
             channel.setMethodCallHandler { call, result ->
                 when (call.method) {
+                    "consumePendingWorkoutOpen" -> {
+                        val pending = pendingWorkoutOpen
+                        pendingWorkoutOpen = false
+                        result.success(pending)
+                    }
+
                     "startWorkout" -> {
                         val elapsedSeconds = call.argument<Number>("elapsedSeconds")
                             ?.toLong()
@@ -120,6 +128,19 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (!intent.getBooleanExtra(EXTRA_OPEN_WORKOUT, false)) return
+        val channel = timerChannel
+        if (channel == null) {
+            pendingWorkoutOpen = true
+        } else {
+            pendingWorkoutOpen = false
+            channel.invokeMethod("openWorkoutFromSystem", null)
+        }
+    }
+
     override fun onDestroy() {
         skipReceiver?.let { receiver ->
             runCatching { unregisterReceiver(receiver) }
@@ -194,6 +215,7 @@ class MainActivity : FlutterActivity() {
     }
 
     companion object {
+        const val EXTRA_OPEN_WORKOUT = "kilo.extra.OPEN_WORKOUT"
         private const val CHANNEL_NAME = "kilo.platform.timer"
         private const val NOTIFICATION_PERMISSION_REQUEST_CODE = 704
     }

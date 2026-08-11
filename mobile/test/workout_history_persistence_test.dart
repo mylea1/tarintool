@@ -27,6 +27,7 @@ void main() {
             id: 'exercise-1',
             exerciseId: 'bench_press',
             restSeconds: 90,
+            note: '肩胛收紧，窄握',
             supersetId: 'superset-1',
             sets: [
               WorkoutSet(
@@ -53,6 +54,7 @@ void main() {
       expect(restored.single.date, DateTime.utc(2026, 8, 10, 18, 30));
       expect(restored.single.volume, 4350.5);
       expect(restored.single.exercises.single.supersetId, 'superset-1');
+      expect(restored.single.exercises.single.note, '肩胛收紧，窄握');
       expect(restored.single.exercises.single.sets.single.plannedWeight, 70);
       expect(restored.single.exercises.single.sets.single.note, '组备注');
       expect(

@@ -75,6 +75,124 @@ class InMemoryWorkoutHistoryPersistence implements WorkoutHistoryPersistence {
   }
 }
 
+class ActiveWorkoutSnapshot {
+  const ActiveWorkoutSnapshot({
+    required this.name,
+    required this.note,
+    required this.freeWorkout,
+    required this.draft,
+    required this.timerStarted,
+    required this.paused,
+    required this.elapsedSeconds,
+    required this.startedAt,
+    required this.exercises,
+  });
+
+  final String name;
+  final String note;
+  final bool freeWorkout;
+  final bool draft;
+  final bool timerStarted;
+  final bool paused;
+  final int elapsedSeconds;
+  final DateTime? startedAt;
+  final List<WorkoutExercise> exercises;
+}
+
+abstract class ActiveWorkoutPersistence {
+  Future<ActiveWorkoutSnapshot?> read(String userId);
+
+  Future<void> write(String userId, ActiveWorkoutSnapshot? snapshot);
+}
+
+class SharedPreferencesActiveWorkoutPersistence
+    implements ActiveWorkoutPersistence {
+  static const storageKey = 'kilo.active-workout.v1';
+  SharedPreferences? _preferences;
+
+  Future<SharedPreferences> get _store async =>
+      _preferences ??= await SharedPreferences.getInstance();
+
+  @override
+  Future<ActiveWorkoutSnapshot?> read(String userId) async {
+    final raw = (await _store).getString(storageKey);
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      final root = jsonDecode(raw);
+      if (root is! Map || root['users'] is! Map) return null;
+      final value = (root['users'] as Map)[userId];
+      if (value is! Map) return null;
+      final map = Map<String, dynamic>.from(value);
+      return ActiveWorkoutSnapshot(
+        name: map['name']?.toString() ?? '自由训练',
+        note: map['note']?.toString() ?? '',
+        freeWorkout: map['freeWorkout'] == true,
+        draft: map['draft'] == true,
+        timerStarted: map['timerStarted'] == true,
+        paused: map['paused'] == true,
+        elapsedSeconds: _asInt(map['elapsedSeconds']),
+        startedAt: DateTime.tryParse(map['startedAt']?.toString() ?? ''),
+        exercises: _asMapList(map['exercises']).map(_exerciseFromMap).toList(),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<void> write(String userId, ActiveWorkoutSnapshot? snapshot) async {
+    final preferences = await _store;
+    Map<String, dynamic> root = {'version': 1, 'users': <String, dynamic>{}};
+    final raw = preferences.getString(storageKey);
+    if (raw != null && raw.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(raw);
+        if (decoded is Map) root = Map<String, dynamic>.from(decoded);
+      } catch (_) {
+        // Replace only the damaged active-session entry.
+      }
+    }
+    final users = root['users'] is Map
+        ? Map<String, dynamic>.from(root['users'] as Map)
+        : <String, dynamic>{};
+    if (snapshot == null) {
+      users.remove(userId);
+    } else {
+      users[userId] = {
+        'name': snapshot.name,
+        'note': snapshot.note,
+        'freeWorkout': snapshot.freeWorkout,
+        'draft': snapshot.draft,
+        'timerStarted': snapshot.timerStarted,
+        'paused': snapshot.paused,
+        'elapsedSeconds': snapshot.elapsedSeconds,
+        'startedAt': snapshot.startedAt?.toIso8601String(),
+        'exercises': snapshot.exercises.map(_exerciseToMap).toList(),
+      };
+    }
+    root['version'] = 1;
+    root['users'] = users;
+    await preferences.setString(storageKey, jsonEncode(root));
+  }
+}
+
+class InMemoryActiveWorkoutPersistence implements ActiveWorkoutPersistence {
+  final Map<String, ActiveWorkoutSnapshot> _snapshots = {};
+
+  @override
+  Future<ActiveWorkoutSnapshot?> read(String userId) async =>
+      _snapshots[userId];
+
+  @override
+  Future<void> write(String userId, ActiveWorkoutSnapshot? snapshot) async {
+    if (snapshot == null) {
+      _snapshots.remove(userId);
+    } else {
+      _snapshots[userId] = snapshot;
+    }
+  }
+}
+
 Map<String, dynamic> _recordToMap(WorkoutRecord record) => {
   'id': record.id,
   'name': record.name,
@@ -107,6 +225,7 @@ Map<String, dynamic> _exerciseToMap(WorkoutExercise exercise) => {
   'id': exercise.id,
   'exerciseId': exercise.exerciseId,
   'restSeconds': exercise.restSeconds,
+  'note': exercise.note,
   'collapsed': exercise.collapsed,
   'supersetId': exercise.supersetId,
   'sets': exercise.sets.map(_setToMap).toList(),
@@ -116,6 +235,7 @@ WorkoutExercise _exerciseFromMap(Map<String, dynamic> map) => WorkoutExercise(
   id: map['id']?.toString() ?? '',
   exerciseId: map['exerciseId']?.toString() ?? '',
   restSeconds: _asInt(map['restSeconds'], fallback: 120),
+  note: map['note']?.toString() ?? '',
   collapsed: map['collapsed'] == true,
   supersetId: map['supersetId']?.toString(),
   sets: _asMapList(map['sets']).map(_setFromMap).toList(),

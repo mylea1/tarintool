@@ -20,16 +20,39 @@ enum ExerciseNameLanguage { chinese, english }
 class PlatformTimerBridge {
   static const _channel = MethodChannel('kilo.platform.timer');
 
-  static void setRestSkippedHandler(VoidCallback? handler) {
+  static void setSystemActionHandlers({
+    VoidCallback? onRestSkipped,
+    VoidCallback? onOpenWorkout,
+  }) {
     _channel.setMethodCallHandler(
-      handler == null
+      onRestSkipped == null && onOpenWorkout == null
           ? null
           : (call) async {
               if (call.method == 'restSkippedFromNotification') {
-                handler();
+                onRestSkipped?.call();
+              } else if (call.method == 'openWorkoutFromSystem') {
+                onOpenWorkout?.call();
               }
             },
     );
+    if (onOpenWorkout != null) {
+      unawaited(
+        _consumePendingWorkoutOpen().then((pending) {
+          if (pending) onOpenWorkout();
+        }),
+      );
+    }
+  }
+
+  static Future<bool> _consumePendingWorkoutOpen() async {
+    try {
+      return await _channel.invokeMethod<bool>('consumePendingWorkoutOpen') ??
+          false;
+    } on MissingPluginException {
+      return false;
+    } on PlatformException catch (_) {
+      return false;
+    }
   }
 
   static Future<void> start({
@@ -151,12 +174,19 @@ class AppController extends ChangeNotifier {
     this.recognitionApi,
     this.coachApi,
     WorkoutHistoryPersistence? workoutHistoryPersistence,
+    ActiveWorkoutPersistence? activeWorkoutPersistence,
   }) : accountService = accountService ?? AccountService(),
        workoutHistoryPersistence =
            workoutHistoryPersistence ??
-           SharedPreferencesWorkoutHistoryPersistence() {
+           SharedPreferencesWorkoutHistoryPersistence(),
+       activeWorkoutPersistence =
+           activeWorkoutPersistence ??
+           SharedPreferencesActiveWorkoutPersistence() {
     _seed();
-    PlatformTimerBridge.setRestSkippedHandler(skipRest);
+    PlatformTimerBridge.setSystemActionHandlers(
+      onRestSkipped: skipRest,
+      onOpenWorkout: _openWorkoutFromSystem,
+    );
     this.accountService.addListener(_handleAccountChanged);
     unawaited(loadRecognitionCapabilities());
   }
@@ -165,8 +195,11 @@ class AppController extends ChangeNotifier {
   final RecognitionApi? recognitionApi;
   final CoachApi? coachApi;
   final WorkoutHistoryPersistence workoutHistoryPersistence;
+  final ActiveWorkoutPersistence activeWorkoutPersistence;
   Future<void> _historyWriteChain = Future<void>.value();
+  Future<void> _activeWorkoutWriteChain = Future<void>.value();
   String? _loadedHistoryUserId;
+  bool _pendingSystemWorkoutOpen = false;
   HttpCoachApi? _defaultCoachApi;
   String? _defaultCoachApiBaseUrl;
   HttpRecognitionApi? _defaultRecognitionApi;
@@ -189,7 +222,10 @@ class AppController extends ChangeNotifier {
       identifier,
       password: password,
     );
-    if (result.isSuccess) unawaited(hydrateWorkoutHistory(force: true));
+    if (result.isSuccess) {
+      unawaited(hydrateWorkoutHistory(force: true));
+      unawaited(hydrateActiveWorkout());
+    }
     return result;
   }
 
@@ -226,6 +262,67 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> flushWorkoutHistoryPersistence() => _historyWriteChain;
+
+  Future<void> flushActiveWorkoutPersistence() => _activeWorkoutWriteChain;
+
+  Future<void> hydrateActiveWorkout() async {
+    final userId = currentUser?.id;
+    if (userId == null || userId.isEmpty || workoutStarted) return;
+    final snapshot = await activeWorkoutPersistence.read(userId);
+    if (snapshot == null || _disposed) return;
+    workout
+      ..clear()
+      ..addAll(snapshot.exercises.map((item) => item.copy()));
+    workoutName = snapshot.name;
+    workoutNote = snapshot.note;
+    freeWorkout = snapshot.freeWorkout;
+    workoutDraft = snapshot.draft;
+    workoutStarted = true;
+    workoutCompleted = false;
+    workoutTimerStarted = snapshot.timerStarted;
+    workoutPaused = snapshot.paused;
+    workoutElapsedSeconds = snapshot.elapsedSeconds;
+    workoutStartedAt = snapshot.timerStarted && !snapshot.paused
+        ? snapshot.startedAt ?? DateTime.now()
+        : null;
+    if (workoutTimerStarted && !workoutPaused) {
+      _workoutTicker?.cancel();
+      _workoutTicker = Timer.periodic(
+        const Duration(seconds: 1),
+        (_) => notifyListeners(),
+      );
+    }
+    if (_pendingSystemWorkoutOpen) {
+      _pendingSystemWorkoutOpen = false;
+      trainView = TrainView.workout;
+      liveWorkoutVisible = true;
+      page = PageId.train;
+    }
+    notifyListeners();
+  }
+
+  void persistActiveWorkout() {
+    final userId = currentUser?.id;
+    if (userId == null || userId.isEmpty) return;
+    final snapshot = workoutStarted
+        ? ActiveWorkoutSnapshot(
+            name: workoutName,
+            note: workoutNote,
+            freeWorkout: freeWorkout,
+            draft: workoutDraft,
+            timerStarted: workoutTimerStarted,
+            paused: workoutPaused,
+            elapsedSeconds: currentElapsed,
+            startedAt: workoutStartedAt,
+            exercises: workout.map((item) => item.copy()).toList(),
+          )
+        : null;
+    _activeWorkoutWriteChain = _activeWorkoutWriteChain
+        .then((_) => activeWorkoutPersistence.write(userId, snapshot))
+        .catchError((Object _) {
+          // A storage failure must never interrupt a live workout.
+        });
+  }
 
   void _persistWorkoutHistory() {
     final userId = currentUser?.id;
@@ -529,7 +626,10 @@ class AppController extends ChangeNotifier {
   }
 
   /// Notifies Flutter after a field is edited by a form or a platform control.
-  void refresh() => notifyListeners();
+  void refresh({bool persistWorkout = false}) {
+    if (persistWorkout) persistActiveWorkout();
+    notifyListeners();
+  }
 
   void selectTrainView(TrainView next) {
     trainView = next;
@@ -582,6 +682,7 @@ class AppController extends ChangeNotifier {
     if (autoStartTimer) {
       beginWorkoutTimer();
     } else {
+      persistActiveWorkout();
       notifyListeners();
     }
   }
@@ -603,6 +704,7 @@ class AppController extends ChangeNotifier {
       completedSets: completedSets,
       totalSets: totalSets,
     );
+    persistActiveWorkout();
     notifyListeners();
   }
 
@@ -610,6 +712,16 @@ class AppController extends ChangeNotifier {
     liveWorkoutVisible = true;
     page = PageId.train;
     notifyListeners();
+  }
+
+  void _openWorkoutFromSystem() {
+    if (!workoutStarted) {
+      _pendingSystemWorkoutOpen = true;
+      unawaited(hydrateActiveWorkout());
+      return;
+    }
+    trainView = TrainView.workout;
+    openLiveWorkout();
   }
 
   void closeLiveWorkout() {
@@ -643,6 +755,7 @@ class AppController extends ChangeNotifier {
         );
       }
     }
+    persistActiveWorkout();
     notifyListeners();
   }
 
@@ -652,9 +765,7 @@ class AppController extends ChangeNotifier {
     set.completed = !set.completed;
     if (set.completed) {
       triggerCompletionBurst(set.id);
-      restRemainingSeconds = set.restSeconds > 0
-          ? set.restSeconds
-          : parent.restSeconds;
+      restRemainingSeconds = effectiveRestSeconds(set, parent);
       if (restRemainingSeconds > 0) {
         startRest(
           exercise: displayExerciseName(findExercise(parent.exerciseId)),
@@ -674,8 +785,16 @@ class AppController extends ChangeNotifier {
       _restTicker?.cancel();
       PlatformTimerBridge.clearRest();
     }
+    persistActiveWorkout();
     _syncPlatformWorkoutState(parent);
     notifyListeners();
+  }
+
+  int effectiveRestSeconds(WorkoutSet set, WorkoutExercise parent) {
+    if (set.restSeconds > 0) return set.restSeconds;
+    if (parent.restSeconds > 0) return parent.restSeconds;
+    if (set.type == 'warmup') return 60;
+    return defaultRestSeconds;
   }
 
   String _platformExerciseName([WorkoutExercise? preferred]) {
@@ -761,11 +880,19 @@ class AppController extends ChangeNotifier {
         if (!set.completed) set.restSeconds = value;
       }
     }
+    persistActiveWorkout();
     notifyListeners();
   }
 
   void updateSetNote(WorkoutSet set, String note) {
     set.note = note.trim();
+    persistActiveWorkout();
+    notifyListeners();
+  }
+
+  void updateExerciseNote(WorkoutExercise exercise, String note) {
+    exercise.note = note.trim();
+    persistActiveWorkout();
     notifyListeners();
   }
 
@@ -885,6 +1012,7 @@ class AppController extends ChangeNotifier {
     _workoutTicker?.cancel();
     _restTicker?.cancel();
     PlatformTimerBridge.finish();
+    persistActiveWorkout();
     notifyListeners();
     return record;
   }
@@ -893,20 +1021,37 @@ class AppController extends ChangeNotifier {
       '自由训练 ${date.month.toString().padLeft(2, '0')}月${date.day.toString().padLeft(2, '0')}日 ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
 
   void addSet(WorkoutExercise exercise) {
+    final nextIndex = exercise.sets.length;
     exercise.sets.add(
       WorkoutSet(
-        id: 'set-${DateTime.now().microsecondsSinceEpoch}',
+        id: 'set-${exercise.id}-$nextIndex-${DateTime.now().microsecondsSinceEpoch}',
         type: 'work',
         weight: 0,
         plannedWeight: null,
         reps: 0,
         targetMin: 0,
         targetMax: 0,
-        restSeconds: 0,
+        restSeconds: exercise.restSeconds,
       ),
     );
     _syncPlatformWorkoutState(exercise);
+    persistActiveWorkout();
     notifyListeners();
+  }
+
+  bool removeSet(WorkoutExercise exercise, WorkoutSet set) {
+    final removed = exercise.sets.remove(set);
+    if (!removed) return false;
+    selectedSetIds.remove(set.id);
+    if (completionBurstSetId == set.id) {
+      completionBurstActive = false;
+      completionBurstSetId = null;
+      _completionBurstTimer?.cancel();
+    }
+    _syncPlatformWorkoutState(exercise);
+    persistActiveWorkout();
+    notifyListeners();
+    return true;
   }
 
   bool reusePreviousValues(WorkoutExercise exercise) {
@@ -979,7 +1124,7 @@ class AppController extends ChangeNotifier {
             id: 'we-${DateTime.now().microsecondsSinceEpoch}',
             exerciseId: id,
             sets: <WorkoutSet>[],
-            restSeconds: 0,
+            restSeconds: defaultRestSeconds,
           )
         : createBlankWorkoutExercise(
             id,
@@ -988,6 +1133,7 @@ class AppController extends ChangeNotifier {
     workout.add(item);
     workoutDraft = true;
     _syncPlatformWorkoutState(item);
+    persistActiveWorkout();
     notifyListeners();
   }
 
@@ -1067,6 +1213,7 @@ class AppController extends ChangeNotifier {
 
   void removeExercise(WorkoutExercise exercise) {
     workout.remove(exercise);
+    persistActiveWorkout();
     notifyListeners();
   }
 
@@ -1435,13 +1582,14 @@ class AppController extends ChangeNotifier {
               id: 'we-$stamp-$id',
               exerciseId: id,
               sets: <WorkoutSet>[],
-              restSeconds: 0,
+              restSeconds: defaultRestSeconds,
             )
           : createBlankWorkoutExercise(id, 'we-$stamp-$id');
       workout.add(latest);
     }
     workoutDraft = true;
     _syncPlatformWorkoutState(latest);
+    persistActiveWorkout();
     notifyListeners();
   }
 
@@ -1537,7 +1685,10 @@ class AppController extends ChangeNotifier {
             })
             .join('；');
         if (sets.isNotEmpty) {
-          lines.add('${findExercise(exercise.exerciseId).name}：$sets');
+          lines.add(
+            '${findExercise(exercise.exerciseId).name}'
+            '${exercise.note.trim().isEmpty ? '' : '，动作备注：${exercise.note.trim()}'}：$sets',
+          );
         }
       }
     }
@@ -1559,7 +1710,10 @@ class AppController extends ChangeNotifier {
                   '${set.note.trim().isEmpty ? '' : '，备注：${set.note.trim()}'}',
             )
             .join('；');
-        lines.add('${findExercise(exercise.exerciseId).name}：$sets');
+        lines.add(
+          '${findExercise(exercise.exerciseId).name}'
+          '${exercise.note.trim().isEmpty ? '' : '，动作备注：${exercise.note.trim()}'}：$sets',
+        );
       }
     }
     return lines.join('\n');
@@ -1817,7 +1971,7 @@ class AppController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     accountService.removeListener(_handleAccountChanged);
-    PlatformTimerBridge.setRestSkippedHandler(null);
+    PlatformTimerBridge.setSystemActionHandlers();
     _workoutTicker?.cancel();
     _restTicker?.cancel();
     _recognitionTicker?.cancel();

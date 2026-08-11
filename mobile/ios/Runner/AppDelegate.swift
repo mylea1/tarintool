@@ -4,6 +4,9 @@ import UserNotifications
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
+  private var timerChannel: FlutterMethodChannel?
+  private var pendingWorkoutOpen = false
+
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
@@ -28,7 +31,14 @@ import UserNotifications
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
     let channel = FlutterMethodChannel(name: "kilo.platform.timer", binaryMessenger: engineBridge.applicationRegistrar.messenger())
+    timerChannel = channel
     channel.setMethodCallHandler { call, result in
+      if call.method == "consumePendingWorkoutOpen" {
+        let pending = self.pendingWorkoutOpen
+        self.pendingWorkoutOpen = false
+        result(pending)
+        return
+      }
       guard #available(iOS 16.1, *) else {
         result(nil)
         return
@@ -71,5 +81,27 @@ import UserNotifications
         result(nil)
       }
     }
+  }
+
+  @discardableResult
+  func handleWorkoutURL(_ url: URL) -> Bool {
+    guard url.scheme?.lowercased() == "ember",
+          url.host?.lowercased() == "training" else {
+      return false
+    }
+    pendingWorkoutOpen = true
+    timerChannel?.invokeMethod("openWorkoutFromSystem", arguments: nil)
+    return true
+  }
+
+  override func application(
+    _ app: UIApplication,
+    open url: URL,
+    options: [UIApplication.OpenURLOptionsKey: Any] = [:]
+  ) -> Bool {
+    if handleWorkoutURL(url) {
+      return true
+    }
+    return super.application(app, open: url, options: options)
   }
 }

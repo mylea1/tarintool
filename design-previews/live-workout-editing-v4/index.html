@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>形域训练记录交互预览</title>
+  <style>
+    :root{--paper:#fff8f3;--surface:#fff;--ink:#2b1b15;--muted:#78645b;--line:#eadbd2;--ember:#e45212;--tint:#fff0e6;--green:#17663f;--green-bg:#e5f5eb}
+    *{box-sizing:border-box} body{margin:0;background:#eee;font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink)}
+    .phone{width:min(100%,390px);min-height:100dvh;margin:auto;background:var(--paper);padding:18px 14px 80px}
+    header{display:flex;align-items:center;gap:10px;margin-bottom:16px}.back{font-size:25px}.title{font-size:20px;font-weight:850}.timer{margin-left:auto;font:800 18px ui-monospace,monospace}
+    .exercise{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:14px;box-shadow:0 10px 24px #6d321b10}
+    .head{display:flex;align-items:center;gap:10px}.thumb{width:42px;height:42px;border-radius:12px;background:var(--tint);display:grid;place-items:center;font-size:20px}.name{font-size:16px;font-weight:800}.meta{color:var(--muted);font-size:12px}.head button{margin-left:auto}
+    button{border:1px solid var(--line);background:white;border-radius:11px;padding:8px 10px;color:var(--ink);font-weight:700;cursor:pointer}button:active{transform:scale(.98)}
+    .exercise-note,.set-note{display:flex;align-items:flex-start;gap:7px;border-radius:10px;padding:9px 10px;margin-top:10px;background:var(--tint);border:1px solid #f3cbb5;color:#734024}.exercise-note strong,.set-note strong{display:block;font-size:11px}.note-copy{flex:1;min-width:0}.note-copy span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .labels,.set{display:grid;grid-template-columns:34px 1fr 1fr 40px;gap:6px;align-items:center}.labels{color:var(--muted);font-size:11px;margin-top:14px;padding:0 4px}.set{margin-top:6px;padding:8px;border:1px solid var(--line);border-radius:12px;background:#fff}.set.done{background:var(--green-bg);border-color:#68b486}.set input{min-width:0;width:100%;border:1px solid var(--line);border-radius:8px;padding:9px 5px;text-align:center;font:700 14px system-ui;background:white;color:var(--ink)}.set.done input{border-color:#68b486;color:var(--green)}
+    .check{width:34px;height:34px;padding:0;background:var(--green);color:white;border:0}.set-tools{display:flex;align-items:center;gap:6px;margin-top:6px}.set-note{margin:0;flex:1}.trash{color:#a43c2f;border-color:#efc9c2;padding:9px}.add{margin-top:12px;width:100%;color:var(--ember);border-style:dashed}.rest{margin:12px 0 0;padding:11px;border-radius:12px;background:#ffe4d2;display:flex;align-items:center}.rest b{margin-left:auto;font:900 18px ui-monospace,monospace}
+    dialog{border:0;border-radius:16px;padding:18px;width:min(340px,calc(100% - 28px));box-shadow:0 24px 70px #32170d40}dialog textarea{width:100%;min-height:100px;margin:12px 0;border:1px solid var(--line);border-radius:10px;padding:10px;font:inherit}dialog .actions{display:flex;justify-content:flex-end;gap:8px}.primary{background:var(--ember);color:#fff;border-color:var(--ember)}
+    @media(prefers-reduced-motion:no-preference){.set{transition:background .2s,border-color .2s,transform .15s}.set.done{animation:confirm .28s ease-out}@keyframes confirm{50%{transform:scale(1.015)}}}
+  </style>
+</head>
+<body>
+<main class="phone">
+  <header><span class="back">‹</span><div><div class="title">自由训练</div><div class="meta">训练进行中</div></div><div class="timer">01:19:51</div></header>
+  <section class="exercise">
+    <div class="head"><div class="thumb">🏋</div><div><div class="name">高位下拉</div><div class="meta">背部 · 默认休息 02:00</div></div><button onclick="editNote('动作备注','肩胛先下沉，再拉向锁骨。','exerciseText')">备注</button></div>
+    <div class="exercise-note" onclick="editNote('动作备注',exerciseText.textContent,'exerciseText')"><span>▤</span><div class="note-copy"><strong>动作备注</strong><span id="exerciseText">肩胛先下沉，再拉向锁骨。</span></div><span>编辑</span></div>
+    <div class="labels"><span>组</span><span>kg</span><span>次数</span><span>完成</span></div>
+    <div class="set done" id="set1"><b>1 热</b><input value="30" aria-label="重量"><input value="12" aria-label="次数"><button class="check" onclick="toggleDone()">✓</button></div>
+    <div class="set-tools"><div class="set-note" onclick="editNote('第 1 组备注',setText.textContent,'setText')"><span>▤</span><div class="note-copy"><strong>第 1 组备注</strong><span id="setText">最后两次慢放，左侧略紧。</span></div><span>编辑</span></div><button class="trash" onclick="removeSet()" aria-label="删除本组">删除</button></div>
+    <div class="rest"><span>组间休息 · 热身组也自动使用动作默认值</span><b>01:42</b></div>
+    <button class="add" onclick="addSet()">＋ 添加一组</button>
+  </section>
+</main>
+<dialog id="editor"><b id="dialogTitle"></b><textarea id="noteInput"></textarea><div class="actions"><button onclick="editor.close()">取消</button><button class="primary" onclick="saveNote()">保存备注</button></div></dialog>
+<script>
+  let target=null; const editor=document.querySelector('#editor'), noteInput=document.querySelector('#noteInput'), dialogTitle=document.querySelector('#dialogTitle');
+  function editNote(title,value,id){target=document.getElementById(id);dialogTitle.textContent=title;noteInput.value=value.trim();editor.showModal();noteInput.focus()}
+  function saveNote(){target.textContent=noteInput.value.trim()||'暂无备注，点击添加';editor.close()}
+  function toggleDone(){document.querySelector('#set1').classList.toggle('done')}
+  function removeSet(){document.querySelector('#set1').remove();document.querySelector('.set-tools').remove();document.querySelector('.rest').remove()}
+  function addSet(){alert('新增空白组，不预填重量和次数')}
+</script>
+</body>
+</html>

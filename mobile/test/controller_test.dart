@@ -33,6 +33,7 @@ void main() {
       controller.startWorkout(name: '今日练胸', autoStartTimer: false);
       controller.addExercise('bench_press');
       final exercise = controller.workout.single;
+      controller.updateExerciseNote(exercise, '器械第 7 档，肩胛收紧');
       controller.addSet(exercise);
       exercise.sets.single
         ..weight = 50
@@ -46,6 +47,7 @@ void main() {
       expect(api.trainingSummary, contains('今日练胸'));
       expect(api.trainingSummary, contains('50.0 kg × 8'));
       expect(api.trainingSummary, contains('最后两次速度变慢'));
+      expect(api.trainingSummary, contains('器械第 7 档，肩胛收紧'));
       expect(controller.chat.last.body, '训练评价已生成');
     } finally {
       controller.dispose();
@@ -301,7 +303,7 @@ void main() {
   });
 
   test(
-    'free-workout rest starts for every action after the user sets it',
+    'free-workout rest starts for every action without manual setup',
     () async {
       const channel = MethodChannel('kilo.platform.timer');
       final calls = <String>[];
@@ -316,13 +318,17 @@ void main() {
         controller.addExercise('bench_press');
         final exercise = controller.workout.single;
         controller.addSet(exercise);
-        expect(exercise.restSeconds, 0);
-        expect(exercise.sets.single.restSeconds, 0);
-        controller.updateExerciseRest(exercise, 90);
+        expect(exercise.restSeconds, controller.defaultRestSeconds);
+        expect(exercise.sets.single.restSeconds, controller.defaultRestSeconds);
+        exercise
+          ..restSeconds = 0
+          ..sets.single.restSeconds = 0;
+        exercise.sets.single.type = 'warmup';
         final burstBefore = controller.completionBurstId;
         controller.completeSet(exercise.sets.single, exercise);
         await Future<void>.delayed(Duration.zero);
         expect(controller.restRunning, isTrue);
+        expect(controller.restRemainingSeconds, 60);
         expect(calls, contains('startTimer'));
         expect(controller.completionBurstId, burstBefore + 1);
         controller.completeSet(exercise.sets.single, exercise);
@@ -331,8 +337,11 @@ void main() {
         controller.addExercise('squat');
         final secondExercise = controller.workout.last;
         controller.addSet(secondExercise);
-        expect(secondExercise.restSeconds, 0);
-        expect(secondExercise.sets.single.restSeconds, 0);
+        expect(secondExercise.restSeconds, controller.defaultRestSeconds);
+        expect(
+          secondExercise.sets.single.restSeconds,
+          controller.defaultRestSeconds,
+        );
         controller.updateExerciseRest(secondExercise, 75);
         controller.completeSet(secondExercise.sets.single, secondExercise);
         await Future<void>.delayed(Duration.zero);
@@ -340,11 +349,6 @@ void main() {
         expect(controller.restRemainingSeconds, 75);
 
         controller.completeSet(secondExercise.sets.single, secondExercise);
-        controller.updateExerciseRest(secondExercise, 0);
-        controller.completeSet(secondExercise.sets.single, secondExercise);
-        await Future<void>.delayed(Duration.zero);
-        expect(controller.restRunning, isFalse);
-        expect(controller.restRemainingSeconds, 0);
       } finally {
         controller.dispose();
         TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -352,6 +356,99 @@ void main() {
       }
     },
   );
+
+  test('system workout action reopens the active live workout', () async {
+    const channel = MethodChannel('kilo.platform.timer');
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async => false);
+    final controller = AppController();
+    try {
+      controller.startWorkout(name: '锁屏入口');
+      controller.closeLiveWorkout();
+      controller.selectTrainView(TrainView.history);
+      expect(controller.liveWorkoutVisible, isFalse);
+
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      await messenger.handlePlatformMessage(
+        channel.name,
+        const StandardMethodCodec().encodeMethodCall(
+          const MethodCall('openWorkoutFromSystem'),
+        ),
+        (_) {},
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(controller.trainView, TrainView.workout);
+      expect(controller.liveWorkoutVisible, isTrue);
+    } finally {
+      controller.dispose();
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, null);
+    }
+  });
+
+  test('active workout survives process recreation and system open', () async {
+    const channel = MethodChannel('kilo.platform.timer');
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async => false);
+    final persistence = InMemoryActiveWorkoutPersistence();
+    AccountService signedInAccount() {
+      final account = AccountService(allowTestAdmin: true);
+      account.loginWithPhone('123', password: '123');
+      return account;
+    }
+
+    final first = AppController(
+      accountService: signedInAccount(),
+      activeWorkoutPersistence: persistence,
+    );
+    first.startWorkout(name: '可恢复训练');
+    first.addExercise('bench_press');
+    final firstExercise = first.workout.single;
+    first.addSet(firstExercise);
+    firstExercise.sets.single
+      ..type = 'warmup'
+      ..weight = 30
+      ..reps = 12
+      ..completed = true;
+    first.updateExerciseNote(firstExercise, '器械第 7 档');
+    first.updateSetNote(firstExercise.sets.single, '左肩略紧');
+    first.persistActiveWorkout();
+    await first.flushActiveWorkoutPersistence();
+    first.dispose();
+
+    final restored = AppController(
+      accountService: signedInAccount(),
+      activeWorkoutPersistence: persistence,
+    );
+    try {
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      await messenger.handlePlatformMessage(
+        channel.name,
+        const StandardMethodCodec().encodeMethodCall(
+          const MethodCall('openWorkoutFromSystem'),
+        ),
+        (_) {},
+      );
+      await restored.hydrateActiveWorkout();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(restored.workoutStarted, isTrue);
+      expect(restored.workoutName, '可恢复训练');
+      expect(restored.workout.single.note, '器械第 7 档');
+      expect(restored.workout.single.sets.single.note, '左肩略紧');
+      expect(restored.page, PageId.train);
+      expect(restored.liveWorkoutVisible, isTrue);
+    } finally {
+      restored.finishWorkout();
+      await restored.flushActiveWorkoutPersistence();
+      restored.dispose();
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, null);
+    }
+  });
 
   test('free finish can save a non-empty plan while non-free ignores flag', () {
     final controller = AppController();

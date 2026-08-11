@@ -224,6 +224,7 @@ class WorkoutExercise {
     required this.exerciseId,
     required this.sets,
     this.restSeconds = 120,
+    this.note = '',
     this.collapsed = false,
     this.supersetId,
   });
@@ -231,6 +232,7 @@ class WorkoutExercise {
   String exerciseId;
   final List<WorkoutSet> sets;
   int restSeconds;
+  String note;
   bool collapsed;
   String? supersetId;
 
@@ -244,6 +246,7 @@ class WorkoutExercise {
             )
             .toList(),
         restSeconds: restSeconds,
+        note: note,
         collapsed: collapsed,
         supersetId: supersetId,
       );
@@ -256,6 +259,7 @@ class WorkoutExercise {
     exerciseId: exerciseId,
     sets: sets.map((set) => set.copyForWorkout()).toList(),
     restSeconds: restSeconds,
+    note: note,
     collapsed: collapsed,
     supersetId: supersetId,
   );

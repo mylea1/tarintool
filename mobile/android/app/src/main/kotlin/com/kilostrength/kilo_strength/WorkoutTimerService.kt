@@ -242,6 +242,7 @@ class WorkoutTimerService : Service() {
 
         val openIntent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra(MainActivity.EXTRA_OPEN_WORKOUT, true)
         }
         val openPendingIntent = PendingIntent.getActivity(
             this,

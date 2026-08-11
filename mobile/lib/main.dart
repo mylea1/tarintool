@@ -85,6 +85,9 @@ class _KiloAppState extends State<KiloApp> {
       await controller.hydrateWorkoutHistory().timeout(
         const Duration(milliseconds: 500),
       );
+      await controller.hydrateActiveWorkout().timeout(
+        const Duration(milliseconds: 500),
+      );
     } catch (_) {
       // Local storage is optional in previews; the in-memory repository stays
       // usable when a platform implementation is unavailable.
@@ -2325,6 +2328,23 @@ class _WorkoutExerciseCard extends StatelessWidget {
                     ),
                   ),
                   IconButton(
+                    key: Key('exercise-note-${exercise.id}'),
+                    tooltip: exercise.note.isEmpty ? '添加动作备注' : '查看或修改动作备注',
+                    onPressed: () =>
+                        _showExerciseNoteEditor(context, controller, exercise),
+                    style: exercise.note.isEmpty
+                        ? null
+                        : IconButton.styleFrom(
+                            backgroundColor: emberTint,
+                            foregroundColor: primary,
+                          ),
+                    icon: Icon(
+                      exercise.note.isEmpty
+                          ? Icons.note_add_outlined
+                          : Icons.sticky_note_2_rounded,
+                    ),
+                  ),
+                  IconButton(
                     key: Key('rest-settings-${exercise.id}'),
                     tooltip: '设置休息时间',
                     onPressed: () =>
@@ -2350,6 +2370,56 @@ class _WorkoutExerciseCard extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
               child: Column(
                 children: [
+                  InkWell(
+                    key: Key('exercise-note-preview-${exercise.id}'),
+                    onTap: () =>
+                        _showExerciseNoteEditor(context, controller, exercise),
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.only(bottom: 9),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 9,
+                      ),
+                      decoration: BoxDecoration(
+                        color: emberTint,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: primary.withValues(alpha: .18),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.sticky_note_2_outlined,
+                            size: 17,
+                            color: primary,
+                          ),
+                          const SizedBox(width: 7),
+                          Expanded(
+                            child: Text(
+                              exercise.note.trim().isEmpty
+                                  ? '动作备注 · 点击记录握距、档位或动作提示'
+                                  : '动作备注 · ${exercise.note.trim()}',
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: secondaryInk,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          const Icon(
+                            Icons.edit_outlined,
+                            size: 15,
+                            color: primary,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                   LayoutBuilder(
                     builder: (context, constraints) {
                       final columns = _SetColumns.fromWidth(
@@ -2613,6 +2683,125 @@ Future<void> _showSetNoteEditor(
   );
 }
 
+Future<void> _showExerciseNoteEditor(
+  BuildContext context,
+  AppController controller,
+  WorkoutExercise exercise,
+) async {
+  var draft = exercise.note;
+  await showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    builder: (sheetContext) => AnimatedPadding(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+      ),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '动作备注',
+              style: Theme.of(
+                sheetContext,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              '记录握距、器械档位、动作提示或本动作整体感受。',
+              style: TextStyle(color: secondaryInk, fontSize: 12),
+            ),
+            const SizedBox(height: 14),
+            TextFormField(
+              key: Key('exercise-note-input-${exercise.id}'),
+              initialValue: exercise.note,
+              onChanged: (value) => draft = value,
+              autofocus: true,
+              minLines: 3,
+              maxLines: 5,
+              maxLength: 240,
+              textInputAction: TextInputAction.newline,
+              decoration: const InputDecoration(
+                labelText: '动作备注',
+                hintText: '例如：肩胛先下沉，使用第 7 档',
+                alignLabelWithHint: true,
+              ),
+            ),
+            Row(
+              children: [
+                if (exercise.note.isNotEmpty)
+                  TextButton.icon(
+                    onPressed: () {
+                      controller.updateExerciseNote(exercise, '');
+                      Navigator.pop(sheetContext);
+                    },
+                    icon: const Icon(Icons.delete_outline),
+                    label: const Text('清除'),
+                  ),
+                const Spacer(),
+                TextButton(
+                  onPressed: () => Navigator.pop(sheetContext),
+                  child: const Text('取消'),
+                ),
+                const SizedBox(width: 8),
+                FilledButton.icon(
+                  key: Key('exercise-note-save-${exercise.id}'),
+                  onPressed: () {
+                    controller.updateExerciseNote(exercise, draft);
+                    Navigator.pop(sheetContext);
+                  },
+                  icon: const Icon(Icons.check_rounded),
+                  label: const Text('保存备注'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+Future<void> _confirmRemoveSet(
+  BuildContext context,
+  AppController controller,
+  WorkoutExercise exercise,
+  WorkoutSet set,
+  int index,
+) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: Text('删除第 ${index + 1} 组？'),
+      content: Text(
+        set.completed ? '这组已完成，删除后训练统计会同步更新。' : '该组的重量、次数和备注会一起删除。',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext, false),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          key: Key('confirm-delete-set-${set.id}'),
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFF9C3328),
+          ),
+          onPressed: () => Navigator.pop(dialogContext, true),
+          child: const Text('删除'),
+        ),
+      ],
+    ),
+  );
+  if (confirmed != true || !context.mounted) return;
+  controller.removeSet(exercise, set);
+  showKiloSnack(context, '第 ${index + 1} 组已删除', icon: Icons.delete_outline);
+}
+
 void _showSetTypeSheet(
   BuildContext context,
   AppController controller,
@@ -2646,7 +2835,7 @@ void _showSetTypeSheet(
                   selected: entry.key == set.type,
                   onTap: () {
                     set.type = entry.key;
-                    controller.refresh();
+                    controller.refresh(persistWorkout: true);
                     Navigator.pop(sheetContext);
                   },
                 ),
@@ -2683,14 +2872,12 @@ class _SetTypeButton extends StatelessWidget {
     final color = _setTypeColor(set.type);
     return Semantics(
       button: true,
-      enabled: !set.completed,
+      enabled: true,
       label: '第 ${index + 1} 组类型：${setTypeLabels[set.type] ?? set.type}',
       child: InkWell(
         key: Key('set-type-${set.id}'),
         borderRadius: BorderRadius.circular(8),
-        onTap: set.completed
-            ? null
-            : () => _showSetTypeSheet(context, controller, set, index),
+        onTap: () => _showSetTypeSheet(context, controller, set, index),
         child: Container(
           constraints: BoxConstraints(
             minWidth: compact ? 31 : 43,
@@ -2870,7 +3057,7 @@ class _SetRow extends StatelessWidget {
                   child: TextFormField(
                     key: ValueKey('weight-${set.id}-${set.weight}'),
                     initialValue: _editableWeight(set.weight),
-                    enabled: !set.completed,
+                    enabled: true,
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
                     ),
@@ -2887,6 +3074,7 @@ class _SetRow extends StatelessWidget {
                     decoration: _inputDecoration(completed: set.completed),
                     onChanged: (value) {
                       set.weight = double.tryParse(value) ?? 0;
+                      controller.persistActiveWorkout();
                     },
                   ),
                 ),
@@ -2896,7 +3084,7 @@ class _SetRow extends StatelessWidget {
                   child: TextFormField(
                     key: ValueKey('reps-${set.id}-${set.reps}'),
                     initialValue: _editableCount(set.reps),
-                    enabled: !set.completed,
+                    enabled: true,
                     keyboardType: TextInputType.number,
                     onTapOutside: (_) =>
                         FocusManager.instance.primaryFocus?.unfocus(),
@@ -2911,6 +3099,7 @@ class _SetRow extends StatelessWidget {
                     decoration: _inputDecoration(completed: set.completed),
                     onChanged: (value) {
                       set.reps = int.tryParse(value) ?? 0;
+                      controller.persistActiveWorkout();
                     },
                   ),
                 ),
@@ -2977,64 +3166,79 @@ class _SetRow extends StatelessWidget {
                 ),
               ],
             ),
-            if (set.note.trim().isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Semantics(
-                button: true,
-                label: '第 ${index + 1} 组备注：${set.note.trim()}，点击编辑',
-                child: InkWell(
-                  key: Key('set-note-preview-${set.id}'),
-                  onTap: () =>
-                      _showSetNoteEditor(context, controller, set, index),
-                  borderRadius: BorderRadius.circular(7),
-                  child: Container(
-                    padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
-                    decoration: BoxDecoration(
-                      color: set.completed
-                          ? const Color(0xFFDDF1E4)
-                          : emberTint,
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Expanded(
+                  child: Semantics(
+                    button: true,
+                    label: set.note.trim().isEmpty
+                        ? '为第 ${index + 1} 组添加备注'
+                        : '第 ${index + 1} 组备注：${set.note.trim()}，点击编辑',
+                    child: InkWell(
+                      key: Key('set-note-preview-${set.id}'),
+                      onTap: () =>
+                          _showSetNoteEditor(context, controller, set, index),
                       borderRadius: BorderRadius.circular(7),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(
-                          Icons.sticky_note_2_outlined,
-                          size: 15,
+                      child: Container(
+                        padding: const EdgeInsets.fromLTRB(8, 7, 8, 7),
+                        decoration: BoxDecoration(
                           color: set.completed
-                              ? const Color(0xFF1E6B45)
-                              : primary,
+                              ? const Color(0xFFDDF1E4)
+                              : emberTint,
+                          borderRadius: BorderRadius.circular(7),
                         ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            set.note.trim(),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 11,
-                              height: 1.3,
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.sticky_note_2_outlined,
+                              size: 15,
                               color: set.completed
                                   ? const Color(0xFF1E6B45)
-                                  : secondaryInk,
-                              fontWeight: FontWeight.w600,
+                                  : primary,
                             ),
-                          ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                set.note.trim().isEmpty
+                                    ? '第 ${index + 1} 组备注 · 点击添加'
+                                    : '第 ${index + 1} 组 · ${set.note.trim()}',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  height: 1.3,
+                                  color: set.completed
+                                      ? const Color(0xFF1E6B45)
+                                      : secondaryInk,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                            const Icon(Icons.edit_outlined, size: 14),
+                          ],
                         ),
-                        const SizedBox(width: 4),
-                        Icon(
-                          Icons.edit_outlined,
-                          size: 14,
-                          color: set.completed
-                              ? const Color(0xFF1E6B45)
-                              : primary,
-                        ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(width: 5),
+                IconButton.outlined(
+                  key: Key('delete-set-${set.id}'),
+                  tooltip: '删除第 ${index + 1} 组',
+                  onPressed: () => _confirmRemoveSet(
+                    context,
+                    controller,
+                    exercise,
+                    set,
+                    index,
+                  ),
+                  icon: const Icon(Icons.delete_outline, size: 18),
+                  color: const Color(0xFF9C3328),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ],
+            ),
           ],
         ),
       ),
@@ -4386,9 +4590,10 @@ class RecognitionPage extends StatelessWidget {
                 children: [
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: controller.mediaPicking
-                          || controller.recognitionStatus ==
-                              RecognitionStatus.processing
+                      onPressed:
+                          controller.mediaPicking ||
+                              controller.recognitionStatus ==
+                                  RecognitionStatus.processing
                           ? null
                           : controller.pickVideo,
                       icon: controller.mediaPicking
@@ -4508,8 +4713,7 @@ class _SelectedRecognitionVideo extends StatefulWidget {
       _SelectedRecognitionVideoState();
 }
 
-class _SelectedRecognitionVideoState
-    extends State<_SelectedRecognitionVideo> {
+class _SelectedRecognitionVideoState extends State<_SelectedRecognitionVideo> {
   VideoPlayerController? _video;
   Object? _error;
 
@@ -4695,7 +4899,8 @@ class _RecognitionProcessingPanel extends StatefulWidget {
       _RecognitionProcessingPanelState();
 }
 
-class _RecognitionProcessingPanelState extends State<_RecognitionProcessingPanel>
+class _RecognitionProcessingPanelState
+    extends State<_RecognitionProcessingPanel>
     with SingleTickerProviderStateMixin {
   late final AnimationController _pulse;
 
@@ -4752,7 +4957,11 @@ class _RecognitionProcessingPanelState extends State<_RecognitionProcessingPanel
                         color: primary,
                         backgroundColor: Color(0xFFF7CBB2),
                       ),
-                      Icon(_recognitionStageIcon(stage), color: primary, size: 20),
+                      Icon(
+                        _recognitionStageIcon(stage),
+                        color: primary,
+                        size: 20,
+                      ),
                     ],
                   ),
                 ),
@@ -4785,7 +4994,8 @@ class _RecognitionProcessingPanelState extends State<_RecognitionProcessingPanel
               _RecognitionStageChip(
                 label: '上传',
                 done: stage.index > RecognitionStage.uploading.index,
-                active: stage == RecognitionStage.preparing ||
+                active:
+                    stage == RecognitionStage.preparing ||
                     stage == RecognitionStage.uploading,
               ),
               const SizedBox(width: 6),
@@ -4817,7 +5027,11 @@ class _RecognitionProcessingPanelState extends State<_RecognitionProcessingPanel
           const SizedBox(height: 8),
           Text(
             _recognitionStageDetail(stage),
-            style: const TextStyle(fontSize: 11, height: 1.45, color: secondaryInk),
+            style: const TextStyle(
+              fontSize: 11,
+              height: 1.45,
+              color: secondaryInk,
+            ),
           ),
         ],
       ),
@@ -4854,7 +5068,11 @@ class _RecognitionStageChip extends StatelessWidget {
         textAlign: TextAlign.center,
         style: TextStyle(
           fontSize: 11,
-          color: done ? success : active ? primary : quiet,
+          color: done
+              ? success
+              : active
+              ? primary
+              : quiet,
           fontWeight: done || active ? FontWeight.w800 : FontWeight.w600,
         ),
       ),
@@ -5134,8 +5352,8 @@ class _NetworkRecognitionVideoState extends State<_NetworkRecognitionVideo> {
       ),
       clipBehavior: Clip.antiAlias,
       child: AspectRatio(
-        aspectRatio: video?.value.isInitialized == true &&
-                video!.value.aspectRatio > 0
+        aspectRatio:
+            video?.value.isInitialized == true && video!.value.aspectRatio > 0
             ? video.value.aspectRatio
             : 16 / 9,
         child: InkWell(
@@ -10363,6 +10581,27 @@ void _showRecordDetail(
                             ],
                           ),
                           const SizedBox(height: 5),
+                          if (exercise.note.trim().isNotEmpty)
+                            Container(
+                              width: double.infinity,
+                              margin: const EdgeInsets.only(bottom: 5),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 9,
+                                vertical: 7,
+                              ),
+                              decoration: BoxDecoration(
+                                color: emberTint,
+                                borderRadius: BorderRadius.circular(9),
+                              ),
+                              child: Text(
+                                '动作备注 · ${exercise.note.trim()}',
+                                style: const TextStyle(
+                                  color: secondaryInk,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
                           if (exercise.sets.isEmpty)
                             const Text(
                               '\u8BA1\u5212\u91CD\u91CF\u672A\u8BB0\u5F55\uFF08\u65E7\u8BB0\u5F55\u672A\u4FDD\u5B58\u7EC4\u660E\u7EC6\uFF09',

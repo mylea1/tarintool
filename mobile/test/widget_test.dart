@@ -323,37 +323,44 @@ void main() {
           findsOneWidget,
         );
       }
+      expect(find.byKey(const Key('recognition-camera-side')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'recognition keeps video visible and exposes live processing stages',
+    (tester) async {
+      final controller = AppController();
+      addTearDown(controller.dispose);
+      controller.selectedMediaPath = 'missing-test-video.mp4';
+      controller.selectedMediaName = '训练视频.mp4';
+      controller.selectedMediaBytes = 3 * 1024 * 1024;
+      controller.recognitionStatus = RecognitionStatus.processing;
+      controller.recognitionStage = RecognitionStage.analyzing;
+      controller.recognitionElapsedSeconds = 72;
+      await tester.pumpWidget(KiloApp(initialController: controller));
+      await _openRoute(tester, 'AI');
+      await tester.tap(find.byKey(const Key('ai-recognition')));
+      await tester.pump(const Duration(milliseconds: 300));
+
       expect(
-        find.byKey(const Key('recognition-camera-side')),
+        find.byKey(const Key('recognition-video-preview')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('recognition-processing-panel')),
+        findsOneWidget,
+      );
+      expect(find.text('正在分析动作轨迹'), findsWidgets);
+      expect(find.textContaining('01:12'), findsOneWidget);
+      expect(
+        find.byKey(const Key('recognition-overlay-switch')),
         findsOneWidget,
       );
       expect(tester.takeException(), isNull);
     },
   );
-
-  testWidgets('recognition keeps video visible and exposes live processing stages', (
-    tester,
-  ) async {
-    final controller = AppController();
-    addTearDown(controller.dispose);
-    controller.selectedMediaPath = 'missing-test-video.mp4';
-    controller.selectedMediaName = '训练视频.mp4';
-    controller.selectedMediaBytes = 3 * 1024 * 1024;
-    controller.recognitionStatus = RecognitionStatus.processing;
-    controller.recognitionStage = RecognitionStage.analyzing;
-    controller.recognitionElapsedSeconds = 72;
-    await tester.pumpWidget(KiloApp(initialController: controller));
-    await _openRoute(tester, 'AI');
-    await tester.tap(find.byKey(const Key('ai-recognition')));
-    await tester.pump(const Duration(milliseconds: 300));
-
-    expect(find.byKey(const Key('recognition-video-preview')), findsOneWidget);
-    expect(find.byKey(const Key('recognition-processing-panel')), findsOneWidget);
-    expect(find.text('正在分析动作轨迹'), findsWidgets);
-    expect(find.textContaining('01:12'), findsOneWidget);
-    expect(find.byKey(const Key('recognition-overlay-switch')), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
 
   testWidgets(
     'exercise picker filters and adds multiple actions without changing library state',
@@ -482,6 +489,42 @@ void main() {
     await tester.pump();
   });
 
+  testWidgets('live workout can delete an unfinished or completed set', (
+    tester,
+  ) async {
+    final controller = AppController();
+    controller.startWorkout(name: '删组测试');
+    controller.addExercise('bench_press');
+    final exercise = controller.workout.single;
+    controller.addSet(exercise);
+    controller.addSet(exercise);
+    final completed = exercise.sets.first..completed = true;
+    final unfinished = exercise.sets.last;
+    controller.openLiveWorkout();
+    addTearDown(() {
+      if (controller.workoutStarted) controller.finishWorkout();
+      controller.dispose();
+    });
+
+    await tester.pumpWidget(KiloApp(initialController: controller));
+    await tester.ensureVisible(find.byKey(Key('delete-set-${completed.id}')));
+    await tester.tap(find.byKey(Key('delete-set-${completed.id}')));
+    await tester.pumpAndSettle();
+    expect(find.text('这组已完成，删除后训练统计会同步更新。'), findsOneWidget);
+    await tester.tap(find.byKey(Key('confirm-delete-set-${completed.id}')));
+    await tester.pumpAndSettle();
+    expect(exercise.sets, isNot(contains(completed)));
+
+    await tester.ensureVisible(find.byKey(Key('delete-set-${unfinished.id}')));
+    await tester.tap(find.byKey(Key('delete-set-${unfinished.id}')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(Key('confirm-delete-set-${unfinished.id}')));
+    await tester.pumpAndSettle();
+    expect(exercise.sets, isEmpty);
+    controller.finishWorkout();
+    await tester.pump(const Duration(milliseconds: 900));
+  });
+
   testWidgets('compact live controls keep actions visible at 320dp', (
     tester,
   ) async {
@@ -584,6 +627,7 @@ void main() {
       final set = exercise.sets.single;
       expect(controller.workoutTimerStarted, isFalse);
 
+      await tester.ensureVisible(find.byKey(Key('set-complete-${set.id}')));
       await tester.tap(find.byKey(Key('set-complete-${set.id}')));
       await tester.pump();
 
@@ -612,11 +656,13 @@ void main() {
       });
       await tester.pumpWidget(KiloApp(initialController: controller));
       final set = exercise.sets.single;
+      await tester.ensureVisible(find.byKey(Key('set-complete-${set.id}')));
       await tester.tap(find.byKey(Key('set-complete-${set.id}')));
       await tester.pump();
       expect(controller.completionBurstActive, isTrue);
       expect(find.byKey(const Key('completion-burst')), findsOneWidget);
       final burstId = controller.completionBurstId;
+      await tester.ensureVisible(find.byKey(Key('set-complete-${set.id}')));
       await tester.tap(find.byKey(Key('set-complete-${set.id}')));
       await tester.pump();
       expect(controller.completionBurstId, burstId);
@@ -726,8 +772,9 @@ void main() {
       await tester.pumpAndSettle();
       expect(set.note, '窄握，最后两次速度变慢');
       expect(find.byKey(Key('set-note-preview-${set.id}')), findsOneWidget);
-      expect(find.text('窄握，最后两次速度变慢'), findsOneWidget);
+      expect(find.textContaining('窄握，最后两次速度变慢'), findsOneWidget);
 
+      await tester.ensureVisible(find.byKey(Key('set-complete-${set.id}')));
       await tester.tap(find.byKey(Key('set-complete-${set.id}')));
       await tester.pump();
       expect(set.completed, isTrue);
@@ -742,11 +789,39 @@ void main() {
         const Color(0xFFE6F5EC),
       );
 
+      await tester.enterText(
+        find.byKey(Key('weight-${set.id}-${set.weight}')),
+        '82.5',
+      );
+      await tester.enterText(
+        find.byKey(Key('reps-${set.id}-${set.reps}')),
+        '7',
+      );
+      await tester.pump();
+      expect(set.completed, isTrue);
+      expect(set.weight, 82.5);
+      expect(set.reps, 7);
+
+      await tester.ensureVisible(
+        find.byKey(Key('exercise-note-preview-${exercise.id}')),
+      );
+      await tester.tap(find.byKey(Key('exercise-note-preview-${exercise.id}')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(Key('exercise-note-input-${exercise.id}')),
+        '肩胛收紧，器械第 7 档',
+      );
+      await tester.tap(find.byKey(Key('exercise-note-save-${exercise.id}')));
+      await tester.pumpAndSettle();
+      expect(exercise.note, '肩胛收紧，器械第 7 档');
+      expect(find.textContaining('器械第 7 档'), findsOneWidget);
+
+      await tester.ensureVisible(find.byKey(Key('set-complete-${set.id}')));
       await tester.tap(find.byKey(Key('set-complete-${set.id}')));
       await tester.pump();
       expect(set.completed, isFalse);
-      expect(set.weight, 77.5);
-      expect(set.reps, 5);
+      expect(set.weight, 82.5);
+      expect(set.reps, 7);
       expect(set.note, '窄握，最后两次速度变慢');
       controller.finishWorkout();
       await tester.pump(const Duration(milliseconds: 900));
