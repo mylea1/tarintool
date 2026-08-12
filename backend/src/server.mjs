@@ -421,6 +421,52 @@ function isTrainingPlanRequest(question) {
   return mentionsPlan && (asksToCreate || shortPlanIntent);
 }
 
+async function callDeepSeekStream(ctx, messages, userId, onDelta) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), ctx.cfg.deepSeekTimeoutMs);
+  try {
+    const response = await fetch(`${ctx.cfg.deepSeekBaseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${ctx.cfg.deepSeekApiKey}` },
+      body: JSON.stringify({
+        model: ctx.cfg.deepSeekModel,
+        temperature: 0.2,
+        thinking: { type: ctx.cfg.deepSeekThinkingMode },
+        user_id: userId,
+        messages,
+        stream: true,
+      }),
+      signal: controller.signal,
+    });
+    if (!response.ok || !response.body) throw httpError(response.status === 429 ? 503 : 502, 'deepseek_upstream_error', { upstreamStatus: response.status });
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let answer = '';
+    for await (const chunk of response.body) {
+      buffer += decoder.decode(chunk, { stream: true });
+      const lines = buffer.split(/\r?\n/u);
+      buffer = lines.pop() || '';
+      for (const line of lines) {
+        if (!line.startsWith('data:')) continue;
+        const data = line.slice(5).trim();
+        if (!data || data === '[DONE]') continue;
+        const payload = JSON.parse(data);
+        const delta = payload?.choices?.[0]?.delta?.content;
+        if (typeof delta === 'string' && delta) {
+          answer += delta;
+          onDelta(delta);
+        }
+      }
+    }
+    if (!answer.trim()) throw httpError(502, 'deepseek_empty_response');
+    return answer.trim();
+  } catch (error) {
+    if (error instanceof HttpError) throw error;
+    if (error?.name === 'AbortError') throw httpError(504, 'deepseek_timeout');
+    throw httpError(502, 'deepseek_upstream_unavailable');
+  } finally { clearTimeout(timeout); }
+}
+
 function extractPlanDraft(rawAnswer, allowedExerciseIds) {
   const marker = rawAnswer.match(/<KILO_PLAN>([\s\S]*?)<\/KILO_PLAN>/u);
   if (!marker) return { answer: rawAnswer.trim(), plan: null };
@@ -798,6 +844,59 @@ async function handleRequest(req, res, ctx) {
     const user = authenticate(req, ctx); const row = ctx.db.prepare('SELECT * FROM conversations WHERE id = ? AND user_id = ?').get(decodeURIComponent(convMatch[1]), user.id); if (!row) throw httpError(404, 'conversation_not_found'); writeJson(res, 200, conversationPublic(row, conversationMessages(ctx.db, row.id, 50)), req, ctx.cfg); return;
   }
   const convMessageMatch = url.pathname.match(/^\/v1\/(?:ai\/conversations|coach\/conversations)\/([^/]+)\/messages$/);
+  if (req.method === 'POST' && url.pathname === '/v1/coach/stream') {
+    const user = authenticate(req, ctx);
+    const body = await readBody(req, ctx.cfg.maxJsonBytes);
+    const question = requireString(body.question || body.message, 'question_required', MAX_TEXT);
+    const requestId = body.requestId || `ai_${randomUUID()}`;
+    reserveQuota(ctx.db, user.id, 'ai', requestId);
+    res.writeHead(200, {
+      'content-type': 'text/event-stream; charset=utf-8',
+      'cache-control': 'no-cache, no-transform',
+      connection: 'keep-alive',
+      'x-accel-buffering': 'no',
+    });
+    const sendEvent = (event, data) => {
+      if (!res.destroyed) res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    };
+    try {
+      let conversationId = body.conversationId;
+      let conversation = conversationId
+        ? ctx.db.prepare('SELECT * FROM conversations WHERE id = ? AND user_id = ?').get(conversationId, user.id)
+        : null;
+      if (!conversation) {
+        conversationId = randomId('conv_');
+        const stamp = nowIso();
+        ctx.db.prepare('INSERT INTO conversations (id, user_id, title, memory_summary, created_at, updated_at) VALUES (?, ?, ?, \'\', ?, ?)').run(conversationId, user.id, question.slice(0, 80), stamp, stamp);
+        conversation = ctx.db.prepare('SELECT * FROM conversations WHERE id = ?').get(conversationId);
+      }
+      const recent = conversationMessages(ctx.db, conversationId, 20);
+      const knowledge = knowledgeSearch(ctx.db, question, 20);
+      const answerLocale = String(body.locale || '').toLowerCase().startsWith('en') ? 'en' : 'zh-CN';
+      const messages = [{ role: 'system', content: `你是 KILO Strength 健身训练助手。提供一般训练、恢复和动作记录建议，不进行医疗诊断。证据不足时明确说明。${answerLocale === 'en' ? ' Answer in natural, concise English.' : ' 使用自然、简洁的中文回答。'}回答使用简洁 Markdown。不要在正文中披露内部知识库名称或技能名。` }];
+      if (conversation.memory_summary) messages.push({ role: 'system', content: `长期记忆摘要：${conversation.memory_summary.slice(0, 3000)}` });
+      if (knowledge.length) messages.push({ role: 'system', content: `内部知识库参考：\n${knowledge.map((item) => `${item.title}: ${item.content.slice(0, 1200)}`).join('\n')}` });
+      for (const message of recent) messages.push({ role: message.role, content: message.content });
+      if (body.useTrainingData === true && typeof body.trainingSummary === 'string' && body.trainingSummary.trim()) messages.push({ role: 'system', content: `用户已明确授权的训练摘要：${body.trainingSummary.trim().slice(0, MAX_SUMMARY)}` });
+      messages.push({ role: 'user', content: question });
+      const answer = await ctx.aiGate.run(() => callDeepSeekStream(ctx, messages, user.id, (delta) => sendEvent('delta', { text: delta })));
+      const stamp = nowIso();
+      transaction(ctx.db, () => {
+        ctx.db.prepare('INSERT INTO conversation_messages (id, conversation_id, role, content, created_at) VALUES (?, ?, \'user\', ?, ?)').run(randomId('msg_'), conversationId, question, stamp);
+        ctx.db.prepare('INSERT INTO conversation_messages (id, conversation_id, role, content, created_at) VALUES (?, ?, \'assistant\', ?, ?)').run(randomId('msg_'), conversationId, answer, nowIso());
+        ctx.db.prepare('UPDATE conversations SET updated_at = ? WHERE id = ?').run(nowIso(), conversationId);
+      });
+      const citations = knowledge.filter(isVisibleKnowledgeSource).slice(0, 5).map((item) => ({ id: item.id, title: item.title, source: item.source }));
+      changeReservation(ctx.db, user.id, requestId, 'commit');
+      sendEvent('done', { conversationId, answer, citations });
+    } catch (error) {
+      try { changeReservation(ctx.db, user.id, requestId, 'rollback'); } catch { /* preserve stream error */ }
+      sendEvent('error', { code: error?.code || 'coach_stream_failed' });
+    } finally {
+      res.end();
+    }
+    return;
+  }
   if ((req.method === 'POST' && ['/v1/coach/answer', '/v1/ai/chat'].includes(url.pathname)) || (convMessageMatch && req.method === 'POST')) {
     const user = authenticate(req, ctx); const body = await readBody(req, ctx.cfg.maxJsonBytes); const question = requireString(body.question || body.message, 'question_required', MAX_TEXT); const requestId = body.requestId || `ai_${randomUUID()}`; const reservation = reserveQuota(ctx.db, user.id, 'ai', requestId);
     try {

@@ -81,6 +81,16 @@ class WorkoutTimerService : Service() {
             return if (workoutActive) START_STICKY else START_NOT_STICKY
         }
 
+        if (action == ACTION_COMPLETE_SET) {
+            completedSets += 1
+            if (totalSets > 0) completedSets = completedSets.coerceAtMost(totalSets)
+            preferences.edit().putBoolean(KEY_PENDING_SET_COMPLETION, true).apply()
+            persistState()
+            sendBroadcast(Intent(ACTION_SET_COMPLETED).setPackage(packageName).putExtra(EXTRA_COMPLETED_SETS, completedSets))
+            postNotification(System.currentTimeMillis())
+            return START_STICKY
+        }
+
         if (action == ACTION_FINISH) {
             stopTimerService()
             return START_NOT_STICKY
@@ -103,6 +113,7 @@ class WorkoutTimerService : Service() {
             ACTION_UPDATE_REST -> updateRest(commandIntent)
             ACTION_CLEAR_REST -> clearRestInternal(notify = false)
             ACTION_PAUSE -> pauseWorkoutAndRest()
+            ACTION_RESUME -> resumeWorkoutAndRest()
         }
         persistState()
         postNotification(System.currentTimeMillis())
@@ -169,6 +180,18 @@ class WorkoutTimerService : Service() {
             restEndAt = 0L
             restPaused = true
         }
+        sendBroadcast(Intent(ACTION_PAUSE_CHANGED).setPackage(packageName).putExtra(EXTRA_PAUSED, true))
+    }
+
+    private fun resumeWorkoutAndRest() {
+        if (!workoutActive || !workoutPaused) return
+        workoutPaused = false
+        workoutStartedAt = System.currentTimeMillis() - workoutElapsedAtPause * 1000L
+        if (restActive && restPaused) {
+            restPaused = false
+            restEndAt = System.currentTimeMillis() + restRemainingAtPause * 1000L
+        }
+        sendBroadcast(Intent(ACTION_PAUSE_CHANGED).setPackage(packageName).putExtra(EXTRA_PAUSED, false))
     }
 
     private fun clearRestInternal(notify: Boolean) {
@@ -258,6 +281,9 @@ class WorkoutTimerService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
+        val pausePendingIntent = PendingIntent.getService(this, REQUEST_PAUSE, Intent(this, WorkoutTimerService::class.java).setAction(if (workoutPaused) ACTION_RESUME else ACTION_PAUSE), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val completePendingIntent = PendingIntent.getService(this, REQUEST_COMPLETE, Intent(this, WorkoutTimerService::class.java).setAction(ACTION_COMPLETE_SET), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+
         val builder = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle("形域 · $exerciseName")
@@ -283,7 +309,9 @@ class WorkoutTimerService : Service() {
                 .addAction(NotificationCompat.Action(0, "跳过休息", skipPendingIntent))
         } else {
             builder.setWhen(now).setUsesChronometer(false)
+                .addAction(NotificationCompat.Action(0, "完成本组", completePendingIntent))
         }
+        builder.addAction(NotificationCompat.Action(0, if (workoutPaused) "继续" else "暂停", pausePendingIntent))
         return builder.build()
     }
 
@@ -375,6 +403,10 @@ class WorkoutTimerService : Service() {
         const val ACTION_UPDATE_REST = "com.kilostrength.kilo_strength.UPDATE_REST"
         const val ACTION_CLEAR_REST = "com.kilostrength.kilo_strength.CLEAR_REST"
         const val ACTION_PAUSE = "com.kilostrength.kilo_strength.PAUSE_TIMER"
+        const val ACTION_RESUME = "com.kilostrength.kilo_strength.RESUME_TIMER"
+        const val ACTION_COMPLETE_SET = "com.kilostrength.kilo_strength.COMPLETE_SET"
+        const val ACTION_SET_COMPLETED = "com.kilostrength.kilo_strength.SET_COMPLETED"
+        const val ACTION_PAUSE_CHANGED = "com.kilostrength.kilo_strength.PAUSE_CHANGED"
         const val ACTION_FINISH = "com.kilostrength.kilo_strength.FINISH_WORKOUT"
         const val ACTION_SKIP_REST = "com.kilostrength.kilo_strength.SKIP_REST"
         const val ACTION_REST_SKIPPED = "com.kilostrength.kilo_strength.REST_SKIPPED"
@@ -384,11 +416,14 @@ class WorkoutTimerService : Service() {
         const val EXTRA_ELAPSED_SECONDS = "elapsedSeconds"
         const val EXTRA_COMPLETED_SETS = "completedSets"
         const val EXTRA_TOTAL_SETS = "totalSets"
+        const val EXTRA_PAUSED = "paused"
 
         private const val NOTIFICATION_CHANNEL_ID = "kilo_workout_v4"
         private const val NOTIFICATION_ID = 704
         private const val REQUEST_OPEN = 705
         private const val REQUEST_SKIP = 706
+        private const val REQUEST_COMPLETE = 707
+        private const val REQUEST_PAUSE = 708
         private const val UPDATE_INTERVAL_MS = 1000L
         private const val PREFERENCES_NAME = "workout_timer"
         private const val KEY_WORKOUT_ACTIVE = "workoutActive"
@@ -402,5 +437,6 @@ class WorkoutTimerService : Service() {
         private const val KEY_EXERCISE = "exerciseName"
         private const val KEY_COMPLETED_SETS = "completedSets"
         private const val KEY_TOTAL_SETS = "totalSets"
+        const val KEY_PENDING_SET_COMPLETION = "pendingSetCompletion"
     }
 }

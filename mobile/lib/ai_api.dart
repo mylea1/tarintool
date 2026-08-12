@@ -12,6 +12,30 @@ class CoachAnswer {
   final AiPlanDraft? plan;
 }
 
+sealed class CoachStreamEvent {
+  const CoachStreamEvent();
+}
+
+class CoachStreamDelta extends CoachStreamEvent {
+  const CoachStreamDelta(this.text);
+  final String text;
+}
+
+class CoachStreamDone extends CoachStreamEvent {
+  const CoachStreamDone(this.answer);
+  final CoachAnswer answer;
+}
+
+abstract interface class StreamingCoachApi {
+  Stream<CoachStreamEvent> streamAnswer({
+    required String prompt,
+    required bool includeTrainingSummary,
+    String locale = 'zh-CN',
+    String? trainingSummary,
+    List<Map<String, String>> exerciseCatalog = const [],
+  });
+}
+
 /// Client boundary for the server-owned `/v1/coach/answer` endpoint.
 /// Authentication and model keys stay on the server; this client only receives
 /// a user prompt, optional consented summary and a JSON answer.
@@ -25,7 +49,7 @@ abstract interface class CoachApi {
   });
 }
 
-class HttpCoachApi implements CoachApi {
+class HttpCoachApi implements CoachApi, StreamingCoachApi {
   HttpCoachApi({
     required this.baseUrl,
     http.Client? client,
@@ -67,6 +91,93 @@ class HttpCoachApi implements CoachApi {
   }
 
   void clearSession() => _sessionToken = null;
+
+  @override
+  Stream<CoachStreamEvent> streamAnswer({
+    required String prompt,
+    required bool includeTrainingSummary,
+    String locale = 'zh-CN',
+    String? trainingSummary,
+    List<Map<String, String>> exerciseCatalog = const [],
+  }) {
+    final controller = StreamController<CoachStreamEvent>();
+    final client = http.Client();
+    controller.onListen = () async {
+      try {
+        final token = _sessionToken;
+        if (token == null || token.isEmpty) {
+          throw const CoachApiException('coach_unauthenticated');
+        }
+        final request =
+            http.Request(
+                'POST',
+                Uri.parse(
+                  '${baseUrl.replaceAll(RegExp(r'/+$'), '')}/v1/coach/stream',
+                ),
+              )
+              ..headers.addAll({
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer $token',
+              })
+              ..body = jsonEncode({
+                'question': prompt,
+                'locale': locale,
+                'useTrainingData': includeTrainingSummary,
+                if (includeTrainingSummary &&
+                    trainingSummary?.trim().isNotEmpty == true)
+                  'trainingSummary': trainingSummary!.trim(),
+                if (exerciseCatalog.isNotEmpty)
+                  'exerciseCatalog': exerciseCatalog,
+              });
+        final response = await client.send(request).timeout(requestTimeout);
+        if (response.statusCode < 200 || response.statusCode >= 300) {
+          throw CoachApiException('coach_http_${response.statusCode}');
+        }
+        var buffer = '';
+        await for (final chunk in response.stream.transform(utf8.decoder)) {
+          buffer += chunk;
+          final blocks = buffer.split(RegExp(r'\r?\n\r?\n'));
+          buffer = blocks.removeLast();
+          for (final block in blocks) {
+            String? event;
+            String? data;
+            for (final line in block.split(RegExp(r'\r?\n'))) {
+              if (line.startsWith('event:')) event = line.substring(6).trim();
+              if (line.startsWith('data:')) data = line.substring(5).trim();
+            }
+            if (data == null || data.isEmpty) continue;
+            final payload = jsonDecode(data) as Map<String, dynamic>;
+            if (event == 'delta') {
+              final text = payload['text']?.toString() ?? '';
+              if (text.isNotEmpty && !controller.isClosed) {
+                controller.add(CoachStreamDelta(text));
+              }
+            } else if (event == 'done' && !controller.isClosed) {
+              controller.add(CoachStreamDone(_answerFromPayload(payload)));
+            } else if (event == 'error') {
+              throw CoachApiException(
+                payload['code']?.toString() ?? 'coach_stream_failed',
+              );
+            }
+          }
+        }
+        await controller.close();
+      } on TimeoutException {
+        controller.addError(const CoachApiException('coach_timeout'));
+        await controller.close();
+      } on http.ClientException {
+        controller.addError(const CoachApiException('coach_network'));
+        await controller.close();
+      } catch (error) {
+        controller.addError(error);
+        await controller.close();
+      } finally {
+        client.close();
+      }
+    };
+    controller.onCancel = client.close;
+    return controller.stream;
+  }
 
   @override
   Future<CoachAnswer> answer({
@@ -114,6 +225,10 @@ class HttpCoachApi implements CoachApi {
       throw CoachApiException('coach_http_${response.statusCode}');
     }
     final payload = jsonDecode(response.body) as Map<String, dynamic>;
+    return _answerFromPayload(payload);
+  }
+
+  CoachAnswer _answerFromPayload(Map<String, dynamic> payload) {
     final citations = (payload['citations'] as List<dynamic>? ?? const [])
         .map((item) {
           if (item is! Map<String, dynamic>) return item.toString();

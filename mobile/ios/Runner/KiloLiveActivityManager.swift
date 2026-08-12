@@ -9,6 +9,16 @@ final class KiloLiveActivityManager {
 
     private var currentActivity: Activity<KiloLiveActivityAttributes>?
     private var currentState: KiloLiveActivityAttributes.ContentState?
+
+    func consumeSystemActions() -> [String: Any] {
+        guard let activity = activeActivity else { return [:] }
+        let state = activity.content.state
+        currentState = state
+        return [
+            "completedSets": state.completedSets,
+            "paused": state.isPaused,
+        ]
+    }
     private var restExpirationTask: Task<Void, Never>?
     private let restNotificationIdentifier = "kilo.rest.finished"
 

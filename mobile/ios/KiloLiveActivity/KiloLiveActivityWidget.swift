@@ -1,6 +1,53 @@
 import ActivityKit
+import AppIntents
 import SwiftUI
 import WidgetKit
+
+@available(iOSApplicationExtension 17.0, *)
+struct KiloPauseResumeIntent: LiveActivityIntent {
+    static var title: LocalizedStringResource = "暂停或继续训练"
+
+    func perform() async throws -> some IntentResult {
+        guard let activity = Activity<KiloLiveActivityAttributes>.activities.first else {
+            return .result()
+        }
+        var state = activity.content.state
+        if state.isPaused {
+            state.workoutStartedAt = Date().addingTimeInterval(TimeInterval(-state.pausedElapsedSeconds))
+            if state.pausedRestSeconds > 0 {
+                state.restEndsAt = Date().addingTimeInterval(TimeInterval(state.pausedRestSeconds))
+            }
+            state.isPaused = false
+            state.phaseLabel = state.restEndsAt == nil ? "训练中" : "组间休息"
+        } else {
+            state.pausedElapsedSeconds = max(0, Int(Date().timeIntervalSince(state.workoutStartedAt)))
+            if let restEnd = state.restEndsAt {
+                state.pausedRestSeconds = max(0, Int(restEnd.timeIntervalSinceNow.rounded(.up)))
+            }
+            state.restEndsAt = nil
+            state.isPaused = true
+            state.phaseLabel = "已暂停"
+        }
+        await activity.update(ActivityContent(state: state, staleDate: nil))
+        return .result()
+    }
+}
+
+@available(iOSApplicationExtension 17.0, *)
+struct KiloCompleteSetIntent: LiveActivityIntent {
+    static var title: LocalizedStringResource = "完成本组"
+
+    func perform() async throws -> some IntentResult {
+        guard let activity = Activity<KiloLiveActivityAttributes>.activities.first else {
+            return .result()
+        }
+        var state = activity.content.state
+        state.completedSets = min(state.totalSets, state.completedSets + 1)
+        state.phaseLabel = state.completedSets >= state.totalSets ? "全部组已完成" : "本组已完成"
+        await activity.update(ActivityContent(state: state, staleDate: nil))
+        return .result()
+    }
+}
 
 @available(iOSApplicationExtension 16.1, *)
 struct KiloLiveActivityWidget: Widget {
@@ -31,7 +78,8 @@ struct KiloLiveActivityWidget: Widget {
                         .lineLimit(1)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    HStack {
+                    VStack(spacing: 8) {
+                      HStack {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(context.state.exerciseName)
                                 .font(.caption.weight(.semibold))
@@ -49,6 +97,22 @@ struct KiloLiveActivityWidget: Widget {
                         Spacer()
                         KiloRestTimer(state: context.state)
                             .foregroundStyle(ember)
+                      }
+                      if #available(iOSApplicationExtension 17.0, *) {
+                        HStack(spacing: 10) {
+                            Button(intent: KiloCompleteSetIntent()) {
+                                Label("完成本组", systemImage: "checkmark.circle.fill")
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(ember)
+                            Button(intent: KiloPauseResumeIntent()) {
+                                Label(context.state.isPaused ? "继续" : "暂停", systemImage: context.state.isPaused ? "play.fill" : "pause.fill")
+                            }
+                            .buttonStyle(.bordered)
+                            .tint(.white)
+                        }
+                        .font(.caption.weight(.bold))
+                      }
                     }
                 }
             } compactLeading: {
@@ -82,7 +146,8 @@ struct KiloLiveActivityWidget: Widget {
         private let secondaryText = Color(red: 0.38, green: 0.29, blue: 0.25)
 
         var body: some View {
-            HStack(spacing: 12) {
+            VStack(spacing: 10) {
+              HStack(spacing: 12) {
                 ZStack {
                     Circle().fill(Color(red: 0.93, green: 0.34, blue: 0.08).opacity(0.14))
                     Image(systemName: context.state.isPaused ? "pause.fill" : "flame.fill")
@@ -123,6 +188,24 @@ struct KiloLiveActivityWidget: Widget {
                             .foregroundStyle(context.state.isPaused ? Color.orange : secondaryText)
                     }
                 }
+              }
+              if #available(iOSApplicationExtension 17.0, *) {
+                HStack(spacing: 10) {
+                    Button(intent: KiloCompleteSetIntent()) {
+                        Label("完成本组", systemImage: "checkmark.circle.fill")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Color(red: 0.93, green: 0.34, blue: 0.08))
+                    Button(intent: KiloPauseResumeIntent()) {
+                        Label(context.state.isPaused ? "继续" : "暂停", systemImage: context.state.isPaused ? "play.fill" : "pause.fill")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(primaryText)
+                }
+                .font(.caption.weight(.bold))
+              }
             }
             .padding(14)
         }

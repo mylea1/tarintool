@@ -39,6 +39,16 @@ import UserNotifications
         result(pending)
         return
       }
+      if call.method == "consumePendingTimerActions" {
+        if #available(iOS 16.1, *) {
+          Task { @MainActor in
+            result(KiloLiveActivityManager.shared.consumeSystemActions())
+          }
+        } else {
+          result([:])
+        }
+        return
+      }
       guard #available(iOS 16.1, *) else {
         result(nil)
         return

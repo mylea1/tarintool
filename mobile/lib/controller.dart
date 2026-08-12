@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'account_membership.dart';
 import 'app_localizations.dart';
 import 'ai_api.dart';
+import 'natural_workout_parser.dart';
 import 'models.dart';
 import 'recognition_api.dart';
 import 'workout_history_persistence.dart';
@@ -23,15 +24,28 @@ class PlatformTimerBridge {
   static void setSystemActionHandlers({
     VoidCallback? onRestSkipped,
     VoidCallback? onOpenWorkout,
+    ValueChanged<int>? onCompletedSetsChanged,
+    ValueChanged<bool>? onPauseChanged,
   }) {
     _channel.setMethodCallHandler(
-      onRestSkipped == null && onOpenWorkout == null
+      onRestSkipped == null &&
+              onOpenWorkout == null &&
+              onCompletedSetsChanged == null &&
+              onPauseChanged == null
           ? null
           : (call) async {
               if (call.method == 'restSkippedFromNotification') {
                 onRestSkipped?.call();
               } else if (call.method == 'openWorkoutFromSystem') {
                 onOpenWorkout?.call();
+              } else if (call.method == 'completeSetFromNotification') {
+                final value = call.arguments;
+                final target = value is Map
+                    ? value['completedSets'] as int?
+                    : null;
+                if (target != null) onCompletedSetsChanged?.call(target);
+              } else if (call.method == 'pauseChangedFromNotification') {
+                onPauseChanged?.call(call.arguments == true);
               }
             },
     );
@@ -41,6 +55,29 @@ class PlatformTimerBridge {
           if (pending) onOpenWorkout();
         }),
       );
+    }
+    if (onCompletedSetsChanged != null || onPauseChanged != null) {
+      unawaited(
+        _consumePendingTimerActions().then((pending) {
+          final completed = pending['completedSets'];
+          if (completed is int) onCompletedSetsChanged?.call(completed);
+          final paused = pending['paused'];
+          if (paused is bool) onPauseChanged?.call(paused);
+        }),
+      );
+    }
+  }
+
+  static Future<Map<dynamic, dynamic>> _consumePendingTimerActions() async {
+    try {
+      final result = await _channel.invokeMethod<dynamic>(
+        'consumePendingTimerActions',
+      );
+      return result is Map ? result : const {};
+    } on MissingPluginException {
+      return const {};
+    } on PlatformException catch (_) {
+      return const {};
     }
   }
 
@@ -190,6 +227,8 @@ class AppController extends ChangeNotifier {
     PlatformTimerBridge.setSystemActionHandlers(
       onRestSkipped: skipRest,
       onOpenWorkout: _openWorkoutFromSystem,
+      onCompletedSetsChanged: syncCompletedSetsFromSystem,
+      onPauseChanged: setWorkoutPausedFromSystem,
     );
     this.accountService.addListener(_handleAccountChanged);
     unawaited(loadRecognitionCapabilities());
@@ -471,6 +510,7 @@ class AppController extends ChangeNotifier {
   bool aiUseTrainingData = false;
   bool aiConsentSeen = false;
   bool aiTyping = false;
+  int aiWaitingSeconds = 0;
   final List<ChatMessage> chat = [];
   final List<AiConversation> conversations = [];
   String activeConversationId = 'conversation-main';
@@ -490,6 +530,12 @@ class AppController extends ChangeNotifier {
   Timer? _restTicker;
   Timer? _recognitionTicker;
   Timer? _completionBurstTimer;
+  Timer? _aiWaitingTimer;
+  StreamSubscription<CoachStreamEvent>? _aiStreamSubscription;
+  Completer<CoachAnswer>? _activeAiCompleter;
+  bool _aiCancelled = false;
+  DateTime? _activeSetStartedAt;
+  int _activeSetElapsedSeconds = 0;
   QuotaReservation? _recognitionReservation;
 
   List<Exercise> get allExercises => [...catalog, ...customExercises];
@@ -776,6 +822,7 @@ class AppController extends ChangeNotifier {
     workoutTimerStarted = true;
     workoutPaused = false;
     workoutStartedAt = DateTime.now();
+    _activeSetStartedAt ??= DateTime.now();
     _workoutTicker?.cancel();
     _workoutTicker = Timer.periodic(
       const Duration(seconds: 1),
@@ -816,11 +863,18 @@ class AppController extends ChangeNotifier {
   void pauseWorkout() {
     if (!workoutStarted || !workoutTimerStarted) return;
     workoutElapsedSeconds = currentElapsed;
+    if (!workoutPaused && _activeSetStartedAt != null) {
+      _activeSetElapsedSeconds += DateTime.now()
+          .difference(_activeSetStartedAt!)
+          .inSeconds;
+      _activeSetStartedAt = null;
+    }
     workoutPaused = !workoutPaused;
     workoutStartedAt = workoutPaused ? null : DateTime.now();
     if (workoutPaused) {
       PlatformTimerBridge.pause();
     } else {
+      _activeSetStartedAt ??= DateTime.now();
       PlatformTimerBridge.startWorkout(
         elapsedSeconds: workoutElapsedSeconds,
         workoutName: workoutName,
@@ -843,11 +897,58 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setWorkoutPausedFromSystem(bool paused) {
+    if (!workoutStarted || workoutPaused == paused) return;
+    workoutElapsedSeconds = currentElapsed;
+    if (paused && _activeSetStartedAt != null) {
+      _activeSetElapsedSeconds += DateTime.now()
+          .difference(_activeSetStartedAt!)
+          .inSeconds;
+      _activeSetStartedAt = null;
+    } else if (!paused) {
+      _activeSetStartedAt ??= DateTime.now();
+    }
+    workoutPaused = paused;
+    workoutStartedAt = paused ? null : DateTime.now();
+    persistActiveWorkout();
+    notifyListeners();
+  }
+
+  void completeNextSetFromSystem() {
+    for (final exercise in workout) {
+      for (final set in exercise.sets) {
+        if (!set.completed) {
+          completeSet(set, exercise);
+          return;
+        }
+      }
+    }
+  }
+
+  void syncCompletedSetsFromSystem(int target) {
+    final safeTarget = target.clamp(0, totalSets);
+    while (completedSets < safeTarget) {
+      final before = completedSets;
+      completeNextSetFromSystem();
+      if (completedSets == before) break;
+    }
+  }
+
   void completeSet(WorkoutSet set, WorkoutExercise parent) {
     if (!workoutStarted) return;
     if (!workoutTimerStarted) beginWorkoutTimer();
     set.completed = !set.completed;
     if (set.completed) {
+      final started = _activeSetStartedAt;
+      final currentSegment = started == null
+          ? 0
+          : DateTime.now().difference(started).inSeconds;
+      final duration = _activeSetElapsedSeconds + currentSegment;
+      if (duration > 0) {
+        set.durationSeconds = duration.clamp(1, 3600);
+      }
+      _activeSetStartedAt = null;
+      _activeSetElapsedSeconds = 0;
       triggerCompletionBurst(set.id);
       restRemainingSeconds = effectiveRestSeconds(set, parent);
       if (restRemainingSeconds > 0) {
@@ -863,6 +964,9 @@ class AppController extends ChangeNotifier {
         PlatformTimerBridge.clearRest();
       }
     } else {
+      set.durationSeconds = null;
+      _activeSetElapsedSeconds = 0;
+      _activeSetStartedAt = workoutPaused ? null : DateTime.now();
       restRemainingSeconds = 0;
       restRunning = false;
       restExerciseName = null;
@@ -871,6 +975,30 @@ class AppController extends ChangeNotifier {
     }
     persistActiveWorkout();
     _syncPlatformWorkoutState(parent);
+    notifyListeners();
+  }
+
+  void startCurrentSetTimer() {
+    if (!workoutStarted) return;
+    if (!workoutTimerStarted) beginWorkoutTimer();
+    _activeSetStartedAt = DateTime.now();
+    _activeSetElapsedSeconds = 0;
+    notifyListeners();
+  }
+
+  int get currentSetElapsedSeconds => _activeSetStartedAt == null
+      ? 0
+      : DateTime.now().difference(_activeSetStartedAt!).inSeconds;
+
+  ParsedWorkoutNote parseNaturalWorkout(String text) =>
+      NaturalWorkoutParser.parse(text, allExercises);
+
+  void applyNaturalWorkout(ParsedWorkoutNote parsed) {
+    if (parsed.exercises.isEmpty) return;
+    if (!workoutStarted) startWorkout(name: '自由训练', autoStartTimer: false);
+    workout.addAll(parsed.exercises.map((item) => item.copyForWorkout()));
+    if (parsed.note.isNotEmpty) workoutNote = parsed.note;
+    persistActiveWorkout();
     notifyListeners();
   }
 
@@ -950,6 +1078,8 @@ class AppController extends ChangeNotifier {
         PlatformTimerBridge.completeRest();
         SystemSound.play(SystemSoundType.alert);
         HapticFeedback.heavyImpact();
+        _activeSetStartedAt = DateTime.now();
+        _activeSetElapsedSeconds = 0;
       }
       notifyListeners();
     });
@@ -986,6 +1116,8 @@ class AppController extends ChangeNotifier {
     restExerciseName = null;
     _restTicker?.cancel();
     PlatformTimerBridge.clearRest();
+    _activeSetStartedAt = workoutPaused ? null : DateTime.now();
+    _activeSetElapsedSeconds = 0;
     notifyListeners();
   }
 
@@ -2149,6 +2281,19 @@ class AppController extends ChangeNotifier {
       ),
     );
     aiTyping = true;
+    _aiCancelled = false;
+    aiWaitingSeconds = 0;
+    _aiWaitingTimer?.cancel();
+    _aiWaitingTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      aiWaitingSeconds++;
+      notifyListeners();
+    });
+    final answerMessage = ChatMessage(
+      id: 'answer-${DateTime.now().microsecondsSinceEpoch}',
+      role: 'assistant',
+      body: '',
+    );
+    chat.add(answerMessage);
     notifyListeners();
     CoachAnswer? remoteAnswer;
     String? serviceError;
@@ -2169,13 +2314,56 @@ class AppController extends ChangeNotifier {
       }
       if (serviceError == null) {
         try {
-          remoteAnswer = await _requestCoachAnswer(
-            trimmed,
-            includeTrainingContext: includeTrainingContext,
-            selectedTrainingContext: contexts.isEmpty
-                ? null
-                : _buildSelectedAiContext(contexts),
-          );
+          final selected = contexts.isEmpty
+              ? null
+              : _buildSelectedAiContext(contexts);
+          final api = await _activeCoachApi();
+          final includeSummary =
+              aiUseTrainingData || includeTrainingContext || selected != null;
+          if (api is StreamingCoachApi && !_isAiPlanRequest(trimmed)) {
+            final streamingApi = api as StreamingCoachApi;
+            final done = Completer<CoachAnswer>();
+            _activeAiCompleter = done;
+            _aiStreamSubscription = streamingApi
+                .streamAnswer(
+                  prompt: trimmed,
+                  includeTrainingSummary: includeSummary,
+                  locale: appLanguage.storageValue,
+                  trainingSummary: includeSummary
+                      ? selected ?? _buildAiTrainingSummary()
+                      : null,
+                  exerciseCatalog: _isAiPlanRequest(trimmed)
+                      ? _aiExerciseCatalog()
+                      : const [],
+                )
+                .listen(
+                  (event) {
+                    if (event is CoachStreamDelta) {
+                      answerMessage.body += event.text;
+                      notifyListeners();
+                    } else if (event is CoachStreamDone && !done.isCompleted) {
+                      done.complete(event.answer);
+                    }
+                  },
+                  onError: (Object error) {
+                    if (!done.isCompleted) done.completeError(error);
+                  },
+                );
+            remoteAnswer = await done.future;
+            if (_aiCancelled) {
+              throw const CoachApiException('coach_cancelled');
+            }
+          } else {
+            remoteAnswer = await _requestCoachAnswer(
+              trimmed,
+              includeTrainingContext: includeTrainingContext,
+              selectedTrainingContext: selected,
+            );
+          }
+          answerMessage
+            ..body = remoteAnswer.body
+            ..citations = remoteAnswer.citations
+            ..plan = remoteAnswer.plan;
           if (remoteAnswer.body.trim().isNotEmpty) {
             aiReservation?.commit();
           } else {
@@ -2186,6 +2374,8 @@ class AppController extends ChangeNotifier {
         } on CoachApiException catch (error) {
           aiReservation?.rollback();
           serviceError = switch (error.code) {
+            'coach_cancelled' =>
+              answerMessage.body.trim().isEmpty ? '已停止回答。' : null,
             'coach_account_not_synced' => '当前账号尚未同步到云端，请先使用测试账号 123 或 1234。',
             'coach_timeout' => 'AI 响应超时，已自动重试一次，请稍后再试。',
             'coach_network' => '当前网络无法连接 AI 服务，请检查网络后重试。',
@@ -2201,17 +2391,35 @@ class AppController extends ChangeNotifier {
       }
     }
     aiTyping = false;
-    chat.add(
-      ChatMessage(
-        id: 'answer-${DateTime.now().microsecondsSinceEpoch}',
-        role: 'assistant',
-        body: remoteAnswer?.body.isNotEmpty == true
-            ? remoteAnswer!.body
-            : serviceError ?? 'AI 服务未返回可用回答。',
-        citations: remoteAnswer?.citations ?? const [],
-        plan: remoteAnswer?.plan,
-      ),
-    );
+    _aiWaitingTimer?.cancel();
+    _aiWaitingTimer = null;
+    _aiStreamSubscription = null;
+    _activeAiCompleter = null;
+    if (answerMessage.body.trim().isEmpty) {
+      answerMessage.body = remoteAnswer?.body.isNotEmpty == true
+          ? remoteAnswer!.body
+          : serviceError ?? 'AI 服务未返回可用回答。';
+    }
+    _saveActiveConversation();
+    notifyListeners();
+  }
+
+  Future<void> cancelAiResponse() async {
+    if (!aiTyping) return;
+    _aiCancelled = true;
+    final assistants = chat.where((item) => item.role == 'assistant');
+    final partial = assistants.isEmpty ? '' : assistants.last.body.trim();
+    if (_activeAiCompleter?.isCompleted == false) {
+      _activeAiCompleter!.complete(CoachAnswer(body: partial));
+    }
+    await _aiStreamSubscription?.cancel();
+    _aiStreamSubscription = null;
+    _aiWaitingTimer?.cancel();
+    _aiWaitingTimer = null;
+    aiTyping = false;
+    if (assistants.isNotEmpty && assistants.last.body.trim().isEmpty) {
+      assistants.last.body = '已停止回答。';
+    }
     _saveActiveConversation();
     notifyListeners();
   }
@@ -2225,6 +2433,8 @@ class AppController extends ChangeNotifier {
     _restTicker?.cancel();
     _recognitionTicker?.cancel();
     _completionBurstTimer?.cancel();
+    _aiWaitingTimer?.cancel();
+    unawaited(_aiStreamSubscription?.cancel());
     super.dispose();
   }
 }

@@ -324,6 +324,7 @@ class WorkoutSet {
     this.completed = false,
     this.failed = false,
     this.note = '',
+    this.durationSeconds,
   });
   final String id;
   String type;
@@ -343,6 +344,7 @@ class WorkoutSet {
   bool completed;
   bool failed;
   String note;
+  int? durationSeconds;
 
   double get plannedWeightOrActual => plannedWeight ?? weight;
 
@@ -360,6 +362,7 @@ class WorkoutSet {
     completed: completed,
     failed: failed,
     note: note,
+    durationSeconds: durationSeconds,
   );
 
   /// Copies a set into a persisted plan. A plan created from a legacy live
@@ -381,6 +384,7 @@ class WorkoutSet {
     completed: completed,
     failed: failed,
     note: note,
+    durationSeconds: durationSeconds,
   );
 }
 
@@ -543,9 +547,9 @@ class ChatMessage {
   });
   final String id;
   final String role;
-  final String body;
-  final List<String> citations;
-  final AiPlanDraft? plan;
+  String body;
+  List<String> citations;
+  AiPlanDraft? plan;
 }
 
 class AiPlanDraft {

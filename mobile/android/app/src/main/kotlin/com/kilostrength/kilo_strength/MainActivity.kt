@@ -23,6 +23,7 @@ class MainActivity : FlutterActivity() {
     private var skipReceiver: BroadcastReceiver? = null
     private var notificationPermissionRequested = false
     private var pendingWorkoutOpen = false
+    private val timerPreferences by lazy { getSharedPreferences("workout_timer", Context.MODE_PRIVATE) }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -39,6 +40,14 @@ class MainActivity : FlutterActivity() {
                         val pending = pendingWorkoutOpen
                         pendingWorkoutOpen = false
                         result.success(pending)
+                    }
+                    "consumePendingTimerActions" -> {
+                        val completed = timerPreferences.getBoolean(WorkoutTimerService.KEY_PENDING_SET_COMPLETION, false)
+                        timerPreferences.edit().putBoolean(WorkoutTimerService.KEY_PENDING_SET_COMPLETION, false).apply()
+                        result.success(mapOf(
+                            "completedSets" to if (completed) timerPreferences.getInt("completedSets", 0) else null,
+                            "paused" to timerPreferences.getBoolean("workoutPaused", false),
+                        ))
                     }
 
                     "startWorkout" -> {
@@ -199,13 +208,25 @@ class MainActivity : FlutterActivity() {
         if (skipReceiver != null) return
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
-                if (intent?.action == WorkoutTimerService.ACTION_REST_SKIPPED) {
-                    timerChannel?.invokeMethod("restSkippedFromNotification", null)
+                when (intent?.action) {
+                    WorkoutTimerService.ACTION_REST_SKIPPED -> timerChannel?.invokeMethod("restSkippedFromNotification", null)
+                    WorkoutTimerService.ACTION_SET_COMPLETED -> {
+                        timerPreferences.edit().putBoolean(WorkoutTimerService.KEY_PENDING_SET_COMPLETION, false).apply()
+                        timerChannel?.invokeMethod(
+                            "completeSetFromNotification",
+                            mapOf("completedSets" to intent.getIntExtra(WorkoutTimerService.EXTRA_COMPLETED_SETS, 0)),
+                        )
+                    }
+                    WorkoutTimerService.ACTION_PAUSE_CHANGED -> timerChannel?.invokeMethod("pauseChangedFromNotification", intent.getBooleanExtra(WorkoutTimerService.EXTRA_PAUSED, false))
                 }
             }
         }
         skipReceiver = receiver
-        val filter = IntentFilter(WorkoutTimerService.ACTION_REST_SKIPPED)
+        val filter = IntentFilter().apply {
+            addAction(WorkoutTimerService.ACTION_REST_SKIPPED)
+            addAction(WorkoutTimerService.ACTION_SET_COMPLETED)
+            addAction(WorkoutTimerService.ACTION_PAUSE_CHANGED)
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
         } else {

@@ -13,6 +13,7 @@ import 'controller.dart';
 import 'exercise_media.dart';
 import 'link_utils.dart';
 import 'models.dart';
+import 'natural_workout_parser.dart';
 import 'recognition_api.dart';
 
 // Warm-orange Material 3 tokens. The older names remain as compatibility
@@ -3414,6 +3415,16 @@ class _PlansView extends StatelessWidget {
             label: const Text('自由训练 · 立即开始'),
           ),
         ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            key: const Key('natural-workout-capture-button'),
+            onPressed: () => _showNaturalWorkoutCapture(context, controller),
+            icon: const Icon(Icons.auto_fix_high_outlined),
+            label: const Text('用训练备注快速记录'),
+          ),
+        ),
         const SizedBox(height: 16),
         SectionTitle(
           '我的计划',
@@ -3440,6 +3451,134 @@ class _PlansView extends StatelessWidget {
       ],
     );
   }
+}
+
+Future<void> _showNaturalWorkoutCapture(
+  BuildContext context,
+  AppController controller,
+) async {
+  final input = TextEditingController();
+  ParsedWorkoutNote? parsed;
+  await showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    builder: (sheetContext) => StatefulBuilder(
+      builder: (context, setState) {
+        final current = parsed;
+        return Padding(
+          padding: EdgeInsets.fromLTRB(
+            18,
+            16,
+            18,
+            16 + MediaQuery.viewInsetsOf(context).bottom,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        '训练备注转记录',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: '关闭',
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close),
+                    ),
+                  ],
+                ),
+                const Text(
+                  '每行一个动作，例如：卧推 80kg 8,8,7 休息120秒',
+                  style: TextStyle(color: secondaryInk, fontSize: 12),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: input,
+                  minLines: 4,
+                  maxLines: 8,
+                  autofocus: true,
+                  textInputAction: TextInputAction.newline,
+                  decoration: const InputDecoration(
+                    hintText:
+                        '卧推 80kg 8,8,7 休息120秒\n高位下拉 50kg 10×3\n备注：今天肩部状态良好',
+                    alignLabelWithHint: true,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  onPressed: () => setState(() {
+                    parsed = controller.parseNaturalWorkout(input.text);
+                  }),
+                  icon: const Icon(Icons.manage_search),
+                  label: const Text('预览结构化记录'),
+                ),
+                if (current != null) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF3E9),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '识别到 ${current.exercises.length} 个动作',
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                        for (final exercise in current.exercises)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 5),
+                            child: Text(
+                              '${controller.displayExerciseName(findExercise(exercise.exerciseId))} · '
+                              '${exercise.sets.map((set) => '${set.weight.toStringAsFixed(set.weight == set.weight.roundToDouble() ? 0 : 1)} kg × ${set.reps}').join(' / ')}',
+                            ),
+                          ),
+                        if (current.unmatched.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            '未识别：${current.unmatched.join('；')}',
+                            style: const TextStyle(
+                              color: Colors.deepOrange,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  FilledButton.icon(
+                    onPressed: current.exercises.isEmpty
+                        ? null
+                        : () {
+                            controller.applyNaturalWorkout(current);
+                            controller.openLiveWorkout();
+                            Navigator.pop(context);
+                            showKiloSnack(context, '已转换为可编辑训练记录');
+                          },
+                    icon: const Icon(Icons.check_circle_outline),
+                    label: Text('加入 ${current.exercises.length} 个动作'),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    ),
+  );
+  input.dispose();
 }
 
 class _RoutineCard extends StatelessWidget {
@@ -6178,7 +6317,8 @@ class _AiPageState extends State<AiPage> {
                       ),
                     for (final message in controller.chat)
                       _ChatBubble(message: message, controller: controller),
-                    if (controller.aiTyping) const _ThinkingIndicator(),
+                    if (controller.aiTyping)
+                      _ThinkingIndicator(controller: controller),
                   ],
                 ),
               ),
@@ -6741,7 +6881,8 @@ class _ChatBubble extends StatelessWidget {
 }
 
 class _ThinkingIndicator extends StatefulWidget {
-  const _ThinkingIndicator();
+  const _ThinkingIndicator({required this.controller});
+  final AppController controller;
 
   @override
   State<_ThinkingIndicator> createState() => _ThinkingIndicatorState();
@@ -6802,13 +6943,19 @@ class _ThinkingIndicatorState extends State<_ThinkingIndicator>
             ),
           ),
           const SizedBox(width: 5),
-          const Text(
-            '正在思考中',
-            style: TextStyle(
+          Text(
+            '已等待 ${widget.controller.aiWaitingSeconds} 秒',
+            style: const TextStyle(
               color: muted,
               fontSize: 12,
               fontWeight: FontWeight.w600,
             ),
+          ),
+          const SizedBox(width: 6),
+          TextButton.icon(
+            onPressed: widget.controller.cancelAiResponse,
+            icon: const Icon(Icons.stop_circle_outlined, size: 17),
+            label: const Text('停止回答'),
           ),
         ],
       ),

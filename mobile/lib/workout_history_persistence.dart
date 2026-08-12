@@ -383,6 +383,7 @@ Map<String, dynamic> _setToMap(WorkoutSet set) => {
   'completed': set.completed,
   'failed': set.failed,
   'note': set.note,
+  'durationSeconds': set.durationSeconds,
 };
 
 WorkoutSet _setFromMap(Map<String, dynamic> map) => WorkoutSet(
@@ -399,6 +400,9 @@ WorkoutSet _setFromMap(Map<String, dynamic> map) => WorkoutSet(
   completed: map['completed'] == true,
   failed: map['failed'] == true,
   note: map['note']?.toString() ?? '',
+  durationSeconds: map['durationSeconds'] == null
+      ? null
+      : _asInt(map['durationSeconds']),
 );
 
 List<Map<String, dynamic>> _asMapList(Object? value) => value is List
