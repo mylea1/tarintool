@@ -51,15 +51,18 @@ workflows:
       - name: Run tests
         script: flutter test
       - name: Apply provisioning profiles
-        script: xcode-project use-profiles
+        script: |
+          echo "Provisioning profiles available to this build:"
+          find "$HOME/Library/MobileDevice/Provisioning Profiles" -maxdepth 1 -type f -name "*.mobileprovision" -print || true
+          xcode-project use-profiles
       - name: Build signed IPA
-        script: >-
-          flutter build ipa --release
-          --dart-define=ENABLE_TEST_ADMIN=true
-            --dart-define=KILO_API_BASE_URL=https://api.kilostrength.cn
-          --build-name=1.0.12
-          --build-number=$BUILD_NUMBER
-          --export-options-plist=$HOME/export_options.plist
+        script: |
+          flutter build ipa --release \
+            --dart-define=ENABLE_TEST_ADMIN=true \
+            --dart-define=KILO_API_BASE_URL=https://api.kilostrength.cn \
+            --build-name=1.0.12 \
+            --build-number="$BUILD_NUMBER" \
+            --export-options-plist="$HOME/export_options.plist"
       - name: Verify IPA artifact
         script: |
           IPA_PATH=$(find "$CM_BUILD_DIR/mobile/build/ios/ipa" -type f -name "*.ipa" | head -1)
