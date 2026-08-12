@@ -2,11 +2,13 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
 
 import 'account_membership.dart';
+import 'app_localizations.dart';
 import 'controller.dart';
 import 'exercise_media.dart';
 import 'link_utils.dart';
@@ -37,10 +39,10 @@ const hairline = Color(0xFFEAD9CD);
 const emberTint = Color(0xFFFFEFE4);
 const emberShadow = Color(0x1F8E3D15);
 const danger = Color(0xFFB3261E);
-const kiloAppVersion = '1.0.10';
-const kiloAppBuild = '11';
+const kiloAppVersion = '1.0.11';
+const kiloAppBuild = '12';
 const kiloAppVersionLabel = '$kiloAppVersion ($kiloAppBuild)';
-const kiloAppNavigationLabel = '新版导航：训练/记录、AI/识别已合并';
+const kiloAppNavigationLabel = '新增中英文切换与动作媒体映射审计';
 const brandName = '形域';
 const brandEnglish = 'XINGYU';
 const brandLogoAsset = 'assets/branding/xingyu-mark.png';
@@ -82,6 +84,7 @@ class _KiloAppState extends State<KiloApp> {
       await controller.accountService.hydrateFromSharedPreferences().timeout(
         const Duration(seconds: 3),
       );
+      await controller.hydrateAppLanguage().timeout(const Duration(seconds: 3));
       await controller.hydrateWorkoutHistory().timeout(
         const Duration(seconds: 3),
       );
@@ -119,6 +122,12 @@ class _KiloAppState extends State<KiloApp> {
       return MaterialApp(
         debugShowCheckedModeBanner: false,
         title: '$brandName $brandEnglish',
+        locale: controller.appLanguage.locale,
+        supportedLocales: const [Locale('zh', 'CN'), Locale('en')],
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          ...GlobalMaterialLocalizations.delegates,
+        ],
         theme: _theme,
         home: !durableStateReady || !splashElapsed
             ? const BrandSplashPage()
@@ -401,9 +410,13 @@ class _LoginPageState extends State<LoginPage> {
         error =
             result.message ??
             switch (result.error) {
-              AccountError.emptyIdentifier => '请输入手机号或账号。',
-              AccountError.invalidCredentials => '账号或密码不正确。',
-              _ => '登录暂时不可用，请稍后重试。',
+              AccountError.emptyIdentifier => AppLocalizations.of(
+                context,
+              ).text('请输入手机号或账号。'),
+              AccountError.invalidCredentials => AppLocalizations.of(
+                context,
+              ).text('账号或密码不正确。'),
+              _ => AppLocalizations.of(context).text('登录暂时不可用，请稍后重试。'),
             };
       });
       return;
@@ -421,6 +434,7 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context);
     final isIos = defaultTargetPlatform == TargetPlatform.iOS;
     final testAccountEnabled =
         widget.controller.accountService.isTestAccountEnabled;
@@ -442,11 +456,11 @@ class _LoginPageState extends State<LoginPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Row(
+                    Row(
                       children: [
-                        BrandLogo(size: 66),
-                        SizedBox(width: 12),
-                        Expanded(
+                        const BrandLogo(size: 66),
+                        const SizedBox(width: 12),
+                        const Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -470,12 +484,29 @@ class _LoginPageState extends State<LoginPage> {
                             ],
                           ),
                         ),
+                        PopupMenuButton<AppLanguage>(
+                          key: const Key('login-language-setting'),
+                          tooltip: strings.text('语言与地区'),
+                          icon: const Icon(Icons.language_rounded),
+                          initialValue: widget.controller.appLanguage,
+                          onSelected: widget.controller.setAppLanguage,
+                          itemBuilder: (context) => const [
+                            PopupMenuItem(
+                              value: AppLanguage.simplifiedChinese,
+                              child: Text('简体中文'),
+                            ),
+                            PopupMenuItem(
+                              value: AppLanguage.english,
+                              child: Text('English'),
+                            ),
+                          ],
+                        ),
                       ],
                     ),
                     const SizedBox(height: 8),
-                    const Text(
-                      '记录每一组，把坚持变成看得见的成长。',
-                      style: TextStyle(color: muted),
+                    Text(
+                      strings.text('记录每一组，把坚持变成看得见的成长。'),
+                      style: const TextStyle(color: muted),
                     ),
                     const SizedBox(height: 16),
                     Card(
@@ -485,7 +516,7 @@ class _LoginPageState extends State<LoginPage> {
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             Text(
-                              '登录账号',
+                              strings.text('登录账号'),
                               style: Theme.of(context).textTheme.titleMedium,
                             ),
                             const SizedBox(height: 10),
@@ -495,8 +526,8 @@ class _LoginPageState extends State<LoginPage> {
                               keyboardType: TextInputType.phone,
                               textInputAction: TextInputAction.next,
                               autofillHints: const [AutofillHints.username],
-                              decoration: const InputDecoration(
-                                labelText: '手机号或账号',
+                              decoration: InputDecoration(
+                                labelText: strings.text('手机号或账号'),
                               ),
                             ),
                             const SizedBox(height: 10),
@@ -507,8 +538,8 @@ class _LoginPageState extends State<LoginPage> {
                               textInputAction: TextInputAction.done,
                               autofillHints: const [AutofillHints.password],
                               onSubmitted: (_) => submit(),
-                              decoration: const InputDecoration(
-                                labelText: '密码',
+                              decoration: InputDecoration(
+                                labelText: strings.text('密码'),
                               ),
                             ),
                             if (error != null) ...[
@@ -525,7 +556,7 @@ class _LoginPageState extends State<LoginPage> {
                             FilledButton(
                               key: const Key('login-button'),
                               onPressed: busy ? null : submit,
-                              child: Text(busy ? '登录中…' : '登录'),
+                              child: Text(strings.text(busy ? '登录中…' : '登录')),
                             ),
                             if (testAccountEnabled) ...[
                               const SizedBox(height: 10),
@@ -539,7 +570,7 @@ class _LoginPageState extends State<LoginPage> {
                                       onPressed: busy
                                           ? null
                                           : () => fillTestAccount('123'),
-                                      child: const Text('普通体验 123'),
+                                      child: Text(strings.text('普通体验 123')),
                                     ),
                                   ),
                                   const SizedBox(width: 8),
@@ -551,14 +582,14 @@ class _LoginPageState extends State<LoginPage> {
                                       onPressed: busy
                                           ? null
                                           : () => fillTestAccount('1234'),
-                                      child: const Text('管理测试 1234'),
+                                      child: Text(strings.text('管理测试 1234')),
                                     ),
                                   ),
                                 ],
                               ),
                               const SizedBox(height: 6),
-                              const Text(
-                                '测试入口仅在测试构建中显示',
+                              Text(
+                                strings.text('测试入口仅在测试构建中显示'),
                                 textAlign: TextAlign.center,
                                 style: TextStyle(fontSize: 11, color: muted),
                               ),
@@ -574,11 +605,12 @@ class _LoginPageState extends State<LoginPage> {
                         onPressed: () {
                           final result = widget.controller.loginWithApple();
                           setState(
-                            () => error = result.message ?? 'Apple 登录尚未配置。',
+                            () => error =
+                                result.message ?? strings.text('Apple 登录尚未配置。'),
                           );
                         },
                         icon: const Icon(Icons.apple),
-                        label: const Text('使用 Apple 登录'),
+                        label: Text(strings.text('使用 Apple 登录')),
                       ),
                     ],
                   ],
@@ -619,24 +651,26 @@ class KiloShell extends StatelessWidget {
     PageId.ai || PageId.recognition => 3,
     PageId.profile => 4,
   };
-  String get pageTitle => switch (controller.page) {
-    PageId.today => '主页',
-    PageId.train => '训练',
-    PageId.records => '记录',
-    PageId.exercises => '动作库',
-    PageId.recognition => '动作识别',
-    PageId.ai => '知识库 AI',
-    PageId.profile => '我的',
-  };
-  String get pageSubtitle => switch (controller.page) {
-    PageId.today => '训练、记录和计划概览',
-    PageId.train => controller.workoutStarted ? '保持专注，完成下一组' : '选择计划并开始训练',
-    PageId.records => '训练日历、完成情况和历史记录',
-    PageId.exercises => '动作、机位与识别能力',
-    PageId.recognition => '上传视频并查看可解释报告',
-    PageId.ai => '有来源的训练问答',
-    PageId.profile => '训练偏好、设备连接和隐私设置',
-  };
+  String pageTitle(BuildContext context) =>
+      AppLocalizations.of(context).text(switch (controller.page) {
+        PageId.today => '主页',
+        PageId.train => '训练',
+        PageId.records => '记录',
+        PageId.exercises => '动作库',
+        PageId.recognition => '动作识别',
+        PageId.ai => '知识库 AI',
+        PageId.profile => '我的',
+      });
+  String pageSubtitle(BuildContext context) =>
+      AppLocalizations.of(context).text(switch (controller.page) {
+        PageId.today => '训练、记录和计划概览',
+        PageId.train => controller.workoutStarted ? '保持专注，完成下一组' : '选择计划并开始训练',
+        PageId.records => '训练日历、完成情况和历史记录',
+        PageId.exercises => '动作、机位与识别能力',
+        PageId.recognition => '上传视频并查看可解释报告',
+        PageId.ai => '有来源的训练问答',
+        PageId.profile => '训练偏好、设备连接和隐私设置',
+      });
 
   @override
   Widget build(BuildContext context) {
@@ -653,7 +687,7 @@ class KiloShell extends StatelessWidget {
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(58),
         child: SafeArea(
-          child: _TopBar(controller: controller, title: pageTitle),
+          child: _TopBar(controller: controller, title: pageTitle(context)),
         ),
       ),
       body: SafeArea(
@@ -685,7 +719,7 @@ class KiloShell extends StatelessWidget {
             NavigationDestination(
               icon: Icon(icons[i]),
               selectedIcon: Icon(icons[i], color: cobalt),
-              label: labels[i],
+              label: AppLocalizations.of(context).text(labels[i]),
             ),
         ],
       ),
@@ -717,7 +751,7 @@ class _TopBar extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    title,
+                    AppLocalizations.of(context).text(title),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -741,14 +775,14 @@ class _TopBar extends StatelessWidget {
                 backgroundColor: cobalt,
                 foregroundColor: Colors.white,
               ),
-              tooltip: '新建自定义动作',
+              tooltip: AppLocalizations.of(context).text('新建自定义动作'),
               onPressed: () => _showCustomExercise(context, controller),
               icon: const Icon(Icons.add),
             ),
           if (controller.page == PageId.ai &&
               controller.aiView == AiView.recognition)
             IconButton(
-              tooltip: '选择视频',
+              tooltip: AppLocalizations.of(context).text('选择视频'),
               onPressed: controller.mediaPicking ? null : controller.pickVideo,
               icon: const Icon(Icons.video_camera_back_outlined),
             ),
@@ -833,17 +867,23 @@ class SectionTitle extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: Theme.of(context).textTheme.titleLarge),
+              Text(
+                AppLocalizations.of(context).text(title),
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
               if (subtitle != null)
                 Text(
-                  subtitle!,
+                  AppLocalizations.of(context).text(subtitle!),
                   style: const TextStyle(fontSize: 12, color: quiet),
                 ),
             ],
           ),
         ),
         if (action != null)
-          TextButton(onPressed: onAction, child: Text(action!)),
+          TextButton(
+            onPressed: onAction,
+            child: Text(AppLocalizations.of(context).text(action!)),
+          ),
       ],
     ),
   );
@@ -865,7 +905,10 @@ class PrimaryButton extends StatelessWidget {
     child: FilledButton.icon(
       onPressed: onPressed,
       icon: Icon(icon ?? Icons.arrow_forward, size: 19),
-      label: Text(label, overflow: TextOverflow.ellipsis),
+      label: Text(
+        AppLocalizations.of(context).text(label),
+        overflow: TextOverflow.ellipsis,
+      ),
     ),
   );
 }
@@ -907,7 +950,7 @@ void showKiloSnack(
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              message,
+              AppLocalizations.of(context).text(message),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
@@ -948,7 +991,7 @@ class _StatusChip extends StatelessWidget {
         Icon(icon, size: 13, color: color),
         const SizedBox(width: 5),
         Text(
-          label,
+          AppLocalizations.of(context).text(label),
           style: TextStyle(
             fontSize: 12,
             color: color,
@@ -4097,9 +4140,11 @@ class _ExerciseLibraryPageState extends State<ExerciseLibraryPage> {
                       final narrow = constraints.maxWidth < 360;
                       final searchField = TextField(
                         key: const Key('exercise-search'),
-                        decoration: const InputDecoration(
-                          prefixIcon: Icon(Icons.search),
-                          hintText: '搜索动作、肌群或器械',
+                        decoration: InputDecoration(
+                          prefixIcon: const Icon(Icons.search),
+                          hintText: AppLocalizations.of(
+                            context,
+                          ).text('搜索动作、肌群或器械'),
                           isDense: true,
                         ),
                         onChanged: (value) {
@@ -4115,7 +4160,7 @@ class _ExerciseLibraryPageState extends State<ExerciseLibraryPage> {
                         icon: const Icon(Icons.tune, size: 17),
                         label: Text(
                           controller.equipmentFilter == '全部'
-                              ? '器械'
+                              ? AppLocalizations.of(context).text('器械')
                               : controller.equipmentFilter,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -4127,7 +4172,7 @@ class _ExerciseLibraryPageState extends State<ExerciseLibraryPage> {
                           backgroundColor: cobalt,
                           foregroundColor: Colors.white,
                         ),
-                        tooltip: '新建自定义动作',
+                        tooltip: AppLocalizations.of(context).text('新建自定义动作'),
                         onPressed: () =>
                             _showCustomExercise(context, controller),
                         icon: const Icon(Icons.add),
@@ -4162,10 +4207,16 @@ class _ExerciseLibraryPageState extends State<ExerciseLibraryPage> {
                   ),
                   const SizedBox(height: 9),
                   if (items.isEmpty)
-                    const Card(
+                    Card(
                       child: Padding(
-                        padding: EdgeInsets.all(22),
-                        child: Center(child: Text('没有匹配动作，试试清空搜索或筛选。')),
+                        padding: const EdgeInsets.all(22),
+                        child: Center(
+                          child: Text(
+                            AppLocalizations.of(
+                              context,
+                            ).text('没有匹配动作，试试清空搜索或筛选。'),
+                          ),
+                        ),
                       ),
                     )
                   else
@@ -4214,24 +4265,26 @@ class _ExerciseLibraryPageState extends State<ExerciseLibraryPage> {
                                                   ),
                                         ),
                                       ),
-                                      const Positioned(
+                                      Positioned(
                                         left: 7,
                                         top: 7,
                                         child: DecoratedBox(
-                                          decoration: BoxDecoration(
+                                          decoration: const BoxDecoration(
                                             color: primary,
                                             borderRadius: BorderRadius.all(
                                               Radius.circular(7),
                                             ),
                                           ),
                                           child: Padding(
-                                            padding: EdgeInsets.symmetric(
+                                            padding: const EdgeInsets.symmetric(
                                               horizontal: 7,
                                               vertical: 4,
                                             ),
                                             child: Text(
-                                              '讲解',
-                                              style: TextStyle(
+                                              AppLocalizations.of(
+                                                context,
+                                              ).text('讲解'),
+                                              style: const TextStyle(
                                                 color: Colors.white,
                                                 fontSize: 10,
                                                 fontWeight: FontWeight.w800,
@@ -4266,7 +4319,10 @@ class _ExerciseLibraryPageState extends State<ExerciseLibraryPage> {
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
-                                        '${exercise.muscle} · ${exercise.equipment}',
+                                        controller.appLanguage ==
+                                                AppLanguage.english
+                                            ? '${localizeExerciseMetadata(exercise.family, english: true)} · ${localizeExerciseMetadata(exercise.equipment, english: true)}'
+                                            : '${exercise.muscle} · ${exercise.equipment}',
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                         style: const TextStyle(
@@ -4375,7 +4431,7 @@ class _MuscleRail extends StatelessWidget {
                           )
                         : null,
                     child: Text(
-                      group,
+                      AppLocalizations.of(context).text(group),
                       textAlign: TextAlign.center,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -7417,16 +7473,13 @@ class ProfilePage extends StatelessWidget {
                   onTap: () => _showWorkoutSettings(context, controller),
                 ),
                 _ProfileQuickAction(
-                  key: const Key('exercise-name-language-setting'),
+                  key: const Key('app-language-setting'),
                   icon: Icons.translate_rounded,
-                  title: '动作语言',
-                  caption:
-                      controller.exerciseNameLanguage ==
-                          ExerciseNameLanguage.english
+                  title: '应用语言',
+                  caption: controller.appLanguage == AppLanguage.english
                       ? 'English'
                       : '简体中文',
-                  onTap: () =>
-                      _showExerciseNameLanguageSheet(context, controller),
+                  onTap: () => _showAppLanguageSheet(context, controller),
                 ),
                 _ProfileQuickAction(
                   key: const Key('notification-feedback-card'),
@@ -7592,7 +7645,7 @@ class _ProfileQuickAction extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    caption,
+                    AppLocalizations.of(context).text(caption),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontSize: 12, color: quiet),
@@ -7635,8 +7688,15 @@ class _ProfileSettingRow extends StatelessWidget {
       ),
       child: Icon(icon, size: 18, color: primary),
     ),
-    title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
-    subtitle: Text(caption, maxLines: 3, overflow: TextOverflow.ellipsis),
+    title: Text(
+      AppLocalizations.of(context).text(title),
+      style: const TextStyle(fontWeight: FontWeight.w800),
+    ),
+    subtitle: Text(
+      AppLocalizations.of(context).text(caption),
+      maxLines: 3,
+      overflow: TextOverflow.ellipsis,
+    ),
     trailing:
         trailing ?? (onTap == null ? null : const Icon(Icons.chevron_right)),
     onTap: onTap,
@@ -7834,10 +7894,7 @@ String _accountErrorMessage(AccountError error) => switch (error) {
   _ => '\u64cd\u4f5c\u5931\u8d25',
 };
 
-void _showExerciseNameLanguageSheet(
-  BuildContext context,
-  AppController controller,
-) {
+void _showAppLanguageSheet(BuildContext context, AppController controller) {
   showModalBottomSheet<void>(
     context: context,
     builder: (sheetContext) => SafeArea(
@@ -7845,30 +7902,30 @@ void _showExerciseNameLanguageSheet(
         mainAxisSize: MainAxisSize.min,
         children: [
           const ListTile(
-            title: Text('动作名称语言'),
-            subtitle: Text('仅控制动作名称显示，其他界面保持中文'),
+            title: Text('语言与地区'),
+            subtitle: Text('切换导航、训练流程、动作名称和 AI 回答语言'),
           ),
-          RadioListTile<ExerciseNameLanguage>(
-            key: const Key('exercise-name-language-zh'),
-            value: ExerciseNameLanguage.chinese,
+          RadioListTile<AppLanguage>(
+            key: const Key('app-language-zh'),
+            value: AppLanguage.simplifiedChinese,
             // ignore: deprecated_member_use
-            groupValue: controller.exerciseNameLanguage,
+            groupValue: controller.appLanguage,
             title: const Text('简体中文'),
             // ignore: deprecated_member_use
             onChanged: (value) {
-              if (value != null) controller.setExerciseNameLanguage(value);
+              if (value != null) controller.setAppLanguage(value);
               Navigator.pop(sheetContext);
             },
           ),
-          RadioListTile<ExerciseNameLanguage>(
-            key: const Key('exercise-name-language-en'),
-            value: ExerciseNameLanguage.english,
+          RadioListTile<AppLanguage>(
+            key: const Key('app-language-en'),
+            value: AppLanguage.english,
             // ignore: deprecated_member_use
-            groupValue: controller.exerciseNameLanguage,
+            groupValue: controller.appLanguage,
             title: const Text('English'),
             // ignore: deprecated_member_use
             onChanged: (value) {
-              if (value != null) controller.setExerciseNameLanguage(value);
+              if (value != null) controller.setAppLanguage(value);
               Navigator.pop(sheetContext);
             },
           ),

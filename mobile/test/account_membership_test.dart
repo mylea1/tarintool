@@ -386,6 +386,7 @@ class _ThrowingCoachApi implements CoachApi {
   Future<CoachAnswer> answer({
     required String prompt,
     required bool includeTrainingSummary,
+    String locale = 'zh-CN',
     String? trainingSummary,
     List<Map<String, String>> exerciseCatalog = const [],
   }) async {

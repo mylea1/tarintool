@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>形域 · International exercise library</title>
+<style>
+  :root{font-family:Inter,"PingFang SC",sans-serif;color:#241a15;background:#fff7f0;--orange:#d95718;--line:#ead9cd}
+  *{box-sizing:border-box}body{margin:0;display:grid;place-items:center;min-height:100vh}.phone{width:min(100%,390px);height:820px;background:#fffaf6;border:1px solid var(--line);border-radius:34px;overflow:hidden;box-shadow:0 24px 70px #8e3d1524;display:flex;flex-direction:column}.top{height:68px;display:flex;align-items:center;padding:16px;border-bottom:1px solid var(--line);font-weight:850;font-size:21px}.mark{width:34px;height:34px;border-radius:11px;background:conic-gradient(var(--orange) 0 25%,#241a15 0 50%,#fff 0 75%,#241a15 0);margin-right:10px}.toolbar{padding:14px;display:flex;gap:8px}.search{flex:1;background:white;border:1px solid var(--line);border-radius:14px;padding:12px;color:#756156}.lang{border:1px solid var(--line);background:white;border-radius:14px;padding:0 12px;color:var(--orange);font-weight:800}.content{display:grid;grid-template-columns:78px 1fr;gap:10px;min-height:0;flex:1;padding:0 14px 12px}.rail{background:#fff1e7;border-radius:16px;padding:6px}.rail button{width:100%;border:0;background:transparent;border-radius:12px;padding:12px 4px;color:#756156}.rail .on{background:white;color:var(--orange);font-weight:850;box-shadow:0 4px 14px #8e3d1512}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;overflow:auto}.card{background:white;border:1px solid var(--line);border-radius:16px;padding:8px;min-width:0}.photo{aspect-ratio:1.25;background:linear-gradient(145deg,#fff3e9,#f6eee9);border-radius:12px;display:grid;place-items:center;font-size:38px}.name{font-size:13px;font-weight:850;margin-top:8px;overflow-wrap:anywhere}.meta{font-size:10px;color:#756156;margin-top:3px}.audit{margin:0 14px 12px;padding:10px 12px;border-radius:14px;background:#e6f5ec;color:#176b47;font-size:11px;display:flex;gap:7px}.bottom{display:flex;justify-content:space-around;padding:13px 8px 22px;border-top:1px solid var(--line);background:white;font-size:11px}.bottom b{color:var(--orange)}
+</style>
+<body><main class="phone">
+  <header class="top"><i class="mark"></i><span id="title">动作库</span></header>
+  <div class="toolbar"><div class="search" id="search">⌕ 搜索动作、器械</div><button class="lang" onclick="swap()" id="lang">EN</button></div>
+  <div class="content"><nav class="rail"><button class="on" data-zh="全部" data-en="All">全部</button><button data-zh="胸部" data-en="Chest">胸部</button><button data-zh="背部" data-en="Back">背部</button><button data-zh="肩部" data-en="Shoulders">肩部</button><button data-zh="腿部" data-en="Legs">腿部</button><button data-zh="核心" data-en="Core">核心</button></nav>
+  <section class="grid">
+    <article class="card"><div class="photo">🏋️</div><div class="name" data-zh="杠铃卧推" data-en="Barbell bench press">杠铃卧推</div><div class="meta" data-zh="胸部 · 杠铃" data-en="Chest · Barbell">胸部 · 杠铃</div></article>
+    <article class="card"><div class="photo">💪</div><div class="name" data-zh="窄握俯卧撑" data-en="Close-grip push-up">窄握俯卧撑</div><div class="meta" data-zh="胸部 · 自重" data-en="Chest · Bodyweight">胸部 · 自重</div></article>
+    <article class="card"><div class="photo">🏋🏻</div><div class="name" data-zh="哑铃上斜卧推" data-en="Incline dumbbell press">哑铃上斜卧推</div><div class="meta" data-zh="胸部 · 哑铃" data-en="Chest · Dumbbell">胸部 · 哑铃</div></article>
+    <article class="card"><div class="photo">🤸</div><div class="name" data-zh="爆发式俯卧撑" data-en="Plyometric push-up">爆发式俯卧撑</div><div class="meta" data-zh="胸部 · 自重" data-en="Chest · Bodyweight">胸部 · 自重</div></article>
+  </section></div>
+  <div class="audit" id="audit">✓ 已校验动作 ID、图片与 GIF 首帧映射</div>
+  <footer class="bottom"><span>⌂ <b data-zh="主页" data-en="Home">主页</b></span><span>🏋 <span data-zh="训练" data-en="Train">训练</span></span><span>▣ <span data-zh="动作" data-en="Exercises">动作</span></span><span>AI</span><span>◎ <span data-zh="我的" data-en="Profile">我的</span></span></footer>
+</main><script>let en=false;function swap(){en=!en;document.documentElement.lang=en?'en':'zh-CN';document.querySelectorAll('[data-en]').forEach(x=>x.textContent=x.dataset[en?'en':'zh']);title.textContent=en?'Exercises':'动作库';search.textContent=en?'⌕ Search exercises or equipment':'⌕ 搜索动作、器械';audit.textContent=en?'✓ Exercise IDs, images and GIF frames verified':'✓ 已校验动作 ID、图片与 GIF 首帧映射';lang.textContent=en?'中文':'EN'}</script></body>
+</html>

@@ -810,7 +810,12 @@ async function handleRequest(req, res, ctx) {
       // relevant paper can be ranked just below several GitHub-backed notes,
       // then disappear when user-visible citations are filtered.
       const knowledge = knowledgeSearch(ctx.db, question, 20);
+      const answerLocale = String(body.locale || '').toLowerCase().startsWith('en') ? 'en' : 'zh-CN';
+      const languageInstruction = answerLocale === 'en'
+        ? 'Answer in natural, concise English. All headings, explanations, plan names and session names must be in English.'
+        : '使用自然、简洁的中文回答，标题、解释、计划名称和训练日名称均使用中文。';
       const messages = [{ role: 'system', content: `你是 KILO Strength 健身训练助手。提供一般训练、恢复和动作记录建议，不进行医疗诊断。证据不足时明确说明。
+${languageInstruction}
 回答使用简洁 Markdown：用标题、加粗、列表组织内容，但不要堆叠格式。只总结知识库结论，不要大段照搬原文。不要在正文中写文献名称、来源列表、脚注编号或“根据某文献”；客户端会在回答结尾统一展示服务端检索到的来源。凡是建议用户增加或降低重量、次数、组数或休息时间，必须紧接着说明依据（历史表现、完成质量、备注、训练目标或恢复状态）；没有足够数据时必须明确说这是保守起点而非个性化结论。` }];
       if (conversation.memory_summary) messages.push({ role: 'system', content: `长期记忆摘要：${conversation.memory_summary.slice(0, 3000)}` });
       if (knowledge.length) messages.push({ role: 'system', content: `内部知识库参考：\n${knowledge.map((item) => `${item.title}: ${item.content.slice(0, 1200)}`).join('\n')}\n这些内容可以帮助推理，但不得在正文中披露内部知识库名称、文件名或技能名。客户端会统一展示检索来源。B站、GitHub、内部文件和仓库来源不作为用户可见引用；论文、标准、公共机构或其他公开网页来源可以展示。` });

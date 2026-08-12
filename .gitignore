@@ -1,5 +1,6 @@
 .gstack/
 .playwright-cli/
+.dart_tool/
 output/
 design-previews/kilo-themes/generated/*.png
 design-previews/kilo-themes/preview-*.png

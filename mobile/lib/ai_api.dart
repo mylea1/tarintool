@@ -19,6 +19,7 @@ abstract interface class CoachApi {
   Future<CoachAnswer> answer({
     required String prompt,
     required bool includeTrainingSummary,
+    String locale = 'zh-CN',
     String? trainingSummary,
     List<Map<String, String>> exerciseCatalog = const [],
   });
@@ -71,6 +72,7 @@ class HttpCoachApi implements CoachApi {
   Future<CoachAnswer> answer({
     required String prompt,
     required bool includeTrainingSummary,
+    String locale = 'zh-CN',
     String? trainingSummary,
     List<Map<String, String>> exerciseCatalog = const [],
   }) async {
@@ -92,6 +94,7 @@ class HttpCoachApi implements CoachApi {
             },
             body: jsonEncode({
               'question': prompt,
+              'locale': locale,
               'useTrainingData': includeTrainingSummary,
               if (includeTrainingSummary &&
                   trainingSummary?.trim().isNotEmpty == true)
@@ -199,6 +202,7 @@ class UnconfiguredCoachApi implements CoachApi {
   Future<CoachAnswer> answer({
     required String prompt,
     required bool includeTrainingSummary,
+    String locale = 'zh-CN',
     String? trainingSummary,
     List<Map<String, String>> exerciseCatalog = const [],
   }) async => const CoachAnswer(body: 'AI 服务未配置，请在设置中配置 Coach 服务后重试。');

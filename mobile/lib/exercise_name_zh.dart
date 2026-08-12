@@ -261,7 +261,12 @@ String chineseExerciseName(
   };
 
   final pieces = value
-      .replaceAll(RegExp(r'[^a-z0-9\u4e00-\u9fff°/.-]+'), ' ')
+      // Hyphenated variants such as `close-grip push-up` used to remain one
+      // unknown token and were silently discarded. That collapsed distinct
+      // exercises into the same Chinese name and made correct media look
+      // mismatched. Treat separators as word boundaries before translating.
+      .replaceAll('-', ' ')
+      .replaceAll(RegExp(r'[^a-z0-9\u4e00-\u9fff°/.]+'), ' ')
       .split(' ')
       .where((part) => part.isNotEmpty)
       .map((part) {

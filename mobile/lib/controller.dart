@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'account_membership.dart';
+import 'app_localizations.dart';
 import 'ai_api.dart';
 import 'models.dart';
 import 'recognition_api.dart';
@@ -14,8 +16,6 @@ const String defaultCoachApiBaseUrl = String.fromEnvironment(
   'KILO_API_BASE_URL',
   defaultValue: 'https://magnitude-detail-pipe-cake.trycloudflare.com',
 );
-
-enum ExerciseNameLanguage { chinese, english }
 
 class PlatformTimerBridge {
   static const _channel = MethodChannel('kilo.platform.timer');
@@ -450,7 +450,7 @@ class AppController extends ChangeNotifier {
   int defaultRestSeconds = 120;
   bool livePrEnabled = true;
   String selectedExerciseId = 'bench_press';
-  ExerciseNameLanguage exerciseNameLanguage = ExerciseNameLanguage.chinese;
+  AppLanguage appLanguage = AppLanguage.simplifiedChinese;
   String search = '';
   String muscleFilter = '全部';
   String equipmentFilter = '全部';
@@ -584,14 +584,32 @@ class AppController extends ChangeNotifier {
   Exercise get selectedExercise => findExercise(selectedExerciseId);
 
   String displayExerciseName(Exercise exercise) =>
-      exerciseNameLanguage == ExerciseNameLanguage.english
-      ? exercise.englishName
-      : exercise.name;
+      appLanguage == AppLanguage.english ? exercise.englishName : exercise.name;
 
-  void setExerciseNameLanguage(ExerciseNameLanguage value) {
-    if (exerciseNameLanguage == value) return;
-    exerciseNameLanguage = value;
+  Future<void> hydrateAppLanguage() async {
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      final stored = AppLanguageValue.fromStorage(
+        preferences.getString('app_language'),
+      );
+      if (_disposed) return;
+      appLanguage = stored;
+      notifyListeners();
+    } catch (_) {
+      // Localization remains usable with the default language in previews.
+    }
+  }
+
+  Future<void> setAppLanguage(AppLanguage value) async {
+    if (appLanguage == value) return;
+    appLanguage = value;
     notifyListeners();
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      await preferences.setString('app_language', value.storageValue);
+    } catch (_) {
+      // The in-memory language still changes if platform storage is absent.
+    }
   }
 
   int get completedSets =>
@@ -1927,6 +1945,7 @@ class AppController extends ChangeNotifier {
       return api.answer(
         prompt: prompt,
         includeTrainingSummary: includeSummary,
+        locale: appLanguage.storageValue,
         trainingSummary: includeSummary
             ? selectedTrainingContext ?? _buildAiTrainingSummary()
             : null,

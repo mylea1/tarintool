@@ -1019,7 +1019,7 @@ const curatedCatalog = <Exercise>[
   ),
 ];
 
-final List<Exercise> catalog = <Exercise>[
+final List<Exercise> _rawCatalog = <Exercise>[
   ...curatedCatalog,
   for (final entry in datasetExerciseEntries.entries)
     Exercise(
@@ -1041,6 +1041,99 @@ final List<Exercise> catalog = <Exercise>[
       loadMode: entry.value.loadMode,
     ),
 ];
+
+/// Stable, user-facing names must be unique inside the library. The public
+/// dataset contains variants whose translated names legitimately collide (and
+/// even a few duplicate English names). Keep the concise translation for the
+/// first item and add a compact English differentiator plus dataset ID only to
+/// colliding variants. Media remains keyed by the stable exercise ID.
+final List<Exercise> catalog = _disambiguateExerciseNames(_rawCatalog);
+
+List<Exercise> _disambiguateExerciseNames(List<Exercise> source) {
+  final counts = <String, int>{};
+  for (final exercise in source) {
+    counts[exercise.name] = (counts[exercise.name] ?? 0) + 1;
+  }
+  final seen = <String, int>{};
+  return [
+    for (final exercise in source)
+      if ((counts[exercise.name] ?? 0) <= 1)
+        exercise
+      else
+        Exercise(
+          id: exercise.id,
+          name: '${exercise.name}（${_exerciseVariantLabel(exercise, seen)}）',
+          englishName: exercise.englishName,
+          family: exercise.family,
+          muscle: exercise.muscle,
+          secondary: exercise.secondary,
+          equipment: exercise.equipment,
+          camera: exercise.camera,
+          cue: exercise.cue,
+          loadMode: exercise.loadMode,
+        ),
+  ];
+}
+
+String _exerciseVariantLabel(Exercise exercise, Map<String, int> seen) {
+  final normalized = exercise.englishName
+      .replaceAll(RegExp(r'\((male|female)\)', caseSensitive: false), '')
+      .replaceAll(RegExp(r'\bv\.?\s*\d+\b', caseSensitive: false), '')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+  final key = '${exercise.name}|$normalized';
+  final occurrence = (seen[key] ?? 0) + 1;
+  seen[key] = occurrence;
+  final suffix = occurrence == 1 ? '' : ' $occurrence';
+  final id = exercise.id.startsWith('dataset_')
+      ? exercise.id.substring('dataset_'.length)
+      : exercise.id;
+  return '$normalized$suffix · $id';
+}
+
+/// English metadata for the public dataset is already canonical. Curated
+/// Chinese-only metadata uses this compact lookup so filters and cards remain
+/// understandable in the overseas build without changing stored contracts.
+String localizeExerciseMetadata(String value, {required bool english}) {
+  if (!english) return value;
+  const labels = <String, String>{
+    '胸部': 'Chest',
+    '背部': 'Back',
+    '肩部': 'Shoulders',
+    '腿部': 'Legs',
+    '手臂': 'Arms',
+    '核心': 'Core',
+    '前臂': 'Forearms',
+    '小腿': 'Calves',
+    '胸肌': 'Pectorals',
+    '背阔肌': 'Lats',
+    '上背部': 'Upper back',
+    '三角肌': 'Deltoids',
+    '肱二头肌': 'Biceps',
+    '肱三头肌': 'Triceps',
+    '股四头肌': 'Quadriceps',
+    '腘绳肌': 'Hamstrings',
+    '臀肌': 'Glutes',
+    '腹肌': 'Abs',
+    '腹斜肌': 'Obliques',
+    '斜方肌': 'Traps',
+    '杠铃': 'Barbell',
+    '哑铃': 'Dumbbell',
+    '绳索': 'Cable',
+    '自重': 'Bodyweight',
+    '固定器械': 'Machine',
+    '弹力带': 'Band',
+    '阻力带': 'Resistance band',
+    '壶铃': 'Kettlebell',
+    '史密斯机': 'Smith machine',
+    '药球': 'Medicine ball',
+    '健身球': 'Stability ball',
+    '辅助器械': 'Assisted',
+    '其他': 'Other',
+    '无': 'None',
+  };
+  return labels[value] ?? value;
+}
 
 Exercise findExercise(String id) =>
     catalog.firstWhere((item) => item.id == id, orElse: () => catalog.first);
