@@ -1152,6 +1152,32 @@ class AppController extends ChangeNotifier {
     return reused;
   }
 
+  bool hasPreviousValues(WorkoutExercise exercise) {
+    for (var index = 0; index < exercise.sets.length; index++) {
+      if (previousSetFor(exercise.exerciseId, index) != null) return true;
+    }
+    return false;
+  }
+
+  /// Changes the active rest countdown and uses the same value as the default
+  /// for every upcoming exercise and unfinished set in this workout.
+  void updateActiveAndUpcomingRest(int seconds) {
+    final value = seconds.clamp(0, 600).toInt();
+    defaultRestSeconds = value;
+    for (final exercise in workout) {
+      exercise.restSeconds = value;
+      for (final set in exercise.sets) {
+        if (!set.completed) set.restSeconds = value;
+      }
+    }
+    if (restRunning) {
+      final activeName = restExerciseName ?? '休息计时';
+      startRest(exercise: activeName, seconds: value);
+    }
+    persistActiveWorkout();
+    notifyListeners();
+  }
+
   void clearExerciseValues(WorkoutExercise exercise) {
     for (final set in exercise.sets) {
       set.weight = 0;

@@ -535,6 +535,38 @@ void main() {
     await tester.pump();
   });
 
+  testWidgets('active rest card edits current and upcoming rest defaults', (
+    tester,
+  ) async {
+    final controller = AppController();
+    controller.startWorkout(name: '休息继承');
+    controller.addExercise('bench_press');
+    controller.addExercise('squat');
+    controller.addSet(controller.workout.first);
+    controller.addSet(controller.workout.last);
+    controller.openLiveWorkout();
+    controller.startRest(exercise: '器械推胸', seconds: 53);
+    addTearDown(() {
+      if (controller.workoutStarted) controller.finishWorkout();
+      controller.dispose();
+    });
+
+    await tester.pumpWidget(KiloApp(initialController: controller));
+    await tester.tap(find.byKey(const Key('rest-edit-default-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('active-rest-quick-90')));
+    await tester.tap(find.byKey(const Key('active-rest-save-button')));
+    await tester.pumpAndSettle();
+
+    expect(controller.restRemainingSeconds, 90);
+    expect(controller.defaultRestSeconds, 90);
+    expect(controller.workout.last.restSeconds, 90);
+    expect(controller.workout.last.sets.single.restSeconds, 90);
+    controller.skipRest();
+    controller.finishWorkout();
+    await tester.pump();
+  });
+
   testWidgets('live workout can delete an unfinished or completed set', (
     tester,
   ) async {

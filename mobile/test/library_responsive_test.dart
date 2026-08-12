@@ -35,4 +35,28 @@ void main() {
     expect(tester.getRect(add).right, lessThanOrEqualTo(320));
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('exercise cards keep a compact height at normal text scale', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    final controller = AppController();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(KiloApp(initialController: controller));
+    controller.selectPage(PageId.exercises);
+    await tester.pumpAndSettle();
+
+    final grid = tester.widget<GridView>(
+      find.byKey(const Key('exercise-library-grid')),
+    );
+    final delegate =
+        grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
+    expect(delegate.childAspectRatio, greaterThanOrEqualTo(.8));
+    expect(tester.takeException(), isNull);
+  });
 }

@@ -387,6 +387,75 @@ void main() {
     },
   );
 
+  test('active rest edit becomes the default for all upcoming sets', () {
+    final controller = AppController();
+    try {
+      controller.startWorkout(name: '统一休息');
+      controller.addExercise('bench_press');
+      controller.addExercise('squat');
+      final first = controller.workout.first;
+      final second = controller.workout.last;
+      controller.addSet(first);
+      controller.addSet(first);
+      controller.addSet(second);
+      first.sets.first.completed = true;
+      controller.startRest(exercise: '器械推胸', seconds: 53);
+
+      controller.updateActiveAndUpcomingRest(90);
+
+      expect(controller.restRemainingSeconds, 90);
+      expect(controller.defaultRestSeconds, 90);
+      expect(first.restSeconds, 90);
+      expect(second.restSeconds, 90);
+      expect(first.sets.first.restSeconds, isNot(90));
+      expect(first.sets.last.restSeconds, 90);
+      expect(second.sets.single.restSeconds, 90);
+    } finally {
+      controller.dispose();
+    }
+  });
+
+  test('previous value action is available only for matching history', () {
+    final controller = AppController();
+    try {
+      controller.history.add(
+        WorkoutRecord(
+          id: 'history-with-bench',
+          name: '历史卧推',
+          date: DateTime(2026, 8, 1),
+          startTime: '18:00',
+          durationSeconds: 900,
+          volume: 600,
+          effectiveSets: 1,
+          exerciseIds: const ['bench_press'],
+          exercises: [
+            WorkoutExercise(
+              id: 'history-exercise',
+              exerciseId: 'bench_press',
+              sets: [
+                WorkoutSet(
+                  id: 'history-set',
+                  weight: 60,
+                  reps: 10,
+                  completed: true,
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+      final bench = controller.createBlankWorkoutExercise(
+        'bench_press',
+        'bench',
+      );
+      final squat = controller.createBlankWorkoutExercise('squat', 'squat');
+      expect(controller.hasPreviousValues(bench), isTrue);
+      expect(controller.hasPreviousValues(squat), isFalse);
+    } finally {
+      controller.dispose();
+    }
+  });
+
   test('system workout action reopens the active live workout', () async {
     const channel = MethodChannel('kilo.platform.timer');
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger

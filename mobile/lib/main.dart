@@ -39,10 +39,10 @@ const hairline = Color(0xFFEAD9CD);
 const emberTint = Color(0xFFFFEFE4);
 const emberShadow = Color(0x1F8E3D15);
 const danger = Color(0xFFB3261E);
-const kiloAppVersion = '1.0.11';
-const kiloAppBuild = '12';
+const kiloAppVersion = '1.0.12';
+const kiloAppBuild = '13';
 const kiloAppVersionLabel = '$kiloAppVersion ($kiloAppBuild)';
-const kiloAppNavigationLabel = '新增中英文切换与动作媒体映射审计';
+const kiloAppNavigationLabel = '优化休息继承与动作卡片密度';
 const brandName = '形域';
 const brandEnglish = 'XINGYU';
 const brandLogoAsset = 'assets/branding/xingyu-mark.png';
@@ -1807,15 +1807,28 @@ class _LiveWorkoutTimingPanel extends StatelessWidget {
                   runSpacing: 2,
                   children: [
                     Tooltip(
-                      message: '增加 15 秒休息',
+                      message: AppLocalizations.of(context).text('增加 15 秒休息'),
                       child: TextButton.icon(
                         key: const Key('rest-add-15-button'),
                         onPressed: () {
                           controller.addRestSeconds();
-                          showKiloSnack(context, '休息已增加 15 秒');
+                          showKiloSnack(
+                            context,
+                            AppLocalizations.of(context).text('休息已增加 15 秒'),
+                          );
                         },
                         icon: const Icon(Icons.add_circle_outline, size: 17),
                         label: const Text('+15 秒'),
+                      ),
+                    ),
+                    Tooltip(
+                      message: AppLocalizations.of(context).text('修改当前及后续休息时间'),
+                      child: TextButton.icon(
+                        key: const Key('rest-edit-default-button'),
+                        onPressed: () =>
+                            _showActiveRestEditor(context, controller),
+                        icon: const Icon(Icons.timer_outlined, size: 17),
+                        label: Text(AppLocalizations.of(context).text('修改休息')),
                       ),
                     ),
                     Tooltip(
@@ -2488,20 +2501,16 @@ class _WorkoutExerciseCard extends StatelessWidget {
                   ),
                   Row(
                     children: [
-                      TextButton.icon(
-                        key: Key('reuse-previous-${exercise.id}'),
-                        onPressed: () {
-                          final reused = controller.reusePreviousValues(
-                            exercise,
-                          );
-                          showKiloSnack(
-                            context,
-                            reused ? '已带入上次完成数据' : '暂无可带入的历史数据',
-                          );
-                        },
-                        icon: const Icon(Icons.history, size: 17),
-                        label: const Text('带入上次'),
-                      ),
+                      if (controller.hasPreviousValues(exercise))
+                        TextButton.icon(
+                          key: Key('reuse-previous-${exercise.id}'),
+                          onPressed: () {
+                            controller.reusePreviousValues(exercise);
+                            showKiloSnack(context, '已带入上次完成数据');
+                          },
+                          icon: const Icon(Icons.history, size: 17),
+                          label: const Text('带入上次'),
+                        ),
                       TextButton.icon(
                         key: Key('clear-values-${exercise.id}'),
                         onPressed: () {
@@ -4119,7 +4128,7 @@ class _ExerciseLibraryPageState extends State<ExerciseLibraryPage> {
     final items = controller.visibleExercises;
     final displayedItems = items.take(shownCount).toList(growable: false);
     final textScale = MediaQuery.textScalerOf(context).scale(1);
-    final cardAspectRatio = textScale >= 1.5 ? .46 : .68;
+    final cardAspectRatio = textScale >= 1.5 ? .42 : .80;
     return PageFrame(
       children: [
         SectionTitle('动作库', subtitle: '${controller.allExercises.length} 个动作'),
@@ -4247,7 +4256,7 @@ class _ExerciseLibraryPageState extends State<ExerciseLibraryPage> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 AspectRatio(
-                                  aspectRatio: 1.18,
+                                  aspectRatio: 1.40,
                                   child: Stack(
                                     fit: StackFit.expand,
                                     children: [
@@ -9004,6 +9013,135 @@ void _showRestEditor(
     builder: (sheetContext) =>
         _RestEditorSheet(controller: controller, exercise: exercise),
   );
+}
+
+void _showActiveRestEditor(BuildContext context, AppController controller) {
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    builder: (sheetContext) => _ActiveRestEditorSheet(controller: controller),
+  );
+}
+
+class _ActiveRestEditorSheet extends StatefulWidget {
+  const _ActiveRestEditorSheet({required this.controller});
+  final AppController controller;
+
+  @override
+  State<_ActiveRestEditorSheet> createState() => _ActiveRestEditorSheetState();
+}
+
+class _ActiveRestEditorSheetState extends State<_ActiveRestEditorSheet> {
+  static const quickValues = [0, 60, 90, 120, 180];
+  late final TextEditingController seconds;
+
+  @override
+  void initState() {
+    super.initState();
+    seconds = TextEditingController(
+      text: '${widget.controller.restRemainingSeconds}',
+    );
+  }
+
+  @override
+  void dispose() {
+    seconds.dispose();
+    super.dispose();
+  }
+
+  void setSeconds(int value) {
+    seconds.value = TextEditingValue(
+      text: '$value',
+      selection: TextSelection.collapsed(offset: '$value'.length),
+    );
+    setState(() {});
+  }
+
+  void save() {
+    final value = int.tryParse(seconds.text.trim());
+    if (value == null || value < 0 || value > 600) {
+      showKiloSnack(context, AppLocalizations.of(context).text('请输入 0–600 秒'));
+      return;
+    }
+    widget.controller.updateActiveAndUpcomingRest(value);
+    Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context);
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          18,
+          14,
+          18,
+          18 + MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              strings.text('修改组间休息'),
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              strings.text('保存后立即更新当前倒计时，并默认应用于本次训练后续所有动作和未完成组。'),
+              style: const TextStyle(color: quiet),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              key: const Key('active-rest-seconds-input'),
+              controller: seconds,
+              autofocus: true,
+              keyboardType: TextInputType.number,
+              onChanged: (_) => setState(() {}),
+              decoration: InputDecoration(
+                labelText: strings.text('休息秒数'),
+                suffixText: 's',
+              ),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                for (final value in quickValues)
+                  ChoiceChip(
+                    key: Key('active-rest-quick-$value'),
+                    label: Text(value == 0 ? strings.text('关闭') : '$value s'),
+                    selected: seconds.text.trim() == '$value',
+                    onSelected: (_) => setSeconds(value),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: Text(strings.text('取消')),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  flex: 2,
+                  child: FilledButton(
+                    key: const Key('active-rest-save-button'),
+                    onPressed: save,
+                    child: Text(strings.text('应用到当前及后续')),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _RestEditorSheet extends StatefulWidget {
