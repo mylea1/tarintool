@@ -15,7 +15,7 @@ import 'workout_history_persistence.dart';
 
 const String defaultCoachApiBaseUrl = String.fromEnvironment(
   'KILO_API_BASE_URL',
-  defaultValue: 'https://magnitude-detail-pipe-cake.trycloudflare.com',
+  defaultValue: 'https://api.kilostrength.cn',
 );
 
 class PlatformTimerBridge {
