@@ -40,10 +40,12 @@ test.before(async () => {
 
 test.after(async () => { await server.closeGracefully(); await fs.rm(root, { recursive: true, force: true }); });
 
-test('only academic knowledge sources are eligible for visible citations', () => {
+test('visible citations exclude internal, GitHub and Bilibili sources only', () => {
   assert.equal(isAcademicKnowledgeSource({ source: 'https://github.com/example/method', tags_json: '["training"]' }), false);
+  assert.equal(isAcademicKnowledgeSource({ source: 'https://www.bilibili.com/video/BV1x', tags_json: '[]' }), false);
   assert.equal(isAcademicKnowledgeSource({ source: 'https://pubmed.ncbi.nlm.nih.gov/12345/', tags_json: '[]' }), true);
-  assert.equal(isAcademicKnowledgeSource({ source: 'internal', tags_json: '["论文"]' }), true);
+  assert.equal(isAcademicKnowledgeSource({ source: 'https://www.who.int/news-room/fact-sheets/detail/physical-activity', tags_json: '[]' }), true);
+  assert.equal(isAcademicKnowledgeSource({ source: 'internal', tags_json: '["论文"]' }), false);
 });
 
 test('health, auth and admin role boundaries', async () => {

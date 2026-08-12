@@ -55,6 +55,12 @@ void main() {
     expect(find.byKey(const Key('workout-celebration')), findsOneWidget);
     expect(find.byKey(const Key('summary-particles')), findsOneWidget);
     expect(find.byKey(const Key('summary-card-0')), findsOneWidget);
+    expect(
+      find.byKey(const Key('workout-celebration-exercises')),
+      findsOneWidget,
+    );
+    expect(find.text('杠铃卧推'), findsWidgets);
+    expect(find.textContaining('kg ×'), findsWidgets);
   });
 
   testWidgets('celebration scrolls safely at 320dp and 200% text', (

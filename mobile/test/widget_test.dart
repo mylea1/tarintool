@@ -5,6 +5,7 @@ import 'package:kilo_strength/controller.dart';
 import 'package:kilo_strength/exercise_media.dart';
 import 'package:kilo_strength/main.dart';
 import 'package:kilo_strength/models.dart';
+import 'package:kilo_strength/recognition_api.dart';
 
 Future<void> _openRoute(WidgetTester tester, String label) async {
   await tester.tap(find.text(label).last);
@@ -337,6 +338,42 @@ void main() {
     },
   );
 
+  testWidgets('recognition result opens a full report with AI review', (
+    tester,
+  ) async {
+    final controller = AppController();
+    addTearDown(controller.dispose);
+    controller.recognitionStatus = RecognitionStatus.complete;
+    controller.recognitionResult = const RecognitionResult(
+      status: RecognitionStatus.complete,
+      confidence: .88,
+      repetitions: 8,
+      summary: '骨骼识别完成',
+      metrics: {'durationSeconds': 12.6, 'detectionRate': .9},
+      aiReview: RecognitionAiReview(
+        headline: '整体轨迹稳定',
+        strengths: ['动作节奏一致'],
+        risks: ['末端控制可加强'],
+        nextSet: '保持重量并减慢离心',
+        basis: '骨骼捕获率和动作重复数据',
+      ),
+    );
+    await tester.pumpWidget(KiloApp(initialController: controller));
+    await _openRoute(tester, 'AI');
+    await tester.tap(find.byKey(const Key('ai-recognition')));
+    await tester.pump();
+    await tester.ensureVisible(
+      find.byKey(const Key('recognition-open-result')),
+    );
+    await tester.tap(find.byKey(const Key('recognition-open-result')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('recognition-result-page')), findsOneWidget);
+    expect(find.byKey(const Key('recognition-ai-review')), findsOneWidget);
+    expect(find.text('整体轨迹稳定'), findsOneWidget);
+    expect(find.textContaining('末端控制可加强'), findsOneWidget);
+  });
+
   testWidgets(
     'recognition keeps video visible and exposes live processing stages',
     (tester) async {
@@ -388,11 +425,11 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         tester
-            .widget<ListView>(
+            .widget<SizedBox>(
               find.byKey(const Key('exercise-picker-muscle-strip')),
             )
-            .scrollDirection,
-        Axis.horizontal,
+            .width,
+        82,
       );
       final originalSearch = controller.search;
       final originalMuscle = controller.muscleFilter;

@@ -4468,8 +4468,37 @@ class RecognitionPage extends StatelessWidget {
               ],
               if (controller.recognitionStatus ==
                   RecognitionStatus.processing) ...[
-                const SizedBox(height: 14),
+                const SizedBox(height: 12),
                 _RecognitionProcessingPanel(controller: controller),
+              ],
+              if (controller.recognitionStatus ==
+                      RecognitionStatus.processing ||
+                  controller.recognitionResult != null) ...[
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.tonalIcon(
+                    key: const Key('recognition-open-result'),
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) =>
+                            _RecognitionResultPage(controller: controller),
+                      ),
+                    ),
+                    icon: Icon(
+                      controller.recognitionStatus ==
+                              RecognitionStatus.processing
+                          ? Icons.sync_rounded
+                          : Icons.assessment_outlined,
+                    ),
+                    label: Text(
+                      controller.recognitionStatus ==
+                              RecognitionStatus.processing
+                          ? '查看实时分析进度'
+                          : '打开完整动作报告',
+                    ),
+                  ),
+                ),
               ],
               const SizedBox(height: 16),
               const _RecognitionFieldLabel('识别动作'),
@@ -4579,12 +4608,6 @@ class RecognitionPage extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 12),
-              if (controller.recognitionResult != null &&
-                  controller.recognitionStatus != RecognitionStatus.processing)
-                _RecognitionReport(
-                  result: controller.recognitionResult!,
-                  controller: controller,
-                ),
               const SizedBox(height: 14),
               Row(
                 children: [
@@ -4623,7 +4646,16 @@ class RecognitionPage extends StatelessWidget {
                                   RecognitionStatus.ready ||
                               controller.recognitionStatus ==
                                   RecognitionStatus.error
-                          ? controller.startRecognition
+                          ? () {
+                              controller.startRecognition();
+                              Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => _RecognitionResultPage(
+                                    controller: controller,
+                                  ),
+                                ),
+                              );
+                            }
                           : null,
                     ),
                   ),
@@ -5314,45 +5346,77 @@ class _RecognitionExercisePickerState
               ],
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 18),
-            child: TextField(
-              key: const Key('recognition-search'),
-              onChanged: (value) => setState(() => query = value),
-              decoration: const InputDecoration(
-                prefixIcon: Icon(Icons.search_rounded),
-                hintText: '搜索动作或部位',
-              ),
-            ),
-          ),
-          SizedBox(
-            height: 52,
-            child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
-              scrollDirection: Axis.horizontal,
-              itemCount: groups.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 7),
-              itemBuilder: (context, index) => ChoiceChip(
-                label: Text(groups[index]),
-                selected: group == groups[index],
-                onSelected: (_) => setState(() => group = groups[index]),
-              ),
-            ),
-          ),
           Expanded(
-            child: GridView.builder(
-              padding: const EdgeInsets.fromLTRB(18, 4, 18, 24),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                mainAxisExtent: 76,
-                crossAxisSpacing: 9,
-                mainAxisSpacing: 9,
-              ),
-              itemCount: visible.length,
-              itemBuilder: (context, index) => _RecognitionExerciseChoice(
-                controller: widget.controller,
-                capability: visible[index],
-                onSelected: () => Navigator.pop(context),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 2, 14, 20),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SizedBox(
+                    key: const Key('recognition-group-rail'),
+                    width: 78,
+                    child: DecoratedBox(
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFFFF2E8),
+                        borderRadius: BorderRadius.all(Radius.circular(14)),
+                      ),
+                      child: ListView(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 8,
+                          horizontal: 6,
+                        ),
+                        children: [
+                          const _FilterRailHeading('部位'),
+                          for (final value in groups)
+                            _FilterRailItem(
+                              label: value,
+                              selected: group == value,
+                              onTap: () => setState(() => group = value),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        TextField(
+                          key: const Key('recognition-search'),
+                          onChanged: (value) => setState(() => query = value),
+                          decoration: const InputDecoration(
+                            prefixIcon: Icon(Icons.search_rounded, size: 20),
+                            hintText: '搜索可识别动作',
+                            isDense: true,
+                          ),
+                        ),
+                        const SizedBox(height: 7),
+                        Text(
+                          '$group · ${visible.length} 个动作',
+                          style: const TextStyle(color: quiet, fontSize: 11),
+                        ),
+                        const SizedBox(height: 5),
+                        Expanded(
+                          child: visible.isEmpty
+                              ? const Center(child: Text('没有匹配动作'))
+                              : ListView.separated(
+                                  itemCount: visible.length,
+                                  separatorBuilder: (_, _) =>
+                                      const SizedBox(height: 8),
+                                  itemBuilder: (context, index) =>
+                                      _RecognitionExerciseChoice(
+                                        controller: widget.controller,
+                                        capability: visible[index],
+                                        onSelected: () =>
+                                            Navigator.pop(context),
+                                      ),
+                                ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -5416,14 +5480,86 @@ class _RecognitionCameraChoice extends StatelessWidget {
   }
 }
 
+class _RecognitionResultPage extends StatelessWidget {
+  const _RecognitionResultPage({required this.controller});
+
+  final AppController controller;
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: controller,
+    builder: (context, _) {
+      final result = controller.recognitionResult;
+      final processing =
+          controller.recognitionStatus == RecognitionStatus.processing;
+      return Scaffold(
+        backgroundColor: paper,
+        appBar: AppBar(
+          backgroundColor: paper,
+          surfaceTintColor: Colors.transparent,
+          title: const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('动作分析报告'),
+              Text(
+                '视频、骨骼标注与 AI 评价',
+                style: TextStyle(color: quiet, fontSize: 11),
+              ),
+            ],
+          ),
+        ),
+        body: SafeArea(
+          top: false,
+          child: ListView(
+            key: const Key('recognition-result-page'),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+            children: [
+              if (controller.selectedMediaPath != null)
+                _SelectedRecognitionVideo(
+                  path: controller.selectedMediaPath!,
+                  name: controller.selectedMediaName ?? '原始视频',
+                  sizeLabel: _formatBytes(controller.selectedMediaBytes),
+                  enabled: false,
+                  onClear: () {},
+                ),
+              const SizedBox(height: 12),
+              if (processing)
+                _RecognitionProcessingPanel(controller: controller)
+              else if (result != null)
+                _RecognitionReport(result: result, controller: controller)
+              else
+                const Card(
+                  child: Padding(
+                    padding: EdgeInsets.all(18),
+                    child: Text('尚未收到分析结果。'),
+                  ),
+                ),
+              if (!processing &&
+                  (result?.status == RecognitionStatus.error ||
+                      result == null)) ...[
+                const SizedBox(height: 12),
+                FilledButton.icon(
+                  key: const Key('recognition-result-retry'),
+                  onPressed: controller.startRecognition,
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: const Text('重新分析这个视频'),
+                ),
+              ],
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
+
 class _RecognitionReport extends StatelessWidget {
   const _RecognitionReport({required this.result, required this.controller});
   final RecognitionResult result;
   final AppController controller;
   @override
   Widget build(BuildContext context) => Container(
-    margin: const EdgeInsets.only(top: 13),
-    padding: const EdgeInsets.all(13),
+    padding: const EdgeInsets.all(15),
     decoration: BoxDecoration(
       color: result.status == RecognitionStatus.complete
           ? const Color(0xFFEFF8DE)
@@ -5456,7 +5592,7 @@ class _RecognitionReport extends StatelessWidget {
               ),
           ],
         ),
-        const SizedBox(height: 7),
+        const SizedBox(height: 8),
         Text(result.summary, style: const TextStyle(fontSize: 13)),
         if (result.repetitions > 0)
           Padding(
@@ -5467,12 +5603,44 @@ class _RecognitionReport extends StatelessWidget {
             ),
           ),
         if (result.overlayUrl != null) ...[
-          const SizedBox(height: 10),
+          const SizedBox(height: 14),
+          const Text(
+            '骨骼标注视频',
+            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+          ),
+          const SizedBox(height: 7),
           _NetworkRecognitionVideo(
             url: result.overlayUrl!,
             headers: result.mediaHeaders,
           ),
         ],
+        if (result.metrics.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 7,
+            runSpacing: 7,
+            children: [
+              if (result.metrics['durationSeconds'] != null)
+                _RecognitionMetricChip(
+                  icon: Icons.timer_outlined,
+                  label: '${result.metrics['durationSeconds']} 秒',
+                ),
+              if (result.metrics['detectionRate'] is num)
+                _RecognitionMetricChip(
+                  icon: Icons.accessibility_new_rounded,
+                  label:
+                      '骨骼捕获 ${((result.metrics['detectionRate'] as num) * 100).round()}%',
+                ),
+              if (result.repetitions > 0)
+                _RecognitionMetricChip(
+                  icon: Icons.repeat_rounded,
+                  label: '${result.repetitions} 次',
+                ),
+            ],
+          ),
+        ],
+        const SizedBox(height: 15),
+        _RecognitionAiReviewCard(result: result),
         if (result.status == RecognitionStatus.complete ||
             result.status == RecognitionStatus.lowConfidence)
           Align(
@@ -5490,6 +5658,138 @@ class _RecognitionReport extends StatelessWidget {
   );
 }
 
+class _RecognitionMetricChip extends StatelessWidget {
+  const _RecognitionMetricChip({required this.icon, required this.label});
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: hairline),
+    ),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: primary),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _RecognitionAiReviewCard extends StatelessWidget {
+  const _RecognitionAiReviewCard({required this.result});
+  final RecognitionResult result;
+
+  @override
+  Widget build(BuildContext context) {
+    final review = result.aiReview;
+    return Container(
+      key: const Key('recognition-ai-review'),
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF3E9),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFF1C8AB)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.auto_awesome_rounded, color: primary, size: 19),
+              SizedBox(width: 7),
+              Text(
+                'AI 动作评价',
+                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (review == null)
+            Text(
+              result.aiReviewError == 'deepseek_not_configured'
+                  ? 'AI 服务尚未配置，本次骨骼识别数据已保留。'
+                  : 'AI 评价暂时不可用，骨骼识别结果不受影响。',
+              style: const TextStyle(color: secondaryInk),
+            )
+          else ...[
+            Text(
+              review.headline,
+              style: const TextStyle(fontWeight: FontWeight.w900),
+            ),
+            if (review.strengths.isNotEmpty) ...[
+              const SizedBox(height: 9),
+              const Text(
+                '做得好的地方',
+                style: TextStyle(color: success, fontWeight: FontWeight.w800),
+              ),
+              for (final item in review.strengths)
+                _RecognitionReviewBullet(text: item, positive: true),
+            ],
+            if (review.risks.isNotEmpty) ...[
+              const SizedBox(height: 7),
+              const Text(
+                '下一步需要关注',
+                style: TextStyle(color: primary, fontWeight: FontWeight.w800),
+              ),
+              for (final item in review.risks)
+                _RecognitionReviewBullet(text: item, positive: false),
+            ],
+            if (review.nextSet.trim().isNotEmpty) ...[
+              const SizedBox(height: 9),
+              Text(
+                '下一组建议：${review.nextSet}',
+                style: const TextStyle(height: 1.45),
+              ),
+            ],
+            if (review.basis.trim().isNotEmpty) ...[
+              const SizedBox(height: 7),
+              Text(
+                '判断依据：${review.basis}',
+                style: const TextStyle(color: quiet, fontSize: 11),
+              ),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _RecognitionReviewBullet extends StatelessWidget {
+  const _RecognitionReviewBullet({required this.text, required this.positive});
+  final String text;
+  final bool positive;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(top: 4),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          positive ? Icons.check_circle_outline : Icons.adjust_rounded,
+          size: 15,
+          color: positive ? success : primary,
+        ),
+        const SizedBox(width: 6),
+        Expanded(child: Text(text, style: const TextStyle(height: 1.35))),
+      ],
+    ),
+  );
+}
+
 class _NetworkRecognitionVideo extends StatefulWidget {
   const _NetworkRecognitionVideo({required this.url, required this.headers});
   final String url;
@@ -5502,6 +5802,7 @@ class _NetworkRecognitionVideo extends StatefulWidget {
 
 class _NetworkRecognitionVideoState extends State<_NetworkRecognitionVideo> {
   VideoPlayerController? _video;
+  File? _localFile;
   Object? _error;
 
   @override
@@ -5512,10 +5813,23 @@ class _NetworkRecognitionVideoState extends State<_NetworkRecognitionVideo> {
 
   Future<void> _initialize() async {
     try {
-      final video = VideoPlayerController.networkUrl(
-        Uri.parse(widget.url),
-        httpHeaders: widget.headers,
+      final client = HttpClient();
+      final request = await client.getUrl(Uri.parse(widget.url));
+      widget.headers.forEach(request.headers.set);
+      final response = await request.close();
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        client.close(force: true);
+        throw HttpException('media_http_${response.statusCode}');
+      }
+      final safeId = widget.url.hashCode.toUnsigned(32).toRadixString(16);
+      final file = File(
+        '${Directory.systemTemp.path}${Platform.pathSeparator}kilo-overlay-$safeId.mp4',
       );
+      final sink = file.openWrite();
+      await response.pipe(sink);
+      client.close();
+      _localFile = file;
+      final video = VideoPlayerController.file(file);
       await video.initialize();
       await video.setLooping(true);
       if (!mounted) {
@@ -5531,7 +5845,20 @@ class _NetworkRecognitionVideoState extends State<_NetworkRecognitionVideo> {
   @override
   void dispose() {
     _video?.dispose();
+    final localFile = _localFile;
+    if (localFile != null) {
+      localFile.delete().catchError((_) => localFile);
+    }
     super.dispose();
+  }
+
+  Future<void> _retry() async {
+    await _video?.dispose();
+    setState(() {
+      _video = null;
+      _error = null;
+    });
+    await _initialize();
   }
 
   @override
@@ -5568,10 +5895,25 @@ class _NetworkRecognitionVideoState extends State<_NetworkRecognitionVideo> {
                   child: CircularProgressIndicator(color: Colors.white),
                 ),
               if (_error != null)
-                const Center(
-                  child: Text(
-                    '标注视频加载失败，可稍后重试',
-                    style: TextStyle(color: Colors.white),
+                Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        '标注视频加载失败',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                      const SizedBox(height: 7),
+                      OutlinedButton.icon(
+                        onPressed: _retry,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          side: const BorderSide(color: Colors.white70),
+                        ),
+                        icon: const Icon(Icons.refresh_rounded, size: 17),
+                        label: const Text('重新加载'),
+                      ),
+                    ],
                   ),
                 ),
               if (video?.value.isInitialized == true &&
@@ -8890,154 +9232,158 @@ class _ExercisePickerSheetState extends State<_ExercisePickerSheet> {
                 ),
               ],
             ),
-            TextField(
-              key: const Key('exercise-picker-search'),
-              controller: query,
-              autofocus: false,
-              textInputAction: TextInputAction.search,
-              onTapOutside: (_) =>
-                  FocusManager.instance.primaryFocus?.unfocus(),
-              decoration: const InputDecoration(
-                prefixIcon: Icon(Icons.search),
-                hintText: '搜索动作、器械',
-                isDense: true,
-              ),
-              onChanged: (_) => setState(() {}),
-            ),
-            const SizedBox(height: 10),
-            SizedBox(
-              height: 38,
-              child: ListView.separated(
-                key: const Key('exercise-picker-muscle-strip'),
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 1),
-                itemCount: muscles.length,
-                separatorBuilder: (_, _) => const SizedBox(width: 7),
-                itemBuilder: (context, index) {
-                  final value = muscles[index];
-                  final selected = muscle == value;
-                  return ChoiceChip(
-                    key: Key('exercise-picker-filter-$value'),
-                    label: Text(muscleLabels[value]!),
-                    selected: selected,
-                    showCheckmark: false,
-                    selectedColor: primary,
-                    backgroundColor: surface,
-                    side: BorderSide(
-                      color: selected ? primary : hairline,
-                      width: selected ? 1.4 : 1,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    labelPadding: const EdgeInsets.symmetric(horizontal: 7),
-                    visualDensity: VisualDensity.compact,
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    labelStyle: TextStyle(
-                      fontSize: 12,
-                      color: selected ? Colors.white : ink,
-                      fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-                    ),
-                    onSelected: (_) => setState(() => muscle = value),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 8),
-            SizedBox(
-              height: 36,
-              child: ListView.separated(
-                key: const Key('exercise-picker-equipment-strip'),
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 1),
-                itemCount: equipments.length,
-                separatorBuilder: (_, _) => const SizedBox(width: 7),
-                itemBuilder: (context, index) {
-                  final value = equipments[index];
-                  return FilterChip(
-                    key: Key('exercise-picker-equipment-$value'),
-                    label: Text(value == '全部' ? '全部器械' : value),
-                    selected: equipment == value,
-                    showCheckmark: false,
-                    visualDensity: VisualDensity.compact,
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    onSelected: (_) => setState(() => equipment = value),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 9),
-            Text(
-              muscle == '全部'
-                  ? '${items.length} 个动作'
-                  : '${muscleLabels[muscle]} · ${items.length} 个动作',
-              style: const TextStyle(fontSize: 12, color: quiet),
-            ),
-            const SizedBox(height: 4),
             Expanded(
-              child: items.isEmpty
-                  ? const Center(
-                      child: Text(
-                        '没有匹配动作，试试清空搜索或切换部位。',
-                        style: TextStyle(color: quiet),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SizedBox(
+                    key: const Key('exercise-picker-muscle-strip'),
+                    width: 82,
+                    child: DecoratedBox(
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFFFF2E8),
+                        borderRadius: BorderRadius.all(Radius.circular(14)),
                       ),
-                    )
-                  : ListView.separated(
-                      keyboardDismissBehavior:
-                          ScrollViewKeyboardDismissBehavior.onDrag,
-                      itemCount: items.length,
-                      separatorBuilder: (_, _) => const Divider(height: 1),
-                      itemBuilder: (context, index) {
-                        final exercise = items[index];
-                        return ListTile(
-                          key: Key('exercise-picker-item-${exercise.id}'),
-                          contentPadding: const EdgeInsets.symmetric(
-                            vertical: 4,
-                          ),
-                          leading: _ExerciseThumb(
-                            exerciseId: exercise.id,
-                            size: 40,
-                          ),
-                          title: Text(
-                            widget.controller.displayExerciseName(exercise),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontWeight: FontWeight.w700),
-                          ),
-                          subtitle: Text(
-                            '${exercise.muscle} · ${exercise.equipment}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          trailing: IconButton.filled(
-                            key: Key('exercise-picker-add-${exercise.id}'),
-                            style: IconButton.styleFrom(
-                              backgroundColor: selectedIds.contains(exercise.id)
-                                  ? primary
-                                  : primaryContainer,
-                              foregroundColor: selectedIds.contains(exercise.id)
-                                  ? Colors.white
-                                  : primary,
+                      child: ListView(
+                        key: const Key('exercise-picker-equipment-strip'),
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 8,
+                          horizontal: 6,
+                        ),
+                        children: [
+                          const _FilterRailHeading('部位'),
+                          for (final value in muscles)
+                            _FilterRailItem(
+                              key: Key('exercise-picker-filter-$value'),
+                              label: muscleLabels[value]!,
+                              selected: muscle == value,
+                              onTap: () => setState(() => muscle = value),
                             ),
-                            tooltip: widget.replacing != null
-                                ? '替换动作'
-                                : selectedIds.contains(exercise.id)
-                                ? '取消选择'
-                                : '选择动作',
-                            onPressed: () => choose(exercise),
-                            icon: Icon(
-                              widget.replacing != null
-                                  ? Icons.swap_horiz
-                                  : selectedIds.contains(exercise.id)
-                                  ? Icons.check
-                                  : Icons.add,
-                              size: 18,
-                            ),
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 7),
+                            child: Divider(height: 1),
                           ),
-                          onTap: () => choose(exercise),
-                        );
-                      },
+                          const _FilterRailHeading('器械'),
+                          for (final value in equipments)
+                            _FilterRailItem(
+                              key: Key('exercise-picker-equipment-$value'),
+                              label: value == '全部' ? '全部' : value,
+                              selected: equipment == value,
+                              onTap: () => setState(() => equipment = value),
+                            ),
+                        ],
+                      ),
                     ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        TextField(
+                          key: const Key('exercise-picker-search'),
+                          controller: query,
+                          autofocus: false,
+                          textInputAction: TextInputAction.search,
+                          onTapOutside: (_) =>
+                              FocusManager.instance.primaryFocus?.unfocus(),
+                          decoration: const InputDecoration(
+                            prefixIcon: Icon(Icons.search, size: 20),
+                            hintText: '搜索动作',
+                            isDense: true,
+                          ),
+                          onChanged: (_) => setState(() {}),
+                        ),
+                        const SizedBox(height: 7),
+                        Text(
+                          '${muscleLabels[muscle]} · ${items.length} 个动作',
+                          style: const TextStyle(fontSize: 11, color: quiet),
+                        ),
+                        const SizedBox(height: 3),
+                        Expanded(
+                          child: items.isEmpty
+                              ? const Center(
+                                  child: Text(
+                                    '没有匹配动作',
+                                    style: TextStyle(color: quiet),
+                                  ),
+                                )
+                              : ListView.separated(
+                                  keyboardDismissBehavior:
+                                      ScrollViewKeyboardDismissBehavior.onDrag,
+                                  itemCount: items.length,
+                                  separatorBuilder: (_, _) =>
+                                      const Divider(height: 1),
+                                  itemBuilder: (context, index) {
+                                    final exercise = items[index];
+                                    return ListTile(
+                                      key: Key(
+                                        'exercise-picker-item-${exercise.id}',
+                                      ),
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                            vertical: 4,
+                                          ),
+                                      leading: _ExerciseThumb(
+                                        exerciseId: exercise.id,
+                                        size: 40,
+                                      ),
+                                      title: Text(
+                                        widget.controller.displayExerciseName(
+                                          exercise,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                      subtitle: Text(
+                                        '${exercise.muscle} · ${exercise.equipment}',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      trailing: IconButton.filled(
+                                        key: Key(
+                                          'exercise-picker-add-${exercise.id}',
+                                        ),
+                                        style: IconButton.styleFrom(
+                                          backgroundColor:
+                                              selectedIds.contains(exercise.id)
+                                              ? primary
+                                              : primaryContainer,
+                                          foregroundColor:
+                                              selectedIds.contains(exercise.id)
+                                              ? Colors.white
+                                              : primary,
+                                        ),
+                                        tooltip: widget.replacing != null
+                                            ? '替换动作'
+                                            : selectedIds.contains(exercise.id)
+                                            ? '取消选择'
+                                            : '选择动作',
+                                        onPressed: () => choose(exercise),
+                                        icon: Icon(
+                                          widget.replacing != null
+                                              ? Icons.swap_horiz
+                                              : selectedIds.contains(
+                                                  exercise.id,
+                                                )
+                                              ? Icons.check
+                                              : Icons.add,
+                                          size: 18,
+                                        ),
+                                      ),
+                                      onTap: () => choose(exercise),
+                                    );
+                                  },
+                                ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
             if (widget.replacing == null) ...[
               const SizedBox(height: 10),
@@ -9060,6 +9406,64 @@ class _ExercisePickerSheetState extends State<_ExercisePickerSheet> {
       ),
     );
   }
+}
+
+class _FilterRailHeading extends StatelessWidget {
+  const _FilterRailHeading(this.label);
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(7, 4, 7, 5),
+    child: Text(
+      label,
+      style: const TextStyle(
+        color: quiet,
+        fontSize: 10,
+        fontWeight: FontWeight.w800,
+      ),
+    ),
+  );
+}
+
+class _FilterRailItem extends StatelessWidget {
+  const _FilterRailItem({
+    super.key,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 4),
+    child: Material(
+      color: selected ? primary : Colors.transparent,
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 9),
+          child: Text(
+            label,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: selected ? Colors.white : secondaryInk,
+              fontSize: 11,
+              fontWeight: selected ? FontWeight.w900 : FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 void _showExerciseActions(
@@ -9503,6 +9907,11 @@ class _WorkoutCelebration extends StatelessWidget {
                           );
                         },
                       ),
+                      const SizedBox(height: 18),
+                      _CelebrationExerciseSummary(
+                        controller: controller,
+                        record: record,
+                      ),
                       const SizedBox(height: 22),
                       if (constraints.maxWidth < 380)
                         Column(
@@ -9568,6 +9977,230 @@ class _WorkoutCelebration extends StatelessWidget {
       ),
     );
   }
+}
+
+class _CelebrationExerciseSummary extends StatelessWidget {
+  const _CelebrationExerciseSummary({
+    required this.controller,
+    required this.record,
+  });
+
+  final AppController controller;
+  final WorkoutRecord record;
+
+  @override
+  Widget build(BuildContext context) {
+    final exercises = record.exercises;
+    return Semantics(
+      container: true,
+      label: '本次训练动作与完成组详情',
+      child: Column(
+        key: const Key('workout-celebration-exercises'),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.list_alt_rounded, color: primary, size: 21),
+              const SizedBox(width: 7),
+              const Expanded(
+                child: Text(
+                  '本次完成动作',
+                  style: TextStyle(
+                    color: ink,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              Text(
+                '${exercises.length} 个动作',
+                style: const TextStyle(color: quiet, fontSize: 12),
+              ),
+            ],
+          ),
+          const SizedBox(height: 9),
+          if (exercises.isEmpty)
+            const Card(
+              margin: EdgeInsets.zero,
+              child: Padding(
+                padding: EdgeInsets.all(14),
+                child: Text('本次记录没有可展示的动作明细。'),
+              ),
+            )
+          else
+            for (
+              var exerciseIndex = 0;
+              exerciseIndex < exercises.length;
+              exerciseIndex++
+            )
+              _CelebrationExerciseCard(
+                controller: controller,
+                exercise: exercises[exerciseIndex],
+                index: exerciseIndex,
+              ),
+          if (record.note.trim().isNotEmpty) ...[
+            const SizedBox(height: 2),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF3E9),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFF4D1B4)),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.notes_rounded, color: primary, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(record.note)),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _CelebrationExerciseCard extends StatelessWidget {
+  const _CelebrationExerciseCard({
+    required this.controller,
+    required this.exercise,
+    required this.index,
+  });
+
+  final AppController controller;
+  final WorkoutExercise exercise;
+  final int index;
+
+  @override
+  Widget build(BuildContext context) {
+    final completedSets = exercise.sets.where((set) => set.completed).toList();
+    final shownSets = completedSets.isEmpty ? exercise.sets : completedSets;
+    final volume = completedSets.fold<double>(
+      0,
+      (sum, set) => sum + set.weight * set.reps,
+    );
+    return Card(
+      key: Key('workout-celebration-exercise-$index'),
+      margin: const EdgeInsets.only(bottom: 9),
+      color: Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                _ExerciseThumb(exerciseId: exercise.exerciseId, size: 42),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        controller.displayExerciseName(
+                          findExercise(exercise.exerciseId),
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: ink,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      Text(
+                        '${completedSets.length}/${exercise.sets.length} 组完成 · ${_displayWeight(volume)} kg 容量',
+                        style: const TextStyle(color: quiet, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  completedSets.isNotEmpty
+                      ? Icons.check_circle_rounded
+                      : Icons.pending_outlined,
+                  color: completedSets.isNotEmpty
+                      ? const Color(0xFF1E7A4A)
+                      : quiet,
+                ),
+              ],
+            ),
+            if (exercise.note.trim().isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                '动作备注：${exercise.note}',
+                style: const TextStyle(color: secondaryInk, fontSize: 12),
+              ),
+            ],
+            const SizedBox(height: 9),
+            for (var setIndex = 0; setIndex < shownSets.length; setIndex++)
+              Padding(
+                padding: EdgeInsets.only(top: setIndex == 0 ? 0 : 6),
+                child: _CelebrationSetRow(
+                  set: shownSets[setIndex],
+                  originalIndex: exercise.sets.indexOf(shownSets[setIndex]),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CelebrationSetRow extends StatelessWidget {
+  const _CelebrationSetRow({required this.set, required this.originalIndex});
+
+  final WorkoutSet set;
+  final int originalIndex;
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: BoxDecoration(
+      color: set.completed ? const Color(0xFFEAF7EE) : surface,
+      borderRadius: BorderRadius.circular(9),
+    ),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 52,
+            child: Text(
+              '${originalIndex + 1} · ${_setTypeShort(set.type)}',
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              '${_displayWeight(set.weight)} kg × ${set.reps} 次',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ),
+          Text(
+            '休 ${set.restSeconds}s',
+            style: const TextStyle(color: quiet, fontSize: 11),
+          ),
+          if (set.note.trim().isNotEmpty) ...[
+            const SizedBox(width: 5),
+            Tooltip(
+              message: set.note,
+              child: const Icon(
+                Icons.sticky_note_2_outlined,
+                size: 16,
+                color: primary,
+              ),
+            ),
+          ],
+        ],
+      ),
+    ),
+  );
 }
 
 class _CelebrationMetricReveal extends StatelessWidget {

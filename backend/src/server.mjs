@@ -521,12 +521,59 @@ function knowledgeSearch(db, query, limit = 5) {
   return found;
 }
 
-export function isAcademicKnowledgeSource(item) {
+export function isVisibleKnowledgeSource(item) {
   const source = String(item?.source || '').toLowerCase();
-  let tags = [];
-  try { tags = JSON.parse(item?.tags_json || '[]').map((tag) => String(tag).toLowerCase()); } catch { /* invalid legacy tags are not citations */ }
-  return tags.some((tag) => ['paper', 'academic', '论文', '研究'].includes(tag)) ||
-    /doi\.org|pubmed\.ncbi\.nlm\.nih\.gov|ncbi\.nlm\.nih\.gov\/pmc|arxiv\.org|crossref\.org/.test(source);
+  if (!source || !/https?:\/\//.test(source) || ['internal', 'admin', 'test-fixture'].includes(source)) return false;
+  // Internal coaching material may inform the answer, but repository pages and
+  // social-video pages are not useful evidence for an end user. Everything
+  // else with a public source remains visible, including papers, standards and
+  // reputable public guidance.
+  return !/github\.com|githubusercontent\.com|bilibili\.com|b23\.tv/.test(source);
+}
+
+// Compatibility export for older imports. Visibility is no longer restricted
+// to academic-only sources; the product now excludes only internal/GitHub/B站.
+export const isAcademicKnowledgeSource = isVisibleKnowledgeSource;
+
+async function enrichRecognitionResult(ctx, job, result) {
+  if (!ctx.cfg.deepSeekApiKey) return { ...result, aiReview: null, aiReviewError: 'deepseek_not_configured' };
+  const metrics = result?.metrics && typeof result.metrics === 'object' ? result.metrics : {};
+  const messages = [
+    {
+      role: 'system',
+      content: '你是形域的动作质量教练。根据姿态识别服务输出的客观数据，用中文给出简洁、具体、可执行的评价。不要声称直接看到了未提供的画面，不做医疗诊断。输出 JSON：{"headline":"一句总体判断","strengths":["优点"],"risks":["需要改进"],"nextSet":"下一组建议","basis":"判断依据"}。每个数组最多 3 条。',
+    },
+    {
+      role: 'user',
+      content: JSON.stringify({
+        exerciseId: job.exercise_id,
+        camera: job.camera,
+        confidence: Number(result?.confidence || 0),
+        repetitions: Number(result?.repetitions || 0),
+        summary: String(result?.summary || ''),
+        metrics,
+      }),
+    },
+  ];
+  try {
+    const raw = await ctx.aiGate.run(() => callDeepSeek(ctx, messages, job.user_id));
+    const match = raw.match(/\{[\s\S]*\}/u);
+    if (!match) return { ...result, aiReview: { headline: '分析已完成', strengths: [], risks: [], nextSet: raw.slice(0, 800), basis: '姿态识别数据' } };
+    const parsed = JSON.parse(match[0]);
+    return {
+      ...result,
+      aiReview: {
+        headline: String(parsed.headline || '分析已完成').slice(0, 120),
+        strengths: Array.isArray(parsed.strengths) ? parsed.strengths.map(String).slice(0, 3) : [],
+        risks: Array.isArray(parsed.risks) ? parsed.risks.map(String).slice(0, 3) : [],
+        nextSet: String(parsed.nextSet || '').slice(0, 600),
+        basis: String(parsed.basis || '姿态识别数据').slice(0, 300),
+      },
+      aiReviewError: null,
+    };
+  } catch (error) {
+    return { ...result, aiReview: null, aiReviewError: error?.code || 'ai_review_unavailable' };
+  }
 }
 
 function conversationMessages(db, conversationId, limit = 20) {
@@ -763,7 +810,7 @@ async function handleRequest(req, res, ctx) {
       const messages = [{ role: 'system', content: `你是 KILO Strength 健身训练助手。提供一般训练、恢复和动作记录建议，不进行医疗诊断。证据不足时明确说明。
 回答使用简洁 Markdown：用标题、加粗、列表组织内容，但不要堆叠格式。只总结知识库结论，不要大段照搬原文。不要在正文中写文献名称、来源列表、脚注编号或“根据某文献”；客户端会在回答结尾统一展示服务端检索到的来源。凡是建议用户增加或降低重量、次数、组数或休息时间，必须紧接着说明依据（历史表现、完成质量、备注、训练目标或恢复状态）；没有足够数据时必须明确说这是保守起点而非个性化结论。` }];
       if (conversation.memory_summary) messages.push({ role: 'system', content: `长期记忆摘要：${conversation.memory_summary.slice(0, 3000)}` });
-      if (knowledge.length) messages.push({ role: 'system', content: `内部知识库参考：\n${knowledge.map((item) => `${item.title}: ${item.content.slice(0, 1200)}`).join('\n')}\n这些内容可以帮助推理，但不得在正文中引用或披露内部知识库名称、文件名、技能名、网页或仓库来源。只有同行评审论文、DOI、PubMed/PMC 或 arXiv 论文才允许作为用户可见引用。` });
+      if (knowledge.length) messages.push({ role: 'system', content: `内部知识库参考：\n${knowledge.map((item) => `${item.title}: ${item.content.slice(0, 1200)}`).join('\n')}\n这些内容可以帮助推理，但不得在正文中披露内部知识库名称、文件名或技能名。客户端会统一展示检索来源。B站、GitHub、内部文件和仓库来源不作为用户可见引用；论文、标准、公共机构或其他公开网页来源可以展示。` });
       for (const message of recent) messages.push({ role: message.role, content: message.content });
       if (body.useTrainingData === true && typeof body.trainingSummary === 'string' && body.trainingSummary.trim()) messages.push({ role: 'system', content: `用户已明确授权的训练摘要：${body.trainingSummary.trim().slice(0, MAX_SUMMARY)}` });
       const planRequested = isTrainingPlanRequest(question);
@@ -800,8 +847,8 @@ async function handleRequest(req, res, ctx) {
       const stamp = nowIso(); transaction(ctx.db, () => { ctx.db.prepare('INSERT INTO conversation_messages (id, conversation_id, role, content, created_at) VALUES (?, ?, \'user\', ?, ?)').run(randomId('msg_'), conversationId, question, stamp); ctx.db.prepare('INSERT INTO conversation_messages (id, conversation_id, role, content, created_at) VALUES (?, ?, \'assistant\', ?, ?)').run(randomId('msg_'), conversationId, answer, nowIso()); ctx.db.prepare('UPDATE conversations SET updated_at = ? WHERE id = ?').run(nowIso(), conversationId); });
       // Memory summarisation is deliberately low frequency and best effort.
       try { const count = ctx.db.prepare('SELECT COUNT(*) AS n FROM conversation_messages WHERE conversation_id = ?').get(conversationId).n; if (count >= 10 && count % 10 === 0) { const text = conversationMessages(ctx.db, conversationId, 10).map((m) => `${m.role}: ${m.content}`).join('\n'); ctx.db.prepare('UPDATE conversations SET memory_summary = ?, updated_at = ? WHERE id = ?').run(text.slice(0, 3000), nowIso(), conversationId); } } catch { /* memory must never break the answer */ }
-      const academicCitations = knowledge.filter(isAcademicKnowledgeSource);
-      changeReservation(ctx.db, user.id, requestId, 'commit'); writeJson(res, 200, { conversationId, answer, citations: academicCitations.map((item) => ({ id: item.id, title: item.title, source: item.source })), plan: parsedAnswer.plan }, req, ctx.cfg);
+      const visibleCitations = knowledge.filter(isVisibleKnowledgeSource);
+      changeReservation(ctx.db, user.id, requestId, 'commit'); writeJson(res, 200, { conversationId, answer, citations: visibleCitations.map((item) => ({ id: item.id, title: item.title, source: item.source })), plan: parsedAnswer.plan }, req, ctx.cfg);
     } catch (error) { try { changeReservation(ctx.db, user.id, requestId, 'rollback'); } catch { /* preserve original error */ } throw error; }
     return;
   }
@@ -894,7 +941,22 @@ async function handleRequest(req, res, ctx) {
       writeJson(res, 200, { kind, key }, req, ctx.cfg); return;
     }
     if (action === 'artifact' && (req.method === 'POST' || req.method === 'PUT')) { if (job.status !== 'processing') throw httpError(409, 'invalid_job_state'); const body = await readBody(req, ctx.cfg.maxJsonBytes); const kind = requireString(body.kind || body.type, 'artifact_kind_required', 20); if (!['overlay', 'preview'].includes(kind)) throw httpError(400, 'invalid_artifact_kind'); const base64 = requireString(body.dataBase64, 'artifact_data_required', Math.ceil(ctx.cfg.maxUploadBytes * 1.4)); let bytes; try { bytes = Buffer.from(base64, 'base64'); } catch { throw httpError(400, 'invalid_artifact_data'); } if (!bytes.length || bytes.length > ctx.cfg.maxUploadBytes) throw httpError(413, 'artifact_too_large'); const contentType = String(body.contentType || 'image/jpeg').split(';')[0].toLowerCase(); if (!artifactContentTypeAllowed(kind, contentType)) throw httpError(415, 'unsupported_media_type'); const key = `artifacts/${job.user_id}/${job.id}/${kind}${extensionForType.get(contentType) || '.bin'}`; await ctx.storage.putBuffer(key, bytes, { maxBytes: ctx.cfg.maxUploadBytes }); ctx.db.prepare(`UPDATE recognition_jobs SET ${kind}_key = ?, updated_at = ? WHERE id = ? AND status = 'processing'`).run(key, nowIso(), id); writeJson(res, 200, { kind, key }, req, ctx.cfg); return; }
-    if (action === 'result' && req.method === 'POST') { const body = await readBody(req, ctx.cfg.maxJsonBytes); const result = parseJsonResult(body.result || body); const modelVersion = typeof body.modelVersion === 'string' ? body.modelVersion.slice(0, 120) : null; const completed = transaction(ctx.db, () => { const current = ctx.db.prepare('SELECT * FROM recognition_jobs WHERE id = ?').get(id); if (!current || current.status !== 'processing') throw httpError(409, 'invalid_job_state'); ctx.db.prepare("UPDATE recognition_jobs SET status = 'completed', result_json = ?, model_version = ?, updated_at = ? WHERE id = ? AND status = 'processing'").run(JSON.stringify(result), modelVersion, nowIso(), id); changeReservationInternal(ctx.db, current.user_id, current.quota_request_id, 'commit'); return ctx.db.prepare('SELECT * FROM recognition_jobs WHERE id = ?').get(id); }); writeJson(res, 200, publicJob(completed, ctx.cfg), req, ctx.cfg); return; }
+    if (action === 'result' && req.method === 'POST') {
+      const body = await readBody(req, ctx.cfg.maxJsonBytes);
+      const workerResult = parseJsonResult(body.result || body);
+      const modelVersion = typeof body.modelVersion === 'string' ? body.modelVersion.slice(0, 120) : null;
+      const current = ctx.db.prepare('SELECT * FROM recognition_jobs WHERE id = ?').get(id);
+      if (!current || current.status !== 'processing') throw httpError(409, 'invalid_job_state');
+      const result = await enrichRecognitionResult(ctx, current, workerResult);
+      const completed = transaction(ctx.db, () => {
+        const latest = ctx.db.prepare('SELECT * FROM recognition_jobs WHERE id = ?').get(id);
+        if (!latest || latest.status !== 'processing') throw httpError(409, 'invalid_job_state');
+        ctx.db.prepare("UPDATE recognition_jobs SET status = 'completed', result_json = ?, model_version = ?, updated_at = ? WHERE id = ? AND status = 'processing'").run(JSON.stringify(result), modelVersion, nowIso(), id);
+        changeReservationInternal(ctx.db, latest.user_id, latest.quota_request_id, 'commit');
+        return ctx.db.prepare('SELECT * FROM recognition_jobs WHERE id = ?').get(id);
+      });
+      writeJson(res, 200, publicJob(completed, ctx.cfg), req, ctx.cfg); return;
+    }
     if (action === 'fail' && req.method === 'POST') { const body = await readBody(req, ctx.cfg.maxJsonBytes); const errorCode = requireString(body.errorCode || 'gpu_failed', 'error_code_required', 120); const failed = transaction(ctx.db, () => { const current = ctx.db.prepare('SELECT * FROM recognition_jobs WHERE id = ?').get(id); if (!current || ['completed', 'failed', 'cancelled', 'expired'].includes(current.status)) throw httpError(409, 'invalid_job_state'); ctx.db.prepare("UPDATE recognition_jobs SET status = 'failed', error_code = ?, updated_at = ? WHERE id = ? AND status NOT IN ('completed', 'failed', 'cancelled', 'expired')").run(errorCode, nowIso(), id); changeReservationInternal(ctx.db, current.user_id, current.quota_request_id, 'rollback'); return ctx.db.prepare('SELECT * FROM recognition_jobs WHERE id = ?').get(id); }); writeJson(res, 200, publicJob(failed, ctx.cfg), req, ctx.cfg); return; }
   }
 

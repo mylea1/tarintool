@@ -17,9 +17,9 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 RUN sed -i 's|deb.debian.org|mirrors.ustc.edu.cn|g; s|security.debian.org|mirrors.ustc.edu.cn/debian-security|g' /etc/apt/sources.list.d/debian.sources \
     && apt-get update \
-    # opencv-python-headless ships its own video backend; the Worker never
-    # invokes the ffmpeg CLI, so avoid hundreds of desktop/media packages.
-    && apt-get install -y --no-install-recommends libglib2.0-0 libgomp1 \
+    # ffmpeg normalizes OpenCV output to H.264/yuv420p so iOS AVPlayer and
+    # Android MediaCodec can reliably play the annotated result.
+    && apt-get install -y --no-install-recommends libglib2.0-0 libgomp1 ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /opt/kilo/worker

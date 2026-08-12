@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import subprocess
 from typing import Any, Callable
 
 import cv2
@@ -84,10 +85,11 @@ class PoseAnalyzer:
         inference_stride = max(1, round(fps / self.target_fps))
 
         overlay_path = output_dir / "overlay.mp4"
+        raw_overlay_path = output_dir / "overlay-raw.mp4"
         preview_path = output_dir / "preview.jpg"
         output_fps = max(1.0, fps / inference_stride)
         writer = cv2.VideoWriter(
-            str(overlay_path),
+            str(raw_overlay_path),
             cv2.VideoWriter_fourcc(*"mp4v"),
             output_fps,
             (output_width, output_height),
@@ -160,6 +162,9 @@ class PoseAnalyzer:
             cv2.putText(fallback, "No pose detected", (20, max(50, output_height // 2)), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (230, 230, 230), 2)
             cv2.imwrite(str(preview_path), fallback, [cv2.IMWRITE_JPEG_QUALITY, 88])
 
+        if include_overlay:
+            self._encode_compatible_overlay(raw_overlay_path, overlay_path)
+
         detection_rate = detected_frames / inference_frames if inference_frames else 0.0
         pose_confidence = confidence_total / detected_frames if detected_frames else 0.0
         overall_confidence = round(min(1.0, detection_rate * pose_confidence), 4)
@@ -183,6 +188,29 @@ class PoseAnalyzer:
             },
         }
         return AnalysisOutput(result, overlay_path if include_overlay else None, preview_path)
+
+    @staticmethod
+    def _encode_compatible_overlay(source: Path, destination: Path) -> None:
+        """Convert OpenCV's intermediate file to mobile-safe H.264 MP4.
+
+        OpenCV's mp4v output is not consistently decoded by AVPlayer and
+        Android MediaCodec. yuv420p + faststart is supported by both clients
+        and lets the app start playback before reading the whole file.
+        """
+        try:
+            subprocess.run(
+                [
+                    "ffmpeg", "-y", "-loglevel", "error", "-i", str(source),
+                    "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "24",
+                    "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(destination),
+                ],
+                check=True,
+                timeout=180,
+            )
+        except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
+            raise RuntimeError("overlay_encoding_failed") from error
+        finally:
+            source.unlink(missing_ok=True)
 
     @staticmethod
     def _best_pose(prediction: Any) -> tuple[np.ndarray | None, np.ndarray | None]:

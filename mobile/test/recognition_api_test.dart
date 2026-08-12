@@ -56,6 +56,14 @@ void main() {
                 'confidence': 0.82,
                 'repetitions': 7,
                 'summary': '动作骨骼提取完成',
+                'metrics': {'durationSeconds': 12.4, 'detectionRate': 0.91},
+                'aiReview': {
+                  'headline': '整体轨迹稳定',
+                  'strengths': ['动作节奏一致'],
+                  'risks': ['末端控制可加强'],
+                  'nextSet': '保持重量，减慢离心阶段',
+                  'basis': '骨骼捕获率与重复次数',
+                },
               },
               'media': {
                 'overlay':
@@ -97,6 +105,9 @@ void main() {
       expect(result.status, RecognitionStatus.complete);
       expect(result.confidence, 0.82);
       expect(result.repetitions, 7);
+      expect(result.metrics['detectionRate'], 0.91);
+      expect(result.aiReview?.headline, '整体轨迹稳定');
+      expect(result.aiReview?.risks, ['末端控制可加强']);
       expect(result.overlayUrl, contains('test-api.example'));
       expect(result.mediaHeaders['Authorization'], 'Bearer session-token');
       expect(

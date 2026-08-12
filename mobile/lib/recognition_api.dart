@@ -28,6 +28,9 @@ class RecognitionResult {
     this.overlayUrl,
     this.previewUrl,
     this.mediaHeaders = const <String, String>{},
+    this.metrics = const <String, dynamic>{},
+    this.aiReview,
+    this.aiReviewError,
   });
 
   final RecognitionStatus status;
@@ -38,6 +41,41 @@ class RecognitionResult {
   final String? overlayUrl;
   final String? previewUrl;
   final Map<String, String> mediaHeaders;
+  final Map<String, dynamic> metrics;
+  final RecognitionAiReview? aiReview;
+  final String? aiReviewError;
+}
+
+class RecognitionAiReview {
+  const RecognitionAiReview({
+    required this.headline,
+    this.strengths = const <String>[],
+    this.risks = const <String>[],
+    this.nextSet = '',
+    this.basis = '',
+  });
+
+  final String headline;
+  final List<String> strengths;
+  final List<String> risks;
+  final String nextSet;
+  final String basis;
+
+  factory RecognitionAiReview.fromJson(Map<String, dynamic> json) =>
+      RecognitionAiReview(
+        headline: (json['headline'] ?? '动作分析已完成').toString(),
+        strengths: _stringList(json['strengths']),
+        risks: _stringList(json['risks']),
+        nextSet: (json['nextSet'] ?? '').toString(),
+        basis: (json['basis'] ?? '').toString(),
+      );
+
+  static List<String> _stringList(Object? value) => value is List<dynamic>
+      ? value
+            .map((item) => item.toString())
+            .where((item) => item.isNotEmpty)
+            .toList()
+      : const <String>[];
 }
 
 class HttpRecognitionApi implements RecognitionApi {
@@ -313,6 +351,8 @@ class HttpRecognitionApi implements RecognitionApi {
     final mediaMap = media is Map<String, dynamic>
         ? media
         : const <String, dynamic>{};
+    final rawMetrics = body['metrics'];
+    final rawReview = body['aiReview'];
     return RecognitionResult(
       status: confidence >= 0.45
           ? RecognitionStatus.complete
@@ -323,6 +363,13 @@ class HttpRecognitionApi implements RecognitionApi {
       overlayUrl: _optionalMediaUrl(mediaMap['overlay']),
       previewUrl: _optionalMediaUrl(mediaMap['preview']),
       mediaHeaders: {'Authorization': 'Bearer $token'},
+      metrics: rawMetrics is Map<String, dynamic>
+          ? Map<String, dynamic>.unmodifiable(rawMetrics)
+          : const <String, dynamic>{},
+      aiReview: rawReview is Map<String, dynamic>
+          ? RecognitionAiReview.fromJson(rawReview)
+          : null,
+      aiReviewError: body['aiReviewError']?.toString(),
     );
   }
 
@@ -371,6 +418,7 @@ String recognitionErrorMessage(String error) => switch (error) {
   'invalid_video_dimensions' => '无法读取视频尺寸，请转换为 MP4 后重试。',
   'empty_video' => '视频中没有可分析的画面，请重新选择。',
   'video_writer_unavailable' => '服务器暂时无法生成结果视频，请稍后重试。',
+  'overlay_encoding_failed' => '服务器暂时无法生成兼容的标注视频，请稍后重试。',
   'quota_exhausted' => '本周动作识别次数已用完。',
   'recognition_timeout' ||
   'recognition_result_timeout' => '服务器分析超时，视频已保留，请稍后直接重试。',
