@@ -105,6 +105,35 @@ void main() {
     fourth.dispose();
   });
 
+  test(
+    'saved plans and calendar survive controller recreation per user',
+    () async {
+      final persistence = InMemoryTrainingLibraryPersistence();
+      AppController buildController() {
+        final account = AccountService(allowTestAdmin: true);
+        account.loginWithPhone('123', password: '123');
+        return AppController(
+          accountService: account,
+          trainingLibraryPersistence: persistence,
+        );
+      }
+
+      final first = buildController();
+      await first.hydrateTrainingLibrary();
+      first.saveRoutineFromExerciseIds('上肢力量', const ['bench_press']);
+      first.schedule(DateTime(2026, 8, 18), '月计划 · 上肢力量');
+      await first.flushTrainingLibraryPersistence();
+      first.dispose();
+
+      final second = buildController();
+      await second.hydrateTrainingLibrary();
+      expect(second.routines, hasLength(1));
+      expect(second.routines.single.name, '上肢力量');
+      expect(second.scheduledLabels['2026-08-18'], contains('上肢'));
+      second.dispose();
+    },
+  );
+
   test('workout timer stays independent from rest timer', () async {
     const channel = MethodChannel('kilo.platform.timer');
     final calls = <String>[];

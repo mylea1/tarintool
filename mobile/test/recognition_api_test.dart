@@ -99,11 +99,14 @@ void main() {
       expect(result.repetitions, 7);
       expect(result.overlayUrl, contains('test-api.example'));
       expect(result.mediaHeaders['Authorization'], 'Bearer session-token');
-      expect(progress, containsAllInOrder([
-        RecognitionStage.preparing,
-        RecognitionStage.uploading,
-        RecognitionStage.analyzing,
-      ]));
+      expect(
+        progress,
+        containsAllInOrder([
+          RecognitionStage.preparing,
+          RecognitionStage.uploading,
+          RecognitionStage.analyzing,
+        ]),
+      );
     },
   );
 }

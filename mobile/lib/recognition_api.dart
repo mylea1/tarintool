@@ -113,7 +113,11 @@ class HttpRecognitionApi implements RecognitionApi {
         }
         if (cameras.isNotEmpty) {
           result.add(
-            RecognitionCapability(exerciseId: exerciseId, cameras: cameras),
+            RecognitionCapability(
+              exerciseId: exerciseId,
+              cameras: cameras,
+              group: raw['group']?.toString() ?? '其他',
+            ),
           );
         }
       }
@@ -362,25 +366,23 @@ class HttpRecognitionApi implements RecognitionApi {
 }
 
 String recognitionErrorMessage(String error) => switch (error) {
-    'video_too_long' => '视频时长超出限制，请裁剪后重试。',
-    'invalid_video' => '无法读取该视频，请重新选择。',
-    'invalid_video_dimensions' => '无法读取视频尺寸，请转换为 MP4 后重试。',
-    'empty_video' => '视频中没有可分析的画面，请重新选择。',
-    'video_writer_unavailable' => '服务器暂时无法生成结果视频，请稍后重试。',
-    'quota_exhausted' => '本周动作识别次数已用完。',
-    'recognition_timeout' || 'recognition_result_timeout' =>
-      '服务器分析超时，视频已保留，请稍后直接重试。',
-    'recognition_network' => '网络连接中断，视频已保留，请检查网络后重试。',
-    'recognition_unauthenticated' || 'recognition_auth_token_missing' =>
-      '登录状态已失效，请重新登录后重试。',
-    'recognition_exercise_unsupported' ||
-    'recognition_camera_unsupported' => '当前动作或机位暂不受识别服务支持。',
-    _ when error.startsWith('recognition_upload_http_') =>
-      '视频上传失败，视频已保留，请直接重试。',
-    _ when error.startsWith('recognition_create_http_') =>
-      '无法创建识别任务，请稍后重试。',
-    _ => '动作识别失败（$error），视频已保留，可直接重试。',
-  };
+  'video_too_long' => '视频时长超出限制，请裁剪后重试。',
+  'invalid_video' => '无法读取该视频，请重新选择。',
+  'invalid_video_dimensions' => '无法读取视频尺寸，请转换为 MP4 后重试。',
+  'empty_video' => '视频中没有可分析的画面，请重新选择。',
+  'video_writer_unavailable' => '服务器暂时无法生成结果视频，请稍后重试。',
+  'quota_exhausted' => '本周动作识别次数已用完。',
+  'recognition_timeout' ||
+  'recognition_result_timeout' => '服务器分析超时，视频已保留，请稍后直接重试。',
+  'recognition_network' => '网络连接中断，视频已保留，请检查网络后重试。',
+  'recognition_unauthenticated' ||
+  'recognition_auth_token_missing' => '登录状态已失效，请重新登录后重试。',
+  'recognition_exercise_unsupported' ||
+  'recognition_camera_unsupported' => '当前动作或机位暂不受识别服务支持。',
+  _ when error.startsWith('recognition_upload_http_') => '视频上传失败，视频已保留，请直接重试。',
+  _ when error.startsWith('recognition_create_http_') => '无法创建识别任务，请稍后重试。',
+  _ => '动作识别失败（$error），视频已保留，可直接重试。',
+};
 
 class RecognitionApiException implements Exception {
   const RecognitionApiException(this.code);

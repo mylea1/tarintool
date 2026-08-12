@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { startServer } from '../src/server.mjs';
+import { isAcademicKnowledgeSource, startServer } from '../src/server.mjs';
 import { assertProductionConfiguration } from '../src/config.mjs';
 import { loadConfig } from '../src/config.mjs';
 
@@ -40,13 +40,21 @@ test.before(async () => {
 
 test.after(async () => { await server.closeGracefully(); await fs.rm(root, { recursive: true, force: true }); });
 
+test('only academic knowledge sources are eligible for visible citations', () => {
+  assert.equal(isAcademicKnowledgeSource({ source: 'https://github.com/example/method', tags_json: '["training"]' }), false);
+  assert.equal(isAcademicKnowledgeSource({ source: 'https://pubmed.ncbi.nlm.nih.gov/12345/', tags_json: '[]' }), true);
+  assert.equal(isAcademicKnowledgeSource({ source: 'internal', tags_json: '["论文"]' }), true);
+});
+
 test('health, auth and admin role boundaries', async () => {
   assert.equal((await api('/health')).body.ok, true);
   const capabilities = await api('/v1/analysis/capabilities');
   assert.equal(capabilities.response.status, 200);
   assert.equal(capabilities.body.exercises.some((item) => item.exerciseId === 'barbell_squat'), true);
   assert.equal(capabilities.body.exercises.some((item) => item.exerciseId === 'lat_pulldown'), true);
-  assert.equal(capabilities.body.exercises.some((item) => item.exerciseId === 'bench_press'), false);
+  assert.equal(capabilities.body.exercises.some((item) => item.exerciseId === 'bench_press'), true);
+  assert.ok(capabilities.body.exercises.length >= 15);
+  assert.equal(capabilities.body.exercises.find((item) => item.exerciseId === 'bench_press').group, '胸部');
   const adminEntitlements = await api('/v1/me/entitlements', { headers: { authorization: `Bearer ${adminToken}` } });
   assert.equal(adminEntitlements.body.membership, 'forever'); assert.equal(adminEntitlements.body.membershipExpiresAt, null); assert.ok(adminEntitlements.body.aiRemaining >= 20); assert.ok(adminEntitlements.body.recognitionRemaining >= 3); assert.ok(adminEntitlements.body.recognitionWeeklyGrant >= 3);
   const unauth = await api('/v1/me/entitlements'); assert.equal(unauth.response.status, 401);

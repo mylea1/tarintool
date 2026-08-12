@@ -9,7 +9,7 @@ import 'package:kilo_strength/models.dart';
 void main() {
   testWidgets('default app starts at login root', (tester) async {
     await tester.pumpWidget(const KiloApp());
-    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle(const Duration(seconds: 4));
     expect(find.byKey(const Key('login-page')), findsOneWidget);
     expect(find.byType(NavigationBar), findsNothing);
   });

@@ -80,13 +80,16 @@ class _KiloAppState extends State<KiloApp> {
   Future<void> _loadDurableState() async {
     try {
       await controller.accountService.hydrateFromSharedPreferences().timeout(
-        const Duration(milliseconds: 500),
+        const Duration(seconds: 3),
       );
       await controller.hydrateWorkoutHistory().timeout(
-        const Duration(milliseconds: 500),
+        const Duration(seconds: 3),
       );
       await controller.hydrateActiveWorkout().timeout(
-        const Duration(milliseconds: 500),
+        const Duration(seconds: 3),
+      );
+      await controller.hydrateTrainingLibrary().timeout(
+        const Duration(seconds: 3),
       );
     } catch (_) {
       // Local storage is optional in previews; the in-memory repository stays
@@ -4013,6 +4016,13 @@ class _RecordsPageState extends State<RecordsPage> {
 
 String _scheduledBodyPart(String? label) {
   final value = label ?? '';
+  if (RegExp(r'上肢|upper', caseSensitive: false).hasMatch(value)) return '上肢';
+  if (RegExp(r'全身|full.?body', caseSensitive: false).hasMatch(value)) {
+    return '全身';
+  }
+  if (RegExp(r'臀|glute|hip', caseSensitive: false).hasMatch(value)) return '臀';
+  if (RegExp(r'推日|push', caseSensitive: false).hasMatch(value)) return '推';
+  if (RegExp(r'拉日|pull', caseSensitive: false).hasMatch(value)) return '拉';
   if (RegExp(r'胸|chest', caseSensitive: false).hasMatch(value)) return '胸';
   if (RegExp(r'背|back|pull', caseSensitive: false).hasMatch(value)) return '背';
   if (RegExp(r'肩|shoulder', caseSensitive: false).hasMatch(value)) return '肩';
@@ -4023,7 +4033,12 @@ String _scheduledBodyPart(String? label) {
     return '臂';
   }
   if (RegExp(r'核心|腹|core', caseSensitive: false).hasMatch(value)) return '核';
-  return '练';
+  final compact = value
+      .replaceAll(RegExp(r'AI\s*生成|计划|训练|力量|容量', caseSensitive: false), '')
+      .trim();
+  return compact.isEmpty
+      ? '练'
+      : compact.substring(0, compact.length.clamp(0, 2));
 }
 
 class _CalendarLegend extends StatelessWidget {
@@ -4461,25 +4476,10 @@ class RecognitionPage extends StatelessWidget {
               if (controller.recognitionCapabilitiesLoading)
                 const LinearProgressIndicator(minHeight: 2)
               else
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final width = (constraints.maxWidth - 10) / 2;
-                    return Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: [
-                        for (final capability
-                            in controller.recognitionCapabilities)
-                          SizedBox(
-                            width: width,
-                            child: _RecognitionExerciseChoice(
-                              controller: controller,
-                              capability: capability,
-                            ),
-                          ),
-                      ],
-                    );
-                  },
+                _RecognitionSelectedExercise(
+                  controller: controller,
+                  onTap: () =>
+                      _showRecognitionExercisePicker(context, controller),
                 ),
               const _RecognitionFieldLabel('拍摄机位'),
               Row(
@@ -5108,10 +5108,12 @@ class _RecognitionExerciseChoice extends StatelessWidget {
   const _RecognitionExerciseChoice({
     required this.controller,
     required this.capability,
+    this.onSelected,
   });
 
   final AppController controller;
   final RecognitionCapability capability;
+  final VoidCallback? onSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -5129,8 +5131,10 @@ class _RecognitionExerciseChoice extends StatelessWidget {
       child: InkWell(
         key: Key('recognition-exercise-${capability.exerciseId}'),
         borderRadius: BorderRadius.circular(15),
-        onTap: () =>
-            controller.selectRecognitionExercise(capability.exerciseId),
+        onTap: () {
+          controller.selectRecognitionExercise(capability.exerciseId);
+          onSelected?.call();
+        },
         child: Padding(
           padding: const EdgeInsets.all(11),
           child: Row(
@@ -5164,6 +5168,195 @@ class _RecognitionExerciseChoice extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _RecognitionSelectedExercise extends StatelessWidget {
+  const _RecognitionSelectedExercise({
+    required this.controller,
+    required this.onTap,
+  });
+
+  final AppController controller;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final capability = controller.selectedRecognitionCapability;
+    final exercise = findExercise(capability.exerciseId);
+    return Material(
+      color: primaryContainer.withValues(alpha: .55),
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        key: const Key('recognition-exercise-picker'),
+        borderRadius: BorderRadius.circular(18),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              _ExerciseThumb(exerciseId: capability.exerciseId, size: 52),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      controller.displayExerciseName(exercise),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '${capability.group} · ${capability.cameras.length} 个推荐机位 · 共 ${controller.recognitionCapabilities.length} 个可识别动作',
+                      style: const TextStyle(fontSize: 11, color: quiet),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.swap_horiz_rounded, color: primary),
+              const SizedBox(width: 4),
+              const Text(
+                '更换',
+                style: TextStyle(color: primary, fontWeight: FontWeight.w800),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+void _showRecognitionExercisePicker(
+  BuildContext context,
+  AppController controller,
+) {
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    builder: (context) => _RecognitionExercisePicker(controller: controller),
+  );
+}
+
+class _RecognitionExercisePicker extends StatefulWidget {
+  const _RecognitionExercisePicker({required this.controller});
+  final AppController controller;
+
+  @override
+  State<_RecognitionExercisePicker> createState() =>
+      _RecognitionExercisePickerState();
+}
+
+class _RecognitionExercisePickerState
+    extends State<_RecognitionExercisePicker> {
+  String query = '';
+  String group = '全部';
+
+  @override
+  Widget build(BuildContext context) {
+    final groups = <String>{
+      '全部',
+      ...widget.controller.recognitionCapabilities.map((item) => item.group),
+    }.toList();
+    final visible = widget.controller.recognitionCapabilities.where((item) {
+      final exercise = findExercise(item.exerciseId);
+      final matchesGroup = group == '全部' || item.group == group;
+      final normalized = query.trim().toLowerCase();
+      final matchesQuery =
+          normalized.isEmpty ||
+          exercise.name.toLowerCase().contains(normalized) ||
+          exercise.englishName.toLowerCase().contains(normalized) ||
+          item.group.contains(normalized);
+      return matchesGroup && matchesQuery;
+    }).toList();
+    return FractionallySizedBox(
+      heightFactor: .88,
+      child: Column(
+        children: [
+          const SizedBox(height: 10),
+          Container(
+            width: 42,
+            height: 5,
+            decoration: BoxDecoration(
+              color: hairline,
+              borderRadius: BorderRadius.circular(99),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 16, 18, 10),
+            child: Row(
+              children: [
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '选择识别动作',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      Text('这里只显示服务端当前已支持的动作', style: TextStyle(color: quiet)),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 18),
+            child: TextField(
+              key: const Key('recognition-search'),
+              onChanged: (value) => setState(() => query = value),
+              decoration: const InputDecoration(
+                prefixIcon: Icon(Icons.search_rounded),
+                hintText: '搜索动作或部位',
+              ),
+            ),
+          ),
+          SizedBox(
+            height: 52,
+            child: ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
+              scrollDirection: Axis.horizontal,
+              itemCount: groups.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 7),
+              itemBuilder: (context, index) => ChoiceChip(
+                label: Text(groups[index]),
+                selected: group == groups[index],
+                onSelected: (_) => setState(() => group = groups[index]),
+              ),
+            ),
+          ),
+          Expanded(
+            child: GridView.builder(
+              padding: const EdgeInsets.fromLTRB(18, 4, 18, 24),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                mainAxisExtent: 76,
+                crossAxisSpacing: 9,
+                mainAxisSpacing: 9,
+              ),
+              itemCount: visible.length,
+              itemBuilder: (context, index) => _RecognitionExerciseChoice(
+                controller: widget.controller,
+                capability: visible[index],
+                onSelected: () => Navigator.pop(context),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -5451,6 +5644,7 @@ class AiPage extends StatefulWidget {
 
 class _AiPageState extends State<AiPage> {
   final input = TextEditingController();
+  final Set<AiContextSelection> selectedContexts = {};
   late final ScrollController scroll;
   var followLatest = true;
   var lastMessageCount = 0;
@@ -5488,8 +5682,26 @@ class _AiPageState extends State<AiPage> {
     input.clear();
     FocusManager.instance.primaryFocus?.unfocus();
     followLatest = true;
-    controller.sendChat(text);
+    final contexts = selectedContexts.toList(growable: false);
+    setState(selectedContexts.clear);
+    controller.sendChat(text, contexts: contexts);
     _scrollToLatest();
+  }
+
+  Future<void> _chooseContext() async {
+    final result = await showModalBottomSheet<Set<AiContextSelection>>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (context) =>
+          _AiContextPicker(controller: controller, initial: selectedContexts),
+    );
+    if (result == null || !mounted) return;
+    setState(() {
+      selectedContexts
+        ..clear()
+        ..addAll(result);
+    });
   }
 
   @override
@@ -5542,28 +5754,6 @@ class _AiPageState extends State<AiPage> {
                   ),
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.tonalIcon(
-                    key: const Key('ai-review-today-workout'),
-                    onPressed:
-                        controller.aiTyping ||
-                            (!controller.workoutStarted &&
-                                !controller.workoutDraft &&
-                                controller.history.isEmpty)
-                        ? null
-                        : () {
-                            followLatest = true;
-                            controller.sendTodayWorkoutForReview();
-                            _scrollToLatest();
-                          },
-                    icon: const Icon(Icons.auto_awesome, size: 18),
-                    label: const Text('把今天的训练和备注发给 AI 评价'),
-                  ),
-                ),
-              ),
               Expanded(
                 child: ListView(
                   controller: scroll,
@@ -5589,31 +5779,69 @@ class _AiPageState extends State<AiPage> {
                 top: false,
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(12, 5, 12, 10),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Expanded(
-                        child: TextField(
-                          controller: input,
-                          minLines: 1,
-                          maxLines: 4,
-                          textInputAction: TextInputAction.newline,
-                          onTapOutside: (_) =>
-                              FocusManager.instance.primaryFocus?.unfocus(),
-                          decoration: const InputDecoration(
-                            hintText: '问训练、恢复或计划安排',
-                            contentPadding: EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 10,
-                            ),
+                      if (selectedContexts.isNotEmpty)
+                        SizedBox(
+                          height: 34,
+                          child: ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: selectedContexts.length,
+                            separatorBuilder: (_, _) =>
+                                const SizedBox(width: 6),
+                            itemBuilder: (context, index) {
+                              final item = selectedContexts.elementAt(index);
+                              return InputChip(
+                                label: Text(item.label),
+                                onDeleted: () => setState(
+                                  () => selectedContexts.remove(item),
+                                ),
+                                visualDensity: VisualDensity.compact,
+                              );
+                            },
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      IconButton.filled(
-                        tooltip: '发送',
-                        onPressed: controller.aiTyping ? null : _sendMessage,
-                        icon: const Icon(Icons.arrow_upward),
+                      if (selectedContexts.isNotEmpty)
+                        const SizedBox(height: 5),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          IconButton.filledTonal(
+                            key: const Key('ai-add-context'),
+                            tooltip: '添加训练上下文',
+                            onPressed: controller.aiTyping
+                                ? null
+                                : _chooseContext,
+                            icon: const Icon(Icons.add),
+                          ),
+                          const SizedBox(width: 7),
+                          Expanded(
+                            child: TextField(
+                              controller: input,
+                              minLines: 1,
+                              maxLines: 4,
+                              textInputAction: TextInputAction.newline,
+                              onTapOutside: (_) =>
+                                  FocusManager.instance.primaryFocus?.unfocus(),
+                              decoration: const InputDecoration(
+                                hintText: '询问训练、恢复或计划安排',
+                                contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 10,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 7),
+                          IconButton.filled(
+                            tooltip: '发送',
+                            onPressed: controller.aiTyping
+                                ? null
+                                : _sendMessage,
+                            icon: const Icon(Icons.arrow_upward),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -5622,6 +5850,134 @@ class _AiPageState extends State<AiPage> {
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _AiContextPicker extends StatefulWidget {
+  const _AiContextPicker({required this.controller, required this.initial});
+  final AppController controller;
+  final Set<AiContextSelection> initial;
+
+  @override
+  State<_AiContextPicker> createState() => _AiContextPickerState();
+}
+
+class _AiContextPickerState extends State<_AiContextPicker> {
+  late final Set<AiContextSelection> selected = {...widget.initial};
+
+  IconData _icon(AiContextType type) => switch (type) {
+    AiContextType.activeWorkout => Icons.fitness_center,
+    AiContextType.workoutRecord => Icons.history,
+    AiContextType.routine => Icons.menu_book_outlined,
+    AiContextType.week => Icons.view_week_outlined,
+    AiContextType.month => Icons.calendar_month_outlined,
+  };
+
+  String _subtitle(AiContextType type) => switch (type) {
+    AiContextType.activeWorkout => '动作、完成组、重量与当前备注',
+    AiContextType.workoutRecord => '一次已完成训练的完整明细',
+    AiContextType.routine => '计划动作、目标重量、次数与休息',
+    AiContextType.week => '本周频率、容量、肌群和备注',
+    AiContextType.month => '本月趋势、PR、容量和完成情况',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final contexts = widget.controller.availableAiContexts;
+    return FractionallySizedBox(
+      heightFactor: .86,
+      child: Column(
+        children: [
+          const SizedBox(height: 10),
+          Container(
+            width: 42,
+            height: 5,
+            decoration: BoxDecoration(
+              color: quiet.withValues(alpha: .45),
+              borderRadius: BorderRadius.circular(99),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 18, 8, 8),
+            child: Row(
+              children: [
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '添加训练上下文',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      Text('只随下一条消息发送', style: TextStyle(color: quiet)),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  tooltip: '关闭',
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: contexts.isEmpty
+                ? const Center(child: Text('还没有可发送的训练数据'))
+                : ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    itemCount: contexts.length,
+                    itemBuilder: (context, index) {
+                      final item = contexts[index];
+                      final checked = selected.contains(item);
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 7),
+                        child: CheckboxListTile(
+                          value: checked,
+                          onChanged: (value) => setState(() {
+                            if (value == true) {
+                              selected.add(item);
+                            } else {
+                              selected.remove(item);
+                            }
+                          }),
+                          secondary: CircleAvatar(
+                            backgroundColor: emberTint,
+                            foregroundColor: primary,
+                            child: Icon(_icon(item.type), size: 20),
+                          ),
+                          title: Text(
+                            item.label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                          subtitle: Text(_subtitle(item.type)),
+                          controlAffinity: ListTileControlAffinity.trailing,
+                        ),
+                      );
+                    },
+                  ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () => Navigator.pop(context, selected),
+                icon: const Icon(Icons.add_comment_outlined),
+                label: Text(
+                  selected.isEmpty ? '不添加上下文' : '添加 ${selected.length} 项',
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -10532,18 +10888,69 @@ void _showRecordDetail(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                record.name,
-                style: Theme.of(context).textTheme.headlineMedium,
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFE85B17), Color(0xFFFF9B55)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x33D95718),
+                      blurRadius: 24,
+                      offset: Offset(0, 12),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(
+                      Icons.emoji_events_rounded,
+                      color: Colors.white,
+                      size: 30,
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      record.name,
+                      style: Theme.of(context).textTheme.headlineMedium
+                          ?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                          ),
+                    ),
+                    Text(
+                      '${record.date.year}-${record.date.month.toString().padLeft(2, '0')}-${record.date.day.toString().padLeft(2, '0')} · ${record.startTime}',
+                      style: const TextStyle(color: Color(0xFFFFE9DD)),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        _RecordMetric(
+                          icon: Icons.monitor_weight_outlined,
+                          value: '${record.volume.toStringAsFixed(0)} kg',
+                          label: '总容量',
+                        ),
+                        _RecordMetric(
+                          icon: Icons.check_circle_outline_rounded,
+                          value: '${record.effectiveSets}',
+                          label: '完成组',
+                        ),
+                        _RecordMetric(
+                          icon: Icons.timer_outlined,
+                          value: '${(record.durationSeconds / 60).round()} 分',
+                          label: '时长',
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-              Text(
-                '${record.date.year}-${record.date.month}-${record.date.day} · ${record.startTime}',
-              ),
-              const SizedBox(height: 14),
-              Text(
-                '训练量 ${record.volume.toStringAsFixed(0)} kg · ${record.effectiveSets} 有效组 · ${(record.durationSeconds / 60).round()} 分钟',
-              ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 20),
               const Text(
                 '动作与每组数据',
                 style: TextStyle(fontWeight: FontWeight.w800),
@@ -10655,6 +11062,49 @@ void _showRecordDetail(
             ],
           ),
         ),
+      ),
+    ),
+  );
+}
+
+class _RecordMetric extends StatelessWidget {
+  const _RecordMetric({
+    required this.icon,
+    required this.value,
+    required this.label,
+  });
+  final IconData icon;
+  final String value;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Expanded(
+    child: Container(
+      margin: const EdgeInsets.only(right: 7),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: .17),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: Colors.white, size: 17),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          Text(
+            label,
+            style: const TextStyle(color: Color(0xFFFFE9DD), fontSize: 10),
+          ),
+        ],
       ),
     ),
   );

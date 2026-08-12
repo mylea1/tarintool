@@ -10,6 +10,119 @@ abstract class WorkoutHistoryPersistence {
   Future<void> write(String userId, List<WorkoutRecord> records);
 }
 
+class TrainingLibrarySnapshot {
+  const TrainingLibrarySnapshot({
+    required this.routines,
+    required this.routineFolders,
+    required this.scheduledLabels,
+  });
+
+  final List<Routine> routines;
+  final List<String> routineFolders;
+  final Map<String, String> scheduledLabels;
+}
+
+abstract class TrainingLibraryPersistence {
+  Future<TrainingLibrarySnapshot> read(String userId);
+
+  Future<void> write(String userId, TrainingLibrarySnapshot snapshot);
+}
+
+class SharedPreferencesTrainingLibraryPersistence
+    implements TrainingLibraryPersistence {
+  static const storageKey = 'kilo.training-library.v1';
+  SharedPreferences? _preferences;
+
+  Future<SharedPreferences> get _store async =>
+      _preferences ??= await SharedPreferences.getInstance();
+
+  @override
+  Future<TrainingLibrarySnapshot> read(String userId) async {
+    final raw = (await _store).getString(storageKey);
+    if (raw == null || raw.isEmpty) return _emptyTrainingLibrary();
+    try {
+      final root = jsonDecode(raw);
+      if (root is! Map || root['users'] is! Map) {
+        return _emptyTrainingLibrary();
+      }
+      final value = (root['users'] as Map)[userId];
+      if (value is! Map) return _emptyTrainingLibrary();
+      final map = Map<String, dynamic>.from(value);
+      return TrainingLibrarySnapshot(
+        routines: _asMapList(map['routines']).map(_routineFromMap).toList(),
+        routineFolders: _asStringList(map['routineFolders']),
+        scheduledLabels: map['scheduledLabels'] is Map
+            ? Map<String, String>.from(
+                (map['scheduledLabels'] as Map).map(
+                  (key, value) => MapEntry(key.toString(), value.toString()),
+                ),
+              )
+            : const {},
+      );
+    } catch (_) {
+      return _emptyTrainingLibrary();
+    }
+  }
+
+  @override
+  Future<void> write(String userId, TrainingLibrarySnapshot snapshot) async {
+    final preferences = await _store;
+    Map<String, dynamic> root = {'version': 1, 'users': <String, dynamic>{}};
+    final raw = preferences.getString(storageKey);
+    if (raw != null && raw.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(raw);
+        if (decoded is Map) root = Map<String, dynamic>.from(decoded);
+      } catch (_) {
+        // Replace only the damaged training-library entry.
+      }
+    }
+    final users = root['users'] is Map
+        ? Map<String, dynamic>.from(root['users'] as Map)
+        : <String, dynamic>{};
+    users[userId] = {
+      'routines': snapshot.routines.map(_routineToMap).toList(),
+      'routineFolders': snapshot.routineFolders,
+      'scheduledLabels': snapshot.scheduledLabels,
+    };
+    root['users'] = users;
+    await preferences.setString(storageKey, jsonEncode(root));
+  }
+}
+
+class InMemoryTrainingLibraryPersistence implements TrainingLibraryPersistence {
+  final Map<String, Map<String, dynamic>> _snapshots = {};
+
+  @override
+  Future<TrainingLibrarySnapshot> read(String userId) async {
+    final value = _snapshots[userId];
+    if (value == null) return _emptyTrainingLibrary();
+    return TrainingLibrarySnapshot(
+      routines: _asMapList(value['routines']).map(_routineFromMap).toList(),
+      routineFolders: _asStringList(value['routineFolders']),
+      scheduledLabels: Map<String, String>.from(
+        value['scheduledLabels'] as Map? ?? const {},
+      ),
+    );
+  }
+
+  @override
+  Future<void> write(String userId, TrainingLibrarySnapshot snapshot) async {
+    _snapshots[userId] = {
+      'routines': snapshot.routines.map(_routineToMap).toList(),
+      'routineFolders': [...snapshot.routineFolders],
+      'scheduledLabels': Map<String, String>.from(snapshot.scheduledLabels),
+    };
+  }
+}
+
+TrainingLibrarySnapshot _emptyTrainingLibrary() =>
+    const TrainingLibrarySnapshot(
+      routines: [],
+      routineFolders: [],
+      scheduledLabels: {},
+    );
+
 class SharedPreferencesWorkoutHistoryPersistence
     implements WorkoutHistoryPersistence {
   static const storageKey = 'kilo.workout-history.v1';
@@ -218,6 +331,23 @@ WorkoutRecord _recordFromMap(Map<String, dynamic> map) => WorkoutRecord(
   note: map['note']?.toString() ?? '',
   exerciseIds: _asStringList(map['exerciseIds']),
   prs: _asStringList(map['prs']),
+  exercises: _asMapList(map['exercises']).map(_exerciseFromMap).toList(),
+);
+
+Map<String, dynamic> _routineToMap(Routine routine) => {
+  'id': routine.id,
+  'name': routine.name,
+  'folder': routine.folder,
+  'updatedAt': routine.updatedAt.toIso8601String(),
+  'exercises': routine.exercises.map(_exerciseToMap).toList(),
+};
+
+Routine _routineFromMap(Map<String, dynamic> map) => Routine(
+  id: map['id']?.toString() ?? '',
+  name: map['name']?.toString() ?? '训练计划',
+  folder: map['folder']?.toString() ?? '',
+  updatedAt:
+      DateTime.tryParse(map['updatedAt']?.toString() ?? '') ?? DateTime.now(),
   exercises: _asMapList(map['exercises']).map(_exerciseFromMap).toList(),
 );
 

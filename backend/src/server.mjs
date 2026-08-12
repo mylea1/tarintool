@@ -23,6 +23,7 @@ const MEDIA_CONTENT_TYPES = new Map([
 const RECOGNITION_CAPABILITIES = [
   {
     exerciseId: 'barbell_squat',
+    group: '腿部',
     cameras: [
       { id: 'side', label: '正侧面', hint: '镜头与髋部同高，完整拍到头、髋、膝和脚。' },
       { id: 'side_rear', label: '侧后方', hint: '从侧后方完整拍到双脚与杠铃，便于观察膝髋轨迹。' },
@@ -30,12 +31,14 @@ const RECOGNITION_CAPABILITIES = [
   },
   {
     exerciseId: 'hip_thrust',
+    group: '臀腿',
     cameras: [
       { id: 'side', label: '正侧面', hint: '镜头与髋部同高，完整拍到肩、髋和膝，避免器械遮挡。' },
     ],
   },
   {
     exerciseId: 'romanian_deadlift',
+    group: '臀腿',
     cameras: [
       { id: 'side', label: '正侧面', hint: '完整拍到头、肩、髋、膝和脚，镜头保持水平。' },
       { id: 'side_rear', label: '侧后方', hint: '侧后方约 30° 拍摄，确保杠铃与下肢轨迹无遮挡。' },
@@ -43,11 +46,60 @@ const RECOGNITION_CAPABILITIES = [
   },
   {
     exerciseId: 'lat_pulldown',
+    group: '背部',
     cameras: [
       { id: 'rear', label: '正后方', hint: '镜头正对座椅后方，完整拍到双臂、肩胛和躯干。' },
       { id: 'side', label: '正侧面', hint: '镜头与肩部同高，完整拍到手、肩、髋与下拉轨迹。' },
     ],
   },
+  { exerciseId: 'goblet_squat', group: '腿部', cameras: [
+    { id: 'side', label: '正侧面', hint: '拍全头、髋、膝与双脚，镜头保持水平。' },
+    { id: 'side_rear', label: '侧后方', hint: '从侧后方约 30° 拍摄，保留双脚与膝髋轨迹。' },
+  ] },
+  { exerciseId: 'deadlift', group: '臀腿', cameras: [
+    { id: 'side', label: '正侧面', hint: '完整拍到杠铃、肩、髋、膝和脚。' },
+    { id: 'side_rear', label: '侧后方', hint: '侧后方约 30° 拍摄，确保杠铃无遮挡。' },
+  ] },
+  { exerciseId: 'bench_press', group: '胸部', cameras: [
+    { id: 'side', label: '正侧面', hint: '完整拍到杠铃、肩肘、躯干和双脚。' },
+    { id: 'side_front', label: '侧前方', hint: '从侧前方约 30° 拍摄，避免器械遮住手肘。' },
+  ] },
+  { exerciseId: 'dumbbell_press', group: '胸部', cameras: [
+    { id: 'side', label: '正侧面', hint: '拍全哑铃、肩肘、躯干和双脚。' },
+    { id: 'side_front', label: '侧前方', hint: '侧前方拍摄，确保两侧哑铃都可见。' },
+  ] },
+  { exerciseId: 'shoulder_press', group: '肩部', cameras: [
+    { id: 'front', label: '正前方', hint: '拍全双手、肩、肘和躯干。' },
+    { id: 'side', label: '正侧面', hint: '侧面拍摄，观察躯干与手臂轨迹。' },
+  ] },
+  { exerciseId: 'push_up', group: '胸部', cameras: [
+    { id: 'side', label: '正侧面', hint: '完整拍到头、肩、髋、膝和脚。' },
+  ] },
+  { exerciseId: 'dip', group: '胸部', cameras: [
+    { id: 'side', label: '正侧面', hint: '拍全头、肩肘、髋与双脚，避免器械遮挡。' },
+  ] },
+  { exerciseId: 'row', group: '背部', cameras: [
+    { id: 'side', label: '正侧面', hint: '拍到手、肩、髋和器械完整运动轨迹。' },
+    { id: 'rear', label: '正后方', hint: '后方拍摄，观察肩胛与双臂对称性。' },
+  ] },
+  { exerciseId: 'pull_up', group: '背部', cameras: [
+    { id: 'front', label: '正前方', hint: '从正前方拍全单杠、双手和身体。' },
+    { id: 'side', label: '正侧面', hint: '侧面拍全身体，避免脚部出画。' },
+  ] },
+  { exerciseId: 'face_pull', group: '肩背', cameras: [
+    { id: 'side', label: '正侧面', hint: '侧面拍到绳索、手肘、肩和躯干。' },
+    { id: 'front', label: '正前方', hint: '正面观察双臂轨迹与肩胛对称性。' },
+  ] },
+  { exerciseId: 'lateral_raise', group: '肩部', cameras: [
+    { id: 'front', label: '正前方', hint: '拍全双手、肩、髋和双脚。' },
+  ] },
+  { exerciseId: 'biceps_curl', group: '手臂', cameras: [
+    { id: 'side', label: '正侧面', hint: '拍全肩、肘、手和躯干。' },
+    { id: 'front', label: '正前方', hint: '正面观察两侧手臂是否对称。' },
+  ] },
+  { exerciseId: 'triceps_extension', group: '手臂', cameras: [
+    { id: 'side', label: '正侧面', hint: '侧面拍到肩、肘、手与器械轨迹。' },
+  ] },
 ];
 const RECOGNITION_EXERCISE_IDS = new Set(RECOGNITION_CAPABILITIES.map((item) => item.exerciseId));
 const RECOGNITION_CAMERAS = new Map(
@@ -469,6 +521,14 @@ function knowledgeSearch(db, query, limit = 5) {
   return found;
 }
 
+export function isAcademicKnowledgeSource(item) {
+  const source = String(item?.source || '').toLowerCase();
+  let tags = [];
+  try { tags = JSON.parse(item?.tags_json || '[]').map((tag) => String(tag).toLowerCase()); } catch { /* invalid legacy tags are not citations */ }
+  return tags.some((tag) => ['paper', 'academic', '论文', '研究'].includes(tag)) ||
+    /doi\.org|pubmed\.ncbi\.nlm\.nih\.gov|ncbi\.nlm\.nih\.gov\/pmc|arxiv\.org|crossref\.org/.test(source);
+}
+
 function conversationMessages(db, conversationId, limit = 20) {
   return db.prepare('SELECT id, role, content, created_at FROM conversation_messages WHERE conversation_id = ? ORDER BY created_at DESC LIMIT ?')
     .all(conversationId, limit).reverse();
@@ -703,7 +763,7 @@ async function handleRequest(req, res, ctx) {
       const messages = [{ role: 'system', content: `你是 KILO Strength 健身训练助手。提供一般训练、恢复和动作记录建议，不进行医疗诊断。证据不足时明确说明。
 回答使用简洁 Markdown：用标题、加粗、列表组织内容，但不要堆叠格式。只总结知识库结论，不要大段照搬原文。不要在正文中写文献名称、来源列表、脚注编号或“根据某文献”；客户端会在回答结尾统一展示服务端检索到的来源。凡是建议用户增加或降低重量、次数、组数或休息时间，必须紧接着说明依据（历史表现、完成质量、备注、训练目标或恢复状态）；没有足够数据时必须明确说这是保守起点而非个性化结论。` }];
       if (conversation.memory_summary) messages.push({ role: 'system', content: `长期记忆摘要：${conversation.memory_summary.slice(0, 3000)}` });
-      if (knowledge.length) messages.push({ role: 'system', content: `知识库参考：\n${knowledge.map((item) => `${item.title}: ${item.content.slice(0, 1200)}`).join('\n')}` });
+      if (knowledge.length) messages.push({ role: 'system', content: `内部知识库参考：\n${knowledge.map((item) => `${item.title}: ${item.content.slice(0, 1200)}`).join('\n')}\n这些内容可以帮助推理，但不得在正文中引用或披露内部知识库名称、文件名、技能名、网页或仓库来源。只有同行评审论文、DOI、PubMed/PMC 或 arXiv 论文才允许作为用户可见引用。` });
       for (const message of recent) messages.push({ role: message.role, content: message.content });
       if (body.useTrainingData === true && typeof body.trainingSummary === 'string' && body.trainingSummary.trim()) messages.push({ role: 'system', content: `用户已明确授权的训练摘要：${body.trainingSummary.trim().slice(0, MAX_SUMMARY)}` });
       const planRequested = isTrainingPlanRequest(question);
@@ -719,7 +779,8 @@ async function handleRequest(req, res, ctx) {
         messages.push({ role: 'system', content: `用户明确要求生成训练计划。只能从下面动作库选择动作，不得编造 ID：\n${exerciseCatalog.map((item) => `${item.id}|${item.name}|${item.equipment}|${item.muscle}`).join('\n')}
 先用 Markdown 说明计划思路和注意事项，然后在回答最末尾输出且只输出一次以下机器可读块：
 <KILO_PLAN>{"title":"计划名称","weeks":1,"sessions":[{"dayOffset":0,"name":"胸部训练","exercises":[{"exerciseId":"动作ID","sets":[{"type":"warmup","weight":20,"reps":12,"restSeconds":60},{"type":"work","weight":40,"reps":8,"restSeconds":120}]}]}]}</KILO_PLAN>
-每个动作必须给出具体组型、重量（kg）、次数和组间休息；自重动作的 weight 使用 0。没有用户历史重量时使用保守可调整的起始重量，不要编造极限重量。dayOffset 为本周从今天起第几天（0-6）；如果用户要求一个月，weeks 设为 4。不要在机器可读块中使用 Markdown 代码围栏。` });
+每个动作必须给出具体组型、重量（kg）、次数和组间休息；自重动作的 weight 使用 0。没有用户历史重量时使用保守可调整的起始重量，不要编造极限重量。dayOffset 为本周从今天起第几天（0-6）；如果用户要求一个月，weeks 设为 4。不要在机器可读块中使用 Markdown 代码围栏。
+月计划不得默认套用上肢/下肢轮换。先依据用户明确提供的每周训练天数、经验和恢复状态设计；信息不足时采用每周 3 天、隔天进行的保守全身或推拉腿起点，并在正文明确这是可调整假设。只有用户明确每周 4 天且恢复允许时才采用上肢/下肢。不得在回答中提及内部技能名、仓库名或知识库文件名。` });
       }
       messages.push({ role: 'user', content: question });
       let rawAnswer;
@@ -739,7 +800,8 @@ async function handleRequest(req, res, ctx) {
       const stamp = nowIso(); transaction(ctx.db, () => { ctx.db.prepare('INSERT INTO conversation_messages (id, conversation_id, role, content, created_at) VALUES (?, ?, \'user\', ?, ?)').run(randomId('msg_'), conversationId, question, stamp); ctx.db.prepare('INSERT INTO conversation_messages (id, conversation_id, role, content, created_at) VALUES (?, ?, \'assistant\', ?, ?)').run(randomId('msg_'), conversationId, answer, nowIso()); ctx.db.prepare('UPDATE conversations SET updated_at = ? WHERE id = ?').run(nowIso(), conversationId); });
       // Memory summarisation is deliberately low frequency and best effort.
       try { const count = ctx.db.prepare('SELECT COUNT(*) AS n FROM conversation_messages WHERE conversation_id = ?').get(conversationId).n; if (count >= 10 && count % 10 === 0) { const text = conversationMessages(ctx.db, conversationId, 10).map((m) => `${m.role}: ${m.content}`).join('\n'); ctx.db.prepare('UPDATE conversations SET memory_summary = ?, updated_at = ? WHERE id = ?').run(text.slice(0, 3000), nowIso(), conversationId); } } catch { /* memory must never break the answer */ }
-      changeReservation(ctx.db, user.id, requestId, 'commit'); writeJson(res, 200, { conversationId, answer, citations: knowledge.map((item) => ({ id: item.id, title: item.title, source: item.source })), plan: parsedAnswer.plan }, req, ctx.cfg);
+      const academicCitations = knowledge.filter(isAcademicKnowledgeSource);
+      changeReservation(ctx.db, user.id, requestId, 'commit'); writeJson(res, 200, { conversationId, answer, citations: academicCitations.map((item) => ({ id: item.id, title: item.title, source: item.source })), plan: parsedAnswer.plan }, req, ctx.cfg);
     } catch (error) { try { changeReservation(ctx.db, user.id, requestId, 'rollback'); } catch { /* preserve original error */ } throw error; }
     return;
   }

@@ -81,15 +81,18 @@ class RecognitionCapability {
   const RecognitionCapability({
     required this.exerciseId,
     required this.cameras,
+    this.group = '其他',
   });
 
   final String exerciseId;
   final List<RecognitionCameraOption> cameras;
+  final String group;
 }
 
 const fallbackRecognitionCapabilities = <RecognitionCapability>[
   RecognitionCapability(
     exerciseId: 'barbell_squat',
+    group: '腿部',
     cameras: [
       RecognitionCameraOption(
         id: 'side',
@@ -105,6 +108,7 @@ const fallbackRecognitionCapabilities = <RecognitionCapability>[
   ),
   RecognitionCapability(
     exerciseId: 'hip_thrust',
+    group: '臀腿',
     cameras: [
       RecognitionCameraOption(
         id: 'side',
@@ -115,6 +119,7 @@ const fallbackRecognitionCapabilities = <RecognitionCapability>[
   ),
   RecognitionCapability(
     exerciseId: 'romanian_deadlift',
+    group: '臀腿',
     cameras: [
       RecognitionCameraOption(
         id: 'side',
@@ -130,6 +135,7 @@ const fallbackRecognitionCapabilities = <RecognitionCapability>[
   ),
   RecognitionCapability(
     exerciseId: 'lat_pulldown',
+    group: '背部',
     cameras: [
       RecognitionCameraOption(
         id: 'rear',
@@ -140,6 +146,166 @@ const fallbackRecognitionCapabilities = <RecognitionCapability>[
         id: 'side',
         label: '正侧面',
         hint: '镜头与肩部同高，完整拍到手、肩、髋与下拉轨迹。',
+      ),
+    ],
+  ),
+  RecognitionCapability(
+    exerciseId: 'goblet_squat',
+    group: '腿部',
+    cameras: [
+      RecognitionCameraOption(
+        id: 'side',
+        label: '正侧面',
+        hint: '拍全头、髋、膝与双脚，镜头保持水平。',
+      ),
+      RecognitionCameraOption(
+        id: 'side_rear',
+        label: '侧后方',
+        hint: '从侧后方约 30° 拍摄，保留双脚与膝髋轨迹。',
+      ),
+    ],
+  ),
+  RecognitionCapability(
+    exerciseId: 'deadlift',
+    group: '臀腿',
+    cameras: [
+      RecognitionCameraOption(
+        id: 'side',
+        label: '正侧面',
+        hint: '完整拍到杠铃、肩、髋、膝和脚。',
+      ),
+      RecognitionCameraOption(
+        id: 'side_rear',
+        label: '侧后方',
+        hint: '侧后方约 30° 拍摄，确保杠铃无遮挡。',
+      ),
+    ],
+  ),
+  RecognitionCapability(
+    exerciseId: 'bench_press',
+    group: '胸部',
+    cameras: [
+      RecognitionCameraOption(
+        id: 'side',
+        label: '正侧面',
+        hint: '完整拍到杠铃、肩肘、躯干和双脚。',
+      ),
+      RecognitionCameraOption(
+        id: 'side_front',
+        label: '侧前方',
+        hint: '从侧前方约 30° 拍摄，避免器械遮住手肘。',
+      ),
+    ],
+  ),
+  RecognitionCapability(
+    exerciseId: 'dumbbell_press',
+    group: '胸部',
+    cameras: [
+      RecognitionCameraOption(id: 'side', label: '正侧面', hint: '拍全哑铃、肩肘、躯干和双脚。'),
+      RecognitionCameraOption(
+        id: 'side_front',
+        label: '侧前方',
+        hint: '侧前方拍摄，确保两侧哑铃都可见。',
+      ),
+    ],
+  ),
+  RecognitionCapability(
+    exerciseId: 'shoulder_press',
+    group: '肩部',
+    cameras: [
+      RecognitionCameraOption(id: 'front', label: '正前方', hint: '拍全双手、肩、肘和躯干。'),
+      RecognitionCameraOption(
+        id: 'side',
+        label: '正侧面',
+        hint: '侧面拍摄，观察躯干与手臂轨迹。',
+      ),
+    ],
+  ),
+  RecognitionCapability(
+    exerciseId: 'push_up',
+    group: '胸部',
+    cameras: [
+      RecognitionCameraOption(id: 'side', label: '正侧面', hint: '完整拍到头、肩、髋、膝和脚。'),
+    ],
+  ),
+  RecognitionCapability(
+    exerciseId: 'dip',
+    group: '胸部',
+    cameras: [
+      RecognitionCameraOption(
+        id: 'side',
+        label: '正侧面',
+        hint: '拍全头、肩肘、髋与双脚，避免器械遮挡。',
+      ),
+    ],
+  ),
+  RecognitionCapability(
+    exerciseId: 'row',
+    group: '背部',
+    cameras: [
+      RecognitionCameraOption(
+        id: 'side',
+        label: '正侧面',
+        hint: '拍到手、肩、髋和器械完整运动轨迹。',
+      ),
+      RecognitionCameraOption(
+        id: 'rear',
+        label: '正后方',
+        hint: '后方拍摄，观察肩胛与双臂对称性。',
+      ),
+    ],
+  ),
+  RecognitionCapability(
+    exerciseId: 'pull_up',
+    group: '背部',
+    cameras: [
+      RecognitionCameraOption(
+        id: 'front',
+        label: '正前方',
+        hint: '从正前方拍全单杠、双手和身体。',
+      ),
+      RecognitionCameraOption(id: 'side', label: '正侧面', hint: '侧面拍全身体，避免脚部出画。'),
+    ],
+  ),
+  RecognitionCapability(
+    exerciseId: 'face_pull',
+    group: '肩背',
+    cameras: [
+      RecognitionCameraOption(
+        id: 'side',
+        label: '正侧面',
+        hint: '侧面拍到绳索、手肘、肩和躯干。',
+      ),
+      RecognitionCameraOption(
+        id: 'front',
+        label: '正前方',
+        hint: '正面观察双臂轨迹与肩胛对称性。',
+      ),
+    ],
+  ),
+  RecognitionCapability(
+    exerciseId: 'lateral_raise',
+    group: '肩部',
+    cameras: [
+      RecognitionCameraOption(id: 'front', label: '正前方', hint: '拍全双手、肩、髋和双脚。'),
+    ],
+  ),
+  RecognitionCapability(
+    exerciseId: 'biceps_curl',
+    group: '手臂',
+    cameras: [
+      RecognitionCameraOption(id: 'side', label: '正侧面', hint: '拍全肩、肘、手和躯干。'),
+      RecognitionCameraOption(id: 'front', label: '正前方', hint: '正面观察两侧手臂是否对称。'),
+    ],
+  ),
+  RecognitionCapability(
+    exerciseId: 'triceps_extension',
+    group: '手臂',
+    cameras: [
+      RecognitionCameraOption(
+        id: 'side',
+        label: '正侧面',
+        hint: '侧面拍到肩、肘、手与器械轨迹。',
       ),
     ],
   ),
@@ -308,6 +474,27 @@ class Routine {
   String folder;
   List<WorkoutExercise> exercises;
   DateTime updatedAt;
+}
+
+enum AiContextType { activeWorkout, workoutRecord, routine, week, month }
+
+class AiContextSelection {
+  const AiContextSelection({
+    required this.type,
+    required this.id,
+    required this.label,
+  });
+
+  final AiContextType type;
+  final String id;
+  final String label;
+
+  @override
+  bool operator ==(Object other) =>
+      other is AiContextSelection && other.type == type && other.id == id;
+
+  @override
+  int get hashCode => Object.hash(type, id);
 }
 
 class Plan {

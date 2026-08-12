@@ -175,13 +175,17 @@ class AppController extends ChangeNotifier {
     this.coachApi,
     WorkoutHistoryPersistence? workoutHistoryPersistence,
     ActiveWorkoutPersistence? activeWorkoutPersistence,
+    TrainingLibraryPersistence? trainingLibraryPersistence,
   }) : accountService = accountService ?? AccountService(),
        workoutHistoryPersistence =
            workoutHistoryPersistence ??
            SharedPreferencesWorkoutHistoryPersistence(),
        activeWorkoutPersistence =
            activeWorkoutPersistence ??
-           SharedPreferencesActiveWorkoutPersistence() {
+           SharedPreferencesActiveWorkoutPersistence(),
+       trainingLibraryPersistence =
+           trainingLibraryPersistence ??
+           SharedPreferencesTrainingLibraryPersistence() {
     _seed();
     PlatformTimerBridge.setSystemActionHandlers(
       onRestSkipped: skipRest,
@@ -196,9 +200,12 @@ class AppController extends ChangeNotifier {
   final CoachApi? coachApi;
   final WorkoutHistoryPersistence workoutHistoryPersistence;
   final ActiveWorkoutPersistence activeWorkoutPersistence;
+  final TrainingLibraryPersistence trainingLibraryPersistence;
   Future<void> _historyWriteChain = Future<void>.value();
   Future<void> _activeWorkoutWriteChain = Future<void>.value();
+  Future<void> _trainingLibraryWriteChain = Future<void>.value();
   String? _loadedHistoryUserId;
+  String? _loadedTrainingLibraryUserId;
   bool _pendingSystemWorkoutOpen = false;
   HttpCoachApi? _defaultCoachApi;
   String? _defaultCoachApiBaseUrl;
@@ -225,6 +232,7 @@ class AppController extends ChangeNotifier {
     if (result.isSuccess) {
       unawaited(hydrateWorkoutHistory(force: true));
       unawaited(hydrateActiveWorkout());
+      unawaited(hydrateTrainingLibrary(force: true));
     }
     return result;
   }
@@ -238,7 +246,12 @@ class AppController extends ChangeNotifier {
     _defaultRecognitionApi?.clearSession();
     accountService.logout();
     _loadedHistoryUserId = null;
+    _loadedTrainingLibraryUserId = null;
     history.clear();
+    routines.clear();
+    routineFolders.clear();
+    scheduled.clear();
+    scheduledLabels.clear();
     notifyListeners();
   }
 
@@ -264,6 +277,59 @@ class AppController extends ChangeNotifier {
   Future<void> flushWorkoutHistoryPersistence() => _historyWriteChain;
 
   Future<void> flushActiveWorkoutPersistence() => _activeWorkoutWriteChain;
+
+  Future<void> flushTrainingLibraryPersistence() => _trainingLibraryWriteChain;
+
+  Future<void> hydrateTrainingLibrary({bool force = false}) async {
+    final userId = currentUser?.id;
+    if (userId == null || userId.isEmpty) return;
+    if (!force && _loadedTrainingLibraryUserId == userId) return;
+    await _trainingLibraryWriteChain;
+    final snapshot = await trainingLibraryPersistence.read(userId);
+    if (currentUser?.id != userId) return;
+    routines
+      ..clear()
+      ..addAll(snapshot.routines);
+    routineFolders
+      ..clear()
+      ..addAll(snapshot.routineFolders);
+    scheduledLabels
+      ..clear()
+      ..addAll(snapshot.scheduledLabels);
+    scheduled
+      ..clear()
+      ..addAll(snapshot.scheduledLabels.keys);
+    _loadedTrainingLibraryUserId = userId;
+    notifyListeners();
+  }
+
+  void _persistTrainingLibrary() {
+    final userId = currentUser?.id;
+    if (userId == null || userId.isEmpty) return;
+    _loadedTrainingLibraryUserId = userId;
+    final snapshot = TrainingLibrarySnapshot(
+      routines: routines
+          .map(
+            (routine) => Routine(
+              id: routine.id,
+              name: routine.name,
+              folder: routine.folder,
+              exercises: routine.exercises
+                  .map((exercise) => exercise.copyForPlan())
+                  .toList(),
+              updatedAt: routine.updatedAt,
+            ),
+          )
+          .toList(growable: false),
+      routineFolders: List<String>.from(routineFolders),
+      scheduledLabels: Map<String, String>.from(scheduledLabels),
+    );
+    _trainingLibraryWriteChain = _trainingLibraryWriteChain
+        .then((_) => trainingLibraryPersistence.write(userId, snapshot))
+        .catchError((Object _) {
+          // Training remains available even if platform storage is absent.
+        });
+  }
 
   Future<void> hydrateActiveWorkout() async {
     final userId = currentUser?.id;
@@ -996,6 +1062,7 @@ class AppController extends ChangeNotifier {
           updatedAt: now,
         ),
       );
+      _persistTrainingLibrary();
     }
     workoutStarted = false;
     workoutTimerStarted = false;
@@ -1231,6 +1298,7 @@ class AppController extends ChangeNotifier {
         updatedAt: DateTime.now(),
       ),
     );
+    _persistTrainingLibrary();
     notifyListeners();
   }
 
@@ -1257,6 +1325,7 @@ class AppController extends ChangeNotifier {
         updatedAt: DateTime.now(),
       ),
     );
+    _persistTrainingLibrary();
     notifyListeners();
   }
 
@@ -1272,6 +1341,7 @@ class AppController extends ChangeNotifier {
         .map((item) => item.copyForPlan(newId: 'routine-${item.id}'))
         .toList();
     target.updatedAt = DateTime.now();
+    _persistTrainingLibrary();
     notifyListeners();
   }
 
@@ -1300,17 +1370,20 @@ class AppController extends ChangeNotifier {
         updatedAt: DateTime.now(),
       ),
     );
+    _persistTrainingLibrary();
     notifyListeners();
   }
 
   void renameRoutine(Routine routine, String name) {
     routine.name = name.trim().isEmpty ? routine.name : name.trim();
     routine.updatedAt = DateTime.now();
+    _persistTrainingLibrary();
     notifyListeners();
   }
 
   void deleteRoutine(Routine routine) {
     routines.remove(routine);
+    _persistTrainingLibrary();
     notifyListeners();
   }
 
@@ -1323,6 +1396,7 @@ class AppController extends ChangeNotifier {
     if (!routineFolders.contains(folder)) routineFolders.add(folder);
     routine.folder = folder;
     routine.updatedAt = DateTime.now();
+    _persistTrainingLibrary();
     notifyListeners();
   }
 
@@ -1330,6 +1404,7 @@ class AppController extends ChangeNotifier {
     final value = folder.trim();
     if (value.isEmpty || routineFolders.contains(value)) return;
     routineFolders.add(value);
+    _persistTrainingLibrary();
     notifyListeners();
   }
 
@@ -1338,18 +1413,21 @@ class AppController extends ChangeNotifier {
         '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
     if (!scheduled.contains(value)) scheduled.add(value);
     scheduledLabels[value] = label;
+    _persistTrainingLibrary();
     notifyListeners();
   }
 
   void reschedule(String date, String label) {
-    scheduled.add(date);
+    if (!scheduled.contains(date)) scheduled.add(date);
     scheduledLabels[date] = label;
+    _persistTrainingLibrary();
     notifyListeners();
   }
 
   void unschedule(String date) {
     scheduled.remove(date);
     scheduledLabels.remove(date);
+    _persistTrainingLibrary();
     notifyListeners();
   }
 
@@ -1719,18 +1797,139 @@ class AppController extends ChangeNotifier {
     return lines.join('\n');
   }
 
+  List<AiContextSelection> get availableAiContexts {
+    final now = DateTime.now();
+    return [
+      if (workoutStarted || workoutDraft)
+        AiContextSelection(
+          type: AiContextType.activeWorkout,
+          id: 'active',
+          label: '当前训练',
+        ),
+      for (final record in history.take(30))
+        AiContextSelection(
+          type: AiContextType.workoutRecord,
+          id: record.id,
+          label: '${record.date.month}/${record.date.day} ${record.name}',
+        ),
+      for (final routine in routines.take(30))
+        AiContextSelection(
+          type: AiContextType.routine,
+          id: routine.id,
+          label: '计划 · ${routine.name}',
+        ),
+      AiContextSelection(
+        type: AiContextType.week,
+        id: '${now.year}-w${_weekNumber(now)}',
+        label: '本周训练汇总',
+      ),
+      AiContextSelection(
+        type: AiContextType.month,
+        id: '${now.year}-${now.month}',
+        label: '本月训练汇总',
+      ),
+    ];
+  }
+
+  int _weekNumber(DateTime date) {
+    final first = DateTime(date.year, 1, 1);
+    return ((date.difference(first).inDays + first.weekday) / 7).ceil();
+  }
+
+  String _recordAiSummary(WorkoutRecord record) {
+    final lines = <String>[
+      '${record.date.toIso8601String().split('T').first} ${record.name}：'
+          '${record.durationSeconds ~/ 60} 分钟，总容量 '
+          '${record.volume.toStringAsFixed(1)} kg，完成 ${record.effectiveSets} 组。',
+    ];
+    if (record.note.trim().isNotEmpty) lines.add('训练备注：${record.note.trim()}');
+    for (final exercise in record.exercises) {
+      final values = exercise.sets
+          .where((set) => set.completed)
+          .map(
+            (set) =>
+                '${set.weight.toStringAsFixed(1)} kg×${set.reps}'
+                '${set.note.trim().isEmpty ? '' : '（${set.note.trim()}）'}',
+          )
+          .join('；');
+      lines.add(
+        '${displayExerciseName(findExercise(exercise.exerciseId))}'
+        '${exercise.note.trim().isEmpty ? '' : '（动作备注：${exercise.note.trim()}）'}：'
+        '${values.isEmpty ? '没有完成组' : values}',
+      );
+    }
+    return lines.join('\n');
+  }
+
+  String _routineAiSummary(Routine routine) {
+    final lines = <String>['训练计划「${routine.name}」：'];
+    for (final exercise in routine.exercises) {
+      final sets = exercise.sets
+          .map(
+            (set) =>
+                '${set.plannedWeight == null ? '重量待定' : '${set.plannedWeight!.toStringAsFixed(1)} kg'}'
+                '×${set.targetMax > 0 ? set.targetMax : set.reps}，休息 ${set.restSeconds} 秒',
+          )
+          .join('；');
+      lines.add(
+        '${displayExerciseName(findExercise(exercise.exerciseId))}：'
+        '${sets.isEmpty ? '组数待定' : sets}',
+      );
+    }
+    return lines.join('\n');
+  }
+
+  String _buildSelectedAiContext(List<AiContextSelection> selections) {
+    final blocks = <String>[];
+    for (final selection in selections) {
+      switch (selection.type) {
+        case AiContextType.activeWorkout:
+          blocks.add(_buildAiTrainingSummary().split('最近已完成训练：').first);
+        case AiContextType.workoutRecord:
+          final matches = history.where((item) => item.id == selection.id);
+          if (matches.isNotEmpty) blocks.add(_recordAiSummary(matches.first));
+        case AiContextType.routine:
+          final matches = routines.where((item) => item.id == selection.id);
+          if (matches.isNotEmpty) blocks.add(_routineAiSummary(matches.first));
+        case AiContextType.week:
+          final now = DateTime.now();
+          final start = DateTime(
+            now.year,
+            now.month,
+            now.day,
+          ).subtract(Duration(days: now.weekday - 1));
+          final records = history.where((item) => !item.date.isBefore(start));
+          blocks.add('本周训练汇总：\n${records.map(_recordAiSummary).join('\n\n')}');
+        case AiContextType.month:
+          final now = DateTime.now();
+          final records = history.where(
+            (item) =>
+                item.date.year == now.year && item.date.month == now.month,
+          );
+          blocks.add('本月训练汇总：\n${records.map(_recordAiSummary).join('\n\n')}');
+      }
+    }
+    return blocks.where((item) => item.trim().isNotEmpty).join('\n\n---\n\n');
+  }
+
   Future<CoachAnswer> _requestCoachAnswer(
     String prompt, {
     bool includeTrainingContext = false,
+    String? selectedTrainingContext,
   }) async {
     final requestsPlan = _isAiPlanRequest(prompt);
-    final includeSummary = aiUseTrainingData || includeTrainingContext;
+    final includeSummary =
+        aiUseTrainingData ||
+        includeTrainingContext ||
+        selectedTrainingContext != null;
     Future<CoachAnswer> request() async {
       final api = await _activeCoachApi();
       return api.answer(
         prompt: prompt,
         includeTrainingSummary: includeSummary,
-        trainingSummary: includeSummary ? _buildAiTrainingSummary() : null,
+        trainingSummary: includeSummary
+            ? selectedTrainingContext ?? _buildAiTrainingSummary()
+            : null,
         exerciseCatalog: requestsPlan ? _aiExerciseCatalog() : const [],
       );
     }
@@ -1880,6 +2079,7 @@ class AppController extends ChangeNotifier {
         );
       }
     }
+    _persistTrainingLibrary();
     notifyListeners();
   }
 
@@ -1892,6 +2092,7 @@ class AppController extends ChangeNotifier {
   Future<void> sendChat(
     String text, {
     bool includeTrainingContext = false,
+    List<AiContextSelection> contexts = const [],
   }) async {
     final trimmed = text.trim();
     if (trimmed.isEmpty || aiTyping) return;
@@ -1926,6 +2127,9 @@ class AppController extends ChangeNotifier {
           remoteAnswer = await _requestCoachAnswer(
             trimmed,
             includeTrainingContext: includeTrainingContext,
+            selectedTrainingContext: contexts.isEmpty
+                ? null
+                : _buildSelectedAiContext(contexts),
           );
           if (remoteAnswer.body.trim().isNotEmpty) {
             aiReservation?.commit();

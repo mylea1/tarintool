@@ -317,12 +317,21 @@ void main() {
       await tester.pump();
 
       expect(find.byType(DropdownButton<String>), findsNothing);
-      for (final capability in fallbackRecognitionCapabilities) {
-        expect(
-          find.byKey(Key('recognition-exercise-${capability.exerciseId}')),
-          findsOneWidget,
-        );
-      }
+      expect(
+        find.byKey(const Key('recognition-exercise-picker')),
+        findsOneWidget,
+      );
+      await tester.tap(find.byKey(const Key('recognition-exercise-picker')));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('recognition-exercise-barbell_squat')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('recognition-search')), findsOneWidget);
+      await tester.tap(
+        find.byKey(const Key('recognition-exercise-barbell_squat')),
+      );
+      await tester.pumpAndSettle();
       expect(find.byKey(const Key('recognition-camera-side')), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
