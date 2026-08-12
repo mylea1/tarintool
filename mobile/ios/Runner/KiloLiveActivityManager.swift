@@ -11,9 +11,19 @@ final class KiloLiveActivityManager {
     private var currentState: KiloLiveActivityAttributes.ContentState?
 
     func consumeSystemActions() -> [String: Any] {
-        guard let activity = activeActivity else { return [:] }
-        let state = activity.content.state
-        currentState = state
+        let state: KiloLiveActivityAttributes.ContentState
+        if #available(iOS 16.2, *), let activity = activeActivity {
+            // Activity.content was introduced in iOS 16.2. Reading it here
+            // synchronizes actions performed directly from the lock screen.
+            state = activity.content.state
+            currentState = state
+        } else if let cachedState = currentState {
+            // iOS 16.1 can display a Live Activity but does not expose
+            // Activity.content. Keep the Runner-owned snapshot as fallback.
+            state = cachedState
+        } else {
+            return [:]
+        }
         return [
             "completedSets": state.completedSets,
             "paused": state.isPaused,

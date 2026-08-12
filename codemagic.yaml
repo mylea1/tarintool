@@ -56,7 +56,7 @@ workflows:
         script: >-
           flutter build ipa --release
           --dart-define=ENABLE_TEST_ADMIN=true
-          --dart-define=KILO_API_BASE_URL=https://magnitude-detail-pipe-cake.trycloudflare.com
+            --dart-define=KILO_API_BASE_URL=https://api.kilostrength.cn
           --build-name=1.0.12
           --build-number=$BUILD_NUMBER
           --export-options-plist=$HOME/export_options.plist
