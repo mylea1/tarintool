@@ -806,7 +806,10 @@ async function handleRequest(req, res, ctx) {
       if (!conversation && convMessageMatch) throw httpError(404, 'conversation_not_found');
       if (!conversation) { conversationId = randomId('conv_'); const stamp = nowIso(); ctx.db.prepare('INSERT INTO conversations (id, user_id, title, memory_summary, created_at, updated_at) VALUES (?, ?, ?, \'\', ?, ?)').run(conversationId, user.id, question.slice(0, 80), stamp, stamp); conversation = ctx.db.prepare('SELECT * FROM conversations WHERE id = ?').get(conversationId); }
       const recent = conversationMessages(ctx.db, conversationId, 20);
-      const knowledge = knowledgeSearch(ctx.db, question, 5);
+      // Retrieve beyond the first few internal coaching notes. Otherwise a
+      // relevant paper can be ranked just below several GitHub-backed notes,
+      // then disappear when user-visible citations are filtered.
+      const knowledge = knowledgeSearch(ctx.db, question, 20);
       const messages = [{ role: 'system', content: `你是 KILO Strength 健身训练助手。提供一般训练、恢复和动作记录建议，不进行医疗诊断。证据不足时明确说明。
 回答使用简洁 Markdown：用标题、加粗、列表组织内容，但不要堆叠格式。只总结知识库结论，不要大段照搬原文。不要在正文中写文献名称、来源列表、脚注编号或“根据某文献”；客户端会在回答结尾统一展示服务端检索到的来源。凡是建议用户增加或降低重量、次数、组数或休息时间，必须紧接着说明依据（历史表现、完成质量、备注、训练目标或恢复状态）；没有足够数据时必须明确说这是保守起点而非个性化结论。` }];
       if (conversation.memory_summary) messages.push({ role: 'system', content: `长期记忆摘要：${conversation.memory_summary.slice(0, 3000)}` });
@@ -847,7 +850,9 @@ async function handleRequest(req, res, ctx) {
       const stamp = nowIso(); transaction(ctx.db, () => { ctx.db.prepare('INSERT INTO conversation_messages (id, conversation_id, role, content, created_at) VALUES (?, ?, \'user\', ?, ?)').run(randomId('msg_'), conversationId, question, stamp); ctx.db.prepare('INSERT INTO conversation_messages (id, conversation_id, role, content, created_at) VALUES (?, ?, \'assistant\', ?, ?)').run(randomId('msg_'), conversationId, answer, nowIso()); ctx.db.prepare('UPDATE conversations SET updated_at = ? WHERE id = ?').run(nowIso(), conversationId); });
       // Memory summarisation is deliberately low frequency and best effort.
       try { const count = ctx.db.prepare('SELECT COUNT(*) AS n FROM conversation_messages WHERE conversation_id = ?').get(conversationId).n; if (count >= 10 && count % 10 === 0) { const text = conversationMessages(ctx.db, conversationId, 10).map((m) => `${m.role}: ${m.content}`).join('\n'); ctx.db.prepare('UPDATE conversations SET memory_summary = ?, updated_at = ? WHERE id = ?').run(text.slice(0, 3000), nowIso(), conversationId); } } catch { /* memory must never break the answer */ }
-      const visibleCitations = knowledge.filter(isVisibleKnowledgeSource);
+      const visibleCitations = knowledge
+        .filter(isVisibleKnowledgeSource)
+        .slice(0, 5);
       changeReservation(ctx.db, user.id, requestId, 'commit'); writeJson(res, 200, { conversationId, answer, citations: visibleCitations.map((item) => ({ id: item.id, title: item.title, source: item.source })), plan: parsedAnswer.plan }, req, ctx.cfg);
     } catch (error) { try { changeReservation(ctx.db, user.id, requestId, 'rollback'); } catch { /* preserve original error */ } throw error; }
     return;

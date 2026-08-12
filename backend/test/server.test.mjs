@@ -48,6 +48,39 @@ test('visible citations exclude internal, GitHub and Bilibili sources only', () 
   assert.equal(isAcademicKnowledgeSource({ source: 'internal', tags_json: '["论文"]' }), false);
 });
 
+test('expanded knowledge retrieval reaches public evidence behind repository notes', async () => {
+  for (let index = 0; index < 6; index += 1) {
+    const internal = await api('/v1/admin/knowledge', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({
+        title: `组间休息内部方法 ${index}`,
+        source: `https://github.com/example/rest-${index}`,
+        content: '力量训练组间休息时间安排方法。',
+      }),
+    });
+    assert.equal(internal.response.status, 201);
+  }
+  const paper = await api('/v1/admin/knowledge', {
+    method: 'POST',
+    headers: { authorization: `Bearer ${adminToken}` },
+    body: JSON.stringify({
+      title: '组间休息系统综述',
+      source: 'https://pubmed.ncbi.nlm.nih.gov/39205815/',
+      content: '力量训练组间休息时间安排的系统综述。',
+    }),
+  });
+  assert.equal(paper.response.status, 201);
+  const search = await api(`/v1/knowledge/search?q=${encodeURIComponent('组间休息时间安排')}&limit=20`, {
+    headers: { authorization: `Bearer ${adminToken}` },
+  });
+  assert.equal(search.response.status, 200);
+  assert.equal(
+    search.body.results.filter(isAcademicKnowledgeSource).some((item) => item.id === paper.body.id),
+    true,
+  );
+});
+
 test('health, auth and admin role boundaries', async () => {
   assert.equal((await api('/health')).body.ok, true);
   const capabilities = await api('/v1/analysis/capabilities');
