@@ -6585,7 +6585,7 @@ class _AiPageState extends State<AiPage> {
                                     final item = selectedContexts.elementAt(index);
                                     return _AiContextSummary(
                                       controller: controller,
-                                      context: item,
+                                      selection: item,
                                       compact: true,
                                       trailing: IconButton(
                                         visualDensity: VisualDensity.compact,
@@ -6830,7 +6830,7 @@ class _AiContextPickerState extends State<_AiContextPicker> {
                               padding: const EdgeInsets.fromLTRB(14, 13, 10, 13),
                               child: _AiContextSummary(
                                 controller: widget.controller,
-                                context: item,
+                                selection: item,
                                 trailing: AnimatedSwitcher(
                                   duration: const Duration(milliseconds: 160),
                                   child: Icon(
@@ -7078,17 +7078,17 @@ void _showAiSettings(BuildContext context, AppController controller) {
 class _AiContextSummary extends StatelessWidget {
   const _AiContextSummary({
     required this.controller,
-    required this.context,
+    required this.selection,
     this.trailing,
     this.compact = false,
   });
 
   final AppController controller;
-  final AiContextSelection context;
+  final AiContextSelection selection;
   final Widget? trailing;
   final bool compact;
 
-  IconData get icon => switch (context.type) {
+  IconData get icon => switch (selection.type) {
     AiContextType.activeWorkout => Icons.fitness_center_rounded,
     AiContextType.workoutRecord => Icons.history_rounded,
     AiContextType.routine => Icons.menu_book_outlined,
@@ -7097,7 +7097,7 @@ class _AiContextSummary extends StatelessWidget {
   };
 
   String get detail {
-    final record = controller.workoutRecordForAiContext(context);
+    final record = controller.workoutRecordForAiContext(selection);
     if (record != null) {
       final exerciseNames = record.exerciseIds
           .take(2)
@@ -7107,12 +7107,12 @@ class _AiContextSummary extends StatelessWidget {
           '${record.effectiveSets} 组 · ${record.volume.toStringAsFixed(0)} kg';
       return exerciseNames.isEmpty ? metrics : '$metrics\n$exerciseNames';
     }
-    final routine = controller.routineForAiContext(context);
+    final routine = controller.routineForAiContext(selection);
     if (routine != null) {
       final sets = routine.exercises.fold<int>(0, (sum, item) => sum + item.sets.length);
       return '${routine.exercises.length} 个动作 · $sets 组';
     }
-    return switch (context.type) {
+    return switch (selection.type) {
       AiContextType.activeWorkout =>
         '${controller.workout.length} 个动作 · ${controller.completedSets}/${controller.totalSets} 组已完成',
       AiContextType.week => '训练频率、时长、容量与完成组数',
@@ -7140,7 +7140,7 @@ class _AiContextSummary extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              context.label,
+              selection.label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
