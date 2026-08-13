@@ -5030,7 +5030,11 @@ class RecognitionPage extends StatelessWidget {
                   ),
                 ],
               ),
-              if (controller.selectedMediaPath != null) ...[
+              if (controller.selectedMediaPath != null &&
+                  !(controller.recognitionIncludeOverlay &&
+                      controller.recognitionStatus ==
+                          RecognitionStatus.complete &&
+                      controller.recognitionResult?.overlayUrl != null)) ...[
                 const SizedBox(height: 14),
                 _SelectedRecognitionVideo(
                   path: controller.selectedMediaPath!,
