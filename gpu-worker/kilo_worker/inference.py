@@ -168,7 +168,7 @@ class PoseAnalyzer:
         detection_rate = detected_frames / inference_frames if inference_frames else 0.0
         pose_confidence = confidence_total / detected_frames if detected_frames else 0.0
         overall_confidence = round(min(1.0, detection_rate * pose_confidence), 4)
-        summary = "动作骨骼提取完成" if detected_frames else "未检测到稳定人体骨骼，请调整机位和光线后重试"
+        summary = "本次动作已经分析完成" if detected_frames else "这段动作暂时无法给出稳定判断，请重新尝试"
         result = {
             "status": "complete",
             "confidence": overall_confidence,

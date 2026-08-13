@@ -587,11 +587,17 @@ class AppController extends ChangeNotifier {
     }
   }
 
-  bool saveAiSkill({String? id, required String name, required String instructions}) {
+  bool saveAiSkill({
+    String? id,
+    required String name,
+    required String instructions,
+  }) {
     final cleanName = name.trim();
     final cleanInstructions = instructions.trim();
     if (cleanName.isEmpty || cleanInstructions.isEmpty) return false;
-    final index = id == null ? -1 : aiSkills.indexWhere((item) => item.id == id);
+    final index = id == null
+        ? -1
+        : aiSkills.indexWhere((item) => item.id == id);
     if (index >= 0) {
       aiSkills[index] = aiSkills[index].copyWith(
         name: cleanName,
@@ -601,7 +607,7 @@ class AppController extends ChangeNotifier {
       if (aiSkills.length >= 3) return false;
       aiSkills.add(
         AiSkill(
-          id: 'skill-${DateTime.now().microsecondsSinceEpoch}',
+          id: 'skill-${DateTime.now().microsecondsSinceEpoch}-${aiSkills.length}',
           name: cleanName,
           instructions: cleanInstructions,
         ),

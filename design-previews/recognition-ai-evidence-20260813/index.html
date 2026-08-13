@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>形域 · 动作反馈与训练资料</title>
+  <style>
+    :root{--bg:#fff8f2;--card:#fff;--ink:#251813;--muted:#7c6d66;--orange:#dc5717;--tint:#fff0e5;--line:#eadbd2;--green:#25734d}
+    *{box-sizing:border-box}body{margin:0;background:#eadfd7;font:14px/1.45 system-ui,-apple-system,"PingFang SC",sans-serif;color:var(--ink)}
+    main{display:flex;gap:24px;justify-content:center;padding:24px;flex-wrap:wrap}.phone{width:375px;min-height:780px;background:var(--bg);border-radius:34px;padding:20px 16px;box-shadow:0 18px 60px #5d463733}
+    h1{font-size:25px;margin:10px 0 4px}.sub{color:var(--muted);margin-bottom:16px}.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:14px;margin:12px 0;box-shadow:0 4px 14px #5d46370a}
+    .exercise{display:grid;grid-template-columns:58px 1fr auto;gap:12px;align-items:center;background:var(--tint)}.thumb{width:58px;height:58px;border-radius:15px;background:linear-gradient(145deg,#fff,#f2d7c6);display:grid;place-items:center;font-size:26px}.name{font-weight:850;font-size:17px}.meta,.note{color:var(--muted);font-size:12px}.change{border:0;background:white;color:var(--orange);border-radius:99px;padding:9px 11px;font-weight:800}
+    .video{aspect-ratio:16/10;border-radius:18px;background:radial-gradient(circle at 50% 44%,#f1a980 0 3%,transparent 4%),linear-gradient(145deg,#271d19,#69483d);display:grid;place-items:center;color:white;position:relative;overflow:hidden}.video:after{content:"骨骼标记视频";position:absolute;left:12px;top:12px;background:#0008;padding:6px 9px;border-radius:99px;font-size:12px}.play{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;background:var(--orange);font-size:26px}.coach h2{font-size:18px;margin:0 0 8px}.good{color:var(--green);font-weight:800}.next{background:var(--tint);border-radius:14px;padding:12px;margin-top:10px}.next b{color:var(--orange)}
+    .toolbar{display:flex;align-items:center;justify-content:space-between}.count{font-size:12px;color:var(--orange);font-weight:800}.session{display:grid;grid-template-columns:30px 1fr;gap:10px}.check{width:25px;height:25px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center}.session.active{border-color:var(--orange);background:var(--tint)}.session.active .check{background:var(--orange);border-color:var(--orange);color:white}.sets{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.pill{background:#f8f2ee;border-radius:8px;padding:5px 7px;font-size:11px}.remark{margin-top:8px;padding-left:9px;border-left:3px solid #f2a477;color:#6d5449;font-size:12px}.primary,.secondary{width:100%;border:0;border-radius:15px;padding:14px;font-weight:850;font-size:15px}.primary{background:var(--orange);color:#fff}.secondary{background:transparent;color:var(--muted);margin-top:8px}
+    @media(max-width:420px){main{padding:0}.phone{width:100%;border-radius:0;box-shadow:none;min-height:100vh}.phone+ .phone{border-top:12px solid #eadfd7}}
+  </style>
+</head>
+<body><main>
+  <section class="phone">
+    <h1>动作分析</h1><div class="sub">直接看动作表现和下一组怎么调整</div>
+    <div class="card exercise"><div class="thumb">🏋️</div><div><div class="name">杠铃深蹲</div><div class="meta">腿部 · 侧面机位</div></div><button class="change">更换</button></div>
+    <div class="video"><button class="play" aria-label="播放">▶</button></div>
+    <div class="card coach"><h2>这一组整体很稳</h2><p><span class="good">做得好：</span>下蹲和起身节奏连贯，膝盖方向保持得不错。</p><p><b>下次注意：</b>最低点稍停一下，起身时继续让胸口和髋部同步上升。</p><div class="next"><b>下一组这样做</b><br/>保持当前重量，放慢下蹲速度；如果仍然稳定，再增加 2.5 kg。</div></div>
+  </section>
+  <section class="phone">
+    <div class="toolbar"><div><h1>选择训练资料</h1><div class="sub">AI 会一起比较你选中的训练</div></div><div class="count">已选 2 次</div></div>
+    <article class="card session active"><div class="check">✓</div><div><b>8 月 12 日 · 胸部训练</b><div class="meta">52 分钟 · 12 组 · 4,860 kg</div><div class="sets"><span class="pill">器械推胸 60kg×8×3</span><span class="pill">上斜哑铃 22.5kg×10×3</span></div><div class="remark">备注：最后两组力量下降，右肩略紧。</div></div></article>
+    <article class="card session active"><div class="check">✓</div><div><b>8 月 5 日 · 胸部训练</b><div class="meta">48 分钟 · 11 组 · 5,120 kg</div><div class="sets"><span class="pill">器械推胸 65kg×8×3</span><span class="pill">夹胸 35kg×12×3</span></div><div class="remark">备注：睡眠不足，但前两组状态不错。</div></div></article>
+    <article class="card session"><div class="check"></div><div><b>7 月 29 日 · 上肢训练</b><div class="meta">61 分钟 · 15 组 · 6,040 kg</div><div class="sets"><span class="pill">卧推 70kg×6×3</span><span class="pill">划船 60kg×10×3</span></div></div></article>
+    <button class="primary">使用已选的 2 次训练</button><button class="secondary">这次不添加训练资料</button>
+  </section>
+</main></body></html>

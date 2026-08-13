@@ -30,48 +30,51 @@ class _CapturingCoachApi implements CoachApi {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('AI skills support create update delete and a three-enabled limit', () async {
-    final api = _CapturingCoachApi();
-    final controller = AppController(coachApi: api);
-    try {
-      for (var index = 1; index <= 3; index++) {
+  test(
+    'AI skills support create update delete and a three-enabled limit',
+    () async {
+      final api = _CapturingCoachApi();
+      final controller = AppController(coachApi: api);
+      try {
+        for (var index = 1; index <= 3; index++) {
+          expect(
+            controller.saveAiSkill(
+              name: 'Skill $index',
+              instructions: 'Focus on rule $index',
+            ),
+            isTrue,
+          );
+        }
         expect(
           controller.saveAiSkill(
-            name: 'Skill $index',
-            instructions: 'Focus on rule $index',
+            name: 'Skill 4',
+            instructions: 'Focus on rule 4',
           ),
-          isTrue,
+          isFalse,
         );
-      }
-      expect(
+        for (final skill in controller.aiSkills.take(3)) {
+          expect(controller.setAiSkillEnabled(skill.id, true), isTrue);
+        }
+        final first = controller.aiSkills.first;
         controller.saveAiSkill(
-          name: 'Skill 4',
-          instructions: 'Focus on rule 4',
-        ),
-        isFalse,
-      );
-      for (final skill in controller.aiSkills.take(3)) {
-        expect(controller.setAiSkillEnabled(skill.id, true), isTrue);
+          id: first.id,
+          name: 'Updated skill',
+          instructions: 'Updated instructions',
+        );
+        expect(controller.aiSkills.first.name, 'Updated skill');
+
+        await controller.sendChat('test skills');
+        expect(api.skills, hasLength(3));
+        expect(api.skills.first['name'], 'Updated skill');
+
+        controller.deleteAiSkill(first.id);
+        expect(controller.aiSkills.any((item) => item.id == first.id), isFalse);
+        expect(controller.enabledAiSkills, hasLength(2));
+      } finally {
+        controller.dispose();
       }
-      final first = controller.aiSkills.first;
-      controller.saveAiSkill(
-        id: first.id,
-        name: 'Updated skill',
-        instructions: 'Updated instructions',
-      );
-      expect(controller.aiSkills.first.name, 'Updated skill');
-
-      await controller.sendChat('test skills');
-      expect(api.skills, hasLength(3));
-      expect(api.skills.first['name'], 'Updated skill');
-
-      controller.deleteAiSkill(first.id);
-      expect(controller.aiSkills.any((item) => item.id == first.id), isFalse);
-      expect(controller.enabledAiSkills, hasLength(2));
-    } finally {
-      controller.dispose();
-    }
-  });
+    },
+  );
 
   test('today workout review includes live sets and notes for AI', () async {
     final api = _CapturingCoachApi();
@@ -100,6 +103,63 @@ void main() {
       controller.dispose();
     }
   });
+
+  test(
+    'AI can compare multiple selected workout records with dates and notes',
+    () async {
+      final api = _CapturingCoachApi();
+      final controller = AppController(coachApi: api);
+      try {
+        WorkoutRecord record(String id, int day, double weight, String note) =>
+            WorkoutRecord(
+              id: id,
+              name: '胸部训练',
+              date: DateTime(2026, 8, day),
+              startTime: '18:00',
+              durationSeconds: 3000,
+              volume: weight * 24,
+              effectiveSets: 3,
+              note: note,
+              exerciseIds: const ['bench_press'],
+              exercises: [
+                WorkoutExercise(
+                  id: 'exercise-$id',
+                  exerciseId: 'bench_press',
+                  sets: [
+                    WorkoutSet(
+                      id: 'set-$id',
+                      weight: weight,
+                      reps: 8,
+                      completed: true,
+                      note: '最后一组偏慢',
+                    ),
+                  ],
+                ),
+              ],
+            );
+        controller.history
+          ..clear()
+          ..addAll([
+            record('recent', 12, 60, '右肩略紧'),
+            record('older', 5, 65, '睡眠不足'),
+          ]);
+
+        final selected = controller.availableAiContexts
+            .where((item) => item.type == AiContextType.workoutRecord)
+            .toList();
+        await controller.sendChat('为什么重量变轻了？', contexts: selected);
+
+        expect(api.trainingSummary, contains('2026-08-12'));
+        expect(api.trainingSummary, contains('2026-08-05'));
+        expect(api.trainingSummary, contains('60.0 kg×8'));
+        expect(api.trainingSummary, contains('65.0 kg×8'));
+        expect(api.trainingSummary, contains('右肩略紧'));
+        expect(api.trainingSummary, contains('睡眠不足'));
+      } finally {
+        controller.dispose();
+      }
+    },
+  );
 
   test('completed history survives controller recreation per user', () async {
     final persistence = InMemoryWorkoutHistoryPersistence();

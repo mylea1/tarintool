@@ -354,9 +354,10 @@ class HttpRecognitionApi implements RecognitionApi {
     final rawMetrics = body['metrics'];
     final rawReview = body['aiReview'];
     return RecognitionResult(
-      status: confidence >= 0.45
-          ? RecognitionStatus.complete
-          : RecognitionStatus.lowConfidence,
+      // Confidence remains available for diagnostics, but a completed server
+      // job is a completed user task. Never turn an internal score into a
+      // user-facing failure state.
+      status: RecognitionStatus.complete,
       confidence: confidence,
       repetitions: (body['repetitions'] as num?)?.toInt() ?? 0,
       summary: (body['summary'] ?? '动作分析已完成').toString(),

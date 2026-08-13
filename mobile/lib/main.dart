@@ -3985,7 +3985,8 @@ class _RecordsPageState extends State<RecordsPage> {
         ButtonSegment(value: true, label: Text('统计')),
       ],
       selected: {showingStatistics},
-      onSelectionChanged: (value) => setState(() => showingStatistics = value.first),
+      onSelectionChanged: (value) =>
+          setState(() => showingStatistics = value.first),
     ),
   );
 
@@ -4019,7 +4020,10 @@ class _RecordsPageState extends State<RecordsPage> {
         ),
       ];
       return widget.embedded
-          ? ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 30), children: content)
+          ? ListView(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 30),
+              children: content,
+            )
           : PageFrame(children: content);
     }
     final monthStart = DateTime(selected.year, selected.month, 1);
@@ -4272,27 +4276,66 @@ class _TrainingStatisticsView extends StatelessWidget {
 
   DateTimeRange get range {
     final now = DateTime.now();
-    if (period == 'month') return DateTimeRange(start: DateTime(now.year, now.month, 1), end: now);
-    if (period == 'year') return DateTimeRange(start: DateTime(now.year, 1, 1), end: now);
+    if (period == 'month') {
+      return DateTimeRange(start: DateTime(now.year, now.month, 1), end: now);
+    }
+    if (period == 'year') {
+      return DateTimeRange(start: DateTime(now.year, 1, 1), end: now);
+    }
     if (period == 'custom' && customRange != null) return customRange!;
-    return DateTimeRange(start: DateTime(now.year, now.month, now.day).subtract(const Duration(days: 6)), end: now);
+    return DateTimeRange(
+      start: DateTime(
+        now.year,
+        now.month,
+        now.day,
+      ).subtract(const Duration(days: 6)),
+      end: now,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final selectedRange = range;
     final records = controller.history.where((record) {
-      final day = DateTime(record.date.year, record.date.month, record.date.day);
-      return !day.isBefore(DateTime(selectedRange.start.year, selectedRange.start.month, selectedRange.start.day)) &&
-          !day.isAfter(DateTime(selectedRange.end.year, selectedRange.end.month, selectedRange.end.day));
+      final day = DateTime(
+        record.date.year,
+        record.date.month,
+        record.date.day,
+      );
+      return !day.isBefore(
+            DateTime(
+              selectedRange.start.year,
+              selectedRange.start.month,
+              selectedRange.start.day,
+            ),
+          ) &&
+          !day.isAfter(
+            DateTime(
+              selectedRange.end.year,
+              selectedRange.end.month,
+              selectedRange.end.day,
+            ),
+          );
     }).toList();
-    final duration = records.fold<int>(0, (sum, record) => sum + record.durationSeconds);
-    final volume = records.fold<double>(0, (sum, record) => sum + record.volume);
-    final sets = records.fold<int>(0, (sum, record) => sum + record.effectiveSets);
+    final duration = records.fold<int>(
+      0,
+      (sum, record) => sum + record.durationSeconds,
+    );
+    final volume = records.fold<double>(
+      0,
+      (sum, record) => sum + record.volume,
+    );
+    final sets = records.fold<int>(
+      0,
+      (sum, record) => sum + record.effectiveSets,
+    );
     final muscleSets = <String, int>{};
     final exerciseStats = <String, ({double maxWeight, double oneRm})>{};
     final trainingDays = records
-        .map((record) => '${record.date.year}-${record.date.month}-${record.date.day}')
+        .map(
+          (record) =>
+              '${record.date.year}-${record.date.month}-${record.date.day}',
+        )
         .toSet()
         .length;
     for (final record in records) {
@@ -4302,20 +4345,30 @@ class _TrainingStatisticsView extends StatelessWidget {
           orElse: () => findExercise(workoutExercise.exerciseId),
         );
         final muscle = controller.muscleGroupFor(exercise.muscle);
-        final completed = workoutExercise.sets.where((set) => set.completed).toList();
+        final completed = workoutExercise.sets
+            .where((set) => set.completed)
+            .toList();
         muscleSets[muscle] = (muscleSets[muscle] ?? 0) + completed.length;
         for (final set in completed) {
-          final oneRm = set.reps <= 0 ? set.weight : set.weight * (1 + set.reps / 30);
+          final oneRm = set.reps <= 0
+              ? set.weight
+              : set.weight * (1 + set.reps / 30);
           final current = exerciseStats[exercise.id];
           exerciseStats[exercise.id] = (
-            maxWeight: current == null || set.weight > current.maxWeight ? set.weight : current.maxWeight,
-            oneRm: current == null || oneRm > current.oneRm ? oneRm : current.oneRm,
+            maxWeight: current == null || set.weight > current.maxWeight
+                ? set.weight
+                : current.maxWeight,
+            oneRm: current == null || oneRm > current.oneRm
+                ? oneRm
+                : current.oneRm,
           );
         }
       }
     }
-    final muscles = muscleSets.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
-    final exercises = exerciseStats.entries.toList()..sort((a, b) => b.value.oneRm.compareTo(a.value.oneRm));
+    final muscles = muscleSets.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final exercises = exerciseStats.entries.toList()
+      ..sort((a, b) => b.value.oneRm.compareTo(a.value.oneRm));
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -4323,7 +4376,11 @@ class _TrainingStatisticsView extends StatelessWidget {
           spacing: 7,
           runSpacing: 7,
           children: [
-            for (final item in const [('week', '周'), ('month', '月'), ('year', '年')])
+            for (final item in const [
+              ('week', '周'),
+              ('month', '月'),
+              ('year', '年'),
+            ])
               ChoiceChip(
                 key: Key('statistics-period-${item.$1}'),
                 label: Text(item.$2),
@@ -4333,25 +4390,49 @@ class _TrainingStatisticsView extends StatelessWidget {
             ActionChip(
               key: const Key('statistics-period-custom'),
               avatar: const Icon(Icons.date_range_outlined, size: 17),
-              label: Text(period == 'custom' && customRange != null
-                  ? '${customRange!.start.month}/${customRange!.start.day}–${customRange!.end.month}/${customRange!.end.day}'
-                  : '自定义'),
+              label: Text(
+                period == 'custom' && customRange != null
+                    ? '${customRange!.start.month}/${customRange!.start.day}–${customRange!.end.month}/${customRange!.end.day}'
+                    : '自定义',
+              ),
               onPressed: onCustomRange,
             ),
           ],
         ),
         const SizedBox(height: 18),
-        const Text('训练概况', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
+        const Text(
+          '训练概况',
+          style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
+        ),
         const SizedBox(height: 8),
         Row(
           children: [
-            Expanded(child: _StatisticMetric(label: '训练天数', value: '$trainingDays', unit: '天')),
-            Expanded(child: _StatisticMetric(label: '有效组', value: '$sets', unit: '组')),
-            Expanded(child: _StatisticMetric(label: '训练容量', value: volume >= 1000 ? (volume / 1000).toStringAsFixed(1) : volume.toStringAsFixed(0), unit: volume >= 1000 ? '吨' : 'kg')),
+            Expanded(
+              child: _StatisticMetric(
+                label: '训练天数',
+                value: '$trainingDays',
+                unit: '天',
+              ),
+            ),
+            Expanded(
+              child: _StatisticMetric(label: '有效组', value: '$sets', unit: '组'),
+            ),
+            Expanded(
+              child: _StatisticMetric(
+                label: '训练容量',
+                value: volume >= 1000
+                    ? (volume / 1000).toStringAsFixed(1)
+                    : volume.toStringAsFixed(0),
+                unit: volume >= 1000 ? '吨' : 'kg',
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 16),
-        const Text('部位概览', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
+        const Text(
+          '部位概览',
+          style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
+        ),
         const SizedBox(height: 8),
         if (muscles.isEmpty)
           const Text('该时段还没有可统计的训练组。', style: TextStyle(color: quiet))
@@ -4361,7 +4442,13 @@ class _TrainingStatisticsView extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: 9),
               child: Row(
                 children: [
-                  SizedBox(width: 44, child: Text(item.key, style: const TextStyle(fontWeight: FontWeight.w800))),
+                  SizedBox(
+                    width: 44,
+                    child: Text(
+                      item.key,
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                  ),
                   Expanded(
                     child: LinearProgressIndicator(
                       value: item.value / muscles.first.value,
@@ -4370,29 +4457,51 @@ class _TrainingStatisticsView extends StatelessWidget {
                       backgroundColor: primaryContainer,
                     ),
                   ),
-                  SizedBox(width: 48, child: Text('${item.value} 组', textAlign: TextAlign.right)),
+                  SizedBox(
+                    width: 48,
+                    child: Text('${item.value} 组', textAlign: TextAlign.right),
+                  ),
                 ],
               ),
             ),
         const SizedBox(height: 15),
-        const Text('运动时间与容量', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
+        const Text(
+          '运动时间与容量',
+          style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
+        ),
         const SizedBox(height: 8),
         _StatisticsTrend(records: records),
         const SizedBox(height: 8),
-        Text('总训练时间 ${(duration / 3600).toStringAsFixed(1)} 小时 · 平均每次 ${records.isEmpty ? 0 : (duration / records.length / 60).round()} 分钟', style: const TextStyle(color: secondaryInk)),
+        Text(
+          '总训练时间 ${(duration / 3600).toStringAsFixed(1)} 小时 · 平均每次 ${records.isEmpty ? 0 : (duration / records.length / 60).round()} 分钟',
+          style: const TextStyle(color: secondaryInk),
+        ),
         const SizedBox(height: 18),
-        const Text('最大重量与 PR', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
+        const Text(
+          '最大重量与 PR',
+          style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
+        ),
         const SizedBox(height: 4),
         if (exercises.isEmpty)
-          const Text('完成带重量的训练组后，这里会显示最大重量和 1RM 预测。', style: TextStyle(color: quiet))
+          const Text(
+            '完成带重量的训练组后，这里会显示最大重量和 1RM 预测。',
+            style: TextStyle(color: quiet),
+          )
         else
           for (final item in exercises.take(6))
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: _ExerciseThumb(exerciseId: item.key, size: 42),
-              title: Text(controller.displayExerciseName(findExercise(item.key))),
-              subtitle: Text('最大重量 ${item.value.maxWeight.toStringAsFixed(1)} kg'),
-              trailing: Text('1RM ${item.value.oneRm.toStringAsFixed(1)}', style: const TextStyle(fontWeight: FontWeight.w900)),
+              title: Text(
+                controller.displayExerciseName(findExercise(item.key)),
+              ),
+              subtitle: Text(
+                '最大重量 ${item.value.maxWeight.toStringAsFixed(1)} kg',
+              ),
+              trailing: Text(
+                '1RM ${item.value.oneRm.toStringAsFixed(1)}',
+                style: const TextStyle(fontWeight: FontWeight.w900),
+              ),
             ),
       ],
     );
@@ -4400,7 +4509,11 @@ class _TrainingStatisticsView extends StatelessWidget {
 }
 
 class _StatisticMetric extends StatelessWidget {
-  const _StatisticMetric({required this.label, required this.value, required this.unit});
+  const _StatisticMetric({
+    required this.label,
+    required this.value,
+    required this.unit,
+  });
   final String label;
   final String value;
   final String unit;
@@ -4411,10 +4524,24 @@ class _StatisticMetric extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: const TextStyle(color: quiet, fontSize: 12)),
-        Text.rich(TextSpan(children: [
-          TextSpan(text: value, style: const TextStyle(fontSize: 27, fontWeight: FontWeight.w900, color: ink)),
-          TextSpan(text: ' $unit', style: const TextStyle(color: quiet)),
-        ])),
+        Text.rich(
+          TextSpan(
+            children: [
+              TextSpan(
+                text: value,
+                style: const TextStyle(
+                  fontSize: 27,
+                  fontWeight: FontWeight.w900,
+                  color: ink,
+                ),
+              ),
+              TextSpan(
+                text: ' $unit',
+                style: const TextStyle(color: quiet),
+              ),
+            ],
+          ),
+        ),
       ],
     ),
   );
@@ -4431,12 +4558,19 @@ class _StatisticsTrend extends StatelessWidget {
       height: 150,
       width: double.infinity,
       child: DecoratedBox(
-        decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: hairline))),
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: hairline)),
+        ),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(4, 12, 4, 6),
           child: values.isEmpty
-              ? const Center(child: Text('暂无趋势数据', style: TextStyle(color: quiet)))
-              : CustomPaint(painter: _ProgressTrendPainter(values), child: const SizedBox.expand()),
+              ? const Center(
+                  child: Text('暂无趋势数据', style: TextStyle(color: quiet)),
+                )
+              : CustomPaint(
+                  painter: _ProgressTrendPainter(values),
+                  child: const SizedBox.expand(),
+                ),
         ),
       ),
     );
@@ -5169,6 +5303,7 @@ class _RecognitionFieldLabel extends StatelessWidget {
 
 class _SelectedRecognitionVideo extends StatefulWidget {
   const _SelectedRecognitionVideo({
+    super.key,
     required this.path,
     required this.name,
     required this.sizeLabel,
@@ -5662,7 +5797,10 @@ class _RecognitionSelectedExercise extends StatelessWidget {
     final exercise = findExercise(capability.exerciseId);
     return Material(
       color: primaryContainer.withValues(alpha: .55),
-      borderRadius: BorderRadius.circular(18),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: primary.withValues(alpha: .28), width: 1.2),
+      ),
       child: InkWell(
         key: const Key('recognition-exercise-picker'),
         borderRadius: BorderRadius.circular(18),
@@ -5677,6 +5815,25 @@ class _RecognitionSelectedExercise extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: primary,
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                      child: const Text(
+                        '已选择',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 5),
                     Text(
                       controller.displayExerciseName(exercise),
                       style: const TextStyle(
@@ -5956,10 +6113,18 @@ class _RecognitionResultPage extends StatelessWidget {
             key: const Key('recognition-result-page'),
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
             children: [
-              if (controller.selectedMediaPath != null)
+              if (controller.selectedMediaPath != null &&
+                  (processing ||
+                      result == null ||
+                      result.status == RecognitionStatus.error ||
+                      result.status == RecognitionStatus.offline ||
+                      !controller.recognitionIncludeOverlay))
                 _SelectedRecognitionVideo(
+                  key: const Key('recognition-result-original-video'),
                   path: controller.selectedMediaPath!,
-                  name: controller.selectedMediaName ?? '原始视频',
+                  name: processing
+                      ? '正在分析的视频'
+                      : controller.selectedMediaName ?? '原始视频',
                   sizeLabel: _formatBytes(controller.selectedMediaBytes),
                   enabled: false,
                   onClear: () {},
@@ -6029,7 +6194,7 @@ class _RecognitionReport extends StatelessWidget {
         Text(
           result.status == RecognitionStatus.complete ||
                   result.status == RecognitionStatus.lowConfidence
-              ? '动作结果已经生成，可继续查看次数、分析视频和训练建议。'
+              ? '这段动作已经看完，下面直接告诉你做得怎么样，以及下一组怎么调整。'
               : result.summary,
           style: const TextStyle(fontSize: 13),
         ),
@@ -6037,14 +6202,14 @@ class _RecognitionReport extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(top: 6),
             child: Text(
-              '检测到 ${result.repetitions} 次重复 · ${controller.displayExerciseName(findExercise(controller.recognitionExerciseId))}',
+              '完成 ${result.repetitions} 次 · ${controller.displayExerciseName(findExercise(controller.recognitionExerciseId))}',
               style: const TextStyle(fontSize: 12, color: secondaryInk),
             ),
           ),
         if (result.overlayUrl != null) ...[
           const SizedBox(height: 14),
           const Text(
-            '动作分析视频',
+            '骨骼标记视频',
             style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
           ),
           const SizedBox(height: 7),
@@ -6143,7 +6308,7 @@ class _RecognitionAiReviewCard extends StatelessWidget {
               Icon(Icons.auto_awesome_rounded, color: primary, size: 19),
               SizedBox(width: 7),
               Text(
-                'AI 动作评价',
+                '教练反馈',
                 style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
               ),
             ],
@@ -6152,8 +6317,8 @@ class _RecognitionAiReviewCard extends StatelessWidget {
           if (review == null)
             Text(
               result.aiReviewError == 'deepseek_not_configured'
-                  ? '补充建议暂时不可用，本次动作结果已保留。'
-                  : '补充建议暂时不可用，已完成的动作结果仍可查看。',
+                  ? '动作结果已经保留，个性化建议暂时未生成。'
+                  : '动作结果已经保留，稍后可重新生成个性化建议。',
               style: const TextStyle(color: secondaryInk),
             )
           else ...[
@@ -6173,7 +6338,7 @@ class _RecognitionAiReviewCard extends StatelessWidget {
             if (review.risks.isNotEmpty) ...[
               const SizedBox(height: 7),
               const Text(
-                '下一步需要关注',
+                '下一组注意',
                 style: TextStyle(color: primary, fontWeight: FontWeight.w800),
               ),
               for (final item in review.risks)
@@ -6182,7 +6347,7 @@ class _RecognitionAiReviewCard extends StatelessWidget {
             if (review.nextSet.trim().isNotEmpty) ...[
               const SizedBox(height: 9),
               Text(
-                '下一组建议：${review.nextSet}',
+                '下一组这样做：${review.nextSet}',
                 style: const TextStyle(height: 1.45),
               ),
             ],
@@ -6366,7 +6531,7 @@ class _NetworkRecognitionVideoState extends State<_NetworkRecognitionVideo> {
                   child: Padding(
                     padding: EdgeInsets.symmetric(horizontal: 8, vertical: 5),
                     child: Text(
-                      '动作分析视频 · 点击播放',
+                      '骨骼标记视频 · 点击播放',
                       style: TextStyle(color: Colors.white, fontSize: 10),
                     ),
                   ),
@@ -6523,7 +6688,8 @@ class _AiPageState extends State<AiPage> {
                       IconButton(
                         key: const Key('ai-settings-button'),
                         tooltip: 'AI 设置',
-                        onPressed: () => _openAiSettingsPage(context, controller),
+                        onPressed: () =>
+                            _openAiSettingsPage(context, controller),
                         icon: const Icon(Icons.settings_outlined),
                       ),
                     ],
@@ -6571,7 +6737,9 @@ class _AiPageState extends State<AiPage> {
                           decoration: BoxDecoration(
                             color: emberTint.withValues(alpha: .55),
                             borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: primary.withValues(alpha: .18)),
+                            border: Border.all(
+                              color: primary.withValues(alpha: .18),
+                            ),
                           ),
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
@@ -6580,9 +6748,12 @@ class _AiPageState extends State<AiPage> {
                                 child: ListView.separated(
                                   shrinkWrap: true,
                                   itemCount: selectedContexts.length,
-                                  separatorBuilder: (_, _) => const Divider(height: 10),
+                                  separatorBuilder: (_, _) =>
+                                      const Divider(height: 10),
                                   itemBuilder: (context, index) {
-                                    final item = selectedContexts.elementAt(index);
+                                    final item = selectedContexts.elementAt(
+                                      index,
+                                    );
                                     return _AiContextSummary(
                                       controller: controller,
                                       selection: item,
@@ -6603,8 +6774,13 @@ class _AiPageState extends State<AiPage> {
                                 alignment: Alignment.centerRight,
                                 child: TextButton.icon(
                                   key: const Key('ai-send-context-only'),
-                                  onPressed: controller.aiTyping ? null : _sendMessage,
-                                  icon: const Icon(Icons.arrow_upward_rounded, size: 18),
+                                  onPressed: controller.aiTyping
+                                      ? null
+                                      : _sendMessage,
+                                  icon: const Icon(
+                                    Icons.arrow_upward_rounded,
+                                    size: 18,
+                                  ),
                                   label: const Text('直接发送给 AI'),
                                 ),
                               ),
@@ -6618,7 +6794,7 @@ class _AiPageState extends State<AiPage> {
                         children: [
                           IconButton.filledTonal(
                             key: const Key('ai-add-context'),
-                            tooltip: '添加训练上下文',
+                            tooltip: '选择训练资料',
                             onPressed: controller.aiTyping
                                 ? null
                                 : _chooseContext,
@@ -6710,7 +6886,10 @@ Future<void> _showAiSkillToggleSheet(
         Row(
           children: [
             const Expanded(
-              child: Text('本次对话 Skill', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+              child: Text(
+                '本次对话 Skill',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+              ),
             ),
             TextButton(
               onPressed: () {
@@ -6727,8 +6906,15 @@ Future<void> _showAiSkillToggleSheet(
           SwitchListTile(
             key: Key('ai-skill-toggle-${skill.id}'),
             contentPadding: EdgeInsets.zero,
-            title: Text(skill.name, style: const TextStyle(fontWeight: FontWeight.w800)),
-            subtitle: Text(skill.instructions, maxLines: 2, overflow: TextOverflow.ellipsis),
+            title: Text(
+              skill.name,
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+            subtitle: Text(
+              skill.instructions,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
             value: skill.enabled,
             onChanged: (value) {
               if (!controller.setAiSkillEnabled(skill.id, value)) {
@@ -6778,13 +6964,13 @@ class _AiContextPickerState extends State<_AiContextPicker> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '添加训练上下文',
+                        '选择训练资料',
                         style: TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.w900,
                         ),
                       ),
-                      Text('只随下一条消息发送', style: TextStyle(color: quiet)),
+                      Text('可多选，AI 会按日期比较变化', style: TextStyle(color: quiet)),
                     ],
                   ),
                 ),
@@ -6827,7 +7013,12 @@ class _AiContextPickerState extends State<_AiContextPicker> {
                               }
                             }),
                             child: Padding(
-                              padding: const EdgeInsets.fromLTRB(14, 13, 10, 13),
+                              padding: const EdgeInsets.fromLTRB(
+                                14,
+                                13,
+                                10,
+                                13,
+                              ),
                               child: _AiContextSummary(
                                 controller: widget.controller,
                                 selection: item,
@@ -6855,9 +7046,11 @@ class _AiContextPickerState extends State<_AiContextPicker> {
               width: double.infinity,
               child: FilledButton.icon(
                 onPressed: () => Navigator.pop(context, selected),
-                icon: const Icon(Icons.add_comment_outlined),
+                icon: const Icon(Icons.checklist_rounded),
                 label: Text(
-                  selected.isEmpty ? '不添加上下文' : '添加 ${selected.length} 项',
+                  selected.isEmpty
+                      ? '这次不添加训练资料'
+                      : '使用已选的 ${selected.length} 项资料',
                 ),
               ),
             ),
@@ -7048,8 +7241,8 @@ void _showAiSettings(BuildContext context, AppController controller) {
                 contentPadding: EdgeInsets.zero,
                 value: useTrainingData,
                 onChanged: (value) => setState(() => useTrainingData = value),
-                title: const Text('允许使用训练摘要'),
-                subtitle: const Text('仅在授权后将训练记录作为上下文。'),
+                title: const Text('允许 AI 参考训练资料'),
+                subtitle: const Text('只有你主动选择时，才会发送对应的训练记录。'),
               ),
             ],
           ),
@@ -7103,13 +7296,17 @@ class _AiContextSummary extends StatelessWidget {
           .take(2)
           .map((id) => controller.displayExerciseName(findExercise(id)))
           .join('、');
-      final metrics = '${record.durationSeconds ~/ 60} 分钟 · '
+      final metrics =
+          '${record.durationSeconds ~/ 60} 分钟 · '
           '${record.effectiveSets} 组 · ${record.volume.toStringAsFixed(0)} kg';
       return exerciseNames.isEmpty ? metrics : '$metrics\n$exerciseNames';
     }
     final routine = controller.routineForAiContext(selection);
     if (routine != null) {
-      final sets = routine.exercises.fold<int>(0, (sum, item) => sum + item.sets.length);
+      final sets = routine.exercises.fold<int>(
+        0,
+        (sum, item) => sum + item.sets.length,
+      );
       return '${routine.exercises.length} 个动作 · $sets 组';
     }
     return switch (selection.type) {
@@ -7119,6 +7316,51 @@ class _AiContextSummary extends StatelessWidget {
       AiContextType.month => '本月训练趋势、容量与个人纪录',
       _ => '',
     };
+  }
+
+  List<String> get exerciseDetails {
+    final record = controller.workoutRecordForAiContext(selection);
+    if (record != null) {
+      if (record.exercises.isNotEmpty) {
+        return record.exercises.take(compact ? 2 : 4).map((exercise) {
+          final completed = exercise.sets
+              .where((set) => set.completed)
+              .toList();
+          final values = completed
+              .take(2)
+              .map((set) {
+                final weight = set.weight % 1 == 0
+                    ? set.weight.toStringAsFixed(0)
+                    : set.weight.toStringAsFixed(1);
+                return '$weight kg×${set.reps}';
+              })
+              .join(' / ');
+          return '${controller.displayExerciseName(findExercise(exercise.exerciseId))}'
+              '${values.isEmpty ? '' : '  $values'}';
+        }).toList();
+      }
+      return record.exerciseIds
+          .take(compact ? 2 : 4)
+          .map((id) => controller.displayExerciseName(findExercise(id)))
+          .toList();
+    }
+    final routine = controller.routineForAiContext(selection);
+    if (routine != null) {
+      return routine.exercises
+          .take(compact ? 2 : 4)
+          .map(
+            (item) =>
+                controller.displayExerciseName(findExercise(item.exerciseId)),
+          )
+          .toList();
+    }
+    return const [];
+  }
+
+  String? get recordNote {
+    final record = controller.workoutRecordForAiContext(selection);
+    if (record == null || record.note.trim().isEmpty) return null;
+    return record.note.trim();
   }
 
   @override
@@ -7153,8 +7395,59 @@ class _AiContextSummary extends StatelessWidget {
               detail,
               maxLines: compact ? 1 : 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: secondaryInk, fontSize: 12, height: 1.35),
+              style: const TextStyle(
+                color: secondaryInk,
+                fontSize: 12,
+                height: 1.35,
+              ),
             ),
+            if (!compact && exerciseDetails.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  for (final item in exerciseDetails)
+                    Container(
+                      constraints: const BoxConstraints(maxWidth: 245),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8F2EE),
+                        borderRadius: BorderRadius.circular(9),
+                      ),
+                      child: Text(
+                        item,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+            if (!compact && recordNote != null) ...[
+              const SizedBox(height: 7),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(9, 7, 9, 7),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFFFF3E9),
+                  border: Border(left: BorderSide(color: primary, width: 3)),
+                ),
+                child: Text(
+                  '备注：$recordNote',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 11, color: secondaryInk),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -7189,8 +7482,17 @@ class _AiSettingsPage extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('自定义 Skill', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
-                    Text('设定 AI 的回答方法、关注点或输出格式。', style: TextStyle(color: quiet)),
+                    Text(
+                      '自定义 Skill',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    Text(
+                      '设定 AI 的回答方法、关注点或输出格式。',
+                      style: TextStyle(color: quiet),
+                    ),
                   ],
                 ),
               ),
@@ -7208,7 +7510,10 @@ class _AiSettingsPage extends StatelessWidget {
           if (controller.aiSkills.isEmpty)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 24),
-              child: Text('还没有 Skill。新增后可在聊天输入框上方快速启用。', style: TextStyle(color: quiet)),
+              child: Text(
+                '还没有 Skill。新增后可在聊天输入框上方快速启用。',
+                style: TextStyle(color: quiet),
+              ),
             )
           else
             for (final skill in controller.aiSkills)
@@ -7220,8 +7525,15 @@ class _AiSettingsPage extends StatelessWidget {
                   foregroundColor: skill.enabled ? primary : quiet,
                   child: const Icon(Icons.auto_awesome_outlined),
                 ),
-                title: Text(skill.name, style: const TextStyle(fontWeight: FontWeight.w800)),
-                subtitle: Text(skill.instructions, maxLines: 2, overflow: TextOverflow.ellipsis),
+                title: Text(
+                  skill.name,
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+                subtitle: Text(
+                  skill.instructions,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
                 trailing: PopupMenuButton<String>(
                   onSelected: (action) async {
                     if (action == 'edit') {
@@ -7231,10 +7543,18 @@ class _AiSettingsPage extends StatelessWidget {
                         context: context,
                         builder: (context) => AlertDialog(
                           title: const Text('删除 Skill？'),
-                          content: Text('“${skill.name}”将被永久删除${skill.enabled ? '，并立即停止使用' : ''}。'),
+                          content: Text(
+                            '“${skill.name}”将被永久删除${skill.enabled ? '，并立即停止使用' : ''}。',
+                          ),
                           actions: [
-                            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('取消')),
-                            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('删除')),
+                            TextButton(
+                              onPressed: () => Navigator.pop(context, false),
+                              child: const Text('取消'),
+                            ),
+                            FilledButton(
+                              onPressed: () => Navigator.pop(context, true),
+                              child: const Text('删除'),
+                            ),
                           ],
                         ),
                       );
@@ -7286,7 +7606,10 @@ Future<void> _editAiSkill(
               key: const Key('ai-skill-name'),
               controller: name,
               maxLength: 30,
-              decoration: const InputDecoration(labelText: '名称', hintText: '例如：力量训练教练'),
+              decoration: const InputDecoration(
+                labelText: '名称',
+                hintText: '例如：力量训练教练',
+              ),
             ),
             const SizedBox(height: 8),
             TextField(
@@ -7305,11 +7628,18 @@ Future<void> _editAiSkill(
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('取消'),
+        ),
         FilledButton(
           key: const Key('ai-skill-save'),
           onPressed: () {
-            if (!controller.saveAiSkill(id: skill?.id, name: name.text, instructions: instructions.text)) {
+            if (!controller.saveAiSkill(
+              id: skill?.id,
+              name: name.text,
+              instructions: instructions.text,
+            )) {
               showKiloSnack(context, '请填写 Skill 名称和指令');
               return;
             }

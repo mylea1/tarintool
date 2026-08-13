@@ -374,6 +374,42 @@ void main() {
     expect(find.textContaining('末端控制可加强'), findsOneWidget);
   });
 
+  testWidgets('completed overlay report hides the original video', (
+    tester,
+  ) async {
+    final controller = AppController();
+    addTearDown(controller.dispose);
+    controller.selectedMediaPath = 'missing-original.mp4';
+    controller.selectedMediaName = '原视频.mp4';
+    controller.recognitionIncludeOverlay = true;
+    controller.recognitionStatus = RecognitionStatus.complete;
+    controller.recognitionResult = const RecognitionResult(
+      status: RecognitionStatus.complete,
+      confidence: .32,
+      repetitions: 6,
+      summary: '内部结果',
+      overlayUrl: 'http://127.0.0.1:1/overlay.mp4',
+    );
+    await tester.pumpWidget(KiloApp(initialController: controller));
+    await _openRoute(tester, 'AI');
+    await tester.tap(find.byKey(const Key('ai-recognition')));
+    await tester.pump();
+    await tester.ensureVisible(
+      find.byKey(const Key('recognition-open-result')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('recognition-open-result')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('recognition-result-original-video')),
+      findsNothing,
+    );
+    expect(find.byKey(const Key('recognition-overlay-video')), findsOneWidget);
+    expect(find.textContaining('置信'), findsNothing);
+    expect(find.textContaining('算法'), findsNothing);
+  });
+
   testWidgets(
     'recognition keeps video visible and exposes live processing stages',
     (tester) async {
