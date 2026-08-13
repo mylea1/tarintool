@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart';
@@ -269,9 +270,11 @@ class AppController extends ChangeNotifier {
       password: password,
     );
     if (result.isSuccess) {
+      aiSkills.clear();
       unawaited(hydrateWorkoutHistory(force: true));
       unawaited(hydrateActiveWorkout());
       unawaited(hydrateTrainingLibrary(force: true));
+      unawaited(hydrateAiSkills());
     }
     return result;
   }
@@ -291,6 +294,7 @@ class AppController extends ChangeNotifier {
     routineFolders.clear();
     scheduled.clear();
     scheduledLabels.clear();
+    aiSkills.clear();
     notifyListeners();
   }
 
@@ -512,6 +516,7 @@ class AppController extends ChangeNotifier {
   bool aiTyping = false;
   int aiWaitingSeconds = 0;
   final List<ChatMessage> chat = [];
+  final List<AiSkill> aiSkills = [];
   final List<AiConversation> conversations = [];
   String activeConversationId = 'conversation-main';
   String scenario = 'normal';
@@ -539,6 +544,94 @@ class AppController extends ChangeNotifier {
   QuotaReservation? _recognitionReservation;
 
   List<Exercise> get allExercises => [...catalog, ...customExercises];
+
+  List<AiSkill> get enabledAiSkills =>
+      aiSkills.where((skill) => skill.enabled).toList(growable: false);
+
+  Future<void> hydrateAiSkills() async {
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      final raw = preferences.getString(_aiSkillsStorageKey);
+      aiSkills.clear();
+      if (raw == null || raw.isEmpty) {
+        notifyListeners();
+        return;
+      }
+      final values = jsonDecode(raw) as List<dynamic>;
+      aiSkills
+        ..clear()
+        ..addAll(
+          values
+              .whereType<Map<String, dynamic>>()
+              .map(AiSkill.fromJson)
+              .where(
+                (skill) => skill.id.isNotEmpty && skill.name.trim().isNotEmpty,
+              )
+              .take(3),
+        );
+      notifyListeners();
+    } catch (_) {
+      // Invalid local data must not block AI chat startup.
+    }
+  }
+
+  Future<void> _persistAiSkills() async {
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      await preferences.setString(
+        _aiSkillsStorageKey,
+        jsonEncode(aiSkills.map((skill) => skill.toJson()).toList()),
+      );
+    } catch (_) {
+      // In-memory skill editing remains available in previews.
+    }
+  }
+
+  bool saveAiSkill({String? id, required String name, required String instructions}) {
+    final cleanName = name.trim();
+    final cleanInstructions = instructions.trim();
+    if (cleanName.isEmpty || cleanInstructions.isEmpty) return false;
+    final index = id == null ? -1 : aiSkills.indexWhere((item) => item.id == id);
+    if (index >= 0) {
+      aiSkills[index] = aiSkills[index].copyWith(
+        name: cleanName,
+        instructions: cleanInstructions,
+      );
+    } else {
+      if (aiSkills.length >= 3) return false;
+      aiSkills.add(
+        AiSkill(
+          id: 'skill-${DateTime.now().microsecondsSinceEpoch}',
+          name: cleanName,
+          instructions: cleanInstructions,
+        ),
+      );
+    }
+    unawaited(_persistAiSkills());
+    notifyListeners();
+    return true;
+  }
+
+  String get _aiSkillsStorageKey =>
+      'xingyu.ai-skills.v1.${currentUser?.id ?? 'local'}';
+
+  bool setAiSkillEnabled(String id, bool enabled) {
+    final index = aiSkills.indexWhere((item) => item.id == id);
+    if (index < 0) return false;
+    if (enabled && enabledAiSkills.length >= 3 && !aiSkills[index].enabled) {
+      return false;
+    }
+    aiSkills[index] = aiSkills[index].copyWith(enabled: enabled);
+    unawaited(_persistAiSkills());
+    notifyListeners();
+    return true;
+  }
+
+  void deleteAiSkill(String id) {
+    aiSkills.removeWhere((item) => item.id == id);
+    unawaited(_persistAiSkills());
+    notifyListeners();
+  }
 
   List<Exercise> get recognitionExercises => recognitionCapabilities
       .map((item) => allExercises.where((e) => e.id == item.exerciseId))
@@ -602,6 +695,11 @@ class AppController extends ChangeNotifier {
       if (!capability.cameras.any((item) => item.id == recognitionCamera)) {
         recognitionCamera = capability.cameras.first.id;
       }
+    } catch (_) {
+      // The bundled capability list is intentionally kept usable when the
+      // remote configuration endpoint is temporarily unreachable. Uploading a
+      // local video and starting an analysis must not look disabled merely
+      // because this optional refresh failed.
     } finally {
       if (!_disposed) {
         recognitionCapabilitiesLoading = false;
@@ -631,6 +729,22 @@ class AppController extends ChangeNotifier {
 
   String displayExerciseName(Exercise exercise) =>
       appLanguage == AppLanguage.english ? exercise.englishName : exercise.name;
+
+  WorkoutRecord? workoutRecordForAiContext(AiContextSelection context) {
+    if (context.type != AiContextType.workoutRecord) return null;
+    for (final record in history) {
+      if (record.id == context.id) return record;
+    }
+    return null;
+  }
+
+  Routine? routineForAiContext(AiContextSelection context) {
+    if (context.type != AiContextType.routine) return null;
+    for (final routine in routines) {
+      if (routine.id == context.id) return routine;
+    }
+    return null;
+  }
 
   Future<void> hydrateAppLanguage() async {
     try {
@@ -2108,6 +2222,7 @@ class AppController extends ChangeNotifier {
             ? selectedTrainingContext ?? _buildAiTrainingSummary()
             : null,
         exerciseCatalog: requestsPlan ? _aiExerciseCatalog() : const [],
+        skills: _activeAiSkillPayload(),
       );
     }
 
@@ -2171,6 +2286,11 @@ class AppController extends ChangeNotifier {
         },
     ];
   }
+
+  List<Map<String, String>> _activeAiSkillPayload() => [
+    for (final skill in enabledAiSkills)
+      {'id': skill.id, 'name': skill.name, 'instructions': skill.instructions},
+  ];
 
   WorkoutExercise _makeAiWorkout(AiPlanExerciseDraft draft, String id) =>
       WorkoutExercise(
@@ -2335,6 +2455,7 @@ class AppController extends ChangeNotifier {
                   exerciseCatalog: _isAiPlanRequest(trimmed)
                       ? _aiExerciseCatalog()
                       : const [],
+                  skills: _activeAiSkillPayload(),
                 )
                 .listen(
                   (event) {

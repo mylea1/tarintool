@@ -10,6 +10,43 @@ enum TrainView { workout, plans, history }
 
 enum AiView { chat, recognition }
 
+@immutable
+class AiSkill {
+  const AiSkill({
+    required this.id,
+    required this.name,
+    required this.instructions,
+    this.enabled = false,
+  });
+
+  final String id;
+  final String name;
+  final String instructions;
+  final bool enabled;
+
+  AiSkill copyWith({String? name, String? instructions, bool? enabled}) =>
+      AiSkill(
+        id: id,
+        name: name ?? this.name,
+        instructions: instructions ?? this.instructions,
+        enabled: enabled ?? this.enabled,
+      );
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'instructions': instructions,
+    'enabled': enabled,
+  };
+
+  factory AiSkill.fromJson(Map<String, dynamic> json) => AiSkill(
+    id: json['id']?.toString() ?? '',
+    name: json['name']?.toString() ?? '',
+    instructions: json['instructions']?.toString() ?? '',
+    enabled: json['enabled'] == true,
+  );
+}
+
 enum RecognitionStatus {
   idle,
   ready,
@@ -1049,8 +1086,8 @@ final List<Exercise> _rawCatalog = <Exercise>[
 /// Stable, user-facing names must be unique inside the library. The public
 /// dataset contains variants whose translated names legitimately collide (and
 /// even a few duplicate English names). Keep the concise translation for the
-/// first item and add a compact English differentiator plus dataset ID only to
-/// colliding variants. Media remains keyed by the stable exercise ID.
+/// first item and add a compact Chinese variant number only to colliding
+/// variants. Media remains keyed by the stable exercise ID.
 final List<Exercise> catalog = _disambiguateExerciseNames(_rawCatalog);
 
 List<Exercise> _disambiguateExerciseNames(List<Exercise> source) {
@@ -1080,19 +1117,10 @@ List<Exercise> _disambiguateExerciseNames(List<Exercise> source) {
 }
 
 String _exerciseVariantLabel(Exercise exercise, Map<String, int> seen) {
-  final normalized = exercise.englishName
-      .replaceAll(RegExp(r'\((male|female)\)', caseSensitive: false), '')
-      .replaceAll(RegExp(r'\bv\.?\s*\d+\b', caseSensitive: false), '')
-      .replaceAll(RegExp(r'\s+'), ' ')
-      .trim();
-  final key = '${exercise.name}|$normalized';
+  final key = exercise.name;
   final occurrence = (seen[key] ?? 0) + 1;
   seen[key] = occurrence;
-  final suffix = occurrence == 1 ? '' : ' $occurrence';
-  final id = exercise.id.startsWith('dataset_')
-      ? exercise.id.substring('dataset_'.length)
-      : exercise.id;
-  return '$normalized$suffix · $id';
+  return '变式 $occurrence';
 }
 
 /// English metadata for the public dataset is already canonical. Curated

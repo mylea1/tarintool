@@ -389,6 +389,7 @@ class _ThrowingCoachApi implements CoachApi {
     String locale = 'zh-CN',
     String? trainingSummary,
     List<Map<String, String>> exerciseCatalog = const [],
+    List<Map<String, String>> skills = const [],
   }) async {
     throw StateError('upstream');
   }

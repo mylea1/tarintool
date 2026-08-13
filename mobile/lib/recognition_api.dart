@@ -426,7 +426,7 @@ String recognitionErrorMessage(String error) => switch (error) {
   'recognition_unauthenticated' ||
   'recognition_auth_token_missing' => '登录状态已失效，请重新登录后重试。',
   'recognition_exercise_unsupported' ||
-  'recognition_camera_unsupported' => '当前动作或机位暂不受识别服务支持。',
+  'recognition_camera_unsupported' => '暂不支持当前动作或拍摄角度，请更换后重试。',
   _ when error.startsWith('recognition_upload_http_') => '视频上传失败，视频已保留，请直接重试。',
   _ when error.startsWith('recognition_create_http_') => '无法创建识别任务，请稍后重试。',
   _ => '动作识别失败（$error），视频已保留，可直接重试。',
@@ -455,7 +455,7 @@ class UnconfiguredRecognitionApi implements RecognitionApi {
       status: RecognitionStatus.error,
       confidence: 0,
       repetitions: 0,
-      summary: '识别服务未配置，请在设置中配置服务后重试。',
+      summary: '动作分析暂时不可用，请稍后重试。',
       error: 'service_not_configured',
     );
   }

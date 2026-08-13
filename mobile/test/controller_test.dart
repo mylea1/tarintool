@@ -9,6 +9,7 @@ import 'package:kilo_strength/workout_history_persistence.dart';
 class _CapturingCoachApi implements CoachApi {
   bool? includeTrainingSummary;
   String? trainingSummary;
+  List<Map<String, String>> skills = const [];
 
   @override
   Future<CoachAnswer> answer({
@@ -17,15 +18,60 @@ class _CapturingCoachApi implements CoachApi {
     String locale = 'zh-CN',
     String? trainingSummary,
     List<Map<String, String>> exerciseCatalog = const [],
+    List<Map<String, String>> skills = const [],
   }) async {
     this.includeTrainingSummary = includeTrainingSummary;
     this.trainingSummary = trainingSummary;
+    this.skills = skills;
     return const CoachAnswer(body: '训练评价已生成');
   }
 }
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  test('AI skills support create update delete and a three-enabled limit', () async {
+    final api = _CapturingCoachApi();
+    final controller = AppController(coachApi: api);
+    try {
+      for (var index = 1; index <= 3; index++) {
+        expect(
+          controller.saveAiSkill(
+            name: 'Skill $index',
+            instructions: 'Focus on rule $index',
+          ),
+          isTrue,
+        );
+      }
+      expect(
+        controller.saveAiSkill(
+          name: 'Skill 4',
+          instructions: 'Focus on rule 4',
+        ),
+        isFalse,
+      );
+      for (final skill in controller.aiSkills.take(3)) {
+        expect(controller.setAiSkillEnabled(skill.id, true), isTrue);
+      }
+      final first = controller.aiSkills.first;
+      controller.saveAiSkill(
+        id: first.id,
+        name: 'Updated skill',
+        instructions: 'Updated instructions',
+      );
+      expect(controller.aiSkills.first.name, 'Updated skill');
+
+      await controller.sendChat('test skills');
+      expect(api.skills, hasLength(3));
+      expect(api.skills.first['name'], 'Updated skill');
+
+      controller.deleteAiSkill(first.id);
+      expect(controller.aiSkills.any((item) => item.id == first.id), isFalse);
+      expect(controller.enabledAiSkills, hasLength(2));
+    } finally {
+      controller.dispose();
+    }
+  });
 
   test('today workout review includes live sets and notes for AI', () async {
     final api = _CapturingCoachApi();

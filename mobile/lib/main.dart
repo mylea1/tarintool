@@ -86,6 +86,7 @@ class _KiloAppState extends State<KiloApp> {
         const Duration(seconds: 3),
       );
       await controller.hydrateAppLanguage().timeout(const Duration(seconds: 3));
+      await controller.hydrateAiSkills().timeout(const Duration(seconds: 3));
       await controller.hydrateWorkoutHistory().timeout(
         const Duration(seconds: 3),
       );
@@ -659,7 +660,7 @@ class KiloShell extends StatelessWidget {
         PageId.records => '记录',
         PageId.exercises => '动作库',
         PageId.recognition => '动作识别',
-        PageId.ai => '知识库 AI',
+        PageId.ai => 'AI',
         PageId.profile => '我的',
       });
   String pageSubtitle(BuildContext context) =>
@@ -668,7 +669,7 @@ class KiloShell extends StatelessWidget {
         PageId.train => controller.workoutStarted ? '保持专注，完成下一组' : '选择计划并开始训练',
         PageId.records => '训练日历、完成情况和历史记录',
         PageId.exercises => '动作、机位与识别能力',
-        PageId.recognition => '上传视频并查看可解释报告',
+        PageId.recognition => '上传训练视频并查看动作建议',
         PageId.ai => '有来源的训练问答',
         PageId.profile => '训练偏好、设备连接和隐私设置',
       });
@@ -3971,9 +3972,56 @@ class RecordsPage extends StatefulWidget {
 
 class _RecordsPageState extends State<RecordsPage> {
   DateTime selected = DateTime.now();
+  bool showingStatistics = false;
+  String statisticsPeriod = 'week';
+  DateTimeRange? customStatisticsRange;
   AppController get controller => widget.controller;
+
+  Widget _modeSwitch() => Center(
+    child: SegmentedButton<bool>(
+      key: const Key('records-statistics-tabs'),
+      segments: const [
+        ButtonSegment(value: false, label: Text('记录')),
+        ButtonSegment(value: true, label: Text('统计')),
+      ],
+      selected: {showingStatistics},
+      onSelectionChanged: (value) => setState(() => showingStatistics = value.first),
+    ),
+  );
+
+  Future<void> _selectCustomStatisticsRange() async {
+    final now = DateTime.now();
+    final result = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(now.year - 5),
+      lastDate: now,
+      initialDateRange: customStatisticsRange,
+    );
+    if (result == null || !mounted) return;
+    setState(() {
+      customStatisticsRange = result;
+      statisticsPeriod = 'custom';
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (showingStatistics) {
+      final content = [
+        _modeSwitch(),
+        const SizedBox(height: 14),
+        _TrainingStatisticsView(
+          controller: controller,
+          period: statisticsPeriod,
+          customRange: customStatisticsRange,
+          onPeriodChanged: (value) => setState(() => statisticsPeriod = value),
+          onCustomRange: _selectCustomStatisticsRange,
+        ),
+      ];
+      return widget.embedded
+          ? ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 30), children: content)
+          : PageFrame(children: content);
+    }
     final monthStart = DateTime(selected.year, selected.month, 1);
     final firstMonday = monthStart.subtract(
       Duration(days: monthStart.weekday - 1),
@@ -3985,6 +4033,8 @@ class _RecordsPageState extends State<RecordsPage> {
     final textScale = MediaQuery.textScalerOf(context).scale(1);
     final today = DateTime.now();
     final content = <Widget>[
+      _modeSwitch(),
+      const SizedBox(height: 14),
       SectionTitle(
         '记录',
         subtitle: '训练日历、完成情况和历史记录',
@@ -4202,6 +4252,194 @@ class _RecordsPageState extends State<RecordsPage> {
             children: content,
           )
         : PageFrame(children: content);
+  }
+}
+
+class _TrainingStatisticsView extends StatelessWidget {
+  const _TrainingStatisticsView({
+    required this.controller,
+    required this.period,
+    required this.customRange,
+    required this.onPeriodChanged,
+    required this.onCustomRange,
+  });
+
+  final AppController controller;
+  final String period;
+  final DateTimeRange? customRange;
+  final ValueChanged<String> onPeriodChanged;
+  final VoidCallback onCustomRange;
+
+  DateTimeRange get range {
+    final now = DateTime.now();
+    if (period == 'month') return DateTimeRange(start: DateTime(now.year, now.month, 1), end: now);
+    if (period == 'year') return DateTimeRange(start: DateTime(now.year, 1, 1), end: now);
+    if (period == 'custom' && customRange != null) return customRange!;
+    return DateTimeRange(start: DateTime(now.year, now.month, now.day).subtract(const Duration(days: 6)), end: now);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final selectedRange = range;
+    final records = controller.history.where((record) {
+      final day = DateTime(record.date.year, record.date.month, record.date.day);
+      return !day.isBefore(DateTime(selectedRange.start.year, selectedRange.start.month, selectedRange.start.day)) &&
+          !day.isAfter(DateTime(selectedRange.end.year, selectedRange.end.month, selectedRange.end.day));
+    }).toList();
+    final duration = records.fold<int>(0, (sum, record) => sum + record.durationSeconds);
+    final volume = records.fold<double>(0, (sum, record) => sum + record.volume);
+    final sets = records.fold<int>(0, (sum, record) => sum + record.effectiveSets);
+    final muscleSets = <String, int>{};
+    final exerciseStats = <String, ({double maxWeight, double oneRm})>{};
+    final trainingDays = records
+        .map((record) => '${record.date.year}-${record.date.month}-${record.date.day}')
+        .toSet()
+        .length;
+    for (final record in records) {
+      for (final workoutExercise in record.exercises) {
+        final exercise = controller.allExercises.firstWhere(
+          (item) => item.id == workoutExercise.exerciseId,
+          orElse: () => findExercise(workoutExercise.exerciseId),
+        );
+        final muscle = controller.muscleGroupFor(exercise.muscle);
+        final completed = workoutExercise.sets.where((set) => set.completed).toList();
+        muscleSets[muscle] = (muscleSets[muscle] ?? 0) + completed.length;
+        for (final set in completed) {
+          final oneRm = set.reps <= 0 ? set.weight : set.weight * (1 + set.reps / 30);
+          final current = exerciseStats[exercise.id];
+          exerciseStats[exercise.id] = (
+            maxWeight: current == null || set.weight > current.maxWeight ? set.weight : current.maxWeight,
+            oneRm: current == null || oneRm > current.oneRm ? oneRm : current.oneRm,
+          );
+        }
+      }
+    }
+    final muscles = muscleSets.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+    final exercises = exerciseStats.entries.toList()..sort((a, b) => b.value.oneRm.compareTo(a.value.oneRm));
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 7,
+          runSpacing: 7,
+          children: [
+            for (final item in const [('week', '周'), ('month', '月'), ('year', '年')])
+              ChoiceChip(
+                key: Key('statistics-period-${item.$1}'),
+                label: Text(item.$2),
+                selected: period == item.$1,
+                onSelected: (_) => onPeriodChanged(item.$1),
+              ),
+            ActionChip(
+              key: const Key('statistics-period-custom'),
+              avatar: const Icon(Icons.date_range_outlined, size: 17),
+              label: Text(period == 'custom' && customRange != null
+                  ? '${customRange!.start.month}/${customRange!.start.day}–${customRange!.end.month}/${customRange!.end.day}'
+                  : '自定义'),
+              onPressed: onCustomRange,
+            ),
+          ],
+        ),
+        const SizedBox(height: 18),
+        const Text('训练概况', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(child: _StatisticMetric(label: '训练天数', value: '$trainingDays', unit: '天')),
+            Expanded(child: _StatisticMetric(label: '有效组', value: '$sets', unit: '组')),
+            Expanded(child: _StatisticMetric(label: '训练容量', value: volume >= 1000 ? (volume / 1000).toStringAsFixed(1) : volume.toStringAsFixed(0), unit: volume >= 1000 ? '吨' : 'kg')),
+          ],
+        ),
+        const SizedBox(height: 16),
+        const Text('部位概览', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
+        const SizedBox(height: 8),
+        if (muscles.isEmpty)
+          const Text('该时段还没有可统计的训练组。', style: TextStyle(color: quiet))
+        else
+          for (final item in muscles.take(7))
+            Padding(
+              padding: const EdgeInsets.only(bottom: 9),
+              child: Row(
+                children: [
+                  SizedBox(width: 44, child: Text(item.key, style: const TextStyle(fontWeight: FontWeight.w800))),
+                  Expanded(
+                    child: LinearProgressIndicator(
+                      value: item.value / muscles.first.value,
+                      minHeight: 9,
+                      borderRadius: BorderRadius.circular(99),
+                      backgroundColor: primaryContainer,
+                    ),
+                  ),
+                  SizedBox(width: 48, child: Text('${item.value} 组', textAlign: TextAlign.right)),
+                ],
+              ),
+            ),
+        const SizedBox(height: 15),
+        const Text('运动时间与容量', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
+        const SizedBox(height: 8),
+        _StatisticsTrend(records: records),
+        const SizedBox(height: 8),
+        Text('总训练时间 ${(duration / 3600).toStringAsFixed(1)} 小时 · 平均每次 ${records.isEmpty ? 0 : (duration / records.length / 60).round()} 分钟', style: const TextStyle(color: secondaryInk)),
+        const SizedBox(height: 18),
+        const Text('最大重量与 PR', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
+        const SizedBox(height: 4),
+        if (exercises.isEmpty)
+          const Text('完成带重量的训练组后，这里会显示最大重量和 1RM 预测。', style: TextStyle(color: quiet))
+        else
+          for (final item in exercises.take(6))
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: _ExerciseThumb(exerciseId: item.key, size: 42),
+              title: Text(controller.displayExerciseName(findExercise(item.key))),
+              subtitle: Text('最大重量 ${item.value.maxWeight.toStringAsFixed(1)} kg'),
+              trailing: Text('1RM ${item.value.oneRm.toStringAsFixed(1)}', style: const TextStyle(fontWeight: FontWeight.w900)),
+            ),
+      ],
+    );
+  }
+}
+
+class _StatisticMetric extends StatelessWidget {
+  const _StatisticMetric({required this.label, required this.value, required this.unit});
+  final String label;
+  final String value;
+  final String unit;
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(right: 12),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(color: quiet, fontSize: 12)),
+        Text.rich(TextSpan(children: [
+          TextSpan(text: value, style: const TextStyle(fontSize: 27, fontWeight: FontWeight.w900, color: ink)),
+          TextSpan(text: ' $unit', style: const TextStyle(color: quiet)),
+        ])),
+      ],
+    ),
+  );
+}
+
+class _StatisticsTrend extends StatelessWidget {
+  const _StatisticsTrend({required this.records});
+  final List<WorkoutRecord> records;
+  @override
+  Widget build(BuildContext context) {
+    final values = records.reversed.map((record) => record.volume).toList();
+    return SizedBox(
+      key: const Key('statistics-volume-chart'),
+      height: 150,
+      width: double.infinity,
+      child: DecoratedBox(
+        decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: hairline))),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(4, 12, 4, 6),
+          child: values.isEmpty
+              ? const Center(child: Text('暂无趋势数据', style: TextStyle(color: quiet)))
+              : CustomPaint(painter: _ProgressTrendPainter(values), child: const SizedBox.expand()),
+        ),
+      ),
+    );
   }
 }
 
@@ -4609,7 +4847,7 @@ class RecognitionPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) => PageFrame(
     children: [
-      const SectionTitle('动作识别', subtitle: '上传视频并查看可解释报告'),
+      const SectionTitle('动作识别', subtitle: '上传训练视频，查看动作结果与建议'),
       Card(
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -4786,7 +5024,7 @@ class RecognitionPage extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            '返回骨骼标注视频',
+                            '生成分析视频',
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w800,
@@ -4899,7 +5137,7 @@ class RecognitionPage extends StatelessWidget {
               const SizedBox(width: 10),
               const Expanded(
                 child: Text(
-                  '仅在点击开始分析后上传视频，用于生成骨骼识别报告。',
+                  '视频只会在点击开始分析后上传，用于生成本次动作结果。',
                   style: TextStyle(fontSize: 12, color: secondaryInk),
                 ),
               ),
@@ -5317,19 +5555,19 @@ class _RecognitionStageChip extends StatelessWidget {
 }
 
 String _recognitionStageTitle(RecognitionStage stage) => switch (stage) {
-  RecognitionStage.preparing => '正在创建识别任务',
+  RecognitionStage.preparing => '正在准备分析',
   RecognitionStage.uploading => '正在上传视频',
-  RecognitionStage.queued => '视频已上传，等待服务器处理',
+  RecognitionStage.queued => '视频已上传，等待分析',
   RecognitionStage.analyzing => '正在分析动作轨迹',
   RecognitionStage.idle => '正在准备',
 };
 
 String _recognitionStageDetail(RecognitionStage stage) => switch (stage) {
-  RecognitionStage.preparing => '正在检查登录状态和识别额度。',
-  RecognitionStage.uploading => '请保持网络连接，上传完成后会自动进入处理队列。',
-  RecognitionStage.queued => 'CPU Worker 正在领取任务，请勿重复提交。',
-  RecognitionStage.analyzing => '正在逐帧提取骨骼关键点，短视频通常需要约 1 分钟。',
-  RecognitionStage.idle => '正在连接识别服务。',
+  RecognitionStage.preparing => '请稍候，马上开始。',
+  RecognitionStage.uploading => '请保持网络连接，上传完成后会自动继续。',
+  RecognitionStage.queued => '当前任务正在排队，请勿重复提交。',
+  RecognitionStage.analyzing => '短视频通常约需 1 分钟，请保持应用打开。',
+  RecognitionStage.idle => '正在连接，请稍候。',
 };
 
 IconData _recognitionStageIcon(RecognitionStage stage) => switch (stage) {
@@ -5706,7 +5944,7 @@ class _RecognitionResultPage extends StatelessWidget {
             children: [
               Text('动作分析报告'),
               Text(
-                '视频、骨骼标注与 AI 评价',
+                '动作结果、分析视频与训练建议',
                 style: TextStyle(color: quiet, fontSize: 11),
               ),
             ],
@@ -5776,28 +6014,25 @@ class _RecognitionReport extends StatelessWidget {
         Row(
           children: [
             Text(
-              result.status == RecognitionStatus.complete
+              result.status == RecognitionStatus.complete ||
+                      result.status == RecognitionStatus.lowConfidence
                   ? '分析完成'
-                  : result.status == RecognitionStatus.lowConfidence
-                  ? '低置信度'
                   : result.status == RecognitionStatus.offline
-                  ? '离线'
-                  : '识别错误',
+                  ? '暂时无法分析'
+                  : '分析未完成',
               style: const TextStyle(fontWeight: FontWeight.w800),
             ),
             const Spacer(),
-            if (result.confidence > 0)
-              Text(
-                '${(result.confidence * 100).round()}%',
-                style: const TextStyle(
-                  color: cobalt,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
           ],
         ),
         const SizedBox(height: 8),
-        Text(result.summary, style: const TextStyle(fontSize: 13)),
+        Text(
+          result.status == RecognitionStatus.complete ||
+                  result.status == RecognitionStatus.lowConfidence
+              ? '动作结果已经生成，可继续查看次数、分析视频和训练建议。'
+              : result.summary,
+          style: const TextStyle(fontSize: 13),
+        ),
         if (result.repetitions > 0)
           Padding(
             padding: const EdgeInsets.only(top: 6),
@@ -5809,7 +6044,7 @@ class _RecognitionReport extends StatelessWidget {
         if (result.overlayUrl != null) ...[
           const SizedBox(height: 14),
           const Text(
-            '骨骼标注视频',
+            '动作分析视频',
             style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
           ),
           const SizedBox(height: 7),
@@ -5828,12 +6063,6 @@ class _RecognitionReport extends StatelessWidget {
                 _RecognitionMetricChip(
                   icon: Icons.timer_outlined,
                   label: '${result.metrics['durationSeconds']} 秒',
-                ),
-              if (result.metrics['detectionRate'] is num)
-                _RecognitionMetricChip(
-                  icon: Icons.accessibility_new_rounded,
-                  label:
-                      '骨骼捕获 ${((result.metrics['detectionRate'] as num) * 100).round()}%',
                 ),
               if (result.repetitions > 0)
                 _RecognitionMetricChip(
@@ -5923,8 +6152,8 @@ class _RecognitionAiReviewCard extends StatelessWidget {
           if (review == null)
             Text(
               result.aiReviewError == 'deepseek_not_configured'
-                  ? 'AI 服务尚未配置，本次骨骼识别数据已保留。'
-                  : 'AI 评价暂时不可用，骨骼识别结果不受影响。',
+                  ? '补充建议暂时不可用，本次动作结果已保留。'
+                  : '补充建议暂时不可用，已完成的动作结果仍可查看。',
               style: const TextStyle(color: secondaryInk),
             )
           else ...[
@@ -5955,13 +6184,6 @@ class _RecognitionAiReviewCard extends StatelessWidget {
               Text(
                 '下一组建议：${review.nextSet}',
                 style: const TextStyle(height: 1.45),
-              ),
-            ],
-            if (review.basis.trim().isNotEmpty) ...[
-              const SizedBox(height: 7),
-              Text(
-                '判断依据：${review.basis}',
-                style: const TextStyle(color: quiet, fontSize: 11),
               ),
             ],
           ],
@@ -6144,7 +6366,7 @@ class _NetworkRecognitionVideoState extends State<_NetworkRecognitionVideo> {
                   child: Padding(
                     padding: EdgeInsets.symmetric(horizontal: 8, vertical: 5),
                     child: Text(
-                      '骨骼标注结果 · 点击播放',
+                      '动作分析视频 · 点击播放',
                       style: TextStyle(color: Colors.white, fontSize: 10),
                     ),
                   ),
@@ -6162,19 +6384,19 @@ String _recognitionLabel(RecognitionStatus status) => switch (status) {
   RecognitionStatus.idle => '选择一个视频开始',
   RecognitionStatus.ready => '视频已就绪',
   RecognitionStatus.processing => '正在分析动作轨迹',
-  RecognitionStatus.complete => '分析完成 · 置信度良好',
-  RecognitionStatus.lowConfidence => '分析完成 · 置信度较低',
+  RecognitionStatus.complete => '分析完成',
+  RecognitionStatus.lowConfidence => '分析完成',
   RecognitionStatus.offline => '离线 · 已保留本地任务',
   RecognitionStatus.error => '识别失败 · 可以重试',
 };
 String _recognitionDetail(AppController controller) =>
     controller.recognitionStatus == RecognitionStatus.idle
-    ? '选择动作、机位和本地视频后开始请求识别服务。'
+    ? '选择动作、拍摄角度和本地视频后即可开始分析。'
     : controller.recognitionStatus == RecognitionStatus.processing
-    ? '逐帧提取姿态关键点，请保持应用打开。'
+    ? '正在处理视频，请保持应用打开。'
     : controller.recognitionResult?.error == 'service_not_configured'
-    ? '识别服务未配置，请在设置中配置服务后重试。'
-    : '识别服务已返回状态，可在报告中查看结果。';
+    ? '动作分析暂时不可用，请稍后重试。'
+    : '结果已生成，可打开报告查看。';
 String _formatBytes(int? bytes) {
   if (bytes == null || bytes <= 0) return '大小未知';
   if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(0)} KB';
@@ -6223,12 +6445,14 @@ class _AiPageState extends State<AiPage> {
   }
 
   void _sendMessage() {
-    final text = input.text;
+    final contexts = selectedContexts.toList(growable: false);
+    final text = input.text.trim().isEmpty && contexts.isNotEmpty
+        ? '请分析我选择的训练记录，指出完成情况，并给出下一次训练的具体建议。'
+        : input.text;
     if (text.trim().isEmpty) return;
     input.clear();
     FocusManager.instance.primaryFocus?.unfocus();
     followLatest = true;
-    final contexts = selectedContexts.toList(growable: false);
     setState(selectedContexts.clear);
     controller.sendChat(text, contexts: contexts);
     _scrollToLatest();
@@ -6296,6 +6520,12 @@ class _AiPageState extends State<AiPage> {
                           ),
                         ),
                       ),
+                      IconButton(
+                        key: const Key('ai-settings-button'),
+                        tooltip: 'AI 设置',
+                        onPressed: () => _openAiSettingsPage(context, controller),
+                        icon: const Icon(Icons.settings_outlined),
+                      ),
                     ],
                   ),
                 ),
@@ -6329,24 +6559,56 @@ class _AiPageState extends State<AiPage> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      if (controller.aiSkills.isNotEmpty)
+                        _AiSkillQuickBar(controller: controller),
+                      if (controller.aiSkills.isNotEmpty)
+                        const SizedBox(height: 5),
                       if (selectedContexts.isNotEmpty)
-                        SizedBox(
-                          height: 34,
-                          child: ListView.separated(
-                            scrollDirection: Axis.horizontal,
-                            itemCount: selectedContexts.length,
-                            separatorBuilder: (_, _) =>
-                                const SizedBox(width: 6),
-                            itemBuilder: (context, index) {
-                              final item = selectedContexts.elementAt(index);
-                              return InputChip(
-                                label: Text(item.label),
-                                onDeleted: () => setState(
-                                  () => selectedContexts.remove(item),
+                        Container(
+                          key: const Key('ai-selected-contexts'),
+                          constraints: const BoxConstraints(maxHeight: 178),
+                          padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
+                          decoration: BoxDecoration(
+                            color: emberTint.withValues(alpha: .55),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: primary.withValues(alpha: .18)),
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Flexible(
+                                child: ListView.separated(
+                                  shrinkWrap: true,
+                                  itemCount: selectedContexts.length,
+                                  separatorBuilder: (_, _) => const Divider(height: 10),
+                                  itemBuilder: (context, index) {
+                                    final item = selectedContexts.elementAt(index);
+                                    return _AiContextSummary(
+                                      controller: controller,
+                                      context: item,
+                                      compact: true,
+                                      trailing: IconButton(
+                                        visualDensity: VisualDensity.compact,
+                                        tooltip: '移除',
+                                        onPressed: () => setState(
+                                          () => selectedContexts.remove(item),
+                                        ),
+                                        icon: const Icon(Icons.close, size: 19),
+                                      ),
+                                    );
+                                  },
                                 ),
-                                visualDensity: VisualDensity.compact,
-                              );
-                            },
+                              ),
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: TextButton.icon(
+                                  key: const Key('ai-send-context-only'),
+                                  onPressed: controller.aiTyping ? null : _sendMessage,
+                                  icon: const Icon(Icons.arrow_upward_rounded, size: 18),
+                                  label: const Text('直接发送给 AI'),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       if (selectedContexts.isNotEmpty)
@@ -6402,6 +6664,83 @@ class _AiPageState extends State<AiPage> {
   }
 }
 
+class _AiSkillQuickBar extends StatelessWidget {
+  const _AiSkillQuickBar({required this.controller});
+  final AppController controller;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    height: 34,
+    child: ListView(
+      scrollDirection: Axis.horizontal,
+      children: [
+        ActionChip(
+          key: const Key('ai-skill-quick-settings'),
+          avatar: const Icon(Icons.auto_awesome_outlined, size: 17),
+          label: Text('Skill ${controller.enabledAiSkills.length}/3'),
+          onPressed: () => _showAiSkillToggleSheet(context, controller),
+        ),
+        const SizedBox(width: 6),
+        for (final skill in controller.enabledAiSkills) ...[
+          InputChip(
+            key: Key('ai-skill-active-${skill.id}'),
+            label: Text(skill.name),
+            selected: true,
+            onDeleted: () => controller.setAiSkillEnabled(skill.id, false),
+          ),
+          const SizedBox(width: 6),
+        ],
+      ],
+    ),
+  );
+}
+
+Future<void> _showAiSkillToggleSheet(
+  BuildContext context,
+  AppController controller,
+) => showModalBottomSheet<void>(
+  context: context,
+  useSafeArea: true,
+  builder: (context) => Padding(
+    padding: const EdgeInsets.fromLTRB(16, 16, 16, 22),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Expanded(
+              child: Text('本次对话 Skill', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _openAiSettingsPage(context, controller);
+              },
+              child: const Text('管理'),
+            ),
+          ],
+        ),
+        const Text('最多同时启用 3 个，开关会立即作用于下一条消息。', style: TextStyle(color: quiet)),
+        const SizedBox(height: 8),
+        for (final skill in controller.aiSkills)
+          SwitchListTile(
+            key: Key('ai-skill-toggle-${skill.id}'),
+            contentPadding: EdgeInsets.zero,
+            title: Text(skill.name, style: const TextStyle(fontWeight: FontWeight.w800)),
+            subtitle: Text(skill.instructions, maxLines: 2, overflow: TextOverflow.ellipsis),
+            value: skill.enabled,
+            onChanged: (value) {
+              if (!controller.setAiSkillEnabled(skill.id, value)) {
+                showKiloSnack(context, '最多同时启用 3 个 Skill');
+              }
+            },
+          ),
+      ],
+    ),
+  ),
+);
+
 class _AiContextPicker extends StatefulWidget {
   const _AiContextPicker({required this.controller, required this.initial});
   final AppController controller;
@@ -6413,22 +6752,6 @@ class _AiContextPicker extends StatefulWidget {
 
 class _AiContextPickerState extends State<_AiContextPicker> {
   late final Set<AiContextSelection> selected = {...widget.initial};
-
-  IconData _icon(AiContextType type) => switch (type) {
-    AiContextType.activeWorkout => Icons.fitness_center,
-    AiContextType.workoutRecord => Icons.history,
-    AiContextType.routine => Icons.menu_book_outlined,
-    AiContextType.week => Icons.view_week_outlined,
-    AiContextType.month => Icons.calendar_month_outlined,
-  };
-
-  String _subtitle(AiContextType type) => switch (type) {
-    AiContextType.activeWorkout => '动作、完成组、重量与当前备注',
-    AiContextType.workoutRecord => '一次已完成训练的完整明细',
-    AiContextType.routine => '计划动作、目标重量、次数与休息',
-    AiContextType.week => '本周频率、容量、肌群和备注',
-    AiContextType.month => '本月趋势、PR、容量和完成情况',
-  };
 
   @override
   Widget build(BuildContext context) {
@@ -6482,30 +6805,45 @@ class _AiContextPickerState extends State<_AiContextPicker> {
                     itemBuilder: (context, index) {
                       final item = contexts[index];
                       final checked = selected.contains(item);
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 7),
-                        child: CheckboxListTile(
-                          value: checked,
-                          onChanged: (value) => setState(() {
-                            if (value == true) {
-                              selected.add(item);
-                            } else {
-                              selected.remove(item);
-                            }
-                          }),
-                          secondary: CircleAvatar(
-                            backgroundColor: emberTint,
-                            foregroundColor: primary,
-                            child: Icon(_icon(item.type), size: 20),
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 9),
+                        child: Material(
+                          color: checked ? emberTint : Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(17),
+                            side: BorderSide(
+                              color: checked ? primary : hairline,
+                              width: checked ? 1.6 : 1,
+                            ),
                           ),
-                          title: Text(
-                            item.label,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontWeight: FontWeight.w800),
+                          child: InkWell(
+                            key: Key('ai-context-${item.type.name}-${item.id}'),
+                            borderRadius: BorderRadius.circular(17),
+                            onTap: () => setState(() {
+                              if (checked) {
+                                selected.remove(item);
+                              } else {
+                                selected.add(item);
+                              }
+                            }),
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(14, 13, 10, 13),
+                              child: _AiContextSummary(
+                                controller: widget.controller,
+                                context: item,
+                                trailing: AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 160),
+                                  child: Icon(
+                                    checked
+                                        ? Icons.check_circle_rounded
+                                        : Icons.circle_outlined,
+                                    key: ValueKey(checked),
+                                    color: checked ? primary : quiet,
+                                  ),
+                                ),
+                              ),
+                            ),
                           ),
-                          subtitle: Text(_subtitle(item.type)),
-                          controlAffinity: ListTileControlAffinity.trailing,
                         ),
                       );
                     },
@@ -6735,6 +7073,255 @@ void _showAiSettings(BuildContext context, AppController controller) {
       ),
     ),
   );
+}
+
+class _AiContextSummary extends StatelessWidget {
+  const _AiContextSummary({
+    required this.controller,
+    required this.context,
+    this.trailing,
+    this.compact = false,
+  });
+
+  final AppController controller;
+  final AiContextSelection context;
+  final Widget? trailing;
+  final bool compact;
+
+  IconData get icon => switch (context.type) {
+    AiContextType.activeWorkout => Icons.fitness_center_rounded,
+    AiContextType.workoutRecord => Icons.history_rounded,
+    AiContextType.routine => Icons.menu_book_outlined,
+    AiContextType.week => Icons.view_week_outlined,
+    AiContextType.month => Icons.calendar_month_outlined,
+  };
+
+  String get detail {
+    final record = controller.workoutRecordForAiContext(context);
+    if (record != null) {
+      final exerciseNames = record.exerciseIds
+          .take(2)
+          .map((id) => controller.displayExerciseName(findExercise(id)))
+          .join('、');
+      final metrics = '${record.durationSeconds ~/ 60} 分钟 · '
+          '${record.effectiveSets} 组 · ${record.volume.toStringAsFixed(0)} kg';
+      return exerciseNames.isEmpty ? metrics : '$metrics\n$exerciseNames';
+    }
+    final routine = controller.routineForAiContext(context);
+    if (routine != null) {
+      final sets = routine.exercises.fold<int>(0, (sum, item) => sum + item.sets.length);
+      return '${routine.exercises.length} 个动作 · $sets 组';
+    }
+    return switch (context.type) {
+      AiContextType.activeWorkout =>
+        '${controller.workout.length} 个动作 · ${controller.completedSets}/${controller.totalSets} 组已完成',
+      AiContextType.week => '训练频率、时长、容量与完成组数',
+      AiContextType.month => '本月训练趋势、容量与个人纪录',
+      _ => '',
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) => Row(
+    crossAxisAlignment: CrossAxisAlignment.center,
+    children: [
+      Container(
+        width: compact ? 34 : 42,
+        height: compact ? 34 : 42,
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: .8),
+          borderRadius: BorderRadius.circular(compact ? 10 : 13),
+        ),
+        child: Icon(icon, color: primary, size: compact ? 18 : 21),
+      ),
+      const SizedBox(width: 11),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              context.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontWeight: FontWeight.w900,
+                fontSize: compact ? 14 : 16,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              detail,
+              maxLines: compact ? 1 : 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: secondaryInk, fontSize: 12, height: 1.35),
+            ),
+          ],
+        ),
+      ),
+      if (trailing != null) ...[const SizedBox(width: 8), trailing!],
+    ],
+  );
+}
+
+void _openAiSettingsPage(BuildContext context, AppController controller) {
+  Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) => _AiSettingsPage(controller: controller),
+    ),
+  );
+}
+
+class _AiSettingsPage extends StatelessWidget {
+  const _AiSettingsPage({required this.controller});
+  final AppController controller;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('AI 设置')),
+    body: AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) => ListView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('自定义 Skill', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+                    Text('设定 AI 的回答方法、关注点或输出格式。', style: TextStyle(color: quiet)),
+                  ],
+                ),
+              ),
+              FilledButton.icon(
+                key: const Key('ai-skill-add'),
+                onPressed: controller.aiSkills.length >= 3
+                    ? null
+                    : () => _editAiSkill(context, controller),
+                icon: const Icon(Icons.add),
+                label: const Text('新增'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (controller.aiSkills.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: Text('还没有 Skill。新增后可在聊天输入框上方快速启用。', style: TextStyle(color: quiet)),
+            )
+          else
+            for (final skill in controller.aiSkills)
+              ListTile(
+                key: Key('ai-skill-item-${skill.id}'),
+                contentPadding: EdgeInsets.zero,
+                leading: CircleAvatar(
+                  backgroundColor: skill.enabled ? primaryContainer : paper,
+                  foregroundColor: skill.enabled ? primary : quiet,
+                  child: const Icon(Icons.auto_awesome_outlined),
+                ),
+                title: Text(skill.name, style: const TextStyle(fontWeight: FontWeight.w800)),
+                subtitle: Text(skill.instructions, maxLines: 2, overflow: TextOverflow.ellipsis),
+                trailing: PopupMenuButton<String>(
+                  onSelected: (action) async {
+                    if (action == 'edit') {
+                      _editAiSkill(context, controller, skill: skill);
+                    } else if (action == 'delete') {
+                      final confirmed = await showDialog<bool>(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('删除 Skill？'),
+                          content: Text('“${skill.name}”将被永久删除${skill.enabled ? '，并立即停止使用' : ''}。'),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('取消')),
+                            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('删除')),
+                          ],
+                        ),
+                      );
+                      if (confirmed == true) controller.deleteAiSkill(skill.id);
+                    }
+                  },
+                  itemBuilder: (_) => const [
+                    PopupMenuItem(value: 'edit', child: Text('修改')),
+                    PopupMenuItem(value: 'delete', child: Text('删除')),
+                  ],
+                ),
+                onTap: () {
+                  if (!controller.setAiSkillEnabled(skill.id, !skill.enabled)) {
+                    showKiloSnack(context, '最多同时启用 3 个 Skill');
+                  }
+                },
+              ),
+          const Divider(height: 30),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.cloud_outlined),
+            title: const Text('服务与训练授权'),
+            subtitle: const Text('服务地址、训练摘要授权'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => _showAiSettings(context, controller),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+Future<void> _editAiSkill(
+  BuildContext context,
+  AppController controller, {
+  AiSkill? skill,
+}) async {
+  final name = TextEditingController(text: skill?.name ?? '');
+  final instructions = TextEditingController(text: skill?.instructions ?? '');
+  await showDialog<void>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(skill == null ? '新增 Skill' : '修改 Skill'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              key: const Key('ai-skill-name'),
+              controller: name,
+              maxLength: 30,
+              decoration: const InputDecoration(labelText: '名称', hintText: '例如：力量训练教练'),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              key: const Key('ai-skill-instructions'),
+              controller: instructions,
+              minLines: 5,
+              maxLines: 8,
+              maxLength: 1000,
+              decoration: const InputDecoration(
+                labelText: 'Skill 指令',
+                hintText: '说明回答时应关注什么、采用什么方法，以及希望的输出格式。',
+                alignLabelWithHint: true,
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
+        FilledButton(
+          key: const Key('ai-skill-save'),
+          onPressed: () {
+            if (!controller.saveAiSkill(id: skill?.id, name: name.text, instructions: instructions.text)) {
+              showKiloSnack(context, '请填写 Skill 名称和指令');
+              return;
+            }
+            Navigator.pop(context);
+          },
+          child: const Text('保存'),
+        ),
+      ],
+    ),
+  );
+  name.dispose();
+  instructions.dispose();
 }
 
 class _ChatBubble extends StatelessWidget {

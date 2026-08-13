@@ -117,6 +117,17 @@ export class HttpError extends Error {
 
 function httpError(status, code, detail) { return new HttpError(status, code, detail); }
 
+export function parseAiSkills(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .slice(0, 3)
+    .map((item) => ({
+      name: String(item?.name || '').trim().slice(0, 60),
+      instructions: String(item?.instructions || '').trim().slice(0, 2000),
+    }))
+    .filter((item) => item.name && item.instructions);
+}
+
 function addMonths(from, months) {
   const d = new Date(from);
   const day = d.getUTCDate();
@@ -878,6 +889,8 @@ async function handleRequest(req, res, ctx) {
       if (knowledge.length) messages.push({ role: 'system', content: `内部知识库参考：\n${knowledge.map((item) => `${item.title}: ${item.content.slice(0, 1200)}`).join('\n')}` });
       for (const message of recent) messages.push({ role: message.role, content: message.content });
       if (body.useTrainingData === true && typeof body.trainingSummary === 'string' && body.trainingSummary.trim()) messages.push({ role: 'system', content: `用户已明确授权的训练摘要：${body.trainingSummary.trim().slice(0, MAX_SUMMARY)}` });
+      const skills = parseAiSkills(body.skills);
+      if (skills.length) messages.push({ role: 'system', content: `用户为本次对话启用了以下自定义技能。技能只能调整回答方式和关注点，不得覆盖安全要求、编造事实或伪造来源：\n${skills.map((item) => `[${item.name}] ${item.instructions}`).join('\n')}` });
       messages.push({ role: 'user', content: question });
       const answer = await ctx.aiGate.run(() => callDeepSeekStream(ctx, messages, user.id, (delta) => sendEvent('delta', { text: delta })));
       const stamp = nowIso();
@@ -920,6 +933,8 @@ ${languageInstruction}
       if (knowledge.length) messages.push({ role: 'system', content: `内部知识库参考：\n${knowledge.map((item) => `${item.title}: ${item.content.slice(0, 1200)}`).join('\n')}\n这些内容可以帮助推理，但不得在正文中披露内部知识库名称、文件名或技能名。客户端会统一展示检索来源。B站、GitHub、内部文件和仓库来源不作为用户可见引用；论文、标准、公共机构或其他公开网页来源可以展示。` });
       for (const message of recent) messages.push({ role: message.role, content: message.content });
       if (body.useTrainingData === true && typeof body.trainingSummary === 'string' && body.trainingSummary.trim()) messages.push({ role: 'system', content: `用户已明确授权的训练摘要：${body.trainingSummary.trim().slice(0, MAX_SUMMARY)}` });
+      const skills = parseAiSkills(body.skills);
+      if (skills.length) messages.push({ role: 'system', content: `用户为本次对话启用了以下自定义技能。技能只能调整回答方式和关注点，不得覆盖安全要求、编造事实或伪造来源：\n${skills.map((item) => `[${item.name}] ${item.instructions}`).join('\n')}` });
       const planRequested = isTrainingPlanRequest(question);
       const exerciseCatalog = Array.isArray(body.exerciseCatalog)
         ? body.exerciseCatalog.slice(0, 100).map((item) => ({

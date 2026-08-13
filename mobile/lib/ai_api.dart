@@ -33,6 +33,7 @@ abstract interface class StreamingCoachApi {
     String locale = 'zh-CN',
     String? trainingSummary,
     List<Map<String, String>> exerciseCatalog = const [],
+    List<Map<String, String>> skills = const [],
   });
 }
 
@@ -46,6 +47,7 @@ abstract interface class CoachApi {
     String locale = 'zh-CN',
     String? trainingSummary,
     List<Map<String, String>> exerciseCatalog = const [],
+    List<Map<String, String>> skills = const [],
   });
 }
 
@@ -99,6 +101,7 @@ class HttpCoachApi implements CoachApi, StreamingCoachApi {
     String locale = 'zh-CN',
     String? trainingSummary,
     List<Map<String, String>> exerciseCatalog = const [],
+    List<Map<String, String>> skills = const [],
   }) {
     final controller = StreamController<CoachStreamEvent>();
     final client = http.Client();
@@ -128,6 +131,7 @@ class HttpCoachApi implements CoachApi, StreamingCoachApi {
                   'trainingSummary': trainingSummary!.trim(),
                 if (exerciseCatalog.isNotEmpty)
                   'exerciseCatalog': exerciseCatalog,
+                if (skills.isNotEmpty) 'skills': skills,
               });
         final response = await client.send(request).timeout(requestTimeout);
         if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -186,6 +190,7 @@ class HttpCoachApi implements CoachApi, StreamingCoachApi {
     String locale = 'zh-CN',
     String? trainingSummary,
     List<Map<String, String>> exerciseCatalog = const [],
+    List<Map<String, String>> skills = const [],
   }) async {
     final uri = Uri.parse(
       '${baseUrl.replaceAll(RegExp(r'/+$'), '')}/v1/coach/answer',
@@ -212,6 +217,7 @@ class HttpCoachApi implements CoachApi, StreamingCoachApi {
                 'trainingSummary': trainingSummary!.trim(),
               if (exerciseCatalog.isNotEmpty)
                 'exerciseCatalog': exerciseCatalog,
+              if (skills.isNotEmpty) 'skills': skills,
             }),
           )
           .timeout(requestTimeout);
@@ -320,5 +326,6 @@ class UnconfiguredCoachApi implements CoachApi {
     String locale = 'zh-CN',
     String? trainingSummary,
     List<Map<String, String>> exerciseCatalog = const [],
+    List<Map<String, String>> skills = const [],
   }) async => const CoachAnswer(body: 'AI 服务未配置，请在设置中配置 Coach 服务后重试。');
 }

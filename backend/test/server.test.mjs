@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { isAcademicKnowledgeSource, startServer } from '../src/server.mjs';
+import { isAcademicKnowledgeSource, parseAiSkills, startServer } from '../src/server.mjs';
 import { assertProductionConfiguration } from '../src/config.mjs';
 import { loadConfig } from '../src/config.mjs';
 
@@ -46,6 +46,18 @@ test('visible citations exclude internal, GitHub and Bilibili sources only', () 
   assert.equal(isAcademicKnowledgeSource({ source: 'https://pubmed.ncbi.nlm.nih.gov/12345/', tags_json: '[]' }), true);
   assert.equal(isAcademicKnowledgeSource({ source: 'https://www.who.int/news-room/fact-sheets/detail/physical-activity', tags_json: '[]' }), true);
   assert.equal(isAcademicKnowledgeSource({ source: 'internal', tags_json: '["论文"]' }), false);
+});
+
+test('custom AI skills are trimmed, validated and capped at three', () => {
+  const result = parseAiSkills([
+    { name: ' Skill 1 ', instructions: ' Rule 1 ' },
+    { name: 'Skill 2', instructions: 'Rule 2' },
+    { name: 'Skill 3', instructions: 'Rule 3' },
+    { name: 'Skill 4', instructions: 'Rule 4' },
+  ]);
+  assert.equal(result.length, 3);
+  assert.deepEqual(result[0], { name: 'Skill 1', instructions: 'Rule 1' });
+  assert.deepEqual(parseAiSkills([{ name: '', instructions: 'x' }]), []);
 });
 
 test('expanded knowledge retrieval reaches public evidence behind repository notes', async () => {
