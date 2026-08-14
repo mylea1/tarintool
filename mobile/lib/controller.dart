@@ -1043,10 +1043,33 @@ class AppController extends ChangeNotifier {
         }
       }
     }
+
+    if (workout.isEmpty) return;
+    final exercise = workout.reversed.firstWhere(
+      (item) => item.sets.any((set) => set.completed),
+      orElse: () => workout.first,
+    );
+    final previous = exercise.sets.reversed
+        .where((set) => set.completed)
+        .firstOrNull;
+    final extraSet = WorkoutSet(
+      id: 'set-${exercise.id}-${exercise.sets.length}-${DateTime.now().microsecondsSinceEpoch}',
+      type: previous?.type ?? 'work',
+      weight: previous?.weight ?? 0,
+      plannedWeight: null,
+      reps: previous?.reps ?? 0,
+      targetMin: previous?.targetMin ?? 0,
+      targetMax: previous?.targetMax ?? 0,
+      restSeconds: previous?.restSeconds ?? exercise.restSeconds,
+    );
+    exercise.sets.add(extraSet);
+    completeSet(extraSet, exercise);
   }
 
   void syncCompletedSetsFromSystem(int target) {
-    final safeTarget = target.clamp(0, totalSets);
+    // A lock-screen completion may intentionally exceed the originally
+    // planned set count. Cap only pathological input, not the current plan.
+    final safeTarget = target.clamp(0, completedSets + 20);
     while (completedSets < safeTarget) {
       final before = completedSets;
       completeNextSetFromSystem();
@@ -1482,17 +1505,22 @@ class AppController extends ChangeNotifier {
 
   void addExercise(String id) {
     if (workout.any((item) => item.exerciseId == id)) return;
+    final inheritedRestSeconds = _restSecondsForNewExercise();
     final item = freeWorkout
         ? WorkoutExercise(
             id: 'we-${DateTime.now().microsecondsSinceEpoch}',
             exerciseId: id,
             sets: <WorkoutSet>[],
-            restSeconds: defaultRestSeconds,
+            restSeconds: inheritedRestSeconds,
           )
         : createBlankWorkoutExercise(
             id,
             'we-${DateTime.now().microsecondsSinceEpoch}',
           );
+    item.restSeconds = inheritedRestSeconds;
+    for (final set in item.sets) {
+      set.restSeconds = inheritedRestSeconds;
+    }
     workout.add(item);
     workoutDraft = true;
     _syncPlatformWorkoutState(item);
@@ -1950,15 +1978,20 @@ class AppController extends ChangeNotifier {
     WorkoutExercise? latest;
     for (final id in ids) {
       if (workout.any((item) => item.exerciseId == id)) continue;
+      final inheritedRestSeconds = _restSecondsForNewExercise();
       final stamp = DateTime.now().microsecondsSinceEpoch;
       latest = freeWorkout
           ? WorkoutExercise(
               id: 'we-$stamp-$id',
               exerciseId: id,
               sets: <WorkoutSet>[],
-              restSeconds: defaultRestSeconds,
+              restSeconds: inheritedRestSeconds,
             )
           : createBlankWorkoutExercise(id, 'we-$stamp-$id');
+      latest.restSeconds = inheritedRestSeconds;
+      for (final set in latest.sets) {
+        set.restSeconds = inheritedRestSeconds;
+      }
       workout.add(latest);
     }
     workoutDraft = true;
@@ -1966,6 +1999,9 @@ class AppController extends ChangeNotifier {
     persistActiveWorkout();
     notifyListeners();
   }
+
+  int _restSecondsForNewExercise() =>
+      workout.isEmpty ? defaultRestSeconds : workout.first.restSeconds;
 
   void resetRecognition() {
     _recognitionReservation?.rollback();

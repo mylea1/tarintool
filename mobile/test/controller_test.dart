@@ -473,11 +473,10 @@ void main() {
         controller.addExercise('squat');
         final secondExercise = controller.workout.last;
         controller.addSet(secondExercise);
-        expect(secondExercise.restSeconds, controller.defaultRestSeconds);
-        expect(
-          secondExercise.sets.single.restSeconds,
-          controller.defaultRestSeconds,
-        );
+        // The first exercise was explicitly changed to no rest above, so a
+        // newly added exercise inherits that workout-specific choice.
+        expect(secondExercise.restSeconds, 0);
+        expect(secondExercise.sets.single.restSeconds, 0);
         controller.updateExerciseRest(secondExercise, 75);
         controller.completeSet(secondExercise.sets.single, secondExercise);
         await Future<void>.delayed(Duration.zero);
@@ -492,6 +491,55 @@ void main() {
       }
     },
   );
+
+  test('new exercises inherit the first exercise rest duration', () {
+    final controller = AppController();
+    try {
+      controller.startWorkout(name: '继承休息时间');
+      controller.addExercise('bench_press');
+      final first = controller.workout.first;
+      controller.updateExerciseRest(first, 95);
+
+      controller.addExercise('squat');
+      controller.addExercises(const ['deadlift', 'shoulder_press']);
+
+      expect(controller.workout, hasLength(4));
+      for (final exercise in controller.workout.skip(1)) {
+        expect(exercise.restSeconds, 95);
+        expect(exercise.sets.every((set) => set.restSeconds == 95), isTrue);
+      }
+    } finally {
+      controller.dispose();
+    }
+  });
+
+  test('lock-screen completion appends and completes an extra set', () {
+    final controller = AppController();
+    try {
+      controller.startWorkout(name: '锁屏加组');
+      controller.addExercise('bench_press');
+      final exercise = controller.workout.single;
+      controller.addSet(exercise);
+      final first = exercise.sets.single
+        ..weight = 72.5
+        ..reps = 9;
+      controller.completeSet(first, exercise);
+      controller.skipRest();
+
+      controller.syncCompletedSetsFromSystem(2);
+
+      expect(exercise.sets, hasLength(2));
+      final extra = exercise.sets.last;
+      expect(extra.completed, isTrue);
+      expect(extra.weight, 72.5);
+      expect(extra.reps, 9);
+      expect(extra.plannedWeight, isNull);
+      expect(controller.completedSets, 2);
+      expect(controller.totalSets, 2);
+    } finally {
+      controller.dispose();
+    }
+  });
 
   test('active rest edit becomes the default for all upcoming sets', () {
     final controller = AppController();

@@ -83,7 +83,9 @@ class WorkoutTimerService : Service() {
 
         if (action == ACTION_COMPLETE_SET) {
             completedSets += 1
-            if (totalSets > 0) completedSets = completedSets.coerceAtMost(totalSets)
+            // Completing from the lock screen can be an extra, unplanned set.
+            // Keep the native summary aligned until Flutter appends the set.
+            totalSets = maxOf(totalSets, completedSets)
             preferences.edit().putBoolean(KEY_PENDING_SET_COMPLETION, true).apply()
             persistState()
             sendBroadcast(Intent(ACTION_SET_COMPLETED).setPackage(packageName).putExtra(EXTRA_COMPLETED_SETS, completedSets))

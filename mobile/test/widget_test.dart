@@ -903,14 +903,21 @@ void main() {
         const Color(0xFFE6F5EC),
       );
 
-      await tester.enterText(
-        find.byKey(Key('weight-${set.id}-${set.weight}')),
-        '82.5',
+      final weightField = find.byKey(Key('weight-${set.id}'));
+      await tester.tap(weightField);
+      tester.testTextInput.updateEditingValue(
+        const TextEditingValue(
+          text: '8',
+          selection: TextSelection.collapsed(offset: 1),
+        ),
       );
-      await tester.enterText(
-        find.byKey(Key('reps-${set.id}-${set.reps}')),
-        '7',
-      );
+      await tester.pump();
+      controller.refresh();
+      await tester.pump();
+      expect(tester.testTextInput.isVisible, isTrue);
+      expect(find.byKey(Key('weight-${set.id}')), findsOneWidget);
+      await tester.enterText(weightField, '82.5');
+      await tester.enterText(find.byKey(Key('reps-${set.id}')), '7');
       await tester.pump();
       expect(set.completed, isTrue);
       expect(set.weight, 82.5);

@@ -3112,7 +3112,10 @@ class _SetRow extends StatelessWidget {
                 SizedBox(
                   width: columns.weight,
                   child: TextFormField(
-                    key: ValueKey('weight-${set.id}-${set.weight}'),
+                    // Keep the element identity stable while the user types.
+                    // Including the mutable value in the key recreated this
+                    // field after every character and dismissed the keyboard.
+                    key: ValueKey('weight-${set.id}'),
                     initialValue: _editableWeight(set.weight),
                     enabled: true,
                     keyboardType: const TextInputType.numberWithOptions(
@@ -3139,7 +3142,7 @@ class _SetRow extends StatelessWidget {
                 SizedBox(
                   width: columns.reps,
                   child: TextFormField(
-                    key: ValueKey('reps-${set.id}-${set.reps}'),
+                    key: ValueKey('reps-${set.id}'),
                     initialValue: _editableCount(set.reps),
                     enabled: true,
                     keyboardType: TextInputType.number,

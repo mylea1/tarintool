@@ -42,8 +42,9 @@ struct KiloCompleteSetIntent: LiveActivityIntent {
             return .result()
         }
         var state = activity.content.state
-        state.completedSets = min(state.totalSets, state.completedSets + 1)
-        state.phaseLabel = state.completedSets >= state.totalSets ? "全部组已完成" : "本组已完成"
+        state.completedSets += 1
+        state.totalSets = max(state.totalSets, state.completedSets)
+        state.phaseLabel = "本组已完成"
         await activity.update(ActivityContent(state: state, staleDate: nil))
         return .result()
     }
