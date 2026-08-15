@@ -9,6 +9,11 @@ Keep `api.kilostrength.cn` as the production endpoint after ICP filing. A
 Cloudflare quick-tunnel URL can change when the tunnel is recreated, so update
 the `KILO_API_BASE_URL` Dart define before rebuilding if that happens.
 
+The mobile default and the current Codemagic TestFlight workflow intentionally
+use this quick-tunnel URL during pre-ICP testing. After the filed domain passes
+`curl https://api.kilostrength.cn/health`, change both build entries back to
+the production domain. Quick-tunnel URLs are not a permanent production SLA.
+
 This checklist deploys the API gateway and DeepSeek-backed coach on the
 existing Alibaba Cloud ECS. GPU action recognition remains a separate worker.
 

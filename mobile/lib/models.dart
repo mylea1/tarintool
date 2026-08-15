@@ -1175,7 +1175,9 @@ String muscleGroupForLabel(String muscle) {
   if (muscle.contains('背') || muscle.contains('背阔') || muscle.contains('斜方')) {
     return '背';
   }
-  if (muscle.contains('肩') || muscle.contains('束')) return '肩';
+  if (muscle.contains('肩') || muscle.contains('三角') || muscle.contains('束')) {
+    return '肩';
+  }
   if (muscle.contains('腿') ||
       muscle.contains('股') ||
       muscle.contains('臀') ||
@@ -1188,6 +1190,23 @@ String muscleGroupForLabel(String muscle) {
   }
   if (muscle.contains('腹') || muscle.contains('核心')) return '核心';
   return '其他';
+}
+
+/// Returns the compact equipment category used by filters.
+///
+/// Exercise details keep the original equipment label, while variants that
+/// are functionally searched together share one filter entry.
+String equipmentGroupForLabel(String equipment) {
+  final normalized = equipment.trim().toLowerCase();
+  if (normalized.contains('杠铃') ||
+      normalized == '奥杆' ||
+      normalized.contains('barbell') ||
+      normalized.contains('olympic bar') ||
+      normalized.contains('ez bar') ||
+      normalized.contains('trap bar')) {
+    return '杠铃';
+  }
+  return equipment.trim().isEmpty ? '其他' : equipment.trim();
 }
 
 String exerciseAsset(String id) {

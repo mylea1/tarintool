@@ -338,6 +338,49 @@ void main() {
     },
   );
 
+  testWidgets('exercise picker creates and selects a custom exercise', (
+    tester,
+  ) async {
+    final controller = AppController();
+    addTearDown(() {
+      if (controller.workoutStarted) controller.finishWorkout();
+      controller.dispose();
+    });
+    expect(controller.loginWithPhone('123', password: '123').isSuccess, isTrue);
+    controller.startWorkout(name: '自由训练', autoStartTimer: false);
+    controller.openLiveWorkout();
+    await tester.pumpWidget(KiloApp(initialController: controller));
+    await tester.drag(find.byType(ListView).last, const Offset(0, -180));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('first-action-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('exercise-picker-create-custom')));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const Key('custom-exercise-name')),
+      '自定义肩部动作',
+    );
+    await tester.enterText(
+      find.byKey(const Key('custom-exercise-muscle')),
+      '三角肌',
+    );
+    await tester.tap(find.byKey(const Key('custom-exercise-save')));
+    await tester.pumpAndSettle();
+
+    expect(controller.customExercises.single.name, '自定义肩部动作');
+    expect(find.text('添加 1 个动作'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('exercise-picker-add-selected')));
+    await tester.pumpAndSettle();
+    expect(
+      controller.workout.single.exerciseId,
+      controller.customExercises.single.id,
+    );
+    expect(find.text('自定义肩部动作'), findsOneWidget);
+    controller.finishWorkout();
+    await tester.pump();
+  });
+
   testWidgets('recognition result opens a full report with AI review', (
     tester,
   ) async {

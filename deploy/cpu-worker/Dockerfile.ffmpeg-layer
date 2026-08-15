@@ -1,0 +1,14 @@
+# Emergency compatibility layer for an already-built CPU worker image.
+#
+# The canonical gpu-worker/Dockerfile.cpu installs ffmpeg directly. This
+# small layer lets an existing inference image be repaired on a low-resource
+# host without rebuilding PyTorch and Ultralytics from scratch.
+ARG BASE_IMAGE=kilo-cpu-worker:5df0415
+FROM ${BASE_IMAGE}
+
+USER root
+RUN sed -i 's|deb.debian.org|mirrors.ustc.edu.cn|g; s|security.debian.org|mirrors.ustc.edu.cn/debian-security|g' /etc/apt/sources.list.d/debian.sources \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+USER kilo

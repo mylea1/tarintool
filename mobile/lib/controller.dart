@@ -16,7 +16,9 @@ import 'workout_history_persistence.dart';
 
 const String defaultCoachApiBaseUrl = String.fromEnvironment(
   'KILO_API_BASE_URL',
-  defaultValue: 'https://api.kilostrength.cn',
+  // Temporary pre-ICP test endpoint. Switch the build define back to
+  // https://api.kilostrength.cn after the filed domain is reachable publicly.
+  defaultValue: 'https://magnitude-detail-pipe-cake.trycloudflare.com',
 );
 
 class PlatformTimerBridge {
@@ -244,8 +246,10 @@ class AppController extends ChangeNotifier {
   Future<void> _historyWriteChain = Future<void>.value();
   Future<void> _activeWorkoutWriteChain = Future<void>.value();
   Future<void> _trainingLibraryWriteChain = Future<void>.value();
+  Future<void> _customExerciseWriteChain = Future<void>.value();
   String? _loadedHistoryUserId;
   String? _loadedTrainingLibraryUserId;
+  String? _loadedCustomExercisesUserId;
   bool _pendingSystemWorkoutOpen = false;
   HttpCoachApi? _defaultCoachApi;
   String? _defaultCoachApiBaseUrl;
@@ -274,6 +278,7 @@ class AppController extends ChangeNotifier {
       unawaited(hydrateWorkoutHistory(force: true));
       unawaited(hydrateActiveWorkout());
       unawaited(hydrateTrainingLibrary(force: true));
+      unawaited(hydrateCustomExercises(force: true));
       unawaited(hydrateAiSkills());
     }
     return result;
@@ -289,11 +294,13 @@ class AppController extends ChangeNotifier {
     accountService.logout();
     _loadedHistoryUserId = null;
     _loadedTrainingLibraryUserId = null;
+    _loadedCustomExercisesUserId = null;
     history.clear();
     routines.clear();
     routineFolders.clear();
     scheduled.clear();
     scheduledLabels.clear();
+    customExercises.clear();
     aiSkills.clear();
     notifyListeners();
   }
@@ -322,6 +329,78 @@ class AppController extends ChangeNotifier {
   Future<void> flushActiveWorkoutPersistence() => _activeWorkoutWriteChain;
 
   Future<void> flushTrainingLibraryPersistence() => _trainingLibraryWriteChain;
+
+  Future<void> flushCustomExercisePersistence() => _customExerciseWriteChain;
+
+  Future<void> hydrateCustomExercises({bool force = false}) async {
+    final userId = currentUser?.id;
+    if (userId == null || userId.isEmpty) return;
+    if (!force && _loadedCustomExercisesUserId == userId) return;
+    try {
+      await _customExerciseWriteChain;
+      final preferences = await SharedPreferences.getInstance();
+      final raw = preferences.getString('custom_exercises_v1_$userId');
+      if (currentUser?.id != userId) return;
+      customExercises.clear();
+      if (raw != null && raw.isNotEmpty) {
+        final values = jsonDecode(raw) as List<dynamic>;
+        customExercises.addAll(
+          values.whereType<Map>().map((value) {
+            final json = Map<String, dynamic>.from(value);
+            return Exercise(
+              id: json['id'] as String,
+              name: json['name'] as String,
+              englishName: json['englishName'] as String,
+              family: json['family'] as String? ?? '自定义',
+              muscle: json['muscle'] as String? ?? '未分类',
+              secondary: json['secondary'] as String? ?? '无',
+              equipment: json['equipment'] as String? ?? '自定义器械',
+              camera: json['camera'] as String? ?? '待设置',
+              cue: json['cue'] as String? ?? '',
+              loadMode: json['loadMode'] as String? ?? 'total',
+            );
+          }),
+        );
+      }
+      _loadedCustomExercisesUserId = userId;
+      notifyListeners();
+    } catch (_) {
+      // A malformed or unavailable local store must not block training.
+    }
+  }
+
+  void _persistCustomExercises() {
+    final userId = currentUser?.id;
+    if (userId == null || userId.isEmpty) return;
+    _loadedCustomExercisesUserId = userId;
+    final values = customExercises
+        .map(
+          (item) => <String, dynamic>{
+            'id': item.id,
+            'name': item.name,
+            'englishName': item.englishName,
+            'family': item.family,
+            'muscle': item.muscle,
+            'secondary': item.secondary,
+            'equipment': item.equipment,
+            'camera': item.camera,
+            'cue': item.cue,
+            'loadMode': item.loadMode,
+          },
+        )
+        .toList(growable: false);
+    _customExerciseWriteChain = _customExerciseWriteChain
+        .then((_) async {
+          final preferences = await SharedPreferences.getInstance();
+          await preferences.setString(
+            'custom_exercises_v1_$userId',
+            jsonEncode(values),
+          );
+        })
+        .catchError((Object _) {
+          // The newly created exercise remains usable in memory.
+        });
+  }
 
   Future<void> hydrateTrainingLibrary({bool force = false}) async {
     final userId = currentUser?.id;
@@ -545,6 +624,11 @@ class AppController extends ChangeNotifier {
 
   List<Exercise> get allExercises => [...catalog, ...customExercises];
 
+  Exercise exerciseFor(String id) => allExercises.firstWhere(
+    (item) => item.id == id,
+    orElse: () => findExercise(id),
+  );
+
   List<AiSkill> get enabledAiSkills =>
       aiSkills.where((skill) => skill.enabled).toList(growable: false);
 
@@ -720,18 +804,24 @@ class AppController extends ChangeNotifier {
       final queryMatch =
           query.isEmpty ||
           item.name.toLowerCase().contains(query) ||
-          item.englishName.toLowerCase().contains(query);
+          item.englishName.toLowerCase().contains(query) ||
+          item.muscle.toLowerCase().contains(query) ||
+          item.equipment.toLowerCase().contains(query);
       final muscleMatch =
           muscleFilter == '全部' || muscleGroupFor(item.muscle) == muscleFilter;
       final equipmentMatch =
-          equipmentFilter == '全部' || item.equipment == equipmentFilter;
+          equipmentFilter == '全部' ||
+          equipmentGroupFor(item.equipment) == equipmentFilter;
       return queryMatch && muscleMatch && equipmentMatch;
     }).toList();
   }
 
   String muscleGroupFor(String muscle) => muscleGroupForLabel(muscle);
 
-  Exercise get selectedExercise => findExercise(selectedExerciseId);
+  String equipmentGroupFor(String equipment) =>
+      equipmentGroupForLabel(equipment);
+
+  Exercise get selectedExercise => exerciseFor(selectedExerciseId);
 
   String displayExerciseName(Exercise exercise) =>
       appLanguage == AppLanguage.english ? exercise.englishName : exercise.name;
@@ -1096,7 +1186,7 @@ class AppController extends ChangeNotifier {
       restRemainingSeconds = effectiveRestSeconds(set, parent);
       if (restRemainingSeconds > 0) {
         startRest(
-          exercise: displayExerciseName(findExercise(parent.exerciseId)),
+          exercise: displayExerciseName(exerciseFor(parent.exerciseId)),
           seconds: restRemainingSeconds,
         );
       } else {
@@ -1155,7 +1245,7 @@ class AppController extends ChangeNotifier {
   String _platformExerciseName([WorkoutExercise? preferred]) {
     final exercise = preferred ?? (workout.isEmpty ? null : workout.first);
     if (exercise == null) return '准备训练';
-    return displayExerciseName(findExercise(exercise.exerciseId));
+    return displayExerciseName(exerciseFor(exercise.exerciseId));
   }
 
   void _syncPlatformWorkoutState([WorkoutExercise? preferred]) {
@@ -1295,7 +1385,7 @@ class AppController extends ChangeNotifier {
         }
       }
       if (currentBest > previousBest) {
-        prs.add(displayExerciseName(findExercise(exercise.exerciseId)));
+        prs.add(displayExerciseName(exerciseFor(exercise.exerciseId)));
       }
     }
     final record = WorkoutRecord(
@@ -1528,7 +1618,7 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void addCustomExercise({
+  Exercise addCustomExercise({
     required String name,
     required String englishName,
     required String equipment,
@@ -1536,20 +1626,21 @@ class AppController extends ChangeNotifier {
     required String cue,
   }) {
     final id = 'custom-${DateTime.now().microsecondsSinceEpoch}';
-    customExercises.add(
-      Exercise(
-        id: id,
-        name: name,
-        englishName: englishName.isEmpty ? name : englishName,
-        family: '自定义',
-        muscle: muscle.isEmpty ? '未分类' : muscle,
-        secondary: '无',
-        equipment: equipment.isEmpty ? '自定义器械' : equipment,
-        camera: '待设置',
-        cue: cue.isEmpty ? '根据你的动作目标设置提示' : cue,
-      ),
+    final exercise = Exercise(
+      id: id,
+      name: name,
+      englishName: englishName.isEmpty ? name : englishName,
+      family: '自定义',
+      muscle: muscle.isEmpty ? '未分类' : muscle,
+      secondary: '无',
+      equipment: equipment.isEmpty ? '自定义器械' : equipment,
+      camera: '待设置',
+      cue: cue.isEmpty ? '根据你的动作目标设置提示' : cue,
     );
+    customExercises.add(exercise);
+    _persistCustomExercises();
     notifyListeners();
+    return exercise;
   }
 
   void saveResource({
@@ -2096,7 +2187,7 @@ class AppController extends ChangeNotifier {
             .join('；');
         if (sets.isNotEmpty) {
           lines.add(
-            '${findExercise(exercise.exerciseId).name}'
+            '${exerciseFor(exercise.exerciseId).name}'
             '${exercise.note.trim().isEmpty ? '' : '，动作备注：${exercise.note.trim()}'}：$sets',
           );
         }
@@ -2121,7 +2212,7 @@ class AppController extends ChangeNotifier {
             )
             .join('；');
         lines.add(
-          '${findExercise(exercise.exerciseId).name}'
+          '${exerciseFor(exercise.exerciseId).name}'
           '${exercise.note.trim().isEmpty ? '' : '，动作备注：${exercise.note.trim()}'}：$sets',
         );
       }
@@ -2185,7 +2276,7 @@ class AppController extends ChangeNotifier {
           )
           .join('；');
       lines.add(
-        '${displayExerciseName(findExercise(exercise.exerciseId))}'
+        '${displayExerciseName(exerciseFor(exercise.exerciseId))}'
         '${exercise.note.trim().isEmpty ? '' : '（动作备注：${exercise.note.trim()}）'}：'
         '${values.isEmpty ? '没有完成组' : values}',
       );
@@ -2204,7 +2295,7 @@ class AppController extends ChangeNotifier {
           )
           .join('；');
       lines.add(
-        '${displayExerciseName(findExercise(exercise.exerciseId))}：'
+        '${displayExerciseName(exerciseFor(exercise.exerciseId))}：'
         '${sets.isEmpty ? '组数待定' : sets}',
       );
     }

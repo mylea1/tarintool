@@ -426,6 +426,7 @@ String recognitionErrorMessage(String error) => switch (error) {
   'recognition_network' => '网络连接中断，视频已保留，请检查网络后重试。',
   'recognition_unauthenticated' ||
   'recognition_auth_token_missing' => '登录状态已失效，请重新登录后重试。',
+  'compute_processing_failed' => '分析服务处理失败，视频已保留，请直接重试。',
   'recognition_exercise_unsupported' ||
   'recognition_camera_unsupported' => '暂不支持当前动作或拍摄角度，请更换后重试。',
   _ when error.startsWith('recognition_upload_http_') => '视频上传失败，视频已保留，请直接重试。',

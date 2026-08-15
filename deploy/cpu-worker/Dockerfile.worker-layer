@@ -1,0 +1,8 @@
+# Refresh the lightweight queue loop without rebuilding the ML dependency
+# layers. The base image must already contain the current inference module.
+ARG BASE_IMAGE=kilo-cpu-worker:5df0415-ffmpeg
+FROM ${BASE_IMAGE}
+
+USER root
+COPY --chown=kilo:kilo worker.py /opt/kilo/worker/worker.py
+USER kilo

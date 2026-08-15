@@ -96,6 +96,9 @@ class _KiloAppState extends State<KiloApp> {
       await controller.hydrateTrainingLibrary().timeout(
         const Duration(seconds: 3),
       );
+      await controller.hydrateCustomExercises().timeout(
+        const Duration(seconds: 3),
+      );
     } catch (_) {
       // Local storage is optional in previews; the in-memory repository stays
       // usable when a platform implementation is unavailable.
@@ -1010,20 +1013,25 @@ class _ExerciseThumb extends StatelessWidget {
   final String exerciseId;
   final double size;
   @override
-  Widget build(BuildContext context) => ClipRRect(
-    borderRadius: BorderRadius.circular(10),
-    child: Container(
-      width: size,
-      height: size,
-      color: paper,
-      child: Image.asset(
-        exerciseAsset(exerciseId),
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stack) =>
-            const Icon(Icons.fitness_center, color: cobalt),
+  Widget build(BuildContext context) {
+    final isCustom = exerciseId.startsWith('custom-');
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        width: size,
+        height: size,
+        color: paper,
+        child: isCustom
+            ? const Icon(Icons.fitness_center_rounded, color: primary)
+            : Image.asset(
+                exerciseAsset(exerciseId),
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stack) =>
+                    const Icon(Icons.fitness_center, color: cobalt),
+              ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class HomePage extends StatelessWidget {
@@ -2340,7 +2348,7 @@ class _WorkoutExerciseCard extends StatelessWidget {
   final WorkoutExercise exercise;
   @override
   Widget build(BuildContext context) {
-    final definition = findExercise(exercise.exerciseId);
+    final definition = controller.exerciseFor(exercise.exerciseId);
     return Card(
       child: Column(
         children: [
@@ -3544,7 +3552,7 @@ Future<void> _showNaturalWorkoutCapture(
                           Padding(
                             padding: const EdgeInsets.only(top: 5),
                             child: Text(
-                              '${controller.displayExerciseName(findExercise(exercise.exerciseId))} · '
+                              '${controller.displayExerciseName(controller.exerciseFor(exercise.exerciseId))} · '
                               '${exercise.sets.map((set) => '${set.weight.toStringAsFixed(set.weight == set.weight.roundToDouble() ? 0 : 1)} kg × ${set.reps}').join(' / ')}',
                             ),
                           ),
@@ -3603,8 +3611,9 @@ class _RoutineCard extends StatelessWidget {
     final summary = routine.exercises
         .take(3)
         .map(
-          (exercise) =>
-              controller.displayExerciseName(findExercise(exercise.exerciseId)),
+          (exercise) => controller.displayExerciseName(
+            controller.exerciseFor(exercise.exerciseId),
+          ),
         )
         .join(' · ');
     return Card(
@@ -3776,7 +3785,7 @@ class _RecordTile extends StatelessWidget {
         : record.exerciseIds;
     final actionSummary = exerciseIds
         .take(4)
-        .map((id) => controller.displayExerciseName(findExercise(id)))
+        .map((id) => controller.displayExerciseName(controller.exerciseFor(id)))
         .join(' · ');
     return Card(
       key: Key('record-tile-${record.id}'),
@@ -4345,7 +4354,7 @@ class _TrainingStatisticsView extends StatelessWidget {
       for (final workoutExercise in record.exercises) {
         final exercise = controller.allExercises.firstWhere(
           (item) => item.id == workoutExercise.exerciseId,
-          orElse: () => findExercise(workoutExercise.exerciseId),
+          orElse: () => controller.exerciseFor(workoutExercise.exerciseId),
         );
         final muscle = controller.muscleGroupFor(exercise.muscle);
         final completed = workoutExercise.sets
@@ -4496,7 +4505,9 @@ class _TrainingStatisticsView extends StatelessWidget {
               contentPadding: EdgeInsets.zero,
               leading: _ExerciseThumb(exerciseId: item.key, size: 42),
               title: Text(
-                controller.displayExerciseName(findExercise(item.key)),
+                controller.displayExerciseName(
+                  controller.exerciseFor(item.key),
+                ),
               ),
               subtitle: Text(
                 '最大重量 ${item.value.maxWeight.toStringAsFixed(1)} kg',
@@ -5733,7 +5744,7 @@ class _RecognitionExerciseChoice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final exercise = findExercise(capability.exerciseId);
+    final exercise = controller.exerciseFor(capability.exerciseId);
     final selected = controller.recognitionExerciseId == capability.exerciseId;
     return Material(
       color: selected ? primaryContainer : Colors.white,
@@ -5801,7 +5812,7 @@ class _RecognitionSelectedExercise extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final capability = controller.selectedRecognitionCapability;
-    final exercise = findExercise(capability.exerciseId);
+    final exercise = controller.exerciseFor(capability.exerciseId);
     return Material(
       color: primaryContainer.withValues(alpha: .55),
       shape: RoundedRectangleBorder(
@@ -5903,7 +5914,7 @@ class _RecognitionExercisePickerState
       ...widget.controller.recognitionCapabilities.map((item) => item.group),
     }.toList();
     final visible = widget.controller.recognitionCapabilities.where((item) {
-      final exercise = findExercise(item.exerciseId);
+      final exercise = widget.controller.exerciseFor(item.exerciseId);
       final matchesGroup = group == '全部' || item.group == group;
       final normalized = query.trim().toLowerCase();
       final matchesQuery =
@@ -6209,7 +6220,7 @@ class _RecognitionReport extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(top: 6),
             child: Text(
-              '完成 ${result.repetitions} 次 · ${controller.displayExerciseName(findExercise(controller.recognitionExerciseId))}',
+              '完成 ${result.repetitions} 次 · ${controller.displayExerciseName(controller.exerciseFor(controller.recognitionExerciseId))}',
               style: const TextStyle(fontSize: 12, color: secondaryInk),
             ),
           ),
@@ -7301,7 +7312,9 @@ class _AiContextSummary extends StatelessWidget {
     if (record != null) {
       final exerciseNames = record.exerciseIds
           .take(2)
-          .map((id) => controller.displayExerciseName(findExercise(id)))
+          .map(
+            (id) => controller.displayExerciseName(controller.exerciseFor(id)),
+          )
           .join('、');
       final metrics =
           '${record.durationSeconds ~/ 60} 分钟 · '
@@ -7342,13 +7355,15 @@ class _AiContextSummary extends StatelessWidget {
                 return '$weight kg×${set.reps}';
               })
               .join(' / ');
-          return '${controller.displayExerciseName(findExercise(exercise.exerciseId))}'
+          return '${controller.displayExerciseName(controller.exerciseFor(exercise.exerciseId))}'
               '${values.isEmpty ? '' : '  $values'}';
         }).toList();
       }
       return record.exerciseIds
           .take(compact ? 2 : 4)
-          .map((id) => controller.displayExerciseName(findExercise(id)))
+          .map(
+            (id) => controller.displayExerciseName(controller.exerciseFor(id)),
+          )
           .toList();
     }
     final routine = controller.routineForAiContext(selection);
@@ -7356,8 +7371,9 @@ class _AiContextSummary extends StatelessWidget {
       return routine.exercises
           .take(compact ? 2 : 4)
           .map(
-            (item) =>
-                controller.displayExerciseName(findExercise(item.exerciseId)),
+            (item) => controller.displayExerciseName(
+              controller.exerciseFor(item.exerciseId),
+            ),
           )
           .toList();
     }
@@ -8094,7 +8110,7 @@ class _AiPlanDetailPage extends StatelessWidget {
                       ListTile(
                         contentPadding: EdgeInsets.zero,
                         leading: _ExerciseThumb(exerciseId: exerciseId),
-                        title: Text(findExercise(exerciseId).name),
+                        title: Text(controller.exerciseFor(exerciseId).name),
                       ),
                 ],
               ),
@@ -10024,7 +10040,9 @@ void _showProgress(BuildContext context, AppController controller) {
                     contentPadding: EdgeInsets.zero,
                     leading: _ExerciseThumb(exerciseId: exerciseId, size: 38),
                     title: Text(
-                      controller.displayExerciseName(findExercise(exerciseId)),
+                      controller.displayExerciseName(
+                        controller.exerciseFor(exerciseId),
+                      ),
                     ),
                     subtitle: const Text('最近一次完成 · 结合组别类型和重量复盘'),
                     trailing: const Icon(Icons.trending_up, color: cobalt),
@@ -10405,11 +10423,14 @@ class _ExercisePickerSheetState extends State<_ExercisePickerSheet> {
           needle.isEmpty ||
           item.name.toLowerCase().contains(needle) ||
           item.englishName.toLowerCase().contains(needle) ||
+          item.muscle.toLowerCase().contains(needle) ||
           item.equipment.toLowerCase().contains(needle);
       final muscleMatch =
           muscle == '全部' ||
           widget.controller.muscleGroupFor(item.muscle) == muscle;
-      final equipmentMatch = equipment == '全部' || item.equipment == equipment;
+      final equipmentMatch =
+          equipment == '全部' ||
+          widget.controller.equipmentGroupFor(item.equipment) == equipment;
       return queryMatch && muscleMatch && equipmentMatch;
     }).toList();
   }
@@ -10451,6 +10472,16 @@ class _ExercisePickerSheetState extends State<_ExercisePickerSheet> {
     Navigator.pop(context);
   }
 
+  Future<void> createCustomExercise() async {
+    final exercise = await _showCustomExercise(context, widget.controller);
+    if (!mounted || exercise == null) return;
+    if (widget.replacing != null) {
+      choose(exercise);
+      return;
+    }
+    setState(() => selectedIds.add(exercise.id));
+  }
+
   @override
   Widget build(BuildContext context) {
     final items = filtered;
@@ -10467,7 +10498,8 @@ class _ExercisePickerSheetState extends State<_ExercisePickerSheet> {
     final equipments =
         <String>{
           '全部',
-          for (final item in widget.controller.allExercises) item.equipment,
+          for (final item in widget.controller.allExercises)
+            widget.controller.equipmentGroupFor(item.equipment),
         }.toList()..sort(
           (a, b) => a == '全部'
               ? -1
@@ -10490,6 +10522,12 @@ class _ExercisePickerSheetState extends State<_ExercisePickerSheet> {
                     widget.replacing == null ? '添加动作' : '替换动作',
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
+                ),
+                TextButton.icon(
+                  key: const Key('exercise-picker-create-custom'),
+                  onPressed: createCustomExercise,
+                  icon: const Icon(Icons.add_circle_outline, size: 18),
+                  label: const Text('自定义'),
                 ),
                 IconButton(
                   tooltip: '关闭动作选择',
@@ -10991,7 +11029,9 @@ class _WorkoutCelebration extends StatelessWidget {
   String _primaryMuscles() {
     final counts = <String, int>{};
     for (final exerciseId in record.exerciseIds) {
-      final group = controller.muscleGroupFor(findExercise(exerciseId).muscle);
+      final group = controller.muscleGroupFor(
+        controller.exerciseFor(exerciseId).muscle,
+      );
       counts[group] = (counts[group] ?? 0) + 1;
     }
     final sorted = counts.entries.toList()
@@ -11369,7 +11409,7 @@ class _CelebrationExerciseCard extends StatelessWidget {
                     children: [
                       Text(
                         controller.displayExerciseName(
-                          findExercise(exercise.exerciseId),
+                          controller.exerciseFor(exercise.exerciseId),
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -11770,7 +11810,9 @@ void _showPlanDetail(
                         contentPadding: EdgeInsets.zero,
                         leading: _ExerciseThumb(exerciseId: id, size: 42),
                         title: Text(
-                          controller.displayExerciseName(findExercise(id)),
+                          controller.displayExerciseName(
+                            controller.exerciseFor(id),
+                          ),
                         ),
                         subtitle: const Text('3 组 · 8 次 · 组间休息 120 秒'),
                       ),
@@ -11861,7 +11903,9 @@ void _showRoutineDetail(
                                   Expanded(
                                     child: Text(
                                       controller.displayExerciseName(
-                                        findExercise(exercise.exerciseId),
+                                        controller.exerciseFor(
+                                          exercise.exerciseId,
+                                        ),
                                       ),
                                       style: const TextStyle(
                                         fontWeight: FontWeight.w800,
@@ -12203,7 +12247,7 @@ class _RoutineExerciseEditor extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final title = controller.displayExerciseName(
-      findExercise(exercise.exerciseId),
+      controller.exerciseFor(exercise.exerciseId),
     );
     return Card(
       margin: const EdgeInsets.only(bottom: 9),
@@ -12877,7 +12921,7 @@ void _showRecordDetail(
                               Expanded(
                                 child: Text(
                                   controller.displayExerciseName(
-                                    findExercise(exercise.exerciseId),
+                                    controller.exerciseFor(exercise.exerciseId),
                                   ),
                                   style: const TextStyle(
                                     fontWeight: FontWeight.w800,
@@ -13048,13 +13092,16 @@ void _showAllHistory(BuildContext context, AppController controller) {
   );
 }
 
-void _showCustomExercise(BuildContext context, AppController controller) {
+Future<Exercise?> _showCustomExercise(
+  BuildContext context,
+  AppController controller,
+) async {
   final name = TextEditingController();
   final english = TextEditingController();
   final equipment = TextEditingController(text: '自定义器械');
   final muscle = TextEditingController(text: '未分类');
   final cue = TextEditingController();
-  showDialog<void>(
+  final result = await showDialog<Exercise>(
     context: context,
     builder: (context) => AlertDialog(
       title: const Text('新建自定义动作'),
@@ -13063,26 +13110,31 @@ void _showCustomExercise(BuildContext context, AppController controller) {
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
+              key: const Key('custom-exercise-name'),
               controller: name,
               decoration: const InputDecoration(labelText: '动作名称 *'),
             ),
             const SizedBox(height: 8),
             TextField(
+              key: const Key('custom-exercise-english-name'),
               controller: english,
               decoration: const InputDecoration(labelText: '英文名称'),
             ),
             const SizedBox(height: 8),
             TextField(
+              key: const Key('custom-exercise-equipment'),
               controller: equipment,
               decoration: const InputDecoration(labelText: '器械'),
             ),
             const SizedBox(height: 8),
             TextField(
+              key: const Key('custom-exercise-muscle'),
               controller: muscle,
               decoration: const InputDecoration(labelText: '主要肌群'),
             ),
             const SizedBox(height: 8),
             TextField(
+              key: const Key('custom-exercise-cue'),
               controller: cue,
               maxLines: 2,
               decoration: const InputDecoration(labelText: '动作提示'),
@@ -13096,30 +13148,42 @@ void _showCustomExercise(BuildContext context, AppController controller) {
           child: const Text('取消'),
         ),
         FilledButton(
+          key: const Key('custom-exercise-save'),
           onPressed: () {
             if (name.text.trim().isNotEmpty) {
-              controller.addCustomExercise(
+              final exercise = controller.addCustomExercise(
                 name: name.text.trim(),
                 englishName: english.text.trim(),
                 equipment: equipment.text.trim(),
                 muscle: muscle.text.trim(),
                 cue: cue.text.trim(),
               );
+              Navigator.pop(context, exercise);
             }
-            Navigator.pop(context);
           },
           child: const Text('保存动作'),
         ),
       ],
     ),
   );
+  return result;
 }
 
 void _showLibraryFilters(BuildContext context, AppController controller) {
-  final equipment = [
-    '全部',
-    ...{for (final item in controller.allExercises) item.equipment},
-  ];
+  final equipment =
+      [
+        '全部',
+        ...{
+          for (final item in controller.allExercises)
+            controller.equipmentGroupFor(item.equipment),
+        },
+      ]..sort(
+        (a, b) => a == '全部'
+            ? -1
+            : b == '全部'
+            ? 1
+            : a.compareTo(b),
+      );
   showModalBottomSheet<void>(
     context: context,
     builder: (sheetContext) => SafeArea(

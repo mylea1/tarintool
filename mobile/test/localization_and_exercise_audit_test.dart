@@ -23,6 +23,62 @@ void main() {
     }
   });
 
+  test('equipment variants share one compact barbell filter', () {
+    expect(equipmentGroupForLabel('杠铃'), '杠铃');
+    expect(equipmentGroupForLabel('曲杆杠铃'), '杠铃');
+    expect(equipmentGroupForLabel('六角杠铃'), '杠铃');
+    expect(equipmentGroupForLabel('奥杆'), '杠铃');
+    expect(equipmentGroupForLabel('哑铃'), '哑铃');
+  });
+
+  test('deltoid labels are included in shoulder filtering', () {
+    expect(muscleGroupForLabel('三角肌'), '肩');
+    expect(muscleGroupForLabel('三角肌中束'), '肩');
+  });
+
+  test('controller filters grouped barbell variants and deltoids', () {
+    final controller = AppController();
+    addTearDown(controller.dispose);
+    controller.equipmentFilter = '杠铃';
+    expect(
+      controller.visibleExercises.any((item) => item.equipment == '曲杆杠铃'),
+      isTrue,
+    );
+    expect(
+      controller.visibleExercises.any((item) => item.equipment == '六角杠铃'),
+      isTrue,
+    );
+
+    controller.equipmentFilter = '全部';
+    controller.muscleFilter = '肩';
+    expect(
+      controller.visibleExercises.any((item) => item.muscle.contains('三角肌')),
+      isTrue,
+    );
+  });
+
+  test('custom exercises persist for the signed-in account', () async {
+    final first = AppController();
+    addTearDown(first.dispose);
+    expect(first.loginWithPhone('123', password: '123').isSuccess, isTrue);
+    final created = first.addCustomExercise(
+      name: '我的测试动作',
+      englishName: '',
+      equipment: '自定义器械',
+      muscle: '三角肌',
+      cue: '保持稳定',
+    );
+    await first.flushCustomExercisePersistence();
+
+    final restored = AppController();
+    addTearDown(restored.dispose);
+    expect(restored.loginWithPhone('123', password: '123').isSuccess, isTrue);
+    await restored.hydrateCustomExercises(force: true);
+
+    expect(restored.customExercises.single.id, created.id);
+    expect(restored.customExercises.single.name, '我的测试动作');
+  });
+
   testWidgets('English language changes navigation and exercise names', (
     tester,
   ) async {

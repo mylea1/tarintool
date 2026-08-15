@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>形域 · 动作选择器预览</title>
+  <style>
+    :root{--bg:#fff8f2;--surface:#fff;--ink:#241b16;--muted:#756a63;--line:#eadbd0;--orange:#e65312;--soft:#ffeadb}
+    *{box-sizing:border-box} body{margin:0;background:#efe9e4;font-family:system-ui,-apple-system,"PingFang SC",sans-serif;color:var(--ink)}
+    .phone{width:min(100vw,390px);height:780px;margin:0;background:var(--bg);border-radius:0 0 28px 28px;overflow:hidden;box-shadow:0 18px 60px #3b271c24;display:flex;flex-direction:column}
+    header{padding:19px 17px 12px;display:flex;align-items:center;gap:10px} h1{font-size:22px;margin:0;flex:1}.icon{border:0;background:transparent;font-size:23px}
+    .create{border:0;border-radius:14px;background:var(--soft);color:#bd3c08;font-weight:750;padding:10px 12px;white-space:nowrap}
+    .search{margin:0 16px 12px;border:1px solid var(--line);border-radius:14px;background:#fff;padding:12px 14px;color:var(--muted)}
+    main{min-height:0;display:grid;grid-template-columns:86px minmax(0,1fr);gap:10px;padding:0 14px 14px;flex:1}
+    aside{overflow:auto;background:#fff1e6;border-radius:15px;padding:8px 6px}.label{font-size:10px;color:var(--muted);font-weight:800;padding:6px 8px}.filter{width:100%;border:0;border-radius:11px;background:transparent;padding:9px 5px;color:#5c5049}.filter.active{background:var(--orange);color:#fff;font-weight:800}.divider{height:1px;background:#ead7c9;margin:7px}
+    .content{min-width:0;display:flex;flex-direction:column}.meta{font-size:11px;color:var(--muted);margin:3px 0 8px}.list{overflow:auto;display:grid;gap:8px}.card{border:1px solid var(--line);background:#fff;border-radius:15px;padding:10px;display:grid;grid-template-columns:48px minmax(0,1fr) 34px;gap:9px;align-items:center}.thumb{width:48px;height:48px;border-radius:12px;background:linear-gradient(145deg,#fff0e3,#f5d6c0);display:grid;place-items:center;font-size:25px}.name{font-size:14px;font-weight:780;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.sub{font-size:11px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.add{width:34px;height:34px;border:0;border-radius:50%;background:var(--orange);color:#fff;font-size:20px}
+    footer{padding:12px 16px 16px;background:#fff;border-top:1px solid var(--line)}footer button{width:100%;border:0;border-radius:15px;padding:13px;background:var(--orange);color:#fff;font-weight:800;font-size:15px}
+    @media(max-width:340px){.phone{margin:0;height:100vh;border-radius:0}header{padding-inline:12px}.create{padding-inline:9px}main{padding-inline:9px;grid-template-columns:76px minmax(0,1fr);gap:7px}}
+  </style>
+</head>
+<body>
+<section class="phone">
+  <header><h1>添加动作</h1><button class="create" onclick="customAction()">＋ 自定义动作</button><button class="icon" aria-label="关闭">×</button></header>
+  <div class="search">⌕　搜索动作、肌群或器械</div>
+  <main>
+    <aside>
+      <div class="label">部位</div>
+      <button class="filter active">肩部</button><button class="filter">胸部</button><button class="filter">背部</button><button class="filter">腿部</button><button class="filter">手臂</button><button class="filter">核心</button>
+      <div class="divider"></div><div class="label">器械</div>
+      <button class="filter">全部</button><button class="filter">杠铃</button><button class="filter">哑铃</button><button class="filter">固定器械</button><button class="filter">绳索</button><button class="filter">自重</button>
+    </aside>
+    <section class="content"><div class="meta" id="meta">肩部 · 3 个动作</div><div class="list" id="list">
+      <article class="card"><div class="thumb">🏋️</div><div><div class="name">杠铃肩上推举</div><div class="sub">三角肌 · 杠铃</div></div><button class="add">＋</button></article>
+      <article class="card"><div class="thumb">💪</div><div><div class="name">哑铃侧平举</div><div class="sub">三角肌中束 · 哑铃</div></div><button class="add">＋</button></article>
+      <article class="card"><div class="thumb">↗</div><div><div class="name">绳索面拉</div><div class="sub">三角肌后束 · 绳索</div></div><button class="add">＋</button></article>
+    </div></section>
+  </main>
+  <footer><button>添加 2 个动作</button></footer>
+</section>
+<script>
+document.querySelectorAll('.filter').forEach(button=>button.addEventListener('click',()=>{button.parentElement.querySelectorAll('.filter').forEach(x=>x.classList.remove('active'));button.classList.add('active')}));
+document.querySelectorAll('.add').forEach(button=>button.addEventListener('click',()=>{button.textContent=button.textContent==='✓'?'＋':'✓'}));
+function customAction(){document.getElementById('meta').textContent='新建后自动选中，可继续多选其他动作';document.getElementById('list').insertAdjacentHTML('afterbegin','<article class="card"><div class="thumb">✦</div><div><div class="name">我的自定义动作</div><div class="sub">自定义 · 我的器械</div></div><button class="add">✓</button></article>')}
+</script>
+</body></html>
