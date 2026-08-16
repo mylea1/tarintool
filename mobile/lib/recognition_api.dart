@@ -380,6 +380,19 @@ class HttpRecognitionApi implements RecognitionApi {
   ) {
     if (response.statusCode < 200 || response.statusCode >= 300) {
       if (response.statusCode == 401) clearSession();
+      try {
+        final errorPayload = jsonDecode(response.body);
+        if (errorPayload is Map<String, dynamic>) {
+          final serverCode = errorPayload['error']?.toString() ?? '';
+          if (serverCode.isNotEmpty) {
+            throw RecognitionApiException(serverCode);
+          }
+        }
+      } on RecognitionApiException {
+        rethrow;
+      } on FormatException {
+        // Fall through to the HTTP status based diagnostic below.
+      }
       throw RecognitionApiException('${operation}_http_${response.statusCode}');
     }
     final decoded = jsonDecode(response.body);

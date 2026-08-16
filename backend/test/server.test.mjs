@@ -148,6 +148,26 @@ test('quota reserve commit rollback and idempotency', async () => {
   assert.equal(rolledBack.body.aiRemaining, before.aiRemaining);
 });
 
+test('administrator remains quota-exempt when recognition balance is zero', async () => {
+  const admin = server.context.db.prepare("SELECT id FROM users WHERE identifier = '1234'").get();
+  server.context.db.prepare('UPDATE entitlements SET recognition_remaining = 0 WHERE user_id = ?').run(admin.id);
+  const created = await api('/v1/analysis/jobs', {
+    method: 'POST',
+    headers: { authorization: `Bearer ${adminToken}` },
+    body: JSON.stringify({ exerciseId: 'barbell_squat', camera: 'side', includeOverlay: false }),
+  });
+  assert.equal(created.response.status, 202);
+  assert.equal((await api('/v1/me/entitlements', { headers: { authorization: `Bearer ${adminToken}` } })).body.recognitionRemaining, 0);
+  const issuedUpload = new URL(created.body.upload.url);
+  const rejected = await fetch(new URL(`${issuedUpload.pathname}${issuedUpload.search}`, base), {
+    method: 'PUT',
+    headers: { 'content-type': 'text/plain' },
+    body: 'invalid',
+  });
+  assert.equal(rejected.status, 415);
+  assert.equal((await api('/v1/me/entitlements', { headers: { authorization: `Bearer ${adminToken}` } })).body.recognitionRemaining, 0);
+});
+
 test('sync is user-scoped and stale revisions conflict', async () => {
   const first = await api('/v1/sync/workout/w1', { method: 'PUT', headers: { authorization: `Bearer ${userToken}` }, body: JSON.stringify({ revision: 1, payload: { sets: 3 } }) });
   assert.equal(first.response.status, 200);

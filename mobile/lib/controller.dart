@@ -234,6 +234,7 @@ class AppController extends ChangeNotifier {
       onPauseChanged: setWorkoutPausedFromSystem,
     );
     this.accountService.addListener(_handleAccountChanged);
+    _observedAccountUserId = currentUser?.id;
     unawaited(loadRecognitionCapabilities());
   }
 
@@ -247,9 +248,13 @@ class AppController extends ChangeNotifier {
   Future<void> _activeWorkoutWriteChain = Future<void>.value();
   Future<void> _trainingLibraryWriteChain = Future<void>.value();
   Future<void> _customExerciseWriteChain = Future<void>.value();
+  Future<void> _aiConversationWriteChain = Future<void>.value();
+  Future<void>? _pendingAiConversationHydration;
   String? _loadedHistoryUserId;
   String? _loadedTrainingLibraryUserId;
   String? _loadedCustomExercisesUserId;
+  String? _loadedAiConversationsUserId;
+  String? _observedAccountUserId;
   bool _pendingSystemWorkoutOpen = false;
   HttpCoachApi? _defaultCoachApi;
   String? _defaultCoachApiBaseUrl;
@@ -264,7 +269,23 @@ class AppController extends ChangeNotifier {
   int get aiRemaining => accountService.aiRemaining;
   int get recognitionRemaining => accountService.recognitionRemaining;
 
-  void _handleAccountChanged() => notifyListeners();
+  void _handleAccountChanged() {
+    final userId = currentUser?.id;
+    if (_observedAccountUserId != userId) {
+      _observedAccountUserId = userId;
+      _loadedAiConversationsUserId = null;
+      conversations.clear();
+      chat.clear();
+      activeConversationId = 'conversation-main';
+      if (userId != null && userId.isNotEmpty) {
+        _pendingAiConversationHydration = hydrateAiConversations(force: true);
+        unawaited(_pendingAiConversationHydration);
+      } else {
+        _pendingAiConversationHydration = null;
+      }
+    }
+    notifyListeners();
+  }
 
   AuthResult loginWithPhone(String identifier, {String? password}) {
     _defaultCoachApi?.clearSession();
@@ -295,6 +316,7 @@ class AppController extends ChangeNotifier {
     _loadedHistoryUserId = null;
     _loadedTrainingLibraryUserId = null;
     _loadedCustomExercisesUserId = null;
+    _loadedAiConversationsUserId = null;
     history.clear();
     routines.clear();
     routineFolders.clear();
@@ -302,6 +324,9 @@ class AppController extends ChangeNotifier {
     scheduledLabels.clear();
     customExercises.clear();
     aiSkills.clear();
+    conversations.clear();
+    chat.clear();
+    activeConversationId = 'conversation-main';
     notifyListeners();
   }
 
@@ -331,6 +356,208 @@ class AppController extends ChangeNotifier {
   Future<void> flushTrainingLibraryPersistence() => _trainingLibraryWriteChain;
 
   Future<void> flushCustomExercisePersistence() => _customExerciseWriteChain;
+
+  Future<void> flushAiConversationPersistence() => _aiConversationWriteChain;
+
+  String get _aiConversationsStorageKey =>
+      'xingyu.ai-conversations.v1.${currentUser?.id ?? 'local'}';
+
+  Future<void> hydrateAiConversations({bool force = false}) async {
+    final userId = currentUser?.id;
+    if (userId == null || userId.isEmpty) return;
+    if (!force && _loadedAiConversationsUserId == userId) return;
+    try {
+      await _aiConversationWriteChain;
+      final preferences = await SharedPreferences.getInstance();
+      final raw = preferences.getString('xingyu.ai-conversations.v1.$userId');
+      if (currentUser?.id != userId) return;
+      final restored = <AiConversation>[];
+      var restoredActiveId = 'conversation-main';
+      if (raw != null && raw.isNotEmpty) {
+        final decoded = jsonDecode(raw);
+        if (decoded is Map<String, dynamic>) {
+          restoredActiveId =
+              decoded['activeConversationId']?.toString() ?? restoredActiveId;
+          final items = decoded['conversations'];
+          if (items is List<dynamic>) {
+            for (final value in items.whereType<Map>()) {
+              final json = Map<String, dynamic>.from(value);
+              final id = json['id']?.toString() ?? '';
+              if (id.isEmpty) continue;
+              final messages = (json['messages'] as List<dynamic>? ?? const [])
+                  .whereType<Map>()
+                  .map(
+                    (item) =>
+                        _chatMessageFromJson(Map<String, dynamic>.from(item)),
+                  )
+                  .whereType<ChatMessage>()
+                  .toList(growable: false);
+              restored.add(
+                AiConversation(
+                  id: id,
+                  title: json['title']?.toString() ?? '新对话',
+                  messages: messages,
+                ),
+              );
+            }
+          }
+        }
+      }
+      conversations
+        ..clear()
+        ..addAll(restored);
+      if (conversations.isEmpty) {
+        activeConversationId = 'conversation-main';
+        chat.clear();
+      } else {
+        final selected = conversations.firstWhere(
+          (item) => item.id == restoredActiveId,
+          orElse: () => conversations.first,
+        );
+        activeConversationId = selected.id;
+        chat
+          ..clear()
+          ..addAll(selected.messages);
+      }
+      _loadedAiConversationsUserId = userId;
+      notifyListeners();
+    } catch (_) {
+      // Invalid or unavailable local chat storage must not block AI startup.
+    }
+  }
+
+  void _persistAiConversations() {
+    final userId = currentUser?.id;
+    if (userId == null || userId.isEmpty) return;
+    _loadedAiConversationsUserId = userId;
+    final payload = <String, dynamic>{
+      'activeConversationId': activeConversationId,
+      'conversations': conversations
+          .map(
+            (conversation) => <String, dynamic>{
+              'id': conversation.id,
+              'title': conversation.title,
+              'messages': conversation.messages
+                  .map(_chatMessageToJson)
+                  .toList(growable: false),
+            },
+          )
+          .toList(growable: false),
+    };
+    final key = _aiConversationsStorageKey;
+    _aiConversationWriteChain = _aiConversationWriteChain
+        .then((_) async {
+          final preferences = await SharedPreferences.getInstance();
+          await preferences.setString(key, jsonEncode(payload));
+        })
+        .catchError((Object _) {
+          // The current conversation remains usable in memory.
+        });
+  }
+
+  Map<String, dynamic> _chatMessageToJson(ChatMessage message) => {
+    'id': message.id,
+    'role': message.role,
+    'body': message.body,
+    'citations': message.citations,
+    if (message.plan != null) 'plan': _aiPlanToJson(message.plan!),
+  };
+
+  ChatMessage? _chatMessageFromJson(Map<String, dynamic> json) {
+    final id = json['id']?.toString() ?? '';
+    final role = json['role']?.toString() ?? '';
+    if (id.isEmpty || !const {'user', 'assistant'}.contains(role)) return null;
+    return ChatMessage(
+      id: id,
+      role: role,
+      body: json['body']?.toString() ?? '',
+      citations: (json['citations'] as List<dynamic>? ?? const [])
+          .map((item) => item.toString())
+          .where((item) => item.isNotEmpty)
+          .toList(growable: false),
+      plan: _aiPlanFromJson(json['plan']),
+    );
+  }
+
+  Map<String, dynamic> _aiPlanToJson(AiPlanDraft plan) => {
+    'title': plan.title,
+    'weeks': plan.weeks,
+    'sessions': plan.sessions
+        .map(
+          (session) => <String, dynamic>{
+            'dayOffset': session.dayOffset,
+            'name': session.name,
+            'exerciseIds': session.exerciseIds,
+            'exercises': session.exercises
+                .map(
+                  (exercise) => <String, dynamic>{
+                    'exerciseId': exercise.exerciseId,
+                    'sets': exercise.sets
+                        .map(
+                          (set) => <String, dynamic>{
+                            'type': set.type,
+                            'weight': set.weight,
+                            'reps': set.reps,
+                            'restSeconds': set.restSeconds,
+                          },
+                        )
+                        .toList(growable: false),
+                  },
+                )
+                .toList(growable: false),
+          },
+        )
+        .toList(growable: false),
+  };
+
+  AiPlanDraft? _aiPlanFromJson(Object? value) {
+    if (value is! Map) return null;
+    final json = Map<String, dynamic>.from(value);
+    final sessions = <AiPlanSession>[];
+    for (final rawSession
+        in (json['sessions'] as List<dynamic>? ?? const []).whereType<Map>()) {
+      final session = Map<String, dynamic>.from(rawSession);
+      final exercises = <AiPlanExerciseDraft>[];
+      for (final rawExercise
+          in (session['exercises'] as List<dynamic>? ?? const [])
+              .whereType<Map>()) {
+        final exercise = Map<String, dynamic>.from(rawExercise);
+        final exerciseId = exercise['exerciseId']?.toString() ?? '';
+        if (exerciseId.isEmpty) continue;
+        final sets = <AiPlanSetDraft>[];
+        for (final rawSet
+            in (exercise['sets'] as List<dynamic>? ?? const [])
+                .whereType<Map>()) {
+          final set = Map<String, dynamic>.from(rawSet);
+          sets.add(
+            AiPlanSetDraft(
+              type: set['type']?.toString() ?? 'work',
+              weight: (set['weight'] as num?)?.toDouble() ?? 0,
+              reps: (set['reps'] as num?)?.toInt() ?? 0,
+              restSeconds: (set['restSeconds'] as num?)?.toInt() ?? 0,
+            ),
+          );
+        }
+        exercises.add(AiPlanExerciseDraft(exerciseId: exerciseId, sets: sets));
+      }
+      sessions.add(
+        AiPlanSession(
+          dayOffset: (session['dayOffset'] as num?)?.toInt() ?? 0,
+          name: session['name']?.toString() ?? '训练',
+          exerciseIds: (session['exerciseIds'] as List<dynamic>? ?? const [])
+              .map((item) => item.toString())
+              .where((item) => item.isNotEmpty)
+              .toList(growable: false),
+          exercises: exercises,
+        ),
+      );
+    }
+    return AiPlanDraft(
+      title: json['title']?.toString() ?? '训练计划',
+      weeks: (json['weeks'] as num?)?.toInt() ?? 1,
+      sessions: sessions,
+    );
+  }
 
   Future<void> hydrateCustomExercises({bool force = false}) async {
     final userId = currentUser?.id;
@@ -1866,6 +2093,7 @@ class AppController extends ChangeNotifier {
         messages: List<ChatMessage>.from(chat),
       ),
     );
+    _persistAiConversations();
     notifyListeners();
   }
 
@@ -1877,6 +2105,7 @@ class AppController extends ChangeNotifier {
     chat
       ..clear()
       ..addAll(selected.messages);
+    _persistAiConversations();
     notifyListeners();
   }
 
@@ -1893,6 +2122,7 @@ class AppController extends ChangeNotifier {
         ..clear()
         ..addAll(selected.messages);
     }
+    _persistAiConversations();
     notifyListeners();
   }
 
@@ -1904,10 +2134,18 @@ class AppController extends ChangeNotifier {
         break;
       }
     }
-    if (current == null) return;
+    if (current == null) {
+      current = AiConversation(
+        id: activeConversationId,
+        title: '新对话',
+        messages: const [],
+      );
+      conversations.add(current);
+    }
     current.messages = List<ChatMessage>.from(chat);
     if (chat.isEmpty) {
       current.title = '新对话';
+      _persistAiConversations();
       return;
     }
     final latestUser = chat.lastWhere(
@@ -1919,6 +2157,7 @@ class AppController extends ChangeNotifier {
           ? '${latestUser.body.substring(0, 16)}…'
           : latestUser.body;
     }
+    _persistAiConversations();
   }
 
   Future<void> pickVideo() async {
@@ -2526,6 +2765,8 @@ class AppController extends ChangeNotifier {
   }) async {
     final trimmed = text.trim();
     if (trimmed.isEmpty || aiTyping) return;
+    await _pendingAiConversationHydration;
+    if (currentUser == null) return;
     chat.add(
       ChatMessage(
         id: 'user-${DateTime.now().microsecondsSinceEpoch}',
@@ -2547,6 +2788,7 @@ class AppController extends ChangeNotifier {
       body: '',
     );
     chat.add(answerMessage);
+    _saveActiveConversation();
     notifyListeners();
     CoachAnswer? remoteAnswer;
     String? serviceError;

@@ -324,9 +324,12 @@ function reserveQuotaInternal(db, userId, kind, requestId) {
   }
   const ent = ensureEntitlement(db, userId);
   const column = kind === 'ai' ? 'ai_remaining' : 'recognition_remaining';
-  if (Number(ent[column]) <= 0) throw httpError(409, 'quota_exhausted', { kind });
-  db.prepare(`UPDATE entitlements SET ${column} = ${column} - 1, updated_at = ? WHERE user_id = ? AND ${column} > 0`)
-    .run(nowIso(), userId);
+  const quotaExempt = db.prepare('SELECT role FROM users WHERE id = ?').get(userId)?.role === 'admin';
+  if (!quotaExempt) {
+    if (Number(ent[column]) <= 0) throw httpError(409, 'quota_exhausted', { kind });
+    db.prepare(`UPDATE entitlements SET ${column} = ${column} - 1, updated_at = ? WHERE user_id = ? AND ${column} > 0`)
+      .run(nowIso(), userId);
+  }
   const stamp = nowIso();
   db.prepare('INSERT INTO usage_reservations (request_id, user_id, kind, state, created_at, updated_at) VALUES (?, ?, ?, \'reserved\', ?, ?)')
     .run(requestId, userId, kind, stamp, stamp);
@@ -351,8 +354,11 @@ function changeReservationInternal(db, userId, requestId, action) {
   db.prepare('UPDATE usage_reservations SET state = ?, updated_at = ? WHERE request_id = ? AND state = \'reserved\'')
     .run(targetState, nowIso(), requestId);
   if (action === 'rollback') {
-    const column = row.kind === 'ai' ? 'ai_remaining' : 'recognition_remaining';
-    db.prepare(`UPDATE entitlements SET ${column} = ${column} + 1, updated_at = ? WHERE user_id = ?`).run(nowIso(), userId);
+    const quotaExempt = db.prepare('SELECT role FROM users WHERE id = ?').get(userId)?.role === 'admin';
+    if (!quotaExempt) {
+      const column = row.kind === 'ai' ? 'ai_remaining' : 'recognition_remaining';
+      db.prepare(`UPDATE entitlements SET ${column} = ${column} + 1, updated_at = ? WHERE user_id = ?`).run(nowIso(), userId);
+    }
   }
   return { reservation: db.prepare('SELECT * FROM usage_reservations WHERE request_id = ?').get(requestId), entitlement: ensureEntitlement(db, userId), idempotent: false };
 }

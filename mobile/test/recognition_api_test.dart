@@ -4,10 +4,55 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:kilo_strength/account_membership.dart';
+import 'package:kilo_strength/ai_api.dart';
+import 'package:kilo_strength/controller.dart';
 import 'package:kilo_strength/models.dart';
 import 'package:kilo_strength/recognition_api.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+class _PersistentCoachApi implements CoachApi {
+  @override
+  Future<CoachAnswer> answer({
+    required String prompt,
+    required bool includeTrainingSummary,
+    String locale = 'zh-CN',
+    String? trainingSummary,
+    List<Map<String, String>> exerciseCatalog = const [],
+    List<Map<String, String>> skills = const [],
+  }) async => CoachAnswer(
+    body: '已记录：$prompt',
+    citations: const ['测试论文｜https://example.test/paper'],
+    plan: const AiPlanDraft(
+      title: '测试计划',
+      weeks: 1,
+      sessions: [
+        AiPlanSession(
+          dayOffset: 0,
+          name: '胸部训练',
+          exerciseIds: ['bench_press'],
+          exercises: [
+            AiPlanExerciseDraft(
+              exerciseId: 'bench_press',
+              sets: [
+                AiPlanSetDraft(
+                  type: 'work',
+                  weight: 40,
+                  reps: 8,
+                  restSeconds: 120,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+}
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   test(
     'HTTP recognition uploads through configured origin and polls result',
     () async {
@@ -118,6 +163,110 @@ void main() {
           RecognitionStage.analyzing,
         ]),
       );
+    },
+  );
+
+  test(
+    'recognition preserves server quota error instead of generic HTTP error',
+    () async {
+      final client = MockClient((request) async {
+        if (request.url.path == '/v1/auth/phone/login') {
+          return http.Response(
+            jsonEncode({
+              'session': {'token': 'token'},
+            }),
+            200,
+          );
+        }
+        if (request.url.path == '/v1/analysis/jobs') {
+          return http.Response(
+            jsonEncode({
+              'error': 'quota_exhausted',
+              'detail': {'kind': 'recognition'},
+            }),
+            409,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response('not found', 404);
+      });
+      final temp = await Directory.systemTemp.createTemp('kilo-quota-test-');
+      addTearDown(() => temp.delete(recursive: true));
+      final video = File('${temp.path}/sample.mp4');
+      await video.writeAsBytes([1, 2, 3]);
+      final api = HttpRecognitionApi(
+        baseUrl: 'https://test-api.example',
+        client: client,
+      );
+      await api.signIn(identifier: '1234', password: '1234');
+
+      await expectLater(
+        api.analyze(
+          exerciseId: 'barbell_squat',
+          camera: 'side',
+          scenario: 'normal',
+          mediaPath: video.path,
+        ),
+        throwsA(
+          isA<RecognitionApiException>().having(
+            (error) => error.code,
+            'code',
+            'quota_exhausted',
+          ),
+        ),
+      );
+    },
+  );
+
+  test(
+    'AI conversations and plan details restore locally per account',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+
+      AppController buildController() {
+        final account = AccountService(allowTestAdmin: true);
+        account.loginWithPhone('123', password: '123');
+        return AppController(
+          accountService: account,
+          coachApi: _PersistentCoachApi(),
+        );
+      }
+
+      final first = buildController();
+      await first.hydrateAiConversations(force: true);
+      await first.sendChat('帮我检查今天的卧推');
+      await first.flushAiConversationPersistence();
+      expect(first.conversations, hasLength(1));
+      final stored = (await SharedPreferences.getInstance()).getString(
+        'xingyu.ai-conversations.v1.phone:123',
+      );
+      expect(stored, contains('帮我检查今天的卧推'));
+      first.dispose();
+
+      final second = buildController();
+      await second.hydrateAiConversations(force: true);
+      expect(second.conversations, hasLength(1));
+      expect(second.chat.map((message) => message.body), [
+        '帮我检查今天的卧推',
+        '已记录：帮我检查今天的卧推',
+      ]);
+      expect(second.chat.last.citations, hasLength(1));
+      expect(second.chat.last.plan?.title, '测试计划');
+      expect(
+        second
+            .chat
+            .last
+            .plan
+            ?.sessions
+            .single
+            .exercises
+            .single
+            .sets
+            .single
+            .weight,
+        40,
+      );
+      second.dispose();
     },
   );
 }
