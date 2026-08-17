@@ -440,7 +440,10 @@ function isTrainingPlanRequest(question) {
 
 async function callDeepSeekStream(ctx, messages, userId, onDelta) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), ctx.cfg.deepSeekTimeoutMs);
+  const timeout = setTimeout(
+    () => controller.abort(),
+    ctx.cfg.aiRequestTimeoutSeconds * 1000,
+  );
   try {
     const response = await fetch(`${ctx.cfg.deepSeekBaseUrl}/chat/completions`, {
       method: 'POST',

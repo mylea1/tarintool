@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
+import { createServer as createHttpServer } from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import { isAcademicKnowledgeSource, parseAiSkills, startServer } from '../src/server.mjs';
@@ -189,6 +190,57 @@ test('AI missing configuration rolls quota back and does not persist a fake answ
   assert.equal(answer.response.status, 503); assert.equal(answer.body.error, 'deepseek_not_configured');
   const after = (await api('/v1/me/entitlements', { headers: { authorization: `Bearer ${user2Token}` } })).body.aiRemaining;
   assert.equal(after, before);
+});
+
+test('AI streaming uses the configured request timeout instead of aborting immediately', async () => {
+  const upstream = createHttpServer((_req, res) => {
+    res.writeHead(200, { 'content-type': 'text/event-stream; charset=utf-8' });
+    res.write('data: {"choices":[{"delta":{"content":"流式"}}]}\n\n');
+    setTimeout(() => {
+      res.end('data: {"choices":[{"delta":{"content":"通路正常"}}]}\n\ndata: [DONE]\n\n');
+    }, 25);
+  });
+  await new Promise((resolve) => upstream.listen(0, '127.0.0.1', resolve));
+  const isolatedRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'kilo-stream-'));
+  const cfg = loadConfig({
+    ...process.env,
+    NODE_ENV: 'test',
+    KILO_ENABLE_TEST_ADMIN: 'true',
+    KILO_SESSION_PEPPER: 'stream-test-pepper-12345678901234567890',
+    KILO_GPU_API_KEY: 'stream-gpu-key-123456789012345678901234',
+    KILO_DATA_DIR: isolatedRoot,
+    KILO_DATABASE_PATH: path.join(isolatedRoot, 'kilo.sqlite3'),
+    KILO_MEDIA_DIR: path.join(isolatedRoot, 'media'),
+    DEEPSEEK_API_KEY: 'stream-test-key',
+    DEEPSEEK_BASE_URL: `http://127.0.0.1:${upstream.address().port}`,
+    KILO_AI_REQUEST_TIMEOUT_SECONDS: '2',
+  });
+  const isolatedServer = await startServer({ config: cfg, port: 0 });
+  const isolatedBase = `http://127.0.0.1:${isolatedServer.address().port}`;
+  try {
+    const login = await fetch(`${isolatedBase}/v1/auth/phone/login`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ identifier: '1234', password: '1234' }),
+    });
+    const token = (await login.json()).session.token;
+    const response = await fetch(`${isolatedBase}/v1/coach/stream`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+      body: JSON.stringify({ question: '测试流式回答' }),
+    });
+    const stream = await response.text();
+    assert.equal(response.status, 200);
+    assert.match(stream, /event: delta/u);
+    assert.match(stream, /流式/u);
+    assert.match(stream, /通路正常/u);
+    assert.match(stream, /event: done/u);
+    assert.doesNotMatch(stream, /deepseek_timeout/u);
+  } finally {
+    await isolatedServer.closeGracefully();
+    await new Promise((resolve) => upstream.close(resolve));
+    await fs.rm(isolatedRoot, { recursive: true, force: true });
+  }
 });
 
 test('recognition upload, GPU protocol, media authorization and result', async () => {
