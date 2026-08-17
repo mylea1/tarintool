@@ -5,6 +5,7 @@ import 'package:kilo_strength/ai_api.dart';
 import 'package:kilo_strength/controller.dart';
 import 'package:kilo_strength/main.dart';
 import 'package:kilo_strength/models.dart';
+import 'package:kilo_strength/recognition_api.dart';
 
 void main() {
   testWidgets('default app starts at login root', (tester) async {
@@ -161,7 +162,7 @@ void main() {
     expect(enabled.entitlements?.recognitionWeeklyGrant, 3);
   });
 
-  test('normal test account uses free-member permissions', () {
+  test('normal test account is a permanent member without admin rights', () {
     final disabled = AccountService(allowTestAdmin: false);
     expect(
       disabled.loginWithPhone('123', password: '123').error,
@@ -173,9 +174,26 @@ void main() {
     expect(result.isSuccess, isTrue);
     expect(enabled.isAdmin, isFalse);
     expect(enabled.currentUser?.displayName, '普通体验用户');
-    expect(enabled.entitlements?.membership, MembershipPlan.free);
-    expect(enabled.aiRemaining, 3);
+    expect(enabled.entitlements?.membership, MembershipPlan.forever);
+    expect(enabled.entitlements?.membershipExpiresAt, isNull);
+    expect(enabled.aiRemaining, 20);
     expect(enabled.recognitionRemaining, 5);
+    expect(enabled.entitlements?.recognitionWeeklyGrant, 3);
+  });
+
+  test('test administrator quota reservations stay unlimited locally', () {
+    final service = AccountService(allowTestAdmin: true);
+    service.loginWithPhone('1234', password: '1234');
+    for (var index = 0; index < 30; index++) {
+      final ai = service.reserveAi();
+      final recognition = service.reserveRecognition();
+      expect(ai, isNotNull);
+      expect(recognition, isNotNull);
+      ai!.commit();
+      recognition!.commit();
+    }
+    expect(service.aiRemaining, 20);
+    expect(service.recognitionRemaining, 5);
   });
 
   test('quota reservation commits and rolls back without losing credits', () {
@@ -244,6 +262,48 @@ void main() {
       expect(service.aiRemaining, 3);
     },
   );
+
+  test(
+    'free quota exhaustion explains membership upgrade instead of failure',
+    () async {
+      final service = AccountService();
+      final controller = AppController(
+        accountService: service,
+        coachApi: _ThrowingCoachApi(),
+      );
+      addTearDown(controller.dispose);
+      service.loginWithPhone('13800138003');
+      for (var index = 0; index < 3; index++) {
+        expect(service.consumeAi(), isTrue);
+      }
+
+      await controller.sendChat('请评价训练');
+
+      expect(controller.chat.last.body, contains('免费 AI 次数已用完'));
+      expect(controller.chat.last.body, contains('开通会员'));
+    },
+  );
+
+  test('free recognition exhaustion explains membership upgrade', () async {
+    final service = AccountService();
+    final controller = AppController(
+      accountService: service,
+      recognitionApi: UnconfiguredRecognitionApi(),
+    );
+    addTearDown(controller.dispose);
+    service.loginWithPhone('13800138004');
+    for (var index = 0; index < 5; index++) {
+      expect(service.consumeRecognition(), isTrue);
+    }
+    controller.selectedMediaPath = 'quota-check.mp4';
+    controller.recognitionStatus = RecognitionStatus.ready;
+
+    controller.startRecognition();
+    await Future<void>.delayed(Duration.zero);
+
+    expect(controller.recognitionResult?.summary, contains('免费动作识别次数已用完'));
+    expect(controller.recognitionResult?.summary, contains('开通会员'));
+  });
 
   test('AI daily reset and recognition weekly refill follow the clock', () {
     var now = DateTime(2026, 8, 6, 12);

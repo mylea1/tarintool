@@ -73,6 +73,43 @@ void main() {
     },
   );
 
+  test('coach client preserves server quota errors', () async {
+    final client = MockClient((request) async {
+      if (request.url.path == '/v1/auth/phone/login') {
+        return http.Response(
+          jsonEncode({
+            'session': {'token': 'quota-session'},
+          }),
+          200,
+        );
+      }
+      return http.Response(
+        jsonEncode({
+          'error': 'quota_exhausted',
+          'detail': {'kind': 'ai'},
+        }),
+        409,
+        headers: {'content-type': 'application/json'},
+      );
+    });
+    final api = HttpCoachApi(
+      baseUrl: 'https://api.example.test',
+      client: client,
+    );
+    await api.signIn(identifier: '123', password: '123');
+
+    await expectLater(
+      api.answer(prompt: 'test', includeTrainingSummary: false),
+      throwsA(
+        isA<CoachApiException>().having(
+          (error) => error.code,
+          'code',
+          'quota_exhausted',
+        ),
+      ),
+    );
+  });
+
   test(
     'coach client forwards an explicitly consented training summary',
     () async {

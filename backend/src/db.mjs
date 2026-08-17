@@ -199,6 +199,7 @@ export function seedTestMember(db, cfg) {
     identifier: cfg.testMemberIdentifier,
     rawPassword: cfg.testMemberPassword,
     displayName: 'EMBER Test Member',
+    forever: true,
   });
   upsertMember({
     identifier: cfg.testAdminIdentifier,

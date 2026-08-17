@@ -307,11 +307,17 @@ class SharedPreferencesAccountPersistence implements AccountPersistence {
 }
 
 class QuotaReservation {
-  QuotaReservation._(this._service, this.kind, this._userId);
+  QuotaReservation._(
+    this._service,
+    this.kind,
+    this._userId, {
+    this.quotaExempt = false,
+  });
 
   final AccountService _service;
   final UsageKind kind;
   final String _userId;
+  final bool quotaExempt;
   bool _closed = false;
 
   bool get isClosed => _closed;
@@ -325,7 +331,7 @@ class QuotaReservation {
   void rollback() {
     if (_closed) return;
     _closed = true;
-    _service._restoreReservation(kind, _userId);
+    if (!quotaExempt) _service._restoreReservation(kind, _userId);
   }
 }
 
@@ -469,7 +475,9 @@ class AccountService extends ChangeNotifier {
     _users[id] = user;
     _currentUserId = id;
     final existing = _entitlements[id] ?? _newEntitlements();
-    _entitlements[id] = isAdmin
+    final permanentTestAccount =
+        allowTestAdmin && (identifier == '123' || identifier == '1234');
+    _entitlements[id] = permanentTestAccount
         ? existing.copyWith(
             membership: MembershipPlan.forever,
             clearMembershipExpiresAt: true,
@@ -578,6 +586,9 @@ class AccountService extends ChangeNotifier {
     final user = currentUser;
     if (user == null) return null;
     _refreshEntitlements();
+    if (user.isAdmin) {
+      return QuotaReservation._(this, kind, user.id, quotaExempt: true);
+    }
     final current = _entitlements[user.id]!;
     final remaining = kind == UsageKind.ai
         ? current.aiRemaining

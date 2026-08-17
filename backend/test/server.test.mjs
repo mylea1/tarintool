@@ -11,6 +11,7 @@ let root;
 let server;
 let base;
 let adminToken;
+let memberToken;
 let userToken;
 let user2Token;
 
@@ -31,6 +32,7 @@ test.before(async () => {
   const member = await api('/v1/auth/phone/login', { method: 'POST', body: JSON.stringify({ identifier: '123', password: '123' }) });
   assert.equal(member.response.status, 200);
   assert.equal(member.body.user.role, 'user');
+  memberToken = member.body.session.token;
   assert.equal(admin.response.status, 200); adminToken = admin.body.session.token;
   const first = await api('/v1/auth/register', { method: 'POST', body: JSON.stringify({ identifier: 'first-user', password: 'abcd' }) });
   assert.equal(first.response.status, 201); userToken = first.body.session.token;
@@ -104,6 +106,8 @@ test('health, auth and admin role boundaries', async () => {
   assert.equal(capabilities.body.exercises.find((item) => item.exerciseId === 'bench_press').group, '胸部');
   const adminEntitlements = await api('/v1/me/entitlements', { headers: { authorization: `Bearer ${adminToken}` } });
   assert.equal(adminEntitlements.body.membership, 'forever'); assert.equal(adminEntitlements.body.membershipExpiresAt, null); assert.ok(adminEntitlements.body.aiRemaining >= 20); assert.ok(adminEntitlements.body.recognitionRemaining >= 3); assert.ok(adminEntitlements.body.recognitionWeeklyGrant >= 3);
+  const memberEntitlements = await api('/v1/me/entitlements', { headers: { authorization: `Bearer ${memberToken}` } });
+  assert.equal(memberEntitlements.body.membership, 'forever'); assert.equal(memberEntitlements.body.membershipExpiresAt, null); assert.ok(memberEntitlements.body.aiRemaining >= 20); assert.ok(memberEntitlements.body.recognitionWeeklyGrant >= 3);
   const unauth = await api('/v1/me/entitlements'); assert.equal(unauth.response.status, 401);
   const forbidden = await api('/v1/admin/redemption-codes', { method: 'POST', headers: { authorization: `Bearer ${userToken}` }, body: JSON.stringify({ plan: 'oneMonth' }) });
   assert.equal(forbidden.response.status, 403);

@@ -79,7 +79,11 @@ class HttpCoachApi implements CoachApi, StreamingCoachApi {
         )
         .timeout(requestTimeout);
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw CoachApiException('coach_auth_http_${response.statusCode}');
+      throw _coachServerException(
+        response.statusCode,
+        response.body,
+        'coach_auth',
+      );
     }
     final payload = jsonDecode(response.body) as Map<String, dynamic>;
     final session = payload['session'];
@@ -135,7 +139,8 @@ class HttpCoachApi implements CoachApi, StreamingCoachApi {
               });
         final response = await client.send(request).timeout(requestTimeout);
         if (response.statusCode < 200 || response.statusCode >= 300) {
-          throw CoachApiException('coach_http_${response.statusCode}');
+          final body = await response.stream.bytesToString();
+          throw _coachServerException(response.statusCode, body, 'coach');
         }
         var buffer = '';
         await for (final chunk in response.stream.transform(utf8.decoder)) {
@@ -228,7 +233,7 @@ class HttpCoachApi implements CoachApi, StreamingCoachApi {
     }
     if (response.statusCode < 200 || response.statusCode >= 300) {
       if (response.statusCode == 401) clearSession();
-      throw CoachApiException('coach_http_${response.statusCode}');
+      throw _coachServerException(response.statusCode, response.body, 'coach');
     }
     final payload = jsonDecode(response.body) as Map<String, dynamic>;
     return _answerFromPayload(payload);
@@ -306,6 +311,23 @@ class HttpCoachApi implements CoachApi, StreamingCoachApi {
       plan: plan,
     );
   }
+}
+
+CoachApiException _coachServerException(
+  int statusCode,
+  String responseBody,
+  String operation,
+) {
+  try {
+    final payload = jsonDecode(responseBody);
+    if (payload is Map<String, dynamic>) {
+      final serverCode = payload['error']?.toString() ?? '';
+      if (serverCode.isNotEmpty) return CoachApiException(serverCode);
+    }
+  } on FormatException {
+    // Preserve the HTTP fallback for non-JSON proxy and tunnel responses.
+  }
+  return CoachApiException('${operation}_http_$statusCode');
 }
 
 class CoachApiException implements Exception {

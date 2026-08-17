@@ -249,7 +249,7 @@ class AppController extends ChangeNotifier {
   Future<void> _trainingLibraryWriteChain = Future<void>.value();
   Future<void> _customExerciseWriteChain = Future<void>.value();
   Future<void> _aiConversationWriteChain = Future<void>.value();
-  Future<void>? _pendingAiConversationHydration;
+  int _aiConversationRevision = 0;
   String? _loadedHistoryUserId;
   String? _loadedTrainingLibraryUserId;
   String? _loadedCustomExercisesUserId;
@@ -278,10 +278,7 @@ class AppController extends ChangeNotifier {
       chat.clear();
       activeConversationId = 'conversation-main';
       if (userId != null && userId.isNotEmpty) {
-        _pendingAiConversationHydration = hydrateAiConversations(force: true);
-        unawaited(_pendingAiConversationHydration);
-      } else {
-        _pendingAiConversationHydration = null;
+        unawaited(hydrateAiConversations(force: true));
       }
     }
     notifyListeners();
@@ -366,11 +363,16 @@ class AppController extends ChangeNotifier {
     final userId = currentUser?.id;
     if (userId == null || userId.isEmpty) return;
     if (!force && _loadedAiConversationsUserId == userId) return;
+    final revisionAtStart = _aiConversationRevision;
     try {
       await _aiConversationWriteChain;
       final preferences = await SharedPreferences.getInstance();
       final raw = preferences.getString('xingyu.ai-conversations.v1.$userId');
       if (currentUser?.id != userId) return;
+      if (_aiConversationRevision != revisionAtStart) {
+        _loadedAiConversationsUserId = userId;
+        return;
+      }
       final restored = <AiConversation>[];
       var restoredActiveId = 'conversation-main';
       if (raw != null && raw.isNotEmpty) {
@@ -429,6 +431,7 @@ class AppController extends ChangeNotifier {
   void _persistAiConversations() {
     final userId = currentUser?.id;
     if (userId == null || userId.isEmpty) return;
+    _aiConversationRevision++;
     _loadedAiConversationsUserId = userId;
     final payload = <String, dynamic>{
       'activeConversationId': activeConversationId,
@@ -2242,11 +2245,11 @@ class AppController extends ChangeNotifier {
       _recognitionReservation = accountService.reserveRecognition();
       if (_recognitionReservation == null) {
         recognitionStatus = RecognitionStatus.error;
-        recognitionResult = const RecognitionResult(
+        recognitionResult = RecognitionResult(
           status: RecognitionStatus.error,
           confidence: 0,
           repetitions: 0,
-          summary: '识别额度已用完，请等待每周补充或完成一次有效训练。',
+          summary: _recognitionQuotaExhaustedMessage(),
           error: 'quota_exhausted',
         );
         _recognitionTicker?.cancel();
@@ -2285,7 +2288,9 @@ class AppController extends ChangeNotifier {
         status: RecognitionStatus.error,
         confidence: 0,
         repetitions: 0,
-        summary: recognitionErrorMessage(error.code),
+        summary: error.code == 'quota_exhausted'
+            ? _recognitionQuotaExhaustedMessage()
+            : recognitionErrorMessage(error.code),
         error: error.code,
       );
     } catch (error) {
@@ -2303,6 +2308,14 @@ class AppController extends ChangeNotifier {
     _recognitionTicker?.cancel();
     notifyListeners();
   }
+
+  String _recognitionQuotaExhaustedMessage() => entitlements?.isMember == true
+      ? '本周动作识别次数已用完，请等待下周补充或完成一次有效训练。'
+      : '免费动作识别次数已用完，请开通会员后继续使用。';
+
+  String _aiQuotaExhaustedMessage() => entitlements?.isMember == true
+      ? '今日 AI 次数已用完，请明天再试。'
+      : '免费 AI 次数已用完，请开通会员后继续使用。';
 
   void addExercises(Iterable<String> ids) {
     WorkoutExercise? latest;
@@ -2765,8 +2778,6 @@ class AppController extends ChangeNotifier {
   }) async {
     final trimmed = text.trim();
     if (trimmed.isEmpty || aiTyping) return;
-    await _pendingAiConversationHydration;
-    if (currentUser == null) return;
     chat.add(
       ChatMessage(
         id: 'user-${DateTime.now().microsecondsSinceEpoch}',
@@ -2803,8 +2814,7 @@ class AppController extends ChangeNotifier {
       if (isAuthenticated) {
         aiReservation = accountService.reserveAi();
         if (aiReservation == null) {
-          serviceError =
-              '\u4eca\u65e5 AI \u989d\u5ea6\u5df2\u7528\u5b8c\uff0c\u660e\u5929\u6216\u5f00\u901a\u4f1a\u5458\u540e\u6062\u590d\u3002';
+          serviceError = _aiQuotaExhaustedMessage();
         }
       }
       if (serviceError == null) {
@@ -2873,6 +2883,7 @@ class AppController extends ChangeNotifier {
             'coach_cancelled' =>
               answerMessage.body.trim().isEmpty ? '已停止回答。' : null,
             'coach_account_not_synced' => '当前账号尚未同步到云端，请先使用测试账号 123 或 1234。',
+            'quota_exhausted' => _aiQuotaExhaustedMessage(),
             'coach_timeout' => 'AI 响应超时，已自动重试一次，请稍后再试。',
             'coach_network' => '当前网络无法连接 AI 服务，请检查网络后重试。',
             'coach_http_429' ||
