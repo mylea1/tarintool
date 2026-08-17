@@ -1,8 +1,10 @@
-# Refresh the lightweight queue loop without rebuilding the ML dependency
-# layers. The base image must already contain the current inference module.
+# Refresh worker application code without rebuilding the ML dependency layers.
+# Keep this layer suitable for emergency server-side deployments: inference and
+# evidence-gating changes must ship together with the queue loop.
 ARG BASE_IMAGE=kilo-cpu-worker:5df0415-ffmpeg
 FROM ${BASE_IMAGE}
 
 USER root
 COPY --chown=kilo:kilo worker.py /opt/kilo/worker/worker.py
+COPY --chown=kilo:kilo kilo_worker /opt/kilo/worker/kilo_worker
 USER kilo

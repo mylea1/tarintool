@@ -208,6 +208,38 @@ test('recognition upload, GPU protocol, media authorization and result', async (
   const otherMedia = await fetch(`${base}/v1/analysis/jobs/${created.body.id}/media/preview`, { headers: { authorization: `Bearer ${userToken}` } }); assert.equal(otherMedia.status, 404);
 });
 
+test('recognition refuses to invent coaching feedback without a complete repetition', async () => {
+  const created = await api('/v1/analysis/jobs', { method: 'POST', headers: { authorization: `Bearer ${adminToken}` }, body: JSON.stringify({ exerciseId: 'barbell_squat', camera: 'side', includeOverlay: false }) });
+  assert.equal(created.response.status, 202);
+  const issuedUpload = new URL(created.body.upload.url);
+  const upload = new URL(`${issuedUpload.pathname}${issuedUpload.search}`, base);
+  const uploadResponse = await fetch(upload, { method: 'PUT', headers: { 'content-type': 'video/mp4', 'content-length': '4' }, body: Buffer.from('test') });
+  assert.equal(uploadResponse.status, 200);
+  const claim = await api('/v1/internal/gpu/jobs/claim', { method: 'POST', headers: { 'x-kilo-gpu-key': 'gpu-test-key-123456789012345678901234', 'content-type': 'application/json' }, body: '{}' });
+  assert.equal(claim.response.status, 200);
+  const done = await api(`/v1/internal/gpu/jobs/${created.body.id}/result`, {
+    method: 'POST',
+    headers: { 'x-kilo-gpu-key': 'gpu-test-key-123456789012345678901234' },
+    body: JSON.stringify({
+      result: {
+        status: 'complete',
+        confidence: 0.0988,
+        repetitions: 0,
+        summary: '本次动作已经分析完成',
+        metrics: { detectedFrames: 29, inferenceFrames: 29, detectionRate: 1, durationSeconds: 3.01 },
+      },
+      modelVersion: 'test-v1',
+    }),
+  });
+
+  assert.equal(done.response.status, 200);
+  assert.equal(done.body.result.assessment, 'insufficient_evidence');
+  assert.deepEqual(done.body.result.aiReview.strengths, []);
+  assert.deepEqual(done.body.result.aiReview.risks, []);
+  assert.equal(done.body.result.aiReviewError, null);
+  assert.match(done.body.result.summary, /不足以评价/);
+});
+
 test('recognition rejects unsafe or oversized uploads', async () => {
   const before = (await api('/v1/me/entitlements', { headers: { authorization: `Bearer ${user2Token}` } })).body.recognitionRemaining;
   const created = await api('/v1/analysis/jobs', { method: 'POST', headers: { authorization: `Bearer ${user2Token}` }, body: JSON.stringify({ exerciseId: 'barbell_squat', camera: 'side' }) });

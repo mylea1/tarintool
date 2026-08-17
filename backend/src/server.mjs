@@ -598,39 +598,84 @@ export function isVisibleKnowledgeSource(item) {
 // to academic-only sources; the product now excludes only internal/GitHub/B站.
 export const isAcademicKnowledgeSource = isVisibleKnowledgeSource;
 
-async function enrichRecognitionResult(ctx, job, result) {
-  if (!ctx.cfg.deepSeekApiKey) return { ...result, aiReview: null, aiReviewError: 'deepseek_not_configured' };
+export function recognitionEvidenceAssessment(result) {
   const metrics = result?.metrics && typeof result.metrics === 'object' ? result.metrics : {};
-  const coachingMetrics = Object.fromEntries(
-    Object.entries(metrics).filter(([key]) => !/confidence|detected|frame|model|latency/i.test(key)),
-  );
+  if (result?.assessment === 'insufficient_evidence' || metrics.assessable === false) {
+    return { assessable: false, reason: String(result?.evidenceReason || metrics.evidenceReason || 'insufficient_evidence') };
+  }
+  const confidence = Number(result?.confidence || 0);
+  const repetitions = Number(result?.repetitions || 0);
+  const detectedFrames = Number(metrics.detectedFrames || 0);
+  const inferenceFrames = Number(metrics.inferenceFrames || 0);
+  if (inferenceFrames > 0 && (detectedFrames < 6 || detectedFrames / inferenceFrames < 0.55)) return { assessable: false, reason: 'insufficient_landmarks' };
+  if (!Number.isFinite(confidence) || confidence < 0.25) return { assessable: false, reason: 'insufficient_pose_quality' };
+  if (!Number.isFinite(repetitions) || repetitions < 1) return { assessable: false, reason: 'no_complete_repetition' };
+  return { assessable: true, reason: 'assessable' };
+}
+
+function insufficientRecognitionResult(result, reason) {
+  return {
+    ...result,
+    assessment: 'insufficient_evidence',
+    evidenceReason: reason,
+    summary: '这段视频不足以评价所选动作，请上传至少一次完整动作。',
+    aiReview: {
+      headline: '这段视频还不足以评价所选动作',
+      strengths: [],
+      risks: [],
+      nextSet: '请重新上传一段完整视频：从起始位开始，完成至少一次动作，再回到起始位。',
+      basis: '当前没有足够的完整动作过程，所以不会猜测你哪里做得好或哪里需要改。',
+    },
+    aiReviewError: null,
+  };
+}
+
+function recognitionCoachingObservations(result) {
+  const metrics = result?.metrics && typeof result.metrics === 'object' ? result.metrics : {};
+  const observations = { repetitions: Number(result?.repetitions || 0) };
+  for (const key of ['durationSeconds', 'primaryAngleMin', 'primaryAngleMax', 'primaryAngleRange']) {
+    const value = Number(metrics[key]);
+    if (Number.isFinite(value)) observations[key] = value;
+  }
+  if (observations.repetitions > 0 && observations.durationSeconds > 0) {
+    observations.secondsPerRepetition = Number((observations.durationSeconds / observations.repetitions).toFixed(2));
+  }
+  return observations;
+}
+
+async function enrichRecognitionResult(ctx, job, result) {
+  const evidence = recognitionEvidenceAssessment(result);
+  if (!evidence.assessable) return insufficientRecognitionResult(result, evidence.reason);
+  if (!ctx.cfg.deepSeekApiKey) return { ...result, assessment: 'assessable', aiReview: null, aiReviewError: 'deepseek_not_configured' };
+  const observations = recognitionCoachingObservations(result);
   const messages = [
     {
       role: 'system',
       content: `你是形域里一位有经验、会说人话的训练搭档。用户刚完成一组动作，希望立刻知道做得怎么样、下一组怎么改。
 写法要求：
 1. 像训练搭档当面说话，直接、自然、鼓励但不敷衍，不使用报告腔。
-2. 只谈动作表现、身体控制和下一组可执行调整；绝不能出现算法、模型、置信度、关键点、识别率、拍摄、机位、光线、画面质量或技术故障等词。
-3. 信息不足的部分直接省略，不推测伤病，不责怪用户。
-4. 建议必须具体到节奏、幅度、稳定性、重量或次数中的至少一项。
+2. 你只能改写用户 JSON 中 observations 已明确给出的事实，不能新增任何观察结论。
+3. 没有对应测量值时，禁止评价深度、膝盖方向、站姿、重心、稳定性、左右对称、关节轨迹或动作质量；信息不足的字段直接省略。
+4. 绝不能出现算法、模型、置信度、关键点、识别率、拍摄、机位、光线、画面质量或技术故障等词。
+5. 不推测伤病，不责怪用户。建议只能依据 observations，证据不足时 strengths 和 risks 必须为空数组。
 仅输出 JSON：{"headline":"一句自然的总体判断","strengths":["做得好的地方"],"risks":["下一组注意"],"nextSet":"下一组具体怎么做","basis":"用普通训练语言简述理由"}。每个数组最多 3 条。`,
     },
     {
       role: 'user',
       content: JSON.stringify({
         exerciseId: job.exercise_id,
-        repetitions: Number(result?.repetitions || 0),
-        metrics: coachingMetrics,
+        observations,
       }),
     },
   ];
   try {
     const raw = await ctx.aiGate.run(() => callDeepSeek(ctx, messages, job.user_id));
     const match = raw.match(/\{[\s\S]*\}/u);
-    if (!match) return { ...result, aiReview: { headline: '这一组已经看完了', strengths: [], risks: [], nextSet: raw.slice(0, 800), basis: '根据本组动作表现' } };
+    if (!match) return { ...result, assessment: 'assessable', aiReview: { headline: `已识别到 ${observations.repetitions} 次完整动作`, strengths: [], risks: [], nextSet: '', basis: '只展示本次能够确认的完整动作次数。' }, aiReviewError: 'ai_review_invalid_json' };
     const parsed = JSON.parse(match[0]);
     return {
       ...result,
+      assessment: 'assessable',
       aiReview: {
         headline: String(parsed.headline || '这一组已经看完了').slice(0, 120),
         strengths: Array.isArray(parsed.strengths) ? parsed.strengths.map(String).slice(0, 3) : [],

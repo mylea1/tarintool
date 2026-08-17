@@ -10,7 +10,7 @@ import numpy as np
 import torch
 from ultralytics import YOLO
 
-from .angles import RepetitionCounter, joint_angle
+from .angles import RepetitionCounter, assess_exercise_evidence, joint_angle
 
 
 SKELETON = (
@@ -107,6 +107,7 @@ class PoseAnalyzer:
         preview_written = False
         last_points = None
         last_scores = None
+        angle_samples: list[float] = []
 
         try:
             while True:
@@ -140,6 +141,7 @@ class PoseAnalyzer:
                     a, b, c, _, _ = configuration
                     if min(scores[a], scores[b], scores[c]) >= self.confidence:
                         angle = joint_angle(points[a], points[b], points[c])
+                        angle_samples.append(angle)
                         counter.update(angle)
                         cv2.putText(frame, f"Angle {angle:.0f}", (20, 74), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (255, 179, 71), 2)
                 cv2.putText(frame, f"Reps {counter.count}", (20, 42), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (48, 210, 122), 2)
@@ -168,9 +170,24 @@ class PoseAnalyzer:
         detection_rate = detected_frames / inference_frames if inference_frames else 0.0
         pose_confidence = confidence_total / detected_frames if detected_frames else 0.0
         overall_confidence = round(min(1.0, detection_rate * pose_confidence), 4)
-        summary = "本次动作已经分析完成" if detected_frames else "这段动作暂时无法给出稳定判断，请重新尝试"
+        evidence = assess_exercise_evidence(
+            repetitions=counter.count,
+            confidence=overall_confidence,
+            detected_frames=detected_frames,
+            inference_frames=inference_frames,
+            angle_samples=angle_samples,
+        )
+        summary = (
+            "本次动作已经分析完成"
+            if evidence.assessable
+            else "这段视频不足以评价所选动作，请上传至少一次完整动作。"
+        )
+        angle_min = round(min(angle_samples), 2) if angle_samples else None
+        angle_max = round(max(angle_samples), 2) if angle_samples else None
         result = {
             "status": "complete",
+            "assessment": "assessable" if evidence.assessable else "insufficient_evidence",
+            "evidenceReason": evidence.reason,
             "confidence": overall_confidence,
             "repetitions": counter.count,
             "summary": summary,
@@ -185,6 +202,11 @@ class PoseAnalyzer:
                 "durationSeconds": round(frame_count / fps, 2),
                 "outputWidth": output_width,
                 "outputHeight": output_height,
+                "primaryAngleMin": angle_min,
+                "primaryAngleMax": angle_max,
+                "primaryAngleRange": round(evidence.angle_range, 2),
+                "assessable": evidence.assessable,
+                "evidenceReason": evidence.reason,
             },
         }
         return AnalysisOutput(result, overlay_path if include_overlay else None, preview_path)
