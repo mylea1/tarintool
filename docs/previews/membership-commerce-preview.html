@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>形域 PRO 会员中心预览</title>
+  <style>
+    :root { color-scheme: light; --bg:#fff8f2; --surface:#fffdf9; --ink:#241b17; --muted:#7b6e67; --line:#eaded4; --ember:#e45113; --ember2:#ff7c39; --tint:#ffe5d3; --green:#24734f; }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100dvh; display:grid; place-items:center; background:#efeae5; font:14px/1.45 system-ui,-apple-system,"PingFang SC",sans-serif; color:var(--ink); }
+    button { font:inherit; }
+    .phone { width:min(100%,390px); min-height:844px; overflow:hidden; background:var(--bg); box-shadow:0 24px 70px #4b342444; }
+    header { display:flex; align-items:center; gap:12px; padding:22px 20px 14px; }
+    .brand { position:relative; width:42px; height:42px; display:grid; place-items:center; border-radius:14px; background:var(--ink); color:#fff; }
+    .brand:before { content:""; width:19px; height:19px; border:5px solid var(--tint); border-right-color:var(--ember); border-radius:50%; }
+    h1 { margin:0; font-size:25px; letter-spacing:-.03em; }
+    header p { margin:1px 0 0; color:var(--muted); font-size:12px; }
+    main { padding:0 16px 28px; }
+    .hero { position:relative; overflow:hidden; padding:18px; border-radius:24px; color:#fff; background:linear-gradient(135deg,#2b211d,#4a2b1d 65%,#86330f); box-shadow:0 14px 34px #b34b1d2c; }
+    .hero:after { content:""; position:absolute; width:180px; height:180px; right:-70px; top:-95px; border:24px solid #ffad7c26; border-radius:50%; }
+    .tier { display:flex; align-items:center; gap:7px; color:#ffd4b8; font-weight:800; }
+    .mini-badge { width:24px; height:24px; display:grid; place-items:center; border:1px solid #ffb98d; border-radius:9px; }
+    .hero h2 { max-width:250px; margin:18px 0 6px; font-size:27px; line-height:1.08; }
+    .hero p { max-width:270px; margin:0; color:#e9dcd4; }
+    .meter { display:grid; grid-template-columns:1fr 1fr; gap:1px; margin-top:18px; overflow:hidden; border:1px solid #ffffff25; border-radius:15px; background:#ffffff25; }
+    .meter div { padding:11px; background:#ffffff0c; }
+    .meter b { display:block; font-size:19px; }
+    .meter small { color:#d9c9bf; }
+    .section-head { display:flex; justify-content:space-between; align-items:end; margin:20px 3px 10px; }
+    .section-head h3 { margin:0; font-size:17px; }
+    .section-head span { color:var(--muted); font-size:11px; }
+    .plans { display:grid; gap:9px; }
+    .plan { width:100%; display:grid; grid-template-columns:44px minmax(0,1fr) auto; gap:11px; align-items:center; padding:13px; border:1px solid var(--line); border-radius:18px; background:var(--surface); color:inherit; text-align:left; }
+    .plan.is-selected { border-color:var(--ember); box-shadow:inset 0 0 0 1px var(--ember); background:#fffaf6; }
+    .plan-icon { width:44px; height:44px; display:grid; place-items:center; border-radius:14px; background:var(--tint); color:var(--ember); font-size:20px; }
+    .plan strong,.plan small { display:block; }
+    .plan small { margin-top:2px; color:var(--muted); }
+    .price { text-align:right; white-space:nowrap; }
+    .price b { font-size:18px; }
+    .benefits { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+    .benefit { min-width:0; padding:12px; border:1px solid var(--line); border-radius:16px; background:var(--surface); }
+    .benefit i { display:grid; place-items:center; width:31px; height:31px; margin-bottom:8px; border-radius:10px; background:var(--tint); color:var(--ember); font-style:normal; }
+    .benefit b,.benefit small { display:block; overflow-wrap:anywhere; }
+    .benefit small { margin-top:3px; color:var(--muted); font-size:11px; }
+    .cta { position:sticky; bottom:0; padding:12px 16px 20px; background:linear-gradient(transparent,var(--bg) 24%); }
+    .cta button { width:100%; min-height:52px; border:0; border-radius:17px; background:var(--ember); color:#fff; font-weight:900; box-shadow:0 10px 22px #e4511340; }
+    .links { display:flex; justify-content:center; gap:18px; margin-top:11px; }
+    .links button { border:0; background:transparent; color:var(--muted); font-size:12px; }
+    dialog { width:min(calc(100% - 24px),356px); padding:0; border:0; border-radius:26px; background:var(--surface); color:var(--ink); box-shadow:0 24px 90px #241b1766; }
+    dialog::backdrop { background:#2b211d88; backdrop-filter:blur(3px); }
+    .modal { padding:22px; }
+    .modal .lock { width:58px; height:58px; display:grid; place-items:center; margin-bottom:15px; border-radius:19px; background:var(--tint); color:var(--ember); font-size:26px; }
+    .modal h2 { margin:0 0 7px; font-size:22px; }
+    .modal p { margin:0 0 16px; color:var(--muted); }
+    .quota { padding:12px; border-radius:14px; background:#f8efe8; }
+    .quota b { color:var(--ember); }
+    .modal-actions { display:grid; gap:8px; margin-top:18px; }
+    .modal-actions button { min-height:48px; border-radius:15px; font-weight:800; }
+    .primary { border:0; background:var(--ember); color:white; }
+    .secondary { border:1px solid var(--line); background:transparent; color:var(--ink); }
+    @media (prefers-reduced-motion:no-preference) { dialog[open] { animation:rise .22s ease-out; } @keyframes rise { from { opacity:0; transform:translateY(18px) scale(.98); } } }
+  </style>
+</head>
+<body>
+  <section class="phone">
+    <header><span class="brand" aria-label="形域"></span><div><h1>形域 PRO</h1><p>让每次训练都有清晰反馈</p></div></header>
+    <main>
+      <section class="hero">
+        <div class="tier"><span class="mini-badge">✦</span> 免费账户</div>
+        <h2>把训练数据变成下一次进步</h2>
+        <p>解锁更多 AI 分析、动作识别和长期训练洞察。</p>
+        <div class="meter"><div><b>1 / 3</b><small>今日 AI 剩余</small></div><div><b>1</b><small>本周识别次数</small></div></div>
+      </section>
+      <div class="section-head"><h3>选择会员</h3><span>由 App Store 安全结算</span></div>
+      <div class="plans">
+        <button class="plan" data-plan><span class="plan-icon">月</span><span><strong>连续包月</strong><small>适合先体验完整功能</small></span><span class="price"><b>¥18</b><small>/ 月</small></span></button>
+        <button class="plan is-selected" data-plan><span class="plan-icon">季</span><span><strong>连续包季</strong><small>每月约 ¥12 · 推荐</small></span><span class="price"><b>¥36</b><small>/ 3 月</small></span></button>
+        <button class="plan" data-plan><span class="plan-icon">∞</span><span><strong>永久会员</strong><small>一次购买，长期使用</small></span><span class="price"><b>¥128</b></span></button>
+      </div>
+      <div class="section-head"><h3>PRO 权益</h3><span>训练记录始终免费</span></div>
+      <div class="benefits">
+        <div class="benefit"><i>AI</i><b>每日 20 次问答</b><small>结合训练和备注给出建议</small></div>
+        <div class="benefit"><i>◎</i><b>更多动作识别</b><small>每周 3 次基础额度</small></div>
+        <div class="benefit"><i>↗</i><b>长期趋势分析</b><small>跨周、跨月训练洞察</small></div>
+        <div class="benefit"><i>✦</i><b>会员身份标识</b><small>专属暖焰徽章与总结</small></div>
+      </div>
+    </main>
+    <div class="cta"><button id="buy">使用 App Store 开通 ¥36</button><div class="links"><button id="orders">订单记录</button><button id="redeem">兑换会员</button><button>恢复购买</button></div></div>
+  </section>
+  <dialog id="paywall"><div class="modal"><div class="lock">✦</div><h2>今天的免费 AI 次数已用完</h2><p>免费账户每天可提问 3 次，明天会自动恢复。开通 PRO 可继续本次对话。</p><div class="quota"><b>3 / 3 已使用</b><br><small>训练记录、计时和计划功能不受影响</small></div><div class="modal-actions"><button class="primary" onclick="this.closest('dialog').close()">查看 PRO 方案</button><button class="secondary" onclick="this.closest('dialog').close()">明天再问</button></div></div></dialog>
+  <script>
+    const plans=[...document.querySelectorAll('[data-plan]')]; plans.forEach(p=>p.onclick=()=>{plans.forEach(x=>x.classList.remove('is-selected'));p.classList.add('is-selected')});
+    document.querySelector('#orders').onclick=()=>alert('订单记录：暂无已完成订单');
+    document.querySelector('#redeem').onclick=()=>prompt('输入兑换码');
+    document.querySelector('#buy').onclick=()=>document.querySelector('#paywall').showModal();
+    setTimeout(()=>document.querySelector('#paywall').showModal(),450);
+  </script>
+</body>
+</html>

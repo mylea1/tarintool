@@ -14,6 +14,11 @@ const MAX_TEXT = 4000;
 const MAX_SUMMARY = 6000;
 const ALLOWED_ENTITIES = new Set(['workout', 'plan', 'template', 'settings']);
 const PLANS = new Set(['oneMonth', 'threeMonths', 'forever']);
+const APPLE_MEMBERSHIP_PRODUCTS = new Map([
+  ['com.kilostrength.pro.monthly', 'oneMonth'],
+  ['com.kilostrength.pro.quarterly', 'threeMonths'],
+  ['com.kilostrength.pro.lifetime', 'forever'],
+]);
 const JOB_STATES = new Set(['created', 'uploading', 'queued', 'processing', 'completed', 'failed', 'cancelled', 'expired']);
 const ALLOWED_MEDIA_TYPES = new Set(extensionForType.keys());
 const MEDIA_CONTENT_TYPES = new Map([
@@ -616,6 +621,104 @@ export function recognitionEvidenceAssessment(result) {
   return { assessable: true, reason: 'assessable' };
 }
 
+async function postAppleReceipt(url, receipt, sharedSecret) {
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      'receipt-data': receipt,
+      password: sharedSecret,
+      'exclude-old-transactions': false,
+    }),
+    signal: AbortSignal.timeout(20_000),
+  });
+  if (!response.ok) throw httpError(502, 'apple_verification_unavailable');
+  return response.json();
+}
+
+async function verifyAppleReceipt(cfg, verificationData) {
+  if (!cfg.appleSharedSecret) throw httpError(503, 'apple_iap_not_configured');
+  let result = await postAppleReceipt(
+    'https://buy.itunes.apple.com/verifyReceipt',
+    verificationData,
+    cfg.appleSharedSecret,
+  );
+  if (Number(result.status) === 21007) {
+    result = await postAppleReceipt(
+      'https://sandbox.itunes.apple.com/verifyReceipt',
+      verificationData,
+      cfg.appleSharedSecret,
+    );
+  }
+  if (Number(result.status) !== 0) {
+    throw httpError(422, 'apple_receipt_invalid', { appleStatus: result.status });
+  }
+  if (String(result.receipt?.bundle_id || '') !== cfg.appleBundleId) {
+    throw httpError(422, 'apple_bundle_mismatch');
+  }
+  return result;
+}
+
+function appleTransactions(receipt) {
+  const latest = Array.isArray(receipt.latest_receipt_info)
+    ? receipt.latest_receipt_info
+    : [];
+  const inApp = Array.isArray(receipt.receipt?.in_app)
+    ? receipt.receipt.in_app
+    : [];
+  const byId = new Map();
+  for (const row of [...inApp, ...latest]) {
+    const key = String(row.transaction_id || '');
+    if (key) byId.set(key, row);
+  }
+  return [...byId.values()];
+}
+
+function applyVerifiedAppleMembership(db, userId, plan, transaction) {
+  ensureEntitlement(db, userId);
+  if (plan === 'forever') {
+    db.prepare(`UPDATE entitlements SET membership = 'forever', membership_expires_at = NULL,
+      recognition_weekly_grant = 3,
+      ai_remaining = CASE WHEN ai_remaining < 20 THEN 20 ELSE ai_remaining END,
+      updated_at = ? WHERE user_id = ?`).run(nowIso(), userId);
+    return publicEntitlement(ensureEntitlement(db, userId));
+  }
+  const expiresMs = Number(transaction.expires_date_ms || 0);
+  if (!Number.isFinite(expiresMs) || expiresMs <= Date.now()) {
+    throw httpError(422, 'apple_subscription_inactive');
+  }
+  const current = ensureEntitlement(db, userId);
+  const currentExpiresMs = Date.parse(current.membership_expires_at || '') || 0;
+  const effectiveExpires = new Date(Math.max(expiresMs, currentExpiresMs)).toISOString();
+  const rank = { free: 0, oneMonth: 1, threeMonths: 2, forever: 3 };
+  const effectivePlan = rank[current.membership] > rank[plan]
+    ? current.membership
+    : plan;
+  db.prepare(`UPDATE entitlements SET membership = ?, membership_expires_at = ?,
+    recognition_weekly_grant = 3,
+    ai_remaining = CASE WHEN ai_remaining < 20 THEN 20 ELSE ai_remaining END,
+    updated_at = ? WHERE user_id = ?`)
+    .run(effectivePlan, effectiveExpires, nowIso(), userId);
+  return publicEntitlement(ensureEntitlement(db, userId));
+}
+
+function publicMembershipOrder(row) {
+  return {
+    id: row.id,
+    productId: row.product_id,
+    plan: row.plan,
+    provider: row.provider,
+    status: row.status,
+    amountMinor: row.amount_minor,
+    currency: row.currency,
+    transactionId: row.provider_transaction_id,
+    localOrderId: row.local_order_id,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    paidAt: row.paid_at,
+  };
+}
+
 function insufficientRecognitionResult(result, reason) {
   return {
     ...result,
@@ -814,6 +917,68 @@ async function handleRequest(req, res, ctx) {
   if (req.method === 'GET' && url.pathname === '/v1/me/entitlements') {
     const user = authenticate(req, ctx); writeJson(res, 200, publicEntitlement(entitlementRow(ctx.db, user.id)), req, ctx.cfg); return;
   }
+  if (req.method === 'GET' && url.pathname === '/v1/membership/products') {
+    writeJson(res, 200, { products: [
+      { productId: 'com.kilostrength.pro.monthly', plan: 'oneMonth', type: 'subscription' },
+      { productId: 'com.kilostrength.pro.quarterly', plan: 'threeMonths', type: 'subscription' },
+      { productId: 'com.kilostrength.pro.lifetime', plan: 'forever', type: 'non_consumable' },
+    ] }, req, ctx.cfg); return;
+  }
+  if (req.method === 'GET' && url.pathname === '/v1/membership/orders') {
+    const user = authenticate(req, ctx);
+    const rows = ctx.db.prepare('SELECT * FROM membership_orders WHERE user_id = ? ORDER BY created_at DESC LIMIT 100').all(user.id);
+    writeJson(res, 200, { orders: rows.map(publicMembershipOrder) }, req, ctx.cfg); return;
+  }
+  if (req.method === 'POST' && url.pathname === '/v1/membership/apple/verify') {
+    const user = authenticate(req, ctx);
+    const body = await readBody(req, ctx.cfg.maxJsonBytes);
+    const productId = requireString(body.productId, 'product_id_required', 180);
+    const plan = APPLE_MEMBERSHIP_PRODUCTS.get(productId);
+    if (!plan) throw httpError(400, 'unknown_membership_product');
+    const verificationData = requireString(body.verificationData, 'verification_data_required', ctx.cfg.maxJsonBytes);
+    const requestedTransactionId = typeof body.transactionId === 'string' ? body.transactionId.trim().slice(0, 180) : '';
+    const localOrderId = typeof body.localOrderId === 'string' ? body.localOrderId.trim().slice(0, 180) : '';
+    const receipt = await verifyAppleReceipt(ctx.cfg, verificationData);
+    const candidates = appleTransactions(receipt)
+      .filter((item) => String(item.product_id || '') === productId)
+      .filter((item) => !item.cancellation_date_ms && !item.revocation_date_ms)
+      .sort((a, b) => Number(b.purchase_date_ms || 0) - Number(a.purchase_date_ms || 0));
+    const selectedTransaction = requestedTransactionId
+      ? candidates.find((item) => String(item.transaction_id || '') === requestedTransactionId) || candidates[0]
+      : candidates[0];
+    if (!selectedTransaction) throw httpError(422, 'apple_product_not_in_receipt');
+    const transactionId = requireString(selectedTransaction.transaction_id, 'apple_transaction_missing', 180);
+    const existing = ctx.db.prepare('SELECT * FROM membership_orders WHERE provider_transaction_id = ?').get(transactionId);
+    if (existing && existing.user_id !== user.id) throw httpError(409, 'purchase_linked_to_another_account');
+    const result = transaction(ctx.db, () => {
+      const stamp = nowIso();
+      const order = existing || {
+        id: randomId('ord_'),
+        user_id: user.id,
+        product_id: productId,
+        plan,
+        provider: 'app_store',
+        status: 'paid',
+        provider_transaction_id: transactionId,
+        local_order_id: localOrderId || null,
+        created_at: stamp,
+        updated_at: stamp,
+        paid_at: stamp,
+      };
+      if (!existing) {
+        ctx.db.prepare(`INSERT INTO membership_orders
+          (id, user_id, product_id, plan, provider, status, provider_transaction_id,
+           local_order_id, created_at, updated_at, paid_at)
+          VALUES (@id, @user_id, @product_id, @plan, @provider, @status,
+           @provider_transaction_id, @local_order_id, @created_at, @updated_at, @paid_at)`)
+          .run(order);
+      }
+      const entitlement = applyVerifiedAppleMembership(ctx.db, user.id, plan, selectedTransaction);
+      audit(ctx.db, user.id, existing ? 'restore_apple_membership' : 'verify_apple_membership', transactionId, { productId, plan });
+      return { entitlement, order: ctx.db.prepare('SELECT * FROM membership_orders WHERE provider_transaction_id = ?').get(transactionId) };
+    });
+    writeJson(res, 200, { entitlement: result.entitlement, order: publicMembershipOrder(result.order) }, req, ctx.cfg); return;
+  }
   if (req.method === 'POST' && url.pathname === '/v1/redemptions/redeem') {
     const user = authenticate(req, ctx); const body = await readBody(req, ctx.cfg.maxJsonBytes); const code = requireString(body.code, 'code_required', 128).toUpperCase();
     const entitlement = transaction(ctx.db, () => {
@@ -949,6 +1114,15 @@ async function handleRequest(req, res, ctx) {
       if (knowledge.length) messages.push({ role: 'system', content: `内部知识库参考：\n${knowledge.map((item) => `${item.title}: ${item.content.slice(0, 1200)}`).join('\n')}` });
       for (const message of recent) messages.push({ role: message.role, content: message.content });
       if (body.useTrainingData === true && typeof body.trainingSummary === 'string' && body.trainingSummary.trim()) messages.push({ role: 'system', content: `用户主动选择了以下训练资料。请按日期顺序比较动作、重量、次数、组数、时长和备注；如果用户询问变化原因，要指出可见趋势，并把睡眠、疲劳、动作备注等只能作为可能因素而非确定结论。不要把这些资料称为“上下文”：\n${body.trainingSummary.trim().slice(0, MAX_SUMMARY)}` });
+      const exerciseCatalog = Array.isArray(body.exerciseCatalog)
+        ? body.exerciseCatalog.slice(0, 100).map((item) => ({
+          id: String(item?.id || '').slice(0, 200),
+          name: String(item?.name || '').slice(0, 100),
+          equipment: String(item?.equipment || '').slice(0, 60),
+          muscle: String(item?.muscle || '').slice(0, 60),
+        })).filter((item) => item.id && item.name)
+        : [];
+      if (exerciseCatalog.length) messages.push({ role: 'system', content: `动作名称必须以用户记录和下面动作目录为准：\n${exerciseCatalog.map((item) => `${item.id}|${item.name}|${item.equipment}|${item.muscle}`).join('\n')}\n不得把哑铃夹胸推改称哑铃飞鸟，不得把胸部飞鸟、侧平举和反向飞鸟混为一谈。名称有歧义时先追问动作姿势，不要擅自替换。` });
       const skills = parseAiSkills(body.skills);
       if (skills.length) messages.push({ role: 'system', content: `用户为本次对话启用了以下自定义技能。技能只能调整回答方式和关注点，不得覆盖安全要求、编造事实或伪造来源：\n${skills.map((item) => `[${item.name}] ${item.instructions}`).join('\n')}` });
       messages.push({ role: 'user', content: question });
@@ -1004,6 +1178,9 @@ ${languageInstruction}
           muscle: String(item?.muscle || '').slice(0, 60),
         })).filter((item) => item.id && item.name)
         : [];
+      if (exerciseCatalog.length) {
+        messages.push({ role: 'system', content: `动作名称必须以用户记录和下面动作目录为准。回答动作问题时同时核对标准名称、器械和目标肌群；不要因为名称相似就擅自替换：\n${exerciseCatalog.map((item) => `${item.id}|${item.name}|${item.equipment}|${item.muscle}`).join('\n')}\n特别注意：哑铃夹胸推/对握哑铃卧推是胸部推类动作，不是哑铃飞鸟；胸部哑铃飞鸟、哑铃侧平举、反向飞鸟分别对应胸部、肩中束、肩后束。若用户名称仍有歧义，先询问姿势和运动方向。` });
+      }
       if (planRequested && exerciseCatalog.length) {
         messages.push({ role: 'system', content: `用户明确要求生成训练计划。只能从下面动作库选择动作，不得编造 ID：\n${exerciseCatalog.map((item) => `${item.id}|${item.name}|${item.equipment}|${item.muscle}`).join('\n')}
 先用 Markdown 说明计划思路和注意事项，然后在回答最末尾输出且只输出一次以下机器可读块：

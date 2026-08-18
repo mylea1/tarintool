@@ -421,6 +421,32 @@ void main() {
     expect(restored.entitlements?.membership, MembershipPlan.oneMonth);
   });
 
+  test('membership orders are user scoped and survive persistence', () {
+    final persistence = InMemoryAccountPersistence();
+    final service = AccountService(persistence: persistence);
+    service.loginWithPhone('13800138000');
+    final order = service.createMembershipOrder(
+      plan: MembershipPlan.threeMonths,
+      productId: 'com.kilostrength.pro.quarterly',
+      displayPrice: '¥36',
+      provider: MembershipOrderProvider.appStore,
+    );
+    expect(order, isNotNull);
+    service.updateMembershipOrder(
+      order!.id,
+      status: MembershipOrderStatus.paid,
+      transactionId: 'transaction-1',
+    );
+
+    final restored = AccountService(persistence: persistence);
+    expect(restored.membershipOrders, hasLength(1));
+    expect(restored.membershipOrders.single.status, MembershipOrderStatus.paid);
+    expect(restored.membershipOrders.single.transactionId, 'transaction-1');
+
+    restored.loginWithPhone('13900139000');
+    expect(restored.membershipOrders, isEmpty);
+  });
+
   test('persisted test admin is removed when the release gate is disabled', () {
     final persistence = InMemoryAccountPersistence();
     final debugService = AccountService(

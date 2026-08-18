@@ -12,6 +12,7 @@ import 'app_localizations.dart';
 import 'controller.dart';
 import 'exercise_media.dart';
 import 'link_utils.dart';
+import 'membership_ui.dart';
 import 'models.dart';
 import 'natural_workout_parser.dart';
 import 'recognition_api.dart';
@@ -5241,6 +5242,18 @@ class RecognitionPage extends StatelessWidget {
                               controller.recognitionStatus ==
                                   RecognitionStatus.error
                           ? () {
+                              final entitlement = controller.entitlements;
+                              if (entitlement != null &&
+                                  !entitlement.isMember &&
+                                  entitlement.recognitionRemaining <= 0) {
+                                showMembershipPaywall(
+                                  context,
+                                  controller: controller,
+                                  reason:
+                                      MembershipPaywallReason.recognitionQuota,
+                                );
+                                return;
+                              }
                               controller.startRecognition();
                               Navigator.of(context).push(
                                 MaterialPageRoute<void>(
@@ -6165,7 +6178,20 @@ class _RecognitionResultPage extends StatelessWidget {
                 const SizedBox(height: 12),
                 FilledButton.icon(
                   key: const Key('recognition-result-retry'),
-                  onPressed: controller.startRecognition,
+                  onPressed: () {
+                    final entitlement = controller.entitlements;
+                    if (entitlement != null &&
+                        !entitlement.isMember &&
+                        entitlement.recognitionRemaining <= 0) {
+                      showMembershipPaywall(
+                        context,
+                        controller: controller,
+                        reason: MembershipPaywallReason.recognitionQuota,
+                      );
+                      return;
+                    }
+                    controller.startRecognition();
+                  },
                   icon: const Icon(Icons.refresh_rounded),
                   label: const Text('重新分析这个视频'),
                 ),
@@ -6633,6 +6659,17 @@ class _AiPageState extends State<AiPage> {
         ? '请分析我选择的训练记录，指出完成情况，并给出下一次训练的具体建议。'
         : input.text;
     if (text.trim().isEmpty) return;
+    final entitlement = controller.entitlements;
+    if (entitlement != null &&
+        !entitlement.isMember &&
+        entitlement.aiRemaining <= 0) {
+      showMembershipPaywall(
+        context,
+        controller: controller,
+        reason: MembershipPaywallReason.aiQuota,
+      );
+      return;
+    }
     input.clear();
     FocusManager.instance.primaryFocus?.unfocus();
     followLatest = true;
@@ -8249,24 +8286,37 @@ class _AccountMembershipCard extends StatelessWidget {
                 final compact = constraints.maxWidth < 390 || textScale > 1.35;
                 final identity = Row(
                   children: [
-                    Container(
-                      width: 56,
-                      height: 56,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: ink,
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      child: Text(
-                        user.displayName.isEmpty
-                            ? 'K'
-                            : user.displayName.substring(0, 1),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
+                    Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Container(
+                          width: 56,
+                          height: 56,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: ink,
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                          child: Text(
+                            user.displayName.isEmpty
+                                ? '形'
+                                : user.displayName.substring(0, 1),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
                         ),
-                      ),
+                        Positioned(
+                          right: -5,
+                          bottom: -5,
+                          child: MembershipMark(
+                            isMember: quota.isMember,
+                            size: 22,
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -8362,9 +8412,14 @@ class _AccountMembershipCard extends StatelessWidget {
                 Expanded(
                   child: FilledButton.icon(
                     key: const Key('redeem-membership-button'),
-                    onPressed: () => _showRedeemDialog(context, controller),
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) =>
+                            MembershipCenterPage(controller: controller),
+                      ),
+                    ),
                     icon: const Icon(Icons.confirmation_number_outlined),
-                    label: const Text('会员与兑换'),
+                    label: Text(quota.isMember ? '管理会员' : '升级 PRO'),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -8796,48 +8851,6 @@ class _ProfileSettingRow extends StatelessWidget {
     trailing:
         trailing ?? (onTap == null ? null : const Icon(Icons.chevron_right)),
     onTap: onTap,
-  );
-}
-
-void _showRedeemDialog(BuildContext context, AppController controller) {
-  final code = TextEditingController();
-  showDialog<void>(
-    context: context,
-    builder: (dialogContext) => AlertDialog(
-      title: const Text('\u5151\u6362\u4f1a\u5458'),
-      content: TextField(
-        controller: code,
-        autofocus: true,
-        textCapitalization: TextCapitalization.characters,
-        decoration: const InputDecoration(
-          labelText: '\u4e00\u6b21\u6027\u5151\u6362\u7801',
-          hintText: 'KILO1-…',
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(dialogContext),
-          child: const Text('\u53d6\u6d88'),
-        ),
-        FilledButton(
-          key: const Key('redeem-submit-button'),
-          onPressed: () {
-            final result = controller.redeemCode(code.text);
-            if (result.isSuccess) {
-              Navigator.pop(dialogContext);
-              showKiloSnack(context, '\u5151\u6362\u6210\u529f');
-            } else {
-              showKiloSnack(
-                context,
-                _accountErrorMessage(result.error),
-                error: true,
-              );
-            }
-          },
-          child: const Text('\u5151\u6362'),
-        ),
-      ],
-    ),
   );
 }
 

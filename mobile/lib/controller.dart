@@ -260,6 +260,8 @@ class AppController extends ChangeNotifier {
   String? _defaultCoachApiBaseUrl;
   HttpRecognitionApi? _defaultRecognitionApi;
   String? _defaultRecognitionApiBaseUrl;
+  String? _remoteIdentifier;
+  String? _remotePassword;
   bool _disposed = false;
 
   AccountUser? get currentUser => accountService.currentUser;
@@ -268,6 +270,56 @@ class AppController extends ChangeNotifier {
   EntitlementSnapshot? get entitlements => accountService.entitlements;
   int get aiRemaining => accountService.aiRemaining;
   int get recognitionRemaining => accountService.recognitionRemaining;
+  List<MembershipOrder> get membershipOrders => accountService.membershipOrders;
+
+  MembershipOrder? createMembershipOrder({
+    required MembershipPlan plan,
+    required String productId,
+    required String displayPrice,
+    required MembershipOrderProvider provider,
+  }) => accountService.createMembershipOrder(
+    plan: plan,
+    productId: productId,
+    displayPrice: displayPrice,
+    provider: provider,
+  );
+
+  MembershipOrder? updateMembershipOrder(
+    String orderId, {
+    required MembershipOrderStatus status,
+    String? transactionId,
+    String? failureReason,
+  }) => accountService.updateMembershipOrder(
+    orderId,
+    status: status,
+    transactionId: transactionId,
+    failureReason: failureReason,
+  );
+
+  Future<void> verifyAppleMembershipPurchase({
+    required String productId,
+    required String verificationData,
+    String? transactionId,
+    String? localOrderId,
+  }) async {
+    final api = await _activeCoachApi();
+    if (api is! HttpCoachApi) {
+      throw const CoachApiException('membership_verification_unavailable');
+    }
+    final payload = await api.verifyApplePurchase(
+      productId: productId,
+      verificationData: verificationData,
+      transactionId: transactionId,
+      localOrderId: localOrderId,
+    );
+    final raw = payload['entitlement'];
+    if (raw is! Map) {
+      throw const CoachApiException('membership_entitlement_missing');
+    }
+    accountService.replaceCurrentEntitlement(
+      EntitlementSnapshot.fromMap(Map<String, dynamic>.from(raw)),
+    );
+  }
 
   void _handleAccountChanged() {
     final userId = currentUser?.id;
@@ -292,6 +344,8 @@ class AppController extends ChangeNotifier {
       password: password,
     );
     if (result.isSuccess) {
+      _remoteIdentifier = identifier.trim();
+      _remotePassword = password;
       aiSkills.clear();
       unawaited(hydrateWorkoutHistory(force: true));
       unawaited(hydrateActiveWorkout());
@@ -307,6 +361,8 @@ class AppController extends ChangeNotifier {
   AuthResult loginWithGoogle() => accountService.loginWithGoogle();
 
   void logout() {
+    _remoteIdentifier = null;
+    _remotePassword = null;
     _defaultCoachApi?.clearSession();
     _defaultRecognitionApi?.clearSession();
     accountService.logout();
@@ -2389,11 +2445,13 @@ class AppController extends ChangeNotifier {
     }
     final api = _defaultRecognitionApi!;
     if (!api.hasSession) {
-      final identifier = currentUser?.identifier;
-      if (identifier != '123' && identifier != '1234') {
+      final identifier = _remoteIdentifier ?? currentUser?.identifier;
+      final password = _remotePassword ??
+          ((identifier == '123' || identifier == '1234') ? identifier : null);
+      if (identifier == null || identifier.isEmpty || password == null) {
         throw const RecognitionApiException('recognition_account_not_synced');
       }
-      await api.signIn(identifier: identifier!, password: identifier);
+      await api.signIn(identifier: identifier, password: password);
     }
     return api;
   }
@@ -2412,11 +2470,13 @@ class AppController extends ChangeNotifier {
     }
     final api = _defaultCoachApi!;
     if (!api.hasSession) {
-      final identifier = currentUser?.identifier;
-      if (identifier != '123' && identifier != '1234') {
+      final identifier = _remoteIdentifier ?? currentUser?.identifier;
+      final password = _remotePassword ??
+          ((identifier == '123' || identifier == '1234') ? identifier : null);
+      if (identifier == null || identifier.isEmpty || password == null) {
         throw const CoachApiException('coach_account_not_synced');
       }
-      await api.signIn(identifier: identifier!, password: identifier);
+      await api.signIn(identifier: identifier, password: password);
     }
     return api;
   }
@@ -2592,7 +2652,6 @@ class AppController extends ChangeNotifier {
     bool includeTrainingContext = false,
     String? selectedTrainingContext,
   }) async {
-    final requestsPlan = _isAiPlanRequest(prompt);
     final includeSummary =
         aiUseTrainingData ||
         includeTrainingContext ||
@@ -2606,7 +2665,7 @@ class AppController extends ChangeNotifier {
         trainingSummary: includeSummary
             ? selectedTrainingContext ?? _buildAiTrainingSummary()
             : null,
-        exerciseCatalog: requestsPlan ? _aiExerciseCatalog() : const [],
+        exerciseCatalog: _aiExerciseCatalog(),
         skills: _activeAiSkillPayload(),
       );
     }
@@ -2837,9 +2896,7 @@ class AppController extends ChangeNotifier {
                   trainingSummary: includeSummary
                       ? selected ?? _buildAiTrainingSummary()
                       : null,
-                  exerciseCatalog: _isAiPlanRequest(trimmed)
-                      ? _aiExerciseCatalog()
-                      : const [],
+                  exerciseCatalog: _aiExerciseCatalog(),
                   skills: _activeAiSkillPayload(),
                 )
                 .listen(
@@ -2882,7 +2939,7 @@ class AppController extends ChangeNotifier {
           serviceError = switch (error.code) {
             'coach_cancelled' =>
               answerMessage.body.trim().isEmpty ? '已停止回答。' : null,
-            'coach_account_not_synced' => '当前账号尚未同步到云端，请先使用测试账号 123 或 1234。',
+            'coach_account_not_synced' => '当前账号尚未完成云端登录，请重新登录后再试。',
             'quota_exhausted' => _aiQuotaExhaustedMessage(),
             'coach_timeout' => 'AI 响应超时，已自动重试一次，请稍后再试。',
             'coach_network' => '当前网络无法连接 AI 服务，请检查网络后重试。',

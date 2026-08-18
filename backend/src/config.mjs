@@ -47,6 +47,9 @@ export function loadConfig(env = process.env) {
     aiQueueLimit: nonNegativeIntValue(env, 'KILO_AI_QUEUE_LIMIT', 40),
     aiRequestTimeoutSeconds: intValue(env, 'KILO_AI_REQUEST_TIMEOUT_SECONDS', 60),
     appleClientId: env.APPLE_CLIENT_ID || '',
+    appleSharedSecret: env.APPLE_SHARED_SECRET || '',
+    appleBundleId:
+      env.APPLE_BUNDLE_ID || 'com.kilostrength.kiloStrength',
     googleClientId: env.GOOGLE_CLIENT_ID || '',
     sessionTtlDays: intValue(env, 'KILO_SESSION_TTL_DAYS', 30),
     gpuClaimTimeoutSeconds: intValue(env, 'KILO_GPU_CLAIM_TIMEOUT_SECONDS', 900),

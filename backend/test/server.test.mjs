@@ -153,6 +153,35 @@ test('quota reserve commit rollback and idempotency', async () => {
   assert.equal(rolledBack.body.aiRemaining, before.aiRemaining);
 });
 
+test('membership products are public but orders and verification are protected', async () => {
+  const products = await api('/v1/membership/products');
+  assert.equal(products.response.status, 200);
+  assert.deepEqual(
+    products.body.products.map((item) => item.productId),
+    [
+      'com.kilostrength.pro.monthly',
+      'com.kilostrength.pro.quarterly',
+      'com.kilostrength.pro.lifetime',
+    ],
+  );
+  assert.equal((await api('/v1/membership/orders')).response.status, 401);
+  const orders = await api('/v1/membership/orders', {
+    headers: { authorization: `Bearer ${userToken}` },
+  });
+  assert.equal(orders.response.status, 200);
+  assert.deepEqual(orders.body.orders, []);
+  const unverified = await api('/v1/membership/apple/verify', {
+    method: 'POST',
+    headers: { authorization: `Bearer ${userToken}` },
+    body: JSON.stringify({
+      productId: 'com.kilostrength.pro.monthly',
+      verificationData: 'not-a-receipt',
+    }),
+  });
+  assert.equal(unverified.response.status, 503);
+  assert.equal(unverified.body.error, 'apple_iap_not_configured');
+});
+
 test('administrator remains quota-exempt when recognition balance is zero', async () => {
   const admin = server.context.db.prepare("SELECT id FROM users WHERE identifier = '1234'").get();
   server.context.db.prepare('UPDATE entitlements SET recognition_remaining = 0 WHERE user_id = ?').run(admin.id);

@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kilo_strength/controller.dart';
+import 'package:kilo_strength/account_membership.dart';
 import 'package:kilo_strength/exercise_media.dart';
 import 'package:kilo_strength/main.dart';
+import 'package:kilo_strength/membership_ui.dart';
 import 'package:kilo_strength/models.dart';
 import 'package:kilo_strength/recognition_api.dart';
 
@@ -13,6 +15,28 @@ Future<void> _openRoute(WidgetTester tester, String label) async {
 }
 
 void main() {
+  testWidgets('membership center keeps plans and order entry usable at 320dp', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 720);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final account = AccountService()..loginWithPhone('13800138000');
+    final controller = AppController(accountService: account);
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      MaterialApp(home: MembershipCenterPage(controller: controller)),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('会员中心'), findsOneWidget);
+    expect(find.text('月度会员'), findsOneWidget);
+    expect(find.text('季度会员'), findsOneWidget);
+    expect(find.text('永久会员'), findsOneWidget);
+    expect(find.text('订单'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   test('all reference exercise media assets load', () async {
     expect(catalog, hasLength(1324));
     expect(catalog.map((item) => item.id).toSet(), hasLength(1324));

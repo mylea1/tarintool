@@ -98,6 +98,44 @@ class HttpCoachApi implements CoachApi, StreamingCoachApi {
 
   void clearSession() => _sessionToken = null;
 
+  Future<Map<String, dynamic>> verifyApplePurchase({
+    required String productId,
+    required String verificationData,
+    String? transactionId,
+    String? localOrderId,
+  }) async {
+    final token = _sessionToken;
+    if (token == null || token.isEmpty) {
+      throw const CoachApiException('coach_unauthenticated');
+    }
+    final response = await _client
+        .post(
+          Uri.parse(
+            '${baseUrl.replaceAll(RegExp(r'/+$'), '')}/v1/membership/apple/verify',
+          ),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+          body: jsonEncode({
+            'productId': productId,
+            'verificationData': verificationData,
+            if (transactionId?.isNotEmpty == true)
+              'transactionId': transactionId,
+            if (localOrderId?.isNotEmpty == true) 'localOrderId': localOrderId,
+          }),
+        )
+        .timeout(requestTimeout);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw _coachServerException(
+        response.statusCode,
+        response.body,
+        'membership_verify',
+      );
+    }
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
   @override
   Stream<CoachStreamEvent> streamAnswer({
     required String prompt,

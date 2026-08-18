@@ -45,6 +45,25 @@ CREATE TABLE IF NOT EXISTS redemption_codes (
   used_at TEXT
 );
 
+CREATE TABLE IF NOT EXISTS membership_orders (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  product_id TEXT NOT NULL,
+  plan TEXT NOT NULL CHECK (plan IN ('oneMonth', 'threeMonths', 'forever')),
+  provider TEXT NOT NULL CHECK (provider IN ('app_store', 'google_play', 'redemption')),
+  status TEXT NOT NULL CHECK (status IN ('pending', 'paid', 'restored', 'cancelled', 'failed', 'refunded')),
+  amount_minor INTEGER,
+  currency TEXT,
+  provider_transaction_id TEXT UNIQUE,
+  local_order_id TEXT,
+  failure_reason TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  paid_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_membership_orders_user
+  ON membership_orders(user_id, created_at DESC);
+
 CREATE TABLE IF NOT EXISTS usage_reservations (
   request_id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,

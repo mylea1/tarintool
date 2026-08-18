@@ -22,6 +22,17 @@ enum AuthProvider { phone, apple, google }
 
 enum MembershipPlan { free, oneMonth, threeMonths, forever }
 
+enum MembershipOrderStatus {
+  pending,
+  processing,
+  paid,
+  restored,
+  cancelled,
+  failed,
+}
+
+enum MembershipOrderProvider { appStore, googlePlay, redemption }
+
 enum UsageKind { ai, recognition }
 
 enum AccountError {
@@ -250,6 +261,99 @@ class RedemptionCode {
   );
 }
 
+class MembershipOrder {
+  const MembershipOrder({
+    required this.id,
+    required this.userId,
+    required this.plan,
+    required this.productId,
+    required this.provider,
+    required this.status,
+    required this.displayPrice,
+    required this.createdAt,
+    required this.updatedAt,
+    this.transactionId,
+    this.failureReason,
+  });
+
+  final String id;
+  final String userId;
+  final MembershipPlan plan;
+  final String productId;
+  final MembershipOrderProvider provider;
+  final MembershipOrderStatus status;
+  final String displayPrice;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final String? transactionId;
+  final String? failureReason;
+
+  MembershipOrder copyWith({
+    MembershipOrderStatus? status,
+    DateTime? updatedAt,
+    String? transactionId,
+    String? failureReason,
+    bool clearFailureReason = false,
+  }) => MembershipOrder(
+    id: id,
+    userId: userId,
+    plan: plan,
+    productId: productId,
+    provider: provider,
+    status: status ?? this.status,
+    displayPrice: displayPrice,
+    createdAt: createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    transactionId: transactionId ?? this.transactionId,
+    failureReason: clearFailureReason
+        ? null
+        : failureReason ?? this.failureReason,
+  );
+
+  Map<String, Object?> toMap() => {
+    'id': id,
+    'userId': userId,
+    'plan': plan.name,
+    'productId': productId,
+    'provider': provider.name,
+    'status': status.name,
+    'displayPrice': displayPrice,
+    'createdAt': createdAt.toIso8601String(),
+    'updatedAt': updatedAt.toIso8601String(),
+    'transactionId': transactionId,
+    'failureReason': failureReason,
+  };
+
+  factory MembershipOrder.fromMap(Map<String, dynamic> map) {
+    final createdAt =
+        DateTime.tryParse((map['createdAt'] ?? '').toString()) ??
+        DateTime.fromMillisecondsSinceEpoch(0);
+    return MembershipOrder(
+      id: (map['id'] ?? '').toString(),
+      userId: (map['userId'] ?? '').toString(),
+      plan: MembershipPlan.values.firstWhere(
+        (item) => item.name == map['plan'],
+        orElse: () => MembershipPlan.free,
+      ),
+      productId: (map['productId'] ?? '').toString(),
+      provider: MembershipOrderProvider.values.firstWhere(
+        (item) => item.name == map['provider'],
+        orElse: () => MembershipOrderProvider.appStore,
+      ),
+      status: MembershipOrderStatus.values.firstWhere(
+        (item) => item.name == map['status'],
+        orElse: () => MembershipOrderStatus.pending,
+      ),
+      displayPrice: (map['displayPrice'] ?? '').toString(),
+      createdAt: createdAt,
+      updatedAt:
+          DateTime.tryParse((map['updatedAt'] ?? '').toString()) ?? createdAt,
+      transactionId: map['transactionId']?.toString(),
+      failureReason: map['failureReason']?.toString(),
+    );
+  }
+}
+
 /// Small synchronous persistence boundary.  The production adapter can map
 /// this shape to a database transaction without changing entitlement logic.
 abstract interface class AccountPersistence {
@@ -356,6 +460,7 @@ class AccountService extends ChangeNotifier {
       <String, EntitlementSnapshot>{};
   final Map<String, Set<String>> _rewardedWorkouts = <String, Set<String>>{};
   final Map<String, RedemptionCode> _codes = <String, RedemptionCode>{};
+  final Map<String, MembershipOrder> _orders = <String, MembershipOrder>{};
   String? _currentUserId;
 
   /// Whether the development-only test administrator is available for this
@@ -382,6 +487,69 @@ class AccountService extends ChangeNotifier {
   List<RedemptionCode> get redemptionCodes =>
       _codes.values.toList(growable: false);
 
+  List<MembershipOrder> get membershipOrders {
+    final userId = currentUser?.id;
+    if (userId == null) return const [];
+    final rows = _orders.values.where((item) => item.userId == userId).toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return rows;
+  }
+
+  MembershipOrder? createMembershipOrder({
+    required MembershipPlan plan,
+    required String productId,
+    required String displayPrice,
+    required MembershipOrderProvider provider,
+  }) {
+    final user = currentUser;
+    if (user == null || plan == MembershipPlan.free) return null;
+    final now = _clock();
+    final order = MembershipOrder(
+      id: 'order-${now.microsecondsSinceEpoch.toRadixString(36)}',
+      userId: user.id,
+      plan: plan,
+      productId: productId,
+      provider: provider,
+      status: MembershipOrderStatus.pending,
+      displayPrice: displayPrice,
+      createdAt: now,
+      updatedAt: now,
+    );
+    _orders[order.id] = order;
+    _persist();
+    notifyListeners();
+    return order;
+  }
+
+  MembershipOrder? updateMembershipOrder(
+    String orderId, {
+    required MembershipOrderStatus status,
+    String? transactionId,
+    String? failureReason,
+  }) {
+    final existing = _orders[orderId];
+    if (existing == null || existing.userId != currentUser?.id) return null;
+    final updated = existing.copyWith(
+      status: status,
+      updatedAt: _clock(),
+      transactionId: transactionId,
+      failureReason: failureReason,
+      clearFailureReason: failureReason == null,
+    );
+    _orders[orderId] = updated;
+    _persist();
+    notifyListeners();
+    return updated;
+  }
+
+  void replaceCurrentEntitlement(EntitlementSnapshot entitlement) {
+    final user = currentUser;
+    if (user == null) return;
+    _entitlements[user.id] = entitlement;
+    _persist();
+    notifyListeners();
+  }
+
   String get currentUserId => currentUser?.id ?? '';
 
   /// Loads the persisted local prototype state. The app calls this during its
@@ -395,6 +563,7 @@ class AccountService extends ChangeNotifier {
       _entitlements.clear();
       _rewardedWorkouts.clear();
       _codes.clear();
+      _orders.clear();
       _restore(saved);
     }
     persistence = adapter;
@@ -770,6 +939,7 @@ class AccountService extends ChangeNotifier {
         (key, value) => MapEntry(key, value.toList()),
       ),
       'codes': _codes.map((key, value) => MapEntry(key, value.toMap())),
+      'orders': _orders.map((key, value) => MapEntry(key, value.toMap())),
     });
   }
 
@@ -829,6 +999,17 @@ class AccountService extends ChangeNotifier {
             Map<String, dynamic>.from(entry.value as Map),
           );
           if (code.code.isNotEmpty) _codes[entry.key.toString()] = code;
+        }
+      }
+    }
+    final orders = map['orders'];
+    if (orders is Map) {
+      for (final entry in orders.entries) {
+        if (entry.value is Map) {
+          final order = MembershipOrder.fromMap(
+            Map<String, dynamic>.from(entry.value as Map),
+          );
+          if (order.id.isNotEmpty) _orders[entry.key.toString()] = order;
         }
       }
     }

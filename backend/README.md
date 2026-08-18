@@ -16,6 +16,14 @@ npm start
 
 数据库由 `migrations/001_init.sql` 自动初始化。`KILO_DATA_DIR`、`KILO_DATABASE_PATH` 和 `KILO_MEDIA_DIR` 应指向持久卷；当前媒体实现是服务器磁盘上的 `LocalStorage`，API 使用逻辑 key，未来替换 OSS 不需要改移动端 API。媒体下载始终要求资源所属用户的会话。
 
+## 会员订单与 App Store 校验
+
+- 客户端商品 ID 固定为 `com.kilostrength.pro.monthly`、`com.kilostrength.pro.quarterly`、`com.kilostrength.pro.lifetime`，必须在 App Store Connect 中创建完全一致的商品。
+- 服务器通过 `POST /v1/membership/apple/verify` 校验 App Store 收据，只有 Apple 校验成功后才写入 `membership_orders` 并授予权益；客户端不能直接把订单改成已付款。
+- 在服务器私密环境文件中配置 `APPLE_SHARED_SECRET` 和 `APPLE_BUNDLE_ID=com.kilostrength.kiloStrength`。共享密钥不得提交到仓库或放入 Codemagic 的 Dart define。
+- `GET /v1/membership/orders` 只返回当前登录用户的订单。相同 Apple transaction ID 不能绑定到另一个形域账号。
+- 当前实现主动使用 StoreKit 1 收据完成服务端校验；后续切换 StoreKit 2 时，应迁移到 Apple 签名交易 JWS 校验后再移除兼容路径。
+
 ## 关键边界
 
 - Bearer session 只以 pepper 哈希存库；Apple/Google token 必须通过服务端 JWKS 校验，未配置 provider 返回 `provider_not_configured`；短信供应商未接入时返回同样的明确失败。

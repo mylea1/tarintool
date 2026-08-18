@@ -9,6 +9,7 @@ const backendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
 const sourcePaths = [
   path.join(backendRoot, 'knowledge', 'core.zh-CN.json'),
   path.join(backendRoot, 'knowledge', 'training-framework.zh-CN.json'),
+  path.join(backendRoot, 'knowledge', 'exercise-disambiguation.zh-CN.json'),
 ];
 const chunks = sourcePaths.flatMap((sourcePath) => JSON.parse(fs.readFileSync(sourcePath, 'utf8')));
 const db = openDatabase(config.databasePath);
