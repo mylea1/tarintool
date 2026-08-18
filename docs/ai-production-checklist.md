@@ -5,6 +5,9 @@
 The current TestFlight/Android test endpoint is
 `https://magnitude-detail-pipe-cake.trycloudflare.com`. It is provided by
 the `kilo-quick-tunnel.service` systemd unit and is intentionally temporary.
+During the current testing phase this tunnel is the authoritative mobile API
+entrypoint. Do not switch Flutter, Codemagic, or `KILO_PUBLIC_BASE_URL` back to
+the production-domain candidate unless the owner explicitly requests it.
 Keep `api.kilostrength.cn` as the production endpoint after ICP filing. A
 Cloudflare quick-tunnel URL can change when the tunnel is recreated, so update
 the `KILO_API_BASE_URL` Dart define before rebuilding if that happens.
