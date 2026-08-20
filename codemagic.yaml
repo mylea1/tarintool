@@ -58,7 +58,7 @@ workflows:
       - name: Build signed IPA (config v3)
         script: |
           echo "Codemagic config v3; source commit: ${CM_COMMIT:-unknown}"
-          flutter build ipa --release --dart-define=ENABLE_TEST_ADMIN=true --dart-define=KILO_API_BASE_URL=https://magnitude-detail-pipe-cake.trycloudflare.com --build-name=1.0.12 --build-number="$BUILD_NUMBER" --export-options-plist="$HOME/export_options.plist"
+          flutter build ipa --release --dart-define=ENABLE_TEST_ADMIN=true --dart-define=KILO_API_BASE_URL=https://magnitude-detail-pipe-cake.trycloudflare.com --build-name=1.0.13 --build-number="$BUILD_NUMBER" --export-options-plist="$HOME/export_options.plist"
       - name: Verify IPA artifact
         script: |
           IPA_PATH=$(find "$CM_BUILD_DIR/mobile/build/ios/ipa" -type f -name "*.ipa" | head -1)

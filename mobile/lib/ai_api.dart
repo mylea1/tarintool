@@ -98,6 +98,99 @@ class HttpCoachApi implements CoachApi, StreamingCoachApi {
 
   void clearSession() => _sessionToken = null;
 
+  Map<String, String> get _authHeaders {
+    final token = _sessionToken;
+    if (token == null || token.isEmpty) {
+      throw const CoachApiException('coach_unauthenticated');
+    }
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $token',
+    };
+  }
+
+  Uri _endpoint(String path) =>
+      Uri.parse('${baseUrl.replaceAll(RegExp(r'/+$'), '')}$path');
+
+  Future<Map<String, dynamic>> createMembershipOrder({
+    required String productId,
+    required String plan,
+    String provider = 'app_store',
+    int? amountMinor,
+    String currency = 'CNY',
+  }) async {
+    final response = await _client
+        .post(
+          _endpoint('/v1/membership/orders'),
+          headers: _authHeaders,
+          body: jsonEncode({
+            'productId': productId,
+            'plan': plan,
+            'provider': provider,
+            'currency': currency,
+            'amountMinor': ?amountMinor,
+          }),
+        )
+        .timeout(requestTimeout);
+    return _decodeJsonResponse(response, 'membership_order_create');
+  }
+
+  Future<Map<String, dynamic>> cancelMembershipOrder(String orderId) async {
+    final response = await _client
+        .post(
+          _endpoint(
+            '/v1/membership/orders/${Uri.encodeComponent(orderId)}/cancel',
+          ),
+          headers: _authHeaders,
+          body: '{}',
+        )
+        .timeout(requestTimeout);
+    return _decodeJsonResponse(response, 'membership_order_cancel');
+  }
+
+  Future<List<Map<String, dynamic>>> fetchMembershipOrders() async {
+    final response = await _client
+        .get(_endpoint('/v1/membership/orders'), headers: _authHeaders)
+        .timeout(requestTimeout);
+    final payload = _decodeJsonResponse(response, 'membership_orders');
+    return (payload['orders'] as List<dynamic>? ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .toList();
+  }
+
+  Future<Map<String, dynamic>> fetchCheckinStatus() async {
+    final response = await _client
+        .get(_endpoint('/v1/checkin/status'), headers: _authHeaders)
+        .timeout(requestTimeout);
+    return _decodeJsonResponse(response, 'checkin_status');
+  }
+
+  Future<Map<String, dynamic>> checkIn() async {
+    final response = await _client
+        .post(_endpoint('/v1/checkin'), headers: _authHeaders, body: '{}')
+        .timeout(requestTimeout);
+    return _decodeJsonResponse(response, 'checkin');
+  }
+
+  Map<String, dynamic> _decodeJsonResponse(
+    http.Response response,
+    String operation,
+  ) {
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      if (response.statusCode == 401) clearSession();
+      throw _coachServerException(
+        response.statusCode,
+        response.body,
+        operation,
+      );
+    }
+    final payload = jsonDecode(response.body);
+    if (payload is! Map<String, dynamic>) {
+      throw CoachApiException('${operation}_invalid_response');
+    }
+    return payload;
+  }
+
   Future<Map<String, dynamic>> verifyApplePurchase({
     required String productId,
     required String verificationData,

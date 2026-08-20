@@ -22,14 +22,14 @@ enum MembershipPaywallReason { aiQuota, recognitionQuota, premiumFeature }
 
 const Map<MembershipPlan, String> membershipProductIds = {
   MembershipPlan.oneMonth: 'com.kilostrength.pro.monthly',
-  MembershipPlan.threeMonths: 'com.kilostrength.pro.quarterly',
-  MembershipPlan.forever: 'com.kilostrength.pro.lifetime',
+  // The legacy enum value is retained for persisted data compatibility; it
+  // now represents the yearly subscription in the public purchase UI.
+  MembershipPlan.threeMonths: 'com.kilostrength.pro.yearly',
 };
 
 const Map<MembershipPlan, String> _fallbackPrices = {
   MembershipPlan.oneMonth: '¥18',
-  MembershipPlan.threeMonths: '¥36',
-  MembershipPlan.forever: '¥128',
+  MembershipPlan.threeMonths: '¥168',
 };
 
 class MembershipMark extends StatelessWidget {
@@ -133,14 +133,27 @@ class MembershipPurchaseCoordinator extends ChangeNotifier {
       notifyListeners();
       return false;
     }
-    final order = controller.createMembershipOrder(
-      plan: plan,
-      productId: product.id,
-      displayPrice: product.price,
-      provider: Platform.isIOS
-          ? MembershipOrderProvider.appStore
-          : MembershipOrderProvider.googlePlay,
-    );
+    late final MembershipOrder? order;
+    try {
+      order = await controller.createMembershipOrderRemote(
+        plan: plan,
+        productId: product.id,
+        displayPrice: product.price,
+        provider: Platform.isIOS
+            ? MembershipOrderProvider.appStore
+            : MembershipOrderProvider.googlePlay,
+      );
+    } on CoachApiException catch (error) {
+      errorMessage = error.code == 'coach_unauthenticated'
+          ? '请先登录后再开通会员。'
+          : '订单创建失败，请检查网络后重试。';
+      notifyListeners();
+      return false;
+    } catch (_) {
+      errorMessage = '订单创建失败，请检查网络后重试。';
+      notifyListeners();
+      return false;
+    }
     if (order == null) {
       errorMessage = '请先登录后再开通会员。';
       notifyListeners();
@@ -156,6 +169,7 @@ class MembershipPurchaseCoordinator extends ChangeNotifier {
         purchaseParam: PurchaseParam(productDetails: product),
       );
       if (!started) {
+        await _cancelRemoteQuietly(order.id);
         controller.updateMembershipOrder(
           order.id,
           status: MembershipOrderStatus.cancelled,
@@ -163,9 +177,10 @@ class MembershipPurchaseCoordinator extends ChangeNotifier {
       }
       return started;
     } catch (_) {
+      await _cancelRemoteQuietly(order.id);
       controller.updateMembershipOrder(
         order.id,
-        status: MembershipOrderStatus.failed,
+        status: MembershipOrderStatus.cancelled,
         failureReason: 'store_start_failed',
       );
       errorMessage = '未能拉起系统支付，请稍后重试。';
@@ -200,11 +215,10 @@ class MembershipPurchaseCoordinator extends ChangeNotifier {
       if (purchase.status == PurchaseStatus.canceled ||
           purchase.status == PurchaseStatus.error) {
         if (orderId != null) {
+          await _cancelRemoteQuietly(orderId);
           controller.updateMembershipOrder(
             orderId,
-            status: purchase.status == PurchaseStatus.canceled
-                ? MembershipOrderStatus.cancelled
-                : MembershipOrderStatus.failed,
+            status: MembershipOrderStatus.cancelled,
             failureReason: purchase.error?.code,
           );
         }
@@ -262,6 +276,15 @@ class MembershipPurchaseCoordinator extends ChangeNotifier {
       }
     }
     notifyListeners();
+  }
+
+  Future<void> _cancelRemoteQuietly(String orderId) async {
+    try {
+      await controller.cancelMembershipOrderRemote(orderId);
+    } catch (_) {
+      // Keep the local terminal state. A later order refresh reconciles it
+      // with the server when the temporary network/tunnel failure recovers.
+    }
   }
 
   @override
@@ -436,6 +459,8 @@ class _MembershipCenterPageState extends State<MembershipCenterPage> {
     purchase = MembershipPurchaseCoordinator(widget.controller)
       ..addListener(_refresh);
     unawaited(purchase.initialize());
+    unawaited(widget.controller.hydrateMembershipOrders());
+    unawaited(widget.controller.hydrateCheckinStatus());
   }
 
   void _refresh() {
@@ -453,7 +478,6 @@ class _MembershipCenterPageState extends State<MembershipCenterPage> {
   @override
   Widget build(BuildContext context) {
     final entitlement = widget.controller.entitlements;
-    final member = entitlement?.isMember == true;
     return Scaffold(
       backgroundColor: _paper,
       appBar: AppBar(
@@ -476,6 +500,8 @@ class _MembershipCenterPageState extends State<MembershipCenterPage> {
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 118),
         children: [
           _MemberHero(entitlement: entitlement),
+          const SizedBox(height: 12),
+          _CheckinCard(controller: widget.controller),
           const SizedBox(height: 16),
           const Text(
             '选择方案',
@@ -489,7 +515,6 @@ class _MembershipCenterPageState extends State<MembershipCenterPage> {
           for (final plan in const [
             MembershipPlan.oneMonth,
             MembershipPlan.threeMonths,
-            MembershipPlan.forever,
           ]) ...[
             _PlanTile(
               plan: plan,
@@ -521,7 +546,7 @@ class _MembershipCenterPageState extends State<MembershipCenterPage> {
             ],
           ),
           const Text(
-            '付款由 App Store / Google Play 安全处理。订阅方案会按商店规则自动续订，可在系统账户中管理；永久会员为一次性购买。',
+            '付款由 App Store / Google Play 安全处理。月付和年付会按商店规则自动续订，可在系统账户中管理。',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 11, height: 1.45, color: _muted),
           ),
@@ -530,9 +555,7 @@ class _MembershipCenterPageState extends State<MembershipCenterPage> {
       bottomNavigationBar: SafeArea(
         minimum: const EdgeInsets.fromLTRB(16, 8, 16, 14),
         child: FilledButton(
-          onPressed: member && entitlement?.membership == MembershipPlan.forever
-              ? null
-              : purchase.loading
+          onPressed: purchase.loading
               ? null
               : () => purchase.purchase(selected),
           style: FilledButton.styleFrom(
@@ -548,11 +571,7 @@ class _MembershipCenterPageState extends State<MembershipCenterPage> {
                     color: Colors.white,
                   ),
                 )
-              : Text(
-                  member && entitlement?.membership == MembershipPlan.forever
-                      ? '已是永久会员'
-                      : '使用商店开通 · ${purchase.priceFor(selected)}',
-                ),
+              : Text('使用商店开通 · ${purchase.priceFor(selected)}'),
         ),
       ),
     );
@@ -654,6 +673,146 @@ class _HeroPill extends StatelessWidget {
   );
 }
 
+class _CheckinCard extends StatefulWidget {
+  const _CheckinCard({required this.controller});
+  final AppController controller;
+
+  @override
+  State<_CheckinCard> createState() => _CheckinCardState();
+}
+
+class _CheckinCardState extends State<_CheckinCard> {
+  bool loading = false;
+  String? message;
+
+  Future<void> _checkIn() async {
+    if (loading || widget.controller.checkinStatus.todayCheckedIn) return;
+    setState(() {
+      loading = true;
+      message = null;
+    });
+    try {
+      final result = await widget.controller.checkIn();
+      if (!mounted) return;
+      setState(() {
+        message = result.rewarded ? '完成 7 天签到，已获得 15 天会员' : '签到成功，继续保持';
+      });
+    } catch (_) {
+      if (mounted) setState(() => message = '签到失败，请稍后重试');
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final status = widget.controller.checkinStatus;
+    return Container(
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _line),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.calendar_month_rounded, color: _ember),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  '每日签到',
+                  style: TextStyle(
+                    color: _ink,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              Text(
+                '累计 ${status.totalDays} 天',
+                style: const TextStyle(color: _muted, fontSize: 12),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: List<Widget>.generate(7, (index) {
+              final active = index < status.roundDays;
+              return Expanded(
+                child: Padding(
+                  padding: EdgeInsets.only(right: index == 6 ? 0 : 5),
+                  child: AspectRatio(
+                    aspectRatio: 1,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: active ? _ember : _emberSoft,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
+                        active
+                            ? Icons.check_rounded
+                            : Icons.calendar_today_outlined,
+                        size: 16,
+                        color: active ? Colors.white : _ember,
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  status.rewarded ? '已获得 15 天会员奖励' : '累计 7 个自然日可得 15 天会员',
+                  style: const TextStyle(color: _muted, fontSize: 12),
+                ),
+              ),
+              FilledButton.icon(
+                onPressed: loading || status.todayCheckedIn ? null : _checkIn,
+                icon: loading
+                    ? const SizedBox.square(
+                        dimension: 14,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.check_rounded, size: 17),
+                label: Text(status.todayCheckedIn ? '今日已签' : '签到'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: _ember,
+                  disabledBackgroundColor: _line,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 13,
+                    vertical: 9,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (message != null) ...[
+            const SizedBox(height: 7),
+            Text(
+              message!,
+              style: const TextStyle(
+                color: _success,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _PlanTile extends StatelessWidget {
   const _PlanTile({
     required this.plan,
@@ -670,13 +829,13 @@ class _PlanTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final title = switch (plan) {
       MembershipPlan.oneMonth => '月度会员',
-      MembershipPlan.threeMonths => '季度会员',
+      MembershipPlan.threeMonths => '年度会员',
       MembershipPlan.forever => '永久会员',
       MembershipPlan.free => '免费账号',
     };
     final caption = switch (plan) {
       MembershipPlan.oneMonth => '灵活体验，按月续订',
-      MembershipPlan.threeMonths => '约 ¥12/月 · 推荐',
+      MembershipPlan.threeMonths => '一次购买一年 · 更省心',
       MembershipPlan.forever => '一次购买，长期使用',
       MembershipPlan.free => '',
     };
@@ -728,7 +887,7 @@ class _PlanTile extends StatelessWidget {
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: const Text(
-                              '省 33%',
+                              '推荐',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 10,
@@ -853,13 +1012,47 @@ class _InlineNotice extends StatelessWidget {
   );
 }
 
-class MembershipOrdersPage extends StatelessWidget {
+class MembershipOrdersPage extends StatefulWidget {
   const MembershipOrdersPage({super.key, required this.controller});
   final AppController controller;
 
   @override
+  State<MembershipOrdersPage> createState() => _MembershipOrdersPageState();
+}
+
+class _MembershipOrdersPageState extends State<MembershipOrdersPage> {
+  bool cancelling = false;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(widget.controller.hydrateMembershipOrders());
+  }
+
+  Future<void> _cancel(String id) async {
+    if (cancelling) return;
+    setState(() => cancelling = true);
+    try {
+      await widget.controller.cancelMembershipOrderRemote(id);
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('订单已取消')));
+      }
+    } on CoachApiException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('取消失败：${error.code}')));
+      }
+    } finally {
+      if (mounted) setState(() => cancelling = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final orders = controller.membershipOrders;
+    final orders = widget.controller.membershipOrders;
     return Scaffold(
       backgroundColor: _paper,
       appBar: AppBar(backgroundColor: _paper, title: const Text('会员订单')),
@@ -882,15 +1075,27 @@ class MembershipOrdersPage extends StatelessWidget {
               padding: const EdgeInsets.all(16),
               itemCount: orders.length,
               separatorBuilder: (_, _) => const SizedBox(height: 10),
-              itemBuilder: (context, index) => _OrderCard(order: orders[index]),
+              itemBuilder: (context, index) => _OrderCard(
+                order: orders[index],
+                onCancel: orders[index].status == MembershipOrderStatus.pending
+                    ? () => _cancel(orders[index].id)
+                    : null,
+                cancelling: cancelling,
+              ),
             ),
     );
   }
 }
 
 class _OrderCard extends StatelessWidget {
-  const _OrderCard({required this.order});
+  const _OrderCard({
+    required this.order,
+    this.onCancel,
+    this.cancelling = false,
+  });
   final MembershipOrder order;
+  final VoidCallback? onCancel;
+  final bool cancelling;
   @override
   Widget build(BuildContext context) {
     final label = switch (order.status) {
@@ -900,15 +1105,19 @@ class _OrderCard extends StatelessWidget {
       MembershipOrderStatus.restored => '已恢复',
       MembershipOrderStatus.cancelled => '已取消',
       MembershipOrderStatus.failed => '校验待处理',
+      MembershipOrderStatus.refunded => '已退款',
     };
     final color = switch (order.status) {
       MembershipOrderStatus.paid || MembershipOrderStatus.restored => _success,
-      MembershipOrderStatus.failed || MembershipOrderStatus.cancelled => _muted,
+      MembershipOrderStatus.failed ||
+      MembershipOrderStatus.cancelled ||
+      MembershipOrderStatus.refunded => _muted,
       _ => _ember,
     };
     final plan = switch (order.plan) {
       MembershipPlan.oneMonth => '月度会员',
-      MembershipPlan.threeMonths => '季度会员',
+      MembershipPlan.threeMonths =>
+        order.productId.endsWith('.yearly') ? '年度会员' : '季度会员',
       MembershipPlan.forever => '永久会员',
       MembershipPlan.free => '免费账号',
     };
@@ -962,6 +1171,18 @@ class _OrderCard extends StatelessWidget {
             '${order.createdAt.year}.${order.createdAt.month}.${order.createdAt.day} ${order.createdAt.hour.toString().padLeft(2, '0')}:${order.createdAt.minute.toString().padLeft(2, '0')}',
             style: const TextStyle(fontSize: 11, color: _muted),
           ),
+          if (onCancel != null) ...[
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerRight,
+              child: OutlinedButton.icon(
+                onPressed: cancelling ? null : onCancel,
+                icon: const Icon(Icons.close_rounded, size: 16),
+                label: const Text('取消待支付订单'),
+                style: OutlinedButton.styleFrom(foregroundColor: _muted),
+              ),
+            ),
+          ],
         ],
       ),
     );

@@ -26,7 +26,7 @@ CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
 
 CREATE TABLE IF NOT EXISTS entitlements (
   user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-  membership TEXT NOT NULL DEFAULT 'free' CHECK (membership IN ('free', 'oneMonth', 'threeMonths', 'forever')),
+  membership TEXT NOT NULL DEFAULT 'free' CHECK (membership IN ('free', 'oneMonth', 'yearly', 'threeMonths', 'forever')),
   membership_expires_at TEXT,
   ai_day_key TEXT NOT NULL,
   ai_remaining INTEGER NOT NULL DEFAULT 3 CHECK (ai_remaining >= 0),
@@ -49,7 +49,9 @@ CREATE TABLE IF NOT EXISTS membership_orders (
   id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   product_id TEXT NOT NULL,
-  plan TEXT NOT NULL CHECK (plan IN ('oneMonth', 'threeMonths', 'forever')),
+  -- yearly is the current public plan. The legacy values remain readable so
+  -- old orders and redemption records can be migrated without data loss.
+  plan TEXT NOT NULL CHECK (plan IN ('oneMonth', 'yearly', 'threeMonths', 'forever')),
   provider TEXT NOT NULL CHECK (provider IN ('app_store', 'google_play', 'redemption')),
   status TEXT NOT NULL CHECK (status IN ('pending', 'paid', 'restored', 'cancelled', 'failed', 'refunded')),
   amount_minor INTEGER,
@@ -63,6 +65,25 @@ CREATE TABLE IF NOT EXISTS membership_orders (
 );
 CREATE INDEX IF NOT EXISTS idx_membership_orders_user
   ON membership_orders(user_id, created_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_membership_orders_pending_product
+  ON membership_orders(user_id, product_id) WHERE status = 'pending';
+
+CREATE TABLE IF NOT EXISTS daily_checkins (
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  date_key TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (user_id, date_key)
+);
+CREATE INDEX IF NOT EXISTS idx_daily_checkins_user ON daily_checkins(user_id, date_key DESC);
+
+CREATE TABLE IF NOT EXISTS checkin_state (
+  user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  round_days INTEGER NOT NULL DEFAULT 0 CHECK (round_days >= 0 AND round_days < 7),
+  total_days INTEGER NOT NULL DEFAULT 0 CHECK (total_days >= 0),
+  reward_round INTEGER NOT NULL DEFAULT 0 CHECK (reward_round >= 0),
+  last_reward_at TEXT,
+  updated_at TEXT NOT NULL
+);
 
 CREATE TABLE IF NOT EXISTS usage_reservations (
   request_id TEXT PRIMARY KEY,

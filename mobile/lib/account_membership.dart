@@ -29,6 +29,7 @@ enum MembershipOrderStatus {
   restored,
   cancelled,
   failed,
+  refunded,
 }
 
 enum MembershipOrderProvider { appStore, googlePlay, redemption }
@@ -46,6 +47,64 @@ enum AccountError {
   invalidCode,
   codeAlreadyUsed,
   invalidMembershipPlan,
+}
+
+class CheckinSnapshot {
+  const CheckinSnapshot({
+    this.todayCheckedIn = false,
+    this.roundDays = 0,
+    this.totalDays = 0,
+    this.rewardRound = 0,
+    this.lastRewardAt,
+    this.rewarded = false,
+    this.rewardDays = 0,
+  });
+
+  final bool todayCheckedIn;
+  final int roundDays;
+  final int totalDays;
+  final int rewardRound;
+  final DateTime? lastRewardAt;
+  final bool rewarded;
+  final int rewardDays;
+
+  CheckinSnapshot copyWith({
+    bool? todayCheckedIn,
+    int? roundDays,
+    int? totalDays,
+    int? rewardRound,
+    DateTime? lastRewardAt,
+    bool? rewarded,
+    int? rewardDays,
+  }) => CheckinSnapshot(
+    todayCheckedIn: todayCheckedIn ?? this.todayCheckedIn,
+    roundDays: roundDays ?? this.roundDays,
+    totalDays: totalDays ?? this.totalDays,
+    rewardRound: rewardRound ?? this.rewardRound,
+    lastRewardAt: lastRewardAt ?? this.lastRewardAt,
+    rewarded: rewarded ?? this.rewarded,
+    rewardDays: rewardDays ?? this.rewardDays,
+  );
+
+  Map<String, Object?> toMap() => {
+    'todayCheckedIn': todayCheckedIn,
+    'roundDays': roundDays,
+    'totalDays': totalDays,
+    'rewardRound': rewardRound,
+    'lastRewardAt': lastRewardAt?.toIso8601String(),
+    'rewarded': rewarded,
+    'rewardDays': rewardDays,
+  };
+
+  factory CheckinSnapshot.fromMap(Map<String, dynamic> map) => CheckinSnapshot(
+    todayCheckedIn: map['todayCheckedIn'] == true,
+    roundDays: _asInt(map['roundDays'], 0).clamp(0, 6),
+    totalDays: _asInt(map['totalDays'], 0).clamp(0, 1 << 31),
+    rewardRound: _asInt(map['rewardRound'], 0).clamp(0, 1 << 31),
+    lastRewardAt: DateTime.tryParse((map['lastRewardAt'] ?? '').toString()),
+    rewarded: map['rewarded'] == true,
+    rewardDays: _asInt(map['rewardDays'], 0),
+  );
 }
 
 class AccountUser {
@@ -182,10 +241,16 @@ class EntitlementSnapshot {
   };
 
   factory EntitlementSnapshot.fromMap(Map<String, dynamic> map) {
-    final membership = MembershipPlan.values.firstWhere(
-      (item) => item.name == map['membership'],
-      orElse: () => MembershipPlan.free,
-    );
+    final rawMembership = (map['membership'] ?? '').toString();
+    // `yearly` is the current server plan. The local enum keeps the legacy
+    // threeMonths value for persisted data compatibility; UI labels use the
+    // server product ID to render it as yearly.
+    final membership = rawMembership == 'yearly'
+        ? MembershipPlan.threeMonths
+        : MembershipPlan.values.firstWhere(
+            (item) => item.name == rawMembership,
+            orElse: () => MembershipPlan.free,
+          );
     return EntitlementSnapshot(
       membership: membership,
       membershipExpiresAt: DateTime.tryParse(
@@ -328,23 +393,30 @@ class MembershipOrder {
     final createdAt =
         DateTime.tryParse((map['createdAt'] ?? '').toString()) ??
         DateTime.fromMillisecondsSinceEpoch(0);
+    final amount = map['amountMinor'];
+    final fallbackPrice = amount is num
+        ? '${map['currency'] ?? 'CNY'} ${(amount.toDouble() / 100).toStringAsFixed(2)}'
+        : '';
     return MembershipOrder(
       id: (map['id'] ?? '').toString(),
       userId: (map['userId'] ?? '').toString(),
-      plan: MembershipPlan.values.firstWhere(
-        (item) => item.name == map['plan'],
-        orElse: () => MembershipPlan.free,
-      ),
+      plan: (map['plan'] ?? '').toString() == 'yearly'
+          ? MembershipPlan.threeMonths
+          : MembershipPlan.values.firstWhere(
+              (item) => item.name == map['plan'],
+              orElse: () => MembershipPlan.free,
+            ),
       productId: (map['productId'] ?? '').toString(),
-      provider: MembershipOrderProvider.values.firstWhere(
-        (item) => item.name == map['provider'],
-        orElse: () => MembershipOrderProvider.appStore,
-      ),
+      provider: switch ((map['provider'] ?? '').toString()) {
+        'google_play' || 'googlePlay' => MembershipOrderProvider.googlePlay,
+        'redemption' => MembershipOrderProvider.redemption,
+        _ => MembershipOrderProvider.appStore,
+      },
       status: MembershipOrderStatus.values.firstWhere(
         (item) => item.name == map['status'],
         orElse: () => MembershipOrderStatus.pending,
       ),
-      displayPrice: (map['displayPrice'] ?? '').toString(),
+      displayPrice: (map['displayPrice'] ?? fallbackPrice).toString(),
       createdAt: createdAt,
       updatedAt:
           DateTime.tryParse((map['updatedAt'] ?? '').toString()) ?? createdAt,
@@ -461,6 +533,7 @@ class AccountService extends ChangeNotifier {
   final Map<String, Set<String>> _rewardedWorkouts = <String, Set<String>>{};
   final Map<String, RedemptionCode> _codes = <String, RedemptionCode>{};
   final Map<String, MembershipOrder> _orders = <String, MembershipOrder>{};
+  final Map<String, CheckinSnapshot> _checkins = <String, CheckinSnapshot>{};
   String? _currentUserId;
 
   /// Whether the development-only test administrator is available for this
@@ -493,6 +566,50 @@ class AccountService extends ChangeNotifier {
     final rows = _orders.values.where((item) => item.userId == userId).toList()
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return rows;
+  }
+
+  CheckinSnapshot get checkinStatus =>
+      _checkins[currentUser?.id] ?? const CheckinSnapshot();
+
+  void replaceCheckinStatus(CheckinSnapshot snapshot) {
+    final user = currentUser;
+    if (user == null) return;
+    _checkins[user.id] = snapshot;
+    _persist();
+    notifyListeners();
+  }
+
+  /// Offline fallback used only when the remote check-in endpoint is not
+  /// reachable. The server remains authoritative whenever the app is online.
+  CheckinSnapshot localCheckIn() {
+    final user = currentUser;
+    if (user == null) return checkinStatus;
+    final current = checkinStatus;
+    if (current.todayCheckedIn) return current;
+    var roundDays = current.roundDays + 1;
+    var rewardRound = current.rewardRound;
+    var rewarded = false;
+    var rewardDays = 0;
+    if (roundDays >= 7) {
+      roundDays = 0;
+      rewardRound += 1;
+      rewarded = true;
+      rewardDays = 15;
+      _grantMembershipDays(user.id, 15);
+    }
+    final next = CheckinSnapshot(
+      todayCheckedIn: true,
+      roundDays: roundDays,
+      totalDays: current.totalDays + 1,
+      rewardRound: rewardRound,
+      lastRewardAt: rewarded ? _clock() : current.lastRewardAt,
+      rewarded: rewarded,
+      rewardDays: rewardDays,
+    );
+    _checkins[user.id] = next;
+    _persist();
+    notifyListeners();
+    return next;
   }
 
   MembershipOrder? createMembershipOrder({
@@ -542,6 +659,25 @@ class AccountService extends ChangeNotifier {
     return updated;
   }
 
+  void upsertMembershipOrder(MembershipOrder order) {
+    final user = currentUser;
+    if (user == null || order.userId != user.id) return;
+    _orders[order.id] = order;
+    _persist();
+    notifyListeners();
+  }
+
+  void replaceMembershipOrders(List<MembershipOrder> orders) {
+    final user = currentUser;
+    if (user == null) return;
+    _orders.removeWhere((_, value) => value.userId == user.id);
+    for (final order in orders.where((item) => item.userId == user.id)) {
+      _orders[order.id] = order;
+    }
+    _persist();
+    notifyListeners();
+  }
+
   void replaceCurrentEntitlement(EntitlementSnapshot entitlement) {
     final user = currentUser;
     if (user == null) return;
@@ -564,6 +700,7 @@ class AccountService extends ChangeNotifier {
       _rewardedWorkouts.clear();
       _codes.clear();
       _orders.clear();
+      _checkins.clear();
       _restore(saved);
     }
     persistence = adapter;
@@ -835,6 +972,28 @@ class AccountService extends ChangeNotifier {
     notifyListeners();
   }
 
+  void _grantMembershipDays(String userId, int days) {
+    if (days <= 0) return;
+    _refreshEntitlements();
+    final now = _clock();
+    final current = _entitlements[userId] ?? _newEntitlements();
+    if (current.membership == MembershipPlan.forever) return;
+    final currentExpiry =
+        current.membershipExpiresAt != null &&
+            current.membershipExpiresAt!.isAfter(now)
+        ? current.membershipExpiresAt!
+        : now;
+    _entitlements[userId] = current.copyWith(
+      membership: current.membership == MembershipPlan.free
+          ? MembershipPlan.oneMonth
+          : current.membership,
+      membershipExpiresAt: currentExpiry.add(Duration(days: days)),
+      aiRemaining: current.aiRemaining < 20 ? 20 : current.aiRemaining,
+      aiDailyLimit: 20,
+      recognitionWeeklyGrant: 3,
+    );
+  }
+
   void _applyMembership(String userId, MembershipPlan plan) {
     _refreshEntitlements();
     final now = _clock();
@@ -940,6 +1099,7 @@ class AccountService extends ChangeNotifier {
       ),
       'codes': _codes.map((key, value) => MapEntry(key, value.toMap())),
       'orders': _orders.map((key, value) => MapEntry(key, value.toMap())),
+      'checkins': _checkins.map((key, value) => MapEntry(key, value.toMap())),
     });
   }
 
@@ -1010,6 +1170,16 @@ class AccountService extends ChangeNotifier {
             Map<String, dynamic>.from(entry.value as Map),
           );
           if (order.id.isNotEmpty) _orders[entry.key.toString()] = order;
+        }
+      }
+    }
+    final checkins = map['checkins'];
+    if (checkins is Map) {
+      for (final entry in checkins.entries) {
+        if (entry.value is Map) {
+          _checkins[entry.key.toString()] = CheckinSnapshot.fromMap(
+            Map<String, dynamic>.from(entry.value as Map),
+          );
         }
       }
     }

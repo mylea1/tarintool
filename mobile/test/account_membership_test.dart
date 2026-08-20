@@ -447,6 +447,23 @@ void main() {
     expect(restored.membershipOrders, isEmpty);
   });
 
+  test('server yearly and refunded order fields remain terminal locally', () {
+    final order = MembershipOrder.fromMap({
+      'id': 'ord-yearly-refund',
+      'userId': 'user-1',
+      'plan': 'yearly',
+      'productId': 'com.kilostrength.pro.yearly',
+      'provider': 'app_store',
+      'status': 'refunded',
+      'createdAt': '2026-08-20T00:00:00.000Z',
+      'updatedAt': '2026-08-20T01:00:00.000Z',
+    });
+
+    expect(order.plan, MembershipPlan.threeMonths);
+    expect(order.status, MembershipOrderStatus.refunded);
+    expect(order.provider, MembershipOrderProvider.appStore);
+  });
+
   test('persisted test admin is removed when the release gate is disabled', () {
     final persistence = InMemoryAccountPersistence();
     final debugService = AccountService(

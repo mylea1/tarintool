@@ -271,6 +271,7 @@ class AppController extends ChangeNotifier {
   int get aiRemaining => accountService.aiRemaining;
   int get recognitionRemaining => accountService.recognitionRemaining;
   List<MembershipOrder> get membershipOrders => accountService.membershipOrders;
+  CheckinSnapshot get checkinStatus => accountService.checkinStatus;
 
   MembershipOrder? createMembershipOrder({
     required MembershipPlan plan,
@@ -295,6 +296,116 @@ class AppController extends ChangeNotifier {
     transactionId: transactionId,
     failureReason: failureReason,
   );
+
+  MembershipOrder _remoteMembershipOrder(Map<String, dynamic> raw) {
+    final value = Map<String, dynamic>.from(raw);
+    value['userId'] = accountService.currentUserId;
+    return MembershipOrder.fromMap(value);
+  }
+
+  Future<MembershipOrder?> createMembershipOrderRemote({
+    required MembershipPlan plan,
+    required String productId,
+    required String displayPrice,
+    required MembershipOrderProvider provider,
+  }) async {
+    final api = await _activeCoachApi();
+    if (api is! HttpCoachApi) {
+      throw const CoachApiException('membership_order_unavailable');
+    }
+    final payload = await api.createMembershipOrder(
+      productId: productId,
+      plan: productId.endsWith('.yearly') ? 'yearly' : 'oneMonth',
+      provider: provider == MembershipOrderProvider.googlePlay
+          ? 'google_play'
+          : 'app_store',
+      amountMinor: _priceToMinor(displayPrice),
+    );
+    final raw = payload['order'];
+    if (raw is! Map) throw const CoachApiException('membership_order_missing');
+    final order = _remoteMembershipOrder(Map<String, dynamic>.from(raw));
+    accountService.upsertMembershipOrder(order);
+    return order;
+  }
+
+  Future<MembershipOrder?> cancelMembershipOrderRemote(String orderId) async {
+    final api = await _activeCoachApi();
+    if (api is! HttpCoachApi) {
+      throw const CoachApiException('membership_order_unavailable');
+    }
+    final payload = await api.cancelMembershipOrder(orderId);
+    final raw = payload['order'];
+    if (raw is! Map) throw const CoachApiException('membership_order_missing');
+    final order = _remoteMembershipOrder(Map<String, dynamic>.from(raw));
+    accountService.upsertMembershipOrder(order);
+    return order;
+  }
+
+  Future<void> hydrateMembershipOrders() async {
+    try {
+      final api = await _activeCoachApi();
+      if (api is! HttpCoachApi) return;
+      final rows = await api.fetchMembershipOrders();
+      accountService.replaceMembershipOrders(
+        rows.map(_remoteMembershipOrder).toList(),
+      );
+    } catch (_) {
+      // Local orders remain available while a tunnel/network is offline.
+    }
+  }
+
+  Future<void> hydrateCheckinStatus() async {
+    try {
+      final api = await _activeCoachApi();
+      if (api is! HttpCoachApi) return;
+      final payload = await api.fetchCheckinStatus();
+      final raw = payload['entitlement'];
+      if (raw is Map) {
+        accountService.replaceCurrentEntitlement(
+          EntitlementSnapshot.fromMap(Map<String, dynamic>.from(raw)),
+        );
+      }
+      accountService.replaceCheckinStatus(_checkinFromRemote(payload));
+    } catch (_) {
+      // Sign-in should not be blocked by an unavailable reward endpoint.
+    }
+  }
+
+  Future<CheckinSnapshot> checkIn() async {
+    final api = await _activeCoachApi();
+    if (api is! HttpCoachApi) {
+      throw const CoachApiException('checkin_unavailable');
+    }
+    final payload = await api.checkIn();
+    final raw = payload['entitlement'];
+    if (raw is Map) {
+      accountService.replaceCurrentEntitlement(
+        EntitlementSnapshot.fromMap(Map<String, dynamic>.from(raw)),
+      );
+    }
+    final snapshot = _checkinFromRemote(payload);
+    accountService.replaceCheckinStatus(snapshot);
+    return snapshot;
+  }
+
+  CheckinSnapshot _checkinFromRemote(Map<String, dynamic> payload) =>
+      CheckinSnapshot(
+        todayCheckedIn: payload['todayCheckedIn'] == true,
+        roundDays: (payload['roundDays'] as num?)?.toInt() ?? 0,
+        totalDays: (payload['totalDays'] as num?)?.toInt() ?? 0,
+        rewardRound: (payload['rewardRound'] as num?)?.toInt() ?? 0,
+        lastRewardAt: DateTime.tryParse(
+          (payload['lastRewardAt'] ?? '').toString(),
+        ),
+        rewarded: payload['awarded'] == true,
+        rewardDays: (payload['rewardDays'] as num?)?.toInt() ?? 0,
+      );
+
+  static int? _priceToMinor(String value) {
+    final match = RegExp(r'([0-9]+(?:\.[0-9]+)?)').firstMatch(value);
+    final parsed = double.tryParse(match?.group(1) ?? '');
+    return parsed == null ? null : (parsed * 100).round();
+  }
 
   Future<void> verifyAppleMembershipPurchase({
     required String productId,
@@ -331,6 +442,8 @@ class AppController extends ChangeNotifier {
       activeConversationId = 'conversation-main';
       if (userId != null && userId.isNotEmpty) {
         unawaited(hydrateAiConversations(force: true));
+        unawaited(hydrateMembershipOrders());
+        unawaited(hydrateCheckinStatus());
       }
     }
     notifyListeners();
@@ -2446,7 +2559,8 @@ class AppController extends ChangeNotifier {
     final api = _defaultRecognitionApi!;
     if (!api.hasSession) {
       final identifier = _remoteIdentifier ?? currentUser?.identifier;
-      final password = _remotePassword ??
+      final password =
+          _remotePassword ??
           ((identifier == '123' || identifier == '1234') ? identifier : null);
       if (identifier == null || identifier.isEmpty || password == null) {
         throw const RecognitionApiException('recognition_account_not_synced');
@@ -2471,7 +2585,8 @@ class AppController extends ChangeNotifier {
     final api = _defaultCoachApi!;
     if (!api.hasSession) {
       final identifier = _remoteIdentifier ?? currentUser?.identifier;
-      final password = _remotePassword ??
+      final password =
+          _remotePassword ??
           ((identifier == '123' || identifier == '1234') ? identifier : null);
       if (identifier == null || identifier.isEmpty || password == null) {
         throw const CoachApiException('coach_account_not_synced');

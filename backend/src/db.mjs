@@ -12,6 +12,90 @@ export function openDatabase(databasePath) {
   db.pragma('foreign_keys = ON');
   db.pragma('busy_timeout = 5000');
   db.exec(fs.readFileSync(migrationPath, 'utf8'));
+  // The original schema only allowed the prototype plans (oneMonth,
+  // threeMonths, forever). Keep those values readable while widening the
+  // check constraint for the current yearly subscription. SQLite cannot
+  // alter a CHECK constraint in place, so rebuild these two small tables
+  // additively and copy every historical row before dropping the legacy copy.
+  const entitlementSql = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'entitlements'").get()?.sql || '';
+  if (!entitlementSql.includes("'yearly'")) {
+    db.exec(`
+      ALTER TABLE entitlements RENAME TO entitlements_legacy;
+      CREATE TABLE entitlements (
+        user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+        membership TEXT NOT NULL DEFAULT 'free' CHECK (membership IN ('free', 'oneMonth', 'yearly', 'threeMonths', 'forever')),
+        membership_expires_at TEXT,
+        ai_day_key TEXT NOT NULL,
+        ai_remaining INTEGER NOT NULL DEFAULT 3 CHECK (ai_remaining >= 0),
+        recognition_remaining INTEGER NOT NULL DEFAULT 5 CHECK (recognition_remaining >= 0),
+        recognition_week_key TEXT NOT NULL,
+        recognition_weekly_grant INTEGER NOT NULL DEFAULT 1 CHECK (recognition_weekly_grant >= 0),
+        updated_at TEXT NOT NULL
+      );
+      INSERT INTO entitlements (user_id, membership, membership_expires_at, ai_day_key,
+        ai_remaining, recognition_remaining, recognition_week_key,
+        recognition_weekly_grant, updated_at)
+        SELECT user_id, membership, membership_expires_at, ai_day_key,
+          ai_remaining, recognition_remaining, recognition_week_key,
+          recognition_weekly_grant, updated_at FROM entitlements_legacy;
+      DROP TABLE entitlements_legacy;
+    `);
+  }
+  const ordersSql = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'membership_orders'").get()?.sql || '';
+  if (!ordersSql.includes("'yearly'")) {
+    db.exec(`
+      DROP INDEX IF EXISTS idx_membership_orders_pending_product;
+      DROP INDEX IF EXISTS idx_membership_orders_user;
+      ALTER TABLE membership_orders RENAME TO membership_orders_legacy;
+      CREATE TABLE membership_orders (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        product_id TEXT NOT NULL,
+        plan TEXT NOT NULL CHECK (plan IN ('oneMonth', 'yearly', 'threeMonths', 'forever')),
+        provider TEXT NOT NULL CHECK (provider IN ('app_store', 'google_play', 'redemption')),
+        status TEXT NOT NULL CHECK (status IN ('pending', 'paid', 'restored', 'cancelled', 'failed', 'refunded')),
+        amount_minor INTEGER,
+        currency TEXT,
+        provider_transaction_id TEXT UNIQUE,
+        local_order_id TEXT,
+        failure_reason TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        paid_at TEXT
+      );
+      INSERT INTO membership_orders (id, user_id, product_id, plan, provider, status,
+        amount_minor, currency, provider_transaction_id, local_order_id,
+        failure_reason, created_at, updated_at, paid_at)
+        SELECT id, user_id, product_id, plan, provider, status,
+          amount_minor, currency, provider_transaction_id, local_order_id,
+          failure_reason, created_at, updated_at, paid_at
+        FROM membership_orders_legacy;
+      DROP TABLE membership_orders_legacy;
+      CREATE INDEX idx_membership_orders_user
+        ON membership_orders(user_id, created_at DESC);
+      CREATE UNIQUE INDEX idx_membership_orders_pending_product
+        ON membership_orders(user_id, product_id) WHERE status = 'pending';
+    `);
+  }
+  // These tables were added after the first release. CREATE IF NOT EXISTS is
+  // deliberately used so existing production databases remain untouched.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS daily_checkins (
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      date_key TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      PRIMARY KEY (user_id, date_key)
+    );
+    CREATE INDEX IF NOT EXISTS idx_daily_checkins_user ON daily_checkins(user_id, date_key DESC);
+    CREATE TABLE IF NOT EXISTS checkin_state (
+      user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      round_days INTEGER NOT NULL DEFAULT 0 CHECK (round_days >= 0 AND round_days < 7),
+      total_days INTEGER NOT NULL DEFAULT 0 CHECK (total_days >= 0),
+      reward_round INTEGER NOT NULL DEFAULT 0 CHECK (reward_round >= 0),
+      last_reward_at TEXT,
+      updated_at TEXT NOT NULL
+    );
+  `);
   // Databases created by the first backend build may not have the upload
   // expiry column. Keep the migration additive so test/prod data can be
   // upgraded in place without dropping recognition jobs.
@@ -57,6 +141,38 @@ export function isoWeekKey(date = new Date()) {
   const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
   const week = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
   return `${d.getUTCFullYear()}-${String(week).padStart(2, '0')}`;
+}
+
+// Calendar days for rewards follow the product's advertised Asia/Shanghai
+// timezone, regardless of the host machine's timezone.
+export function shanghaiDayKey(date = new Date()) {
+  return new Date(date.getTime() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+export function ensureCheckinState(db, userId, at = new Date()) {
+  const stamp = at.toISOString();
+  let row = db.prepare('SELECT * FROM checkin_state WHERE user_id = ?').get(userId);
+  if (!row) {
+    db.prepare(`INSERT INTO checkin_state
+      (user_id, round_days, total_days, reward_round, last_reward_at, updated_at)
+      VALUES (?, 0, 0, 0, NULL, ?)`).run(userId, stamp);
+    row = db.prepare('SELECT * FROM checkin_state WHERE user_id = ?').get(userId);
+  }
+  return row;
+}
+
+export function publicCheckinState(db, userId, at = new Date()) {
+  const state = ensureCheckinState(db, userId, at);
+  const today = shanghaiDayKey(at);
+  return {
+    todayCheckedIn: Boolean(db.prepare('SELECT 1 FROM daily_checkins WHERE user_id = ? AND date_key = ?').get(userId, today)),
+    roundDays: Number(state.round_days),
+    roundSize: 7,
+    totalDays: Number(state.total_days),
+    rewardRound: Number(state.reward_round),
+    lastRewardAt: state.last_reward_at,
+    timezone: 'Asia/Shanghai',
+  };
 }
 
 export function membershipActive(row, at = new Date()) {

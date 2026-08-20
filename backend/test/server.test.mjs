@@ -160,8 +160,7 @@ test('membership products are public but orders and verification are protected',
     products.body.products.map((item) => item.productId),
     [
       'com.kilostrength.pro.monthly',
-      'com.kilostrength.pro.quarterly',
-      'com.kilostrength.pro.lifetime',
+      'com.kilostrength.pro.yearly',
     ],
   );
   assert.equal((await api('/v1/membership/orders')).response.status, 401);
@@ -180,6 +179,125 @@ test('membership products are public but orders and verification are protected',
   });
   assert.equal(unverified.response.status, 503);
   assert.equal(unverified.body.error, 'apple_iap_not_configured');
+});
+
+test('membership orders are server-owned, idempotent and cancellable only while pending', async () => {
+  const first = await api('/v1/membership/orders', {
+    method: 'POST',
+    headers: { authorization: `Bearer ${user2Token}` },
+    body: JSON.stringify({
+      productId: 'com.kilostrength.pro.monthly',
+      provider: 'app_store',
+      amountMinor: 1800,
+      currency: 'CNY',
+    }),
+  });
+  assert.equal(first.response.status, 201);
+  assert.equal(first.body.order.status, 'pending');
+  assert.equal(first.body.order.plan, 'oneMonth');
+  assert.equal(first.body.reused, false);
+
+  const repeated = await api('/v1/membership/orders', {
+    method: 'POST',
+    headers: { authorization: `Bearer ${user2Token}` },
+    body: JSON.stringify({ productId: 'com.kilostrength.pro.monthly', provider: 'app_store' }),
+  });
+  assert.equal(repeated.response.status, 200);
+  assert.equal(repeated.body.reused, true);
+  assert.equal(repeated.body.order.id, first.body.order.id);
+
+  const yearly = await api('/v1/membership/orders', {
+    method: 'POST',
+    headers: { authorization: `Bearer ${user2Token}` },
+    body: JSON.stringify({ productId: 'com.kilostrength.pro.yearly', provider: 'app_store' }),
+  });
+  assert.equal(yearly.response.status, 201);
+  assert.equal(yearly.body.order.plan, 'yearly');
+
+  const otherUser = await api(`/v1/membership/orders/${encodeURIComponent(first.body.order.id)}/cancel`, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${userToken}` },
+    body: '{}',
+  });
+  assert.equal(otherUser.response.status, 404);
+
+  const cancelled = await api(`/v1/membership/orders/${encodeURIComponent(first.body.order.id)}/cancel`, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${user2Token}` },
+    body: '{}',
+  });
+  assert.equal(cancelled.response.status, 200);
+  assert.equal(cancelled.body.order.status, 'cancelled');
+
+  const repeatedCancel = await api(`/v1/membership/orders/${encodeURIComponent(first.body.order.id)}/cancel`, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${user2Token}` },
+    body: '{}',
+  });
+  assert.equal(repeatedCancel.response.status, 409);
+  assert.equal(repeatedCancel.body.error, 'membership_order_not_cancellable');
+});
+
+test('daily check-in is once per Shanghai day and rewards after seven distinct days', async () => {
+  const isolated = await fs.mkdtemp(path.join(os.tmpdir(), 'kilo-checkin-'));
+  const cfg = loadConfig({
+    ...process.env,
+    NODE_ENV: 'test',
+    KILO_ENABLE_TEST_ADMIN: 'true',
+    KILO_ENABLE_TEST_MEMBER: 'true',
+    KILO_ENABLE_PASSWORD_REGISTRATION: 'true',
+    KILO_GPU_API_KEY: 'checkin-gpu-key-123456789012345678901234',
+    KILO_SESSION_PEPPER: 'checkin-session-pepper-12345678901234567890',
+    KILO_DATA_DIR: isolated,
+    KILO_DATABASE_PATH: path.join(isolated, 'kilo.sqlite3'),
+    KILO_MEDIA_DIR: path.join(isolated, 'media'),
+  });
+  const isolatedServer = await startServer({ config: cfg, port: 0 });
+  const isolatedBase = `http://127.0.0.1:${isolatedServer.address().port}`;
+  const localApi = async (pathname, options = {}) => {
+    const headers = { ...(options.body !== undefined ? { 'content-type': 'application/json' } : {}), ...(options.headers || {}) };
+    const response = await fetch(`${isolatedBase}${pathname}`, { ...options, headers });
+    const text = await response.text();
+    return { response, body: text ? JSON.parse(text) : null };
+  };
+  try {
+    const registration = await localApi('/v1/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ identifier: `checkin-${Date.now()}`, password: 'abcd' }),
+    });
+    assert.equal(registration.response.status, 201);
+    const token = registration.body.session.token;
+    const user = isolatedServer.context.db.prepare('SELECT id FROM users WHERE identifier = ?').get(registration.body.user.identifier);
+    const now = new Date();
+    const day = (offset) => {
+      const value = new Date(now.getTime() - offset * 24 * 60 * 60 * 1000);
+      return new Date(value.getTime() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    };
+    const stamp = now.toISOString();
+    const insert = isolatedServer.context.db.prepare('INSERT INTO daily_checkins (user_id, date_key, created_at) VALUES (?, ?, ?)');
+    for (let offset = 1; offset <= 6; offset += 1) insert.run(user.id, day(offset), stamp);
+    isolatedServer.context.db.prepare(`INSERT INTO checkin_state (user_id, round_days, total_days, reward_round, updated_at)
+      VALUES (?, 6, 6, 0, ?)`)
+      .run(user.id, stamp);
+
+    const status = await localApi('/v1/checkin/status', { headers: { authorization: `Bearer ${token}` } });
+    assert.equal(status.response.status, 200);
+    assert.equal(status.body.roundDays, 6);
+    assert.equal(status.body.todayCheckedIn, false);
+    const checkin = await localApi('/v1/checkin', { method: 'POST', headers: { authorization: `Bearer ${token}` }, body: '{}' });
+    assert.equal(checkin.response.status, 200);
+    assert.equal(checkin.body.awarded, true);
+    assert.equal(checkin.body.rewardDays, 15);
+    assert.equal(checkin.body.roundDays, 0);
+    assert.equal(checkin.body.entitlement.membership, 'oneMonth');
+    const duplicate = await localApi('/v1/checkin', { method: 'POST', headers: { authorization: `Bearer ${token}` }, body: '{}' });
+    assert.equal(duplicate.response.status, 200);
+    assert.equal(duplicate.body.alreadyCheckedIn, true);
+    assert.equal(duplicate.body.awarded, false);
+  } finally {
+    await isolatedServer.closeGracefully();
+    await fs.rm(isolated, { recursive: true, force: true });
+  }
 });
 
 test('administrator remains quota-exempt when recognition balance is zero', async () => {

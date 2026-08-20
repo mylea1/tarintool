@@ -31,8 +31,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('会员中心'), findsOneWidget);
     expect(find.text('月度会员'), findsOneWidget);
-    expect(find.text('季度会员'), findsOneWidget);
-    expect(find.text('永久会员'), findsOneWidget);
+    expect(find.text('年度会员'), findsOneWidget);
+    expect(find.text('永久会员'), findsNothing);
     expect(find.text('订单'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

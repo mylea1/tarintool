@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { config as defaultConfig, assertProductionConfiguration, loadConfig } from './config.mjs';
-import { openDatabase, closeDatabase, transaction, ensureEntitlement, refreshEntitlement, publicUser, publicEntitlement, seedTestAdmin, seedTestMember, isoWeekKey, membershipActive } from './db.mjs';
+import { openDatabase, closeDatabase, transaction, ensureEntitlement, refreshEntitlement, publicUser, publicEntitlement, seedTestAdmin, seedTestMember, isoWeekKey, membershipActive, publicCheckinState, ensureCheckinState, shanghaiDayKey } from './db.mjs';
 import { hashPassword, verifyPassword, sha256, safeEqualText, nowIso, randomId, randomToken } from './security.mjs';
 import { LocalStorage, extensionForType } from './storage.mjs';
 import { ConcurrencyGate, QueueCapacityError } from './concurrency.mjs';
@@ -14,10 +14,18 @@ const MAX_TEXT = 4000;
 const MAX_SUMMARY = 6000;
 const ALLOWED_ENTITIES = new Set(['workout', 'plan', 'template', 'settings']);
 const PLANS = new Set(['oneMonth', 'threeMonths', 'forever']);
+// Only the monthly and yearly products are displayed to customers. Legacy
+// product IDs remain verifiable so a previously purchased prototype product
+// is not silently lost during migration.
 const APPLE_MEMBERSHIP_PRODUCTS = new Map([
   ['com.kilostrength.pro.monthly', 'oneMonth'],
+  ['com.kilostrength.pro.yearly', 'yearly'],
   ['com.kilostrength.pro.quarterly', 'threeMonths'],
   ['com.kilostrength.pro.lifetime', 'forever'],
+]);
+const PUBLIC_MEMBERSHIP_PRODUCTS = new Map([
+  ['com.kilostrength.pro.monthly', 'oneMonth'],
+  ['com.kilostrength.pro.yearly', 'yearly'],
 ]);
 const JOB_STATES = new Set(['created', 'uploading', 'queued', 'processing', 'completed', 'failed', 'cancelled', 'expired']);
 const ALLOWED_MEDIA_TYPES = new Set(extensionForType.keys());
@@ -295,9 +303,9 @@ function membershipFor(db, userId, plan) {
   if (plan === 'forever' || current.membership === 'forever') {
     return { membership: 'forever', membershipExpiresAt: null };
   }
-  const months = plan === 'threeMonths' ? 3 : 1;
+  const months = plan === 'yearly' ? 12 : plan === 'threeMonths' ? 3 : 1;
   const start = currentActive && current.membership_expires_at ? new Date(current.membership_expires_at) : new Date();
-  const rank = { free: 0, oneMonth: 1, threeMonths: 2, forever: 3 };
+  const rank = { free: 0, oneMonth: 1, threeMonths: 2, yearly: 3, forever: 4 };
   // Never downgrade a still-active entitlement. A shorter code can extend
   // the existing expiry, but it cannot remove higher-tier benefits.
   const membership = currentActive && rank[current.membership] > rank[plan] ? current.membership : plan;
@@ -690,7 +698,7 @@ function applyVerifiedAppleMembership(db, userId, plan, transaction) {
   const current = ensureEntitlement(db, userId);
   const currentExpiresMs = Date.parse(current.membership_expires_at || '') || 0;
   const effectiveExpires = new Date(Math.max(expiresMs, currentExpiresMs)).toISOString();
-  const rank = { free: 0, oneMonth: 1, threeMonths: 2, forever: 3 };
+  const rank = { free: 0, oneMonth: 1, threeMonths: 2, yearly: 3, forever: 4 };
   const effectivePlan = rank[current.membership] > rank[plan]
     ? current.membership
     : plan;
@@ -713,9 +721,125 @@ function publicMembershipOrder(row) {
     currency: row.currency,
     transactionId: row.provider_transaction_id,
     localOrderId: row.local_order_id,
+    failureReason: row.failure_reason,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     paidAt: row.paid_at,
+  };
+}
+
+function membershipProduct(productId) {
+  const id = String(productId || '').trim();
+  const plan = PUBLIC_MEMBERSHIP_PRODUCTS.get(id);
+  if (!plan) throw httpError(400, 'unknown_membership_product');
+  return { productId: id, plan };
+}
+
+function normalizeOrderProvider(value) {
+  const provider = String(value || 'app_store').trim().toLowerCase();
+  if (!['app_store', 'google_play'].includes(provider)) {
+    throw httpError(400, 'unsupported_payment_provider');
+  }
+  return provider;
+}
+
+function createPendingMembershipOrder(db, userId, body) {
+  const product = membershipProduct(body.productId);
+  const provider = normalizeOrderProvider(body.provider);
+  const existing = db.prepare(`SELECT * FROM membership_orders
+    WHERE user_id = ? AND product_id = ? AND status = 'pending'
+    ORDER BY created_at DESC LIMIT 1`).get(userId, product.productId);
+  if (existing) return { order: existing, reused: true };
+  const stamp = nowIso();
+  const row = {
+    id: randomId('ord_'),
+    user_id: userId,
+    product_id: product.productId,
+    plan: product.plan,
+    provider,
+    status: 'pending',
+    amount_minor: Number.isFinite(Number(body.amountMinor)) ? Math.max(0, Math.floor(Number(body.amountMinor))) : null,
+    currency: String(body.currency || 'CNY').trim().slice(0, 12) || 'CNY',
+    provider_transaction_id: null,
+    local_order_id: null,
+    failure_reason: null,
+    created_at: stamp,
+    updated_at: stamp,
+    paid_at: null,
+  };
+  try {
+    db.prepare(`INSERT INTO membership_orders
+      (id, user_id, product_id, plan, provider, status, amount_minor, currency,
+       provider_transaction_id, local_order_id, failure_reason, created_at, updated_at, paid_at)
+      VALUES (@id, @user_id, @product_id, @plan, @provider, @status, @amount_minor, @currency,
+       @provider_transaction_id, @local_order_id, @failure_reason, @created_at, @updated_at, @paid_at)`).run(row);
+  } catch (error) {
+    // A concurrent request may win the partial unique index. Reuse its
+    // pending order so tapping the purchase button twice remains idempotent.
+    if (!String(error?.message || '').includes('UNIQUE')) throw error;
+    const concurrent = db.prepare(`SELECT * FROM membership_orders
+      WHERE user_id = ? AND product_id = ? AND status = 'pending'
+      ORDER BY created_at DESC LIMIT 1`).get(userId, product.productId);
+    if (concurrent) return { order: concurrent, reused: true };
+    throw error;
+  }
+  return { order: db.prepare('SELECT * FROM membership_orders WHERE id = ?').get(row.id), reused: false };
+}
+
+function markMembershipOrderCancelled(db, userId, orderId) {
+  const order = db.prepare('SELECT * FROM membership_orders WHERE id = ?').get(orderId);
+  if (!order || order.user_id !== userId) throw httpError(404, 'membership_order_not_found');
+  if (order.status !== 'pending') throw httpError(409, 'membership_order_not_cancellable', { status: order.status });
+  const changed = db.prepare(`UPDATE membership_orders SET status = 'cancelled', updated_at = ?, failure_reason = NULL
+    WHERE id = ? AND user_id = ? AND status = 'pending'`).run(nowIso(), orderId, userId);
+  if (changed.changes !== 1) throw httpError(409, 'membership_order_not_cancellable');
+  return db.prepare('SELECT * FROM membership_orders WHERE id = ?').get(orderId);
+}
+
+function applyCheckinMembershipReward(db, userId, at = new Date()) {
+  const current = ensureEntitlement(db, userId, at);
+  if (current.membership === 'forever') return publicEntitlement(current);
+  const currentExpires = current.membership_expires_at && new Date(current.membership_expires_at) > at
+    ? new Date(current.membership_expires_at)
+    : at;
+  const expires = new Date(currentExpires.getTime() + 15 * 24 * 60 * 60 * 1000).toISOString();
+  const membership = current.membership === 'free' ? 'oneMonth' : current.membership;
+  db.prepare(`UPDATE entitlements SET membership = ?, membership_expires_at = ?,
+    recognition_weekly_grant = 3,
+    ai_remaining = CASE WHEN ai_remaining < 20 THEN 20 ELSE ai_remaining END,
+    updated_at = ? WHERE user_id = ?`).run(membership, expires, nowIso(), userId);
+  return publicEntitlement(ensureEntitlement(db, userId, at));
+}
+
+function recordDailyCheckin(db, userId, at = new Date()) {
+  const stamp = at.toISOString();
+  const dateKey = shanghaiDayKey(at);
+  const state = ensureCheckinState(db, userId, at);
+  const inserted = db.prepare('INSERT OR IGNORE INTO daily_checkins (user_id, date_key, created_at) VALUES (?, ?, ?)').run(userId, dateKey, stamp);
+  if (!inserted.changes) {
+    return { ...publicCheckinState(db, userId, at), awarded: false, alreadyCheckedIn: true, entitlement: publicEntitlement(ensureEntitlement(db, userId, at)) };
+  }
+  const nextRoundDays = Number(state.round_days) + 1;
+  const totalDays = Number(state.total_days) + 1;
+  const completedRound = nextRoundDays >= 7;
+  const nextState = {
+    roundDays: completedRound ? 0 : nextRoundDays,
+    totalDays,
+    rewardRound: Number(state.reward_round) + (completedRound ? 1 : 0),
+    lastRewardAt: completedRound ? stamp : state.last_reward_at,
+  };
+  db.prepare(`UPDATE checkin_state SET round_days = ?, total_days = ?, reward_round = ?,
+    last_reward_at = ?, updated_at = ? WHERE user_id = ?`)
+    .run(nextState.roundDays, nextState.totalDays, nextState.rewardRound, nextState.lastRewardAt, stamp, userId);
+  const entitlement = completedRound
+    ? applyCheckinMembershipReward(db, userId, at)
+    : publicEntitlement(ensureEntitlement(db, userId, at));
+  return {
+    ...publicCheckinState(db, userId, at),
+    awarded: completedRound,
+    alreadyCheckedIn: false,
+    rewardDays: completedRound ? 15 : 0,
+    entitlement,
   };
 }
 
@@ -917,17 +1041,44 @@ async function handleRequest(req, res, ctx) {
   if (req.method === 'GET' && url.pathname === '/v1/me/entitlements') {
     const user = authenticate(req, ctx); writeJson(res, 200, publicEntitlement(entitlementRow(ctx.db, user.id)), req, ctx.cfg); return;
   }
+  if (req.method === 'GET' && ['/v1/checkin/status', '/v1/checkins/status'].includes(url.pathname)) {
+    const user = authenticate(req, ctx);
+    const state = transaction(ctx.db, () => publicCheckinState(ctx.db, user.id));
+    writeJson(res, 200, { ...state, entitlement: publicEntitlement(entitlementRow(ctx.db, user.id)) }, req, ctx.cfg); return;
+  }
+  if (req.method === 'POST' && ['/v1/checkin', '/v1/checkins'].includes(url.pathname)) {
+    const user = authenticate(req, ctx);
+    const result = transaction(ctx.db, () => recordDailyCheckin(ctx.db, user.id));
+    if (result.awarded) audit(ctx.db, user.id, 'daily_checkin_reward', String(result.rewardRound), { rewardDays: result.rewardDays });
+    writeJson(res, 200, result, req, ctx.cfg); return;
+  }
   if (req.method === 'GET' && url.pathname === '/v1/membership/products') {
     writeJson(res, 200, { products: [
       { productId: 'com.kilostrength.pro.monthly', plan: 'oneMonth', type: 'subscription' },
-      { productId: 'com.kilostrength.pro.quarterly', plan: 'threeMonths', type: 'subscription' },
-      { productId: 'com.kilostrength.pro.lifetime', plan: 'forever', type: 'non_consumable' },
+      { productId: 'com.kilostrength.pro.yearly', plan: 'yearly', type: 'subscription' },
     ] }, req, ctx.cfg); return;
+  }
+  if (req.method === 'POST' && url.pathname === '/v1/membership/orders') {
+    const user = authenticate(req, ctx);
+    const body = await readBody(req, ctx.cfg.maxJsonBytes);
+    const result = transaction(ctx.db, () => {
+      const created = createPendingMembershipOrder(ctx.db, user.id, body);
+      audit(ctx.db, user.id, created.reused ? 'reuse_membership_order' : 'create_membership_order', created.order.id, { productId: created.order.product_id, plan: created.order.plan });
+      return created;
+    });
+    writeJson(res, result.reused ? 200 : 201, { order: publicMembershipOrder(result.order), reused: result.reused }, req, ctx.cfg); return;
   }
   if (req.method === 'GET' && url.pathname === '/v1/membership/orders') {
     const user = authenticate(req, ctx);
     const rows = ctx.db.prepare('SELECT * FROM membership_orders WHERE user_id = ? ORDER BY created_at DESC LIMIT 100').all(user.id);
     writeJson(res, 200, { orders: rows.map(publicMembershipOrder) }, req, ctx.cfg); return;
+  }
+  const membershipCancelMatch = url.pathname.match(/^\/v1\/membership\/orders\/([^/]+)\/cancel$/);
+  if (membershipCancelMatch && ((req.method === 'POST' && url.pathname.endsWith('/cancel')) || req.method === 'DELETE')) {
+    const user = authenticate(req, ctx);
+    const order = transaction(ctx.db, () => markMembershipOrderCancelled(ctx.db, user.id, decodeURIComponent(membershipCancelMatch[1])));
+    audit(ctx.db, user.id, 'cancel_membership_order', order.id, {});
+    writeJson(res, 200, { order: publicMembershipOrder(order) }, req, ctx.cfg); return;
   }
   if (req.method === 'POST' && url.pathname === '/v1/membership/apple/verify') {
     const user = authenticate(req, ctx);
@@ -950,9 +1101,16 @@ async function handleRequest(req, res, ctx) {
     const transactionId = requireString(selectedTransaction.transaction_id, 'apple_transaction_missing', 180);
     const existing = ctx.db.prepare('SELECT * FROM membership_orders WHERE provider_transaction_id = ?').get(transactionId);
     if (existing && existing.user_id !== user.id) throw httpError(409, 'purchase_linked_to_another_account');
+    const localOrder = localOrderId
+      ? ctx.db.prepare('SELECT * FROM membership_orders WHERE id = ? AND user_id = ?').get(localOrderId, user.id)
+      : null;
+    if (localOrder && localOrder.product_id !== productId) throw httpError(409, 'membership_order_product_mismatch');
+    if (localOrder && !['pending', 'failed', 'cancelled'].includes(localOrder.status)) {
+      throw httpError(409, 'membership_order_not_verifiable', { status: localOrder.status });
+    }
     const result = transaction(ctx.db, () => {
       const stamp = nowIso();
-      const order = existing || {
+      const order = existing || localOrder || {
         id: randomId('ord_'),
         user_id: user.id,
         product_id: productId,
@@ -966,12 +1124,22 @@ async function handleRequest(req, res, ctx) {
         paid_at: stamp,
       };
       if (!existing) {
-        ctx.db.prepare(`INSERT INTO membership_orders
-          (id, user_id, product_id, plan, provider, status, provider_transaction_id,
-           local_order_id, created_at, updated_at, paid_at)
-          VALUES (@id, @user_id, @product_id, @plan, @provider, @status,
-           @provider_transaction_id, @local_order_id, @created_at, @updated_at, @paid_at)`)
-          .run(order);
+        if (localOrder) {
+          ctx.db.prepare(`UPDATE membership_orders SET status = 'paid', provider_transaction_id = ?,
+            local_order_id = COALESCE(local_order_id, ?), updated_at = ?, paid_at = ?, failure_reason = NULL
+            WHERE id = ? AND user_id = ? AND status IN ('pending', 'failed', 'cancelled')`)
+            .run(transactionId, localOrderId || localOrder.id, stamp, stamp, localOrder.id, user.id);
+        } else {
+          ctx.db.prepare(`INSERT INTO membership_orders
+            (id, user_id, product_id, plan, provider, status, provider_transaction_id,
+             local_order_id, created_at, updated_at, paid_at)
+            VALUES (@id, @user_id, @product_id, @plan, @provider, @status,
+             @provider_transaction_id, @local_order_id, @created_at, @updated_at, @paid_at)`)
+            .run(order);
+        }
+      } else if (existing.status !== 'paid' && existing.status !== 'restored') {
+        ctx.db.prepare(`UPDATE membership_orders SET status = 'paid', updated_at = ?, paid_at = COALESCE(paid_at, ?), failure_reason = NULL WHERE id = ?`)
+          .run(stamp, stamp, existing.id);
       }
       const entitlement = applyVerifiedAppleMembership(ctx.db, user.id, plan, selectedTransaction);
       audit(ctx.db, user.id, existing ? 'restore_apple_membership' : 'verify_apple_membership', transactionId, { productId, plan });
