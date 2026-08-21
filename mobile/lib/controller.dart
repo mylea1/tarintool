@@ -948,6 +948,8 @@ class AppController extends ChangeNotifier {
   bool completionBurstActive = false;
   int completionBurstId = 0;
   String? completionBurstSetId;
+  bool restSetupPending = false;
+  String? pendingRestSetId;
 
   /// Whether the current session was started without a prescribed plan.
   /// Free-training sets intentionally keep [WorkoutSet.plannedWeight] null.
@@ -968,7 +970,10 @@ class AppController extends ChangeNotifier {
   bool mediaPicking = false;
   RecognitionResult? recognitionResult;
   final List<String> scheduled = [];
-  int defaultRestSeconds = 120;
+
+  /// Session-wide rest chosen by the user. Zero means unset; free training
+  /// must ask on the first completed set instead of inventing a duration.
+  int defaultRestSeconds = 0;
   bool livePrEnabled = true;
   String selectedExerciseId = 'bench_press';
   AppLanguage appLanguage = AppLanguage.simplifiedChinese;
@@ -1027,6 +1032,13 @@ class AppController extends ChangeNotifier {
   QuotaReservation? _recognitionReservation;
 
   List<Exercise> get allExercises => [...catalog, ...customExercises];
+
+  /// Curated picker data plus user-created exercises. The generated dataset
+  /// remains in [allExercises] for history/import compatibility only.
+  List<Exercise> get selectableExercises => [
+    ...selectableCatalog,
+    ...customExercises,
+  ];
 
   Exercise exerciseFor(String id) => allExercises.firstWhere(
     (item) => item.id == id,
@@ -1204,7 +1216,7 @@ class AppController extends ChangeNotifier {
 
   List<Exercise> get visibleExercises {
     final query = search.trim().toLowerCase();
-    return allExercises.where((item) {
+    return selectableExercises.where((item) {
       final queryMatch =
           query.isEmpty ||
           item.name.toLowerCase().contains(query) ||
@@ -1300,6 +1312,89 @@ class AppController extends ChangeNotifier {
     return fallback;
   }
 
+  /// Picks the most useful previous session for the completion summary: an
+  /// exact plan/session name first, then the most recent record sharing the
+  /// largest number of exercises.
+  WorkoutRecord? comparisonBaselineFor(WorkoutRecord record) {
+    final candidates = history
+        .where((item) => item.id != record.id)
+        .toList(growable: false);
+    if (candidates.isEmpty) return null;
+    final sameName = candidates.where((item) => item.name == record.name);
+    if (sameName.isNotEmpty) return sameName.first;
+    final currentIds = record.exerciseIds.toSet();
+    WorkoutRecord? best;
+    var bestOverlap = 0;
+    for (final candidate in candidates) {
+      final overlap = candidate.exerciseIds
+          .toSet()
+          .intersection(currentIds)
+          .length;
+      if (overlap > bestOverlap ||
+          (overlap == bestOverlap &&
+              best != null &&
+              candidate.date.isAfter(best.date))) {
+        best = candidate;
+        bestOverlap = overlap;
+      }
+    }
+    return bestOverlap > 0 ? best : null;
+  }
+
+  WorkoutComparison? comparisonFor(WorkoutRecord record) {
+    final baseline = comparisonBaselineFor(record);
+    if (baseline == null) return null;
+    final currentById = <String, List<WorkoutSet>>{};
+    final previousById = <String, List<WorkoutSet>>{};
+    for (final exercise in record.exercises) {
+      currentById[exercise.exerciseId] = exercise.sets
+          .where((set) => set.completed)
+          .toList(growable: false);
+    }
+    for (final exercise in baseline.exercises) {
+      previousById[exercise.exerciseId] = exercise.sets
+          .where((set) => set.completed)
+          .toList(growable: false);
+    }
+    final progress = <WorkoutExerciseProgress>[];
+    for (final id in currentById.keys) {
+      final current = currentById[id];
+      final previous = previousById[id];
+      if (current == null ||
+          previous == null ||
+          current.isEmpty ||
+          previous.isEmpty) {
+        continue;
+      }
+      final currentWeight = current
+          .map((set) => set.weight)
+          .reduce((a, b) => a > b ? a : b);
+      final previousWeight = previous
+          .map((set) => set.weight)
+          .reduce((a, b) => a > b ? a : b);
+      final currentReps = current.fold<int>(0, (sum, set) => sum + set.reps);
+      final previousReps = previous.fold<int>(0, (sum, set) => sum + set.reps);
+      progress.add(
+        WorkoutExerciseProgress(
+          exerciseId: id,
+          weightDelta: currentWeight - previousWeight,
+          repsDelta: currentReps - previousReps,
+          currentWeight: currentWeight,
+          previousWeight: previousWeight,
+          currentReps: currentReps,
+          previousReps: previousReps,
+        ),
+      );
+    }
+    return WorkoutComparison(
+      baseline: baseline,
+      volumeDelta: record.volume - baseline.volume,
+      effectiveSetsDelta: record.effectiveSets - baseline.effectiveSets,
+      durationDelta: record.durationSeconds - baseline.durationSeconds,
+      exerciseProgress: progress,
+    );
+  }
+
   double get workoutVolume => workout
       .expand((item) => item.sets)
       .where((set) => set.completed)
@@ -1320,12 +1415,17 @@ class AppController extends ChangeNotifier {
   WorkoutExercise _makeWorkout(String exerciseId, String id) => WorkoutExercise(
     id: id,
     exerciseId: exerciseId,
+    // This helper creates a persisted plan/template, not a free-training
+    // action. Keep its explicit plan rest so starting an existing plan does
+    // not lose the rest configured by that plan.
+    restSeconds: 120,
     sets: List.generate(3, (index) {
       final weight = index == 0 ? 20.0 : 30.0;
       return WorkoutSet(
         id: '$id-set-$index',
         weight: weight,
         plannedWeight: weight,
+        restSeconds: 120,
       );
     }),
   );
@@ -1396,6 +1496,11 @@ class AppController extends ChangeNotifier {
     bool autoStartTimer = true,
   }) {
     freeWorkout = source == null;
+    // A new free-training session always starts with an unset rest. A plan's
+    // explicit per-exercise/per-set values are copied below and remain intact.
+    defaultRestSeconds = freeWorkout ? 0 : _positivePlanRest(source);
+    restSetupPending = false;
+    pendingRestSetId = null;
     if (source == null && workoutCompleted) {
       workout.clear();
     }
@@ -1589,11 +1694,15 @@ class AppController extends ChangeNotifier {
       triggerCompletionBurst(set.id);
       restRemainingSeconds = effectiveRestSeconds(set, parent);
       if (restRemainingSeconds > 0) {
+        restSetupPending = false;
+        pendingRestSetId = null;
         startRest(
           exercise: displayExerciseName(exerciseFor(parent.exerciseId)),
           seconds: restRemainingSeconds,
         );
       } else {
+        restSetupPending = true;
+        pendingRestSetId = set.id;
         restRemainingSeconds = 0;
         restRunning = false;
         restExerciseName = null;
@@ -1601,6 +1710,10 @@ class AppController extends ChangeNotifier {
         PlatformTimerBridge.clearRest();
       }
     } else {
+      if (pendingRestSetId == set.id) {
+        restSetupPending = false;
+        pendingRestSetId = null;
+      }
       set.durationSeconds = null;
       _activeSetElapsedSeconds = 0;
       _activeSetStartedAt = workoutPaused ? null : DateTime.now();
@@ -1642,8 +1755,44 @@ class AppController extends ChangeNotifier {
   int effectiveRestSeconds(WorkoutSet set, WorkoutExercise parent) {
     if (set.restSeconds > 0) return set.restSeconds;
     if (parent.restSeconds > 0) return parent.restSeconds;
-    if (set.type == 'warmup') return 60;
     return defaultRestSeconds;
+  }
+
+  void applyInitialRestSeconds(int seconds) {
+    final value = seconds.clamp(0, 600).toInt();
+    if (value <= 0) {
+      dismissRestSetup();
+      return;
+    }
+    defaultRestSeconds = value;
+    WorkoutSet? pendingSet;
+    WorkoutExercise? pendingExercise;
+    for (final exercise in workout) {
+      exercise.restSeconds = value;
+      for (final set in exercise.sets) {
+        if (!set.completed) set.restSeconds = value;
+        if (set.id == pendingRestSetId) {
+          pendingSet = set;
+          pendingExercise = exercise;
+        }
+      }
+    }
+    restSetupPending = false;
+    pendingRestSetId = null;
+    persistActiveWorkout();
+    if (pendingSet != null && pendingExercise != null && pendingSet.completed) {
+      startRest(
+        exercise: displayExerciseName(exerciseFor(pendingExercise.exerciseId)),
+        seconds: value,
+      );
+    }
+    notifyListeners();
+  }
+
+  void dismissRestSetup() {
+    restSetupPending = false;
+    pendingRestSetId = null;
+    notifyListeners();
   }
 
   String _platformExerciseName([WorkoutExercise? preferred]) {
@@ -1725,12 +1874,11 @@ class AppController extends ChangeNotifier {
 
   void updateExerciseRest(WorkoutExercise exercise, int seconds) {
     final value = seconds.clamp(0, 600).toInt();
-    exercise.restSeconds = value;
     if (freeWorkout) {
-      for (final set in exercise.sets) {
-        if (!set.completed) set.restSeconds = value;
-      }
+      updateActiveAndUpcomingRest(value);
+      return;
     }
+    exercise.restSeconds = value;
     persistActiveWorkout();
     notifyListeners();
   }
@@ -1860,6 +2008,8 @@ class AppController extends ChangeNotifier {
     workoutElapsedSeconds = 0;
     workoutStartedAt = null;
     freeWorkout = false;
+    restSetupPending = false;
+    pendingRestSetId = null;
     restRunning = false;
     restRemainingSeconds = 0;
     restExerciseName = null;
@@ -1942,6 +2092,10 @@ class AppController extends ChangeNotifier {
     if (restRunning) {
       final activeName = restExerciseName ?? '休息计时';
       startRest(exercise: activeName, seconds: value);
+    }
+    if (value > 0) {
+      restSetupPending = false;
+      pendingRestSetId = null;
     }
     persistActiveWorkout();
     notifyListeners();
@@ -2517,8 +2671,11 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
-  int _restSecondsForNewExercise() =>
-      workout.isEmpty ? defaultRestSeconds : workout.first.restSeconds;
+  // A new free-training action is deliberately unset until the user chooses
+  // the session rest once. The selected value is copied into
+  // [defaultRestSeconds] by the rest editor, so inheriting from an existing
+  // card would re-introduce an implicit/default rest for newly added actions.
+  int _restSecondsForNewExercise() => defaultRestSeconds;
 
   void resetRecognition() {
     _recognitionReservation?.rollback();
@@ -3019,10 +3176,18 @@ class AppController extends ChangeNotifier {
     }
   }
 
-  Future<void> _rollbackAgentQuota(
-    AgentCoachApi api,
-    String requestId,
-  ) async {
+  int _positivePlanRest(List<WorkoutExercise>? source) {
+    if (source == null) return 0;
+    for (final exercise in source) {
+      if (exercise.restSeconds > 0) return exercise.restSeconds;
+      for (final set in exercise.sets) {
+        if (set.restSeconds > 0) return set.restSeconds;
+      }
+    }
+    return 0;
+  }
+
+  Future<void> _rollbackAgentQuota(AgentCoachApi api, String requestId) async {
     try {
       await api.rollbackQuotaReservation(requestId);
     } catch (_) {
@@ -3104,7 +3269,7 @@ class AppController extends ChangeNotifier {
   List<Map<String, String>> _aiExerciseCatalog() {
     final selected = <Exercise>[];
     final seenGroups = <String>{};
-    for (final exercise in allExercises) {
+    for (final exercise in selectableExercises) {
       final key = '${exercise.equipment}|${exercise.muscle}';
       if (selected.length < 80 &&
           (curatedCatalog.contains(exercise) || seenGroups.add(key))) {
@@ -3221,6 +3386,41 @@ class AppController extends ChangeNotifier {
     '指出下一次可调整的重量或次数。每条增减重量建议都必须说明依据；如果数据不足，请明确说明。',
     includeTrainingContext: true,
   );
+
+  Future<void> requestAiCustomizedWorkout() {
+    selectAiView(AiView.chat);
+    return sendChat(
+      '请为我刚进入的本次自由训练生成一节可直接执行的训练计划。请结合我的历史训练和当前能力，明确给出动作、组数、每组重量、次数和组间休息；如果数据不足请留空并说明依据，不要虚构我的能力。生成结构化计划卡，方便我查看和保存。',
+      includeTrainingContext: true,
+    );
+  }
+
+  Future<void> sendWorkoutComparisonForReview(
+    WorkoutRecord record, {
+    WorkoutRecord? baseline,
+  }) {
+    final selected = <AiContextSelection>[
+      AiContextSelection(
+        type: AiContextType.workoutRecord,
+        id: record.id,
+        label: '本次训练 · ${record.name}',
+      ),
+      if (baseline != null)
+        AiContextSelection(
+          type: AiContextType.workoutRecord,
+          id: baseline.id,
+          label: '上次训练 · ${baseline.name}',
+        ),
+    ];
+    selectAiView(AiView.chat);
+    return sendChat(
+      baseline == null
+          ? '请总结本次训练的完成情况、训练容量、有效组和主要肌群，并给出下一次可执行的建议。只基于本次训练数据，数据不足时明确说明。'
+          : '请对比本次训练与上一次可比训练的动作、重量、次数、训练容量、有效组和时长，指出真正的进步或回退，并解释下一次增加或降低重量的依据。不要泛泛而谈。',
+      includeTrainingContext: true,
+      contexts: selected,
+    );
+  }
 
   Future<void> sendChat(
     String text, {

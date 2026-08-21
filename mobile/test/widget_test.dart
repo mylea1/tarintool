@@ -74,40 +74,26 @@ void main() {
     await tester.pumpWidget(KiloApp(initialController: controller));
     await _openRoute(tester, '动作');
 
-    expect(find.text('1324 个动作'), findsOneWidget);
-    expect(find.byKey(const Key('exercise-library-load-more')), findsOneWidget);
+    expect(find.text('${selectableCatalog.length} 个动作'), findsOneWidget);
+    expect(find.byKey(const Key('exercise-library-load-more')), findsNothing);
     expect(
       tester
           .widget<GridView>(find.byKey(const Key('exercise-library-grid')))
           .childrenDelegate
           .estimatedChildCount,
-      60,
+      selectableCatalog.length,
     );
-    await tester.ensureVisible(
-      find.byKey(const Key('exercise-library-load-more')),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('exercise-library-load-more')));
-    await tester.pumpAndSettle();
-    expect(
-      tester
-          .widget<GridView>(find.byKey(const Key('exercise-library-grid')))
-          .childrenDelegate
-          .estimatedChildCount,
-      120,
-    );
-    await tester.enterText(
-      find.byKey(const Key('exercise-search')),
-      '3/4 sit-up',
-    );
+    await tester.enterText(find.byKey(const Key('exercise-search')), '高位下拉');
     await tester.pumpAndSettle();
 
-    final cover = find.byKey(const Key('exercise-cover-dataset_0001'));
+    final cover = find.byKey(const Key('exercise-cover-lat_pulldown'));
     expect(cover, findsOneWidget);
+    await tester.ensureVisible(cover);
+    await tester.pumpAndSettle();
     await tester.tap(cover);
     await tester.pumpAndSettle();
     expect(
-      find.byKey(const Key('exercise-detail-gif-dataset_0001')),
+      find.byKey(const Key('exercise-detail-gif-lat_pulldown')),
       findsOneWidget,
     );
     expect(find.text('分步说明'), findsNothing);
@@ -716,7 +702,9 @@ void main() {
       tester.view.resetDevicePixelRatio();
     });
     final controller = AppController();
-    controller.startWorkout(name: '自由训练');
+    // Keep the preparation state visible so the secondary AI customization
+    // action is available without blocking the primary timer path.
+    controller.startWorkout(name: '自由训练', autoStartTimer: false);
     controller.addExercise('bench_press');
     controller.addSet(controller.workout.single);
     controller.openLiveWorkout();
@@ -726,19 +714,57 @@ void main() {
     });
     await tester.pumpWidget(KiloApp(initialController: controller));
     expect(find.byKey(const Key('live-workout-controls')), findsOneWidget);
-    expect(find.byKey(const Key('pause-workout-button')), findsOneWidget);
-    expect(find.byKey(const Key('workout-batch-button')), findsOneWidget);
-    expect(find.byKey(const Key('plate-calculator-button')), findsOneWidget);
-    expect(find.byKey(const Key('workout-settings-button')), findsOneWidget);
+    expect(find.byKey(const Key('start-workout-timer-button')), findsOneWidget);
+    expect(find.byKey(const Key('workout-rest-button')), findsOneWidget);
+    expect(
+      find.byKey(const Key('ai-customize-workout-button')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('workout-batch-button')), findsNothing);
+    expect(find.byKey(const Key('plate-calculator-button')), findsNothing);
+    expect(find.byKey(const Key('workout-settings-button')), findsNothing);
     expect(find.text('已完成 0/1 组'), findsNothing);
     expect(find.text('先检查动作，再开始计时'), findsNothing);
     expect(tester.takeException(), isNull);
-    await tester.tap(find.byKey(const Key('pause-workout-button')));
+    await tester.tap(find.byKey(const Key('start-workout-timer-button')));
     await tester.pump();
-    expect(controller.workoutPaused, isTrue);
+    expect(controller.workoutTimerStarted, isTrue);
     expect(tester.takeException(), isNull);
     controller.finishWorkout();
     await tester.pump();
+  });
+
+  testWidgets('free workout thumbnail opens details and note capture is gone', (
+    tester,
+  ) async {
+    final controller = AppController();
+    addTearDown(() {
+      if (controller.workoutStarted) controller.finishWorkout();
+      controller.dispose();
+    });
+    await tester.pumpWidget(KiloApp(initialController: controller));
+    await _openRoute(tester, '训练');
+    expect(
+      find.byKey(const Key('natural-workout-capture-button')),
+      findsNothing,
+    );
+
+    controller.startWorkout(name: '自由训练', autoStartTimer: false);
+    controller.addExercise('bench_press');
+    final exercise = controller.workout.single;
+    controller.addSet(exercise);
+    controller.openLiveWorkout();
+    await tester.pumpAndSettle();
+
+    final thumbnail = find.byKey(Key('exercise-thumbnail-${exercise.id}'));
+    expect(thumbnail, findsOneWidget);
+    await tester.ensureVisible(thumbnail);
+    await tester.tap(thumbnail);
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('exercise-detail-gif-bench_press')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('exercise picker rail has no compact-width overflow', (
@@ -830,6 +856,7 @@ void main() {
       controller.addExercise('bench_press');
       final exercise = controller.workout.single;
       controller.addSet(exercise);
+      controller.updateExerciseRest(exercise, 180);
       controller.openLiveWorkout();
       addTearDown(() {
         if (controller.workoutStarted) controller.finishWorkout();
@@ -927,6 +954,7 @@ void main() {
         ..weight = 77.5
         ..reps = 5
         ..note = '窄握';
+      controller.updateExerciseRest(exercise, 90);
       controller.openLiveWorkout();
 
       await tester.pumpWidget(KiloApp(initialController: controller));

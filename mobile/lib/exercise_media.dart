@@ -302,9 +302,11 @@ const exerciseMedia = <String, ExerciseMedia>{
     ],
   ),
   'lat_pulldown': ExerciseMedia(
-    datasetId: '2330',
-    imageAsset: '2330.jpg',
-    gifAsset: '2330.gif',
+    // 2330 is standing straight-arm pulldown. 0197 is the seated wide-grip
+    // lat pulldown and matches the catalog name and teaching copy.
+    datasetId: '0197',
+    imageAsset: '0197.jpg',
+    gifAsset: '0197.gif',
     summary: '挺胸、肩胛下沉，把横杆拉到上胸而不是颈后。',
     steps: <String>[
       '坐稳并固定膝盖，略宽于肩握住横杆。',

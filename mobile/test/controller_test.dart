@@ -30,63 +30,66 @@ class _CapturingCoachApi implements CoachApi {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('agent tool registry is read-only and exposes only three approved tools', () {
-    final controller = AppController();
-    try {
-      expect(controller.aiUseTrainingData, isTrue);
-      final names = controller.aiAvailableTools
-          .map((item) => (item['function'] as Map)['name'])
-          .toList();
-      expect(names, [
-        'read_training_plans',
-        'read_workout_history',
-        'read_active_workout',
-      ]);
+  test(
+    'agent tool registry is read-only and exposes only three approved tools',
+    () {
+      final controller = AppController();
+      try {
+        expect(controller.aiUseTrainingData, isTrue);
+        final names = controller.aiAvailableTools
+            .map((item) => (item['function'] as Map)['name'])
+            .toList();
+        expect(names, [
+          'read_training_plans',
+          'read_workout_history',
+          'read_active_workout',
+        ]);
 
-      final plansBefore = controller.routines.length;
-      final historyBefore = controller.history.length;
-      final planResult = controller.executeAiTool(
-        const CoachToolCall(
-          id: 'plans',
-          name: 'read_training_plans',
-          arguments: {},
-        ),
-      );
-      final historyResult = controller.executeAiTool(
-        const CoachToolCall(
-          id: 'history',
-          name: 'read_workout_history',
-          arguments: {},
-        ),
-      );
-      final activeResult = controller.executeAiTool(
-        const CoachToolCall(
-          id: 'active',
-          name: 'read_active_workout',
-          arguments: {},
-        ),
-      );
-
-      expect(planResult['tool'], 'read_training_plans');
-      expect(historyResult['tool'], 'read_workout_history');
-      expect(activeResult['tool'], 'read_active_workout');
-      expect(activeResult['active'], false);
-      expect(controller.routines.length, plansBefore);
-      expect(controller.history.length, historyBefore);
-      expect(
-        () => controller.executeAiTool(
+        final plansBefore = controller.routines.length;
+        final historyBefore = controller.history.length;
+        final planResult = controller.executeAiTool(
           const CoachToolCall(
-            id: 'write',
-            name: 'delete_all_data',
+            id: 'plans',
+            name: 'read_training_plans',
             arguments: {},
           ),
-        ),
-        throwsArgumentError,
-      );
-    } finally {
-      controller.dispose();
-    }
-  });
+        );
+        final historyResult = controller.executeAiTool(
+          const CoachToolCall(
+            id: 'history',
+            name: 'read_workout_history',
+            arguments: {},
+          ),
+        );
+        final activeResult = controller.executeAiTool(
+          const CoachToolCall(
+            id: 'active',
+            name: 'read_active_workout',
+            arguments: {},
+          ),
+        );
+
+        expect(planResult['tool'], 'read_training_plans');
+        expect(historyResult['tool'], 'read_workout_history');
+        expect(activeResult['tool'], 'read_active_workout');
+        expect(activeResult['active'], false);
+        expect(controller.routines.length, plansBefore);
+        expect(controller.history.length, historyBefore);
+        expect(
+          () => controller.executeAiTool(
+            const CoachToolCall(
+              id: 'write',
+              name: 'delete_all_data',
+              arguments: {},
+            ),
+          ),
+          throwsArgumentError,
+        );
+      } finally {
+        controller.dispose();
+      }
+    },
+  );
 
   test(
     'AI skills support create update delete and a three-enabled limit',
@@ -497,7 +500,7 @@ void main() {
   });
 
   test(
-    'free-workout rest starts for every action without manual setup',
+    'free-workout asks once for rest, then applies it to the session',
     () async {
       const channel = MethodChannel('kilo.platform.timer');
       final calls = <String>[];
@@ -512,34 +515,38 @@ void main() {
         controller.addExercise('bench_press');
         final exercise = controller.workout.single;
         controller.addSet(exercise);
-        expect(exercise.restSeconds, controller.defaultRestSeconds);
-        expect(exercise.sets.single.restSeconds, controller.defaultRestSeconds);
-        exercise
-          ..restSeconds = 0
-          ..sets.single.restSeconds = 0;
-        exercise.sets.single.type = 'warmup';
+        expect(exercise.restSeconds, 0);
+        expect(exercise.sets.single.restSeconds, 0);
         final burstBefore = controller.completionBurstId;
         controller.completeSet(exercise.sets.single, exercise);
         await Future<void>.delayed(Duration.zero);
-        expect(controller.restRunning, isTrue);
-        expect(controller.restRemainingSeconds, 60);
-        expect(calls, contains('startTimer'));
+        expect(controller.restRunning, isFalse);
+        expect(controller.restRemainingSeconds, 0);
+        expect(controller.restSetupPending, isTrue);
+        expect(controller.pendingRestSetId, exercise.sets.single.id);
+        expect(calls, isNot(contains('startTimer')));
         expect(controller.completionBurstId, burstBefore + 1);
         controller.completeSet(exercise.sets.single, exercise);
         expect(controller.completionBurstId, burstBefore + 1);
 
+        // Re-complete the set and confirm the one-time setup. A confirmation
+        // starts the pending set's rest immediately and fills future rows.
+        controller.completeSet(exercise.sets.single, exercise);
+        controller.applyInitialRestSeconds(180);
+        expect(controller.restSetupPending, isFalse);
+        expect(controller.defaultRestSeconds, 180);
+        expect(controller.restRunning, isTrue);
+        expect(controller.restRemainingSeconds, 180);
+
         controller.addExercise('squat');
         final secondExercise = controller.workout.last;
         controller.addSet(secondExercise);
-        // The first exercise was explicitly changed to no rest above, so a
-        // newly added exercise inherits that workout-specific choice.
-        expect(secondExercise.restSeconds, 0);
-        expect(secondExercise.sets.single.restSeconds, 0);
-        controller.updateExerciseRest(secondExercise, 75);
+        expect(secondExercise.restSeconds, 180);
+        expect(secondExercise.sets.single.restSeconds, 180);
         controller.completeSet(secondExercise.sets.single, secondExercise);
         await Future<void>.delayed(Duration.zero);
         expect(controller.restRunning, isTrue);
-        expect(controller.restRemainingSeconds, 75);
+        expect(controller.restRemainingSeconds, 180);
 
         controller.completeSet(secondExercise.sets.single, secondExercise);
       } finally {
@@ -860,6 +867,74 @@ void main() {
       expect(set.restSeconds, 120);
       expect(controller.scheduled, contains('2026-08-12'));
       expect(controller.scheduledLabels['2026-08-12'], contains('胸部训练'));
+    } finally {
+      controller.dispose();
+    }
+  });
+
+  test('completion comparison prefers the previous session with same plan', () {
+    final controller = AppController();
+    try {
+      WorkoutRecord record({
+        required String id,
+        required String name,
+        required DateTime date,
+        required double weight,
+        required int reps,
+      }) {
+        final exercise = WorkoutExercise(
+          id: '$id-exercise',
+          exerciseId: 'bench_press',
+          sets: [
+            WorkoutSet(
+              id: '$id-set',
+              weight: weight,
+              reps: reps,
+              completed: true,
+            ),
+          ],
+        );
+        return WorkoutRecord(
+          id: id,
+          name: name,
+          date: date,
+          startTime: '18:00',
+          durationSeconds: 2400,
+          volume: weight * reps,
+          effectiveSets: 1,
+          exerciseIds: const ['bench_press'],
+          exercises: [exercise],
+        );
+      }
+
+      final baseline = record(
+        id: 'previous-plan',
+        name: '上肢 A',
+        date: DateTime(2026, 8, 10),
+        weight: 70,
+        reps: 8,
+      );
+      final newerDifferentName = record(
+        id: 'newer-overlap',
+        name: '临时训练',
+        date: DateTime(2026, 8, 12),
+        weight: 75,
+        reps: 6,
+      );
+      final current = record(
+        id: 'current-plan',
+        name: '上肢 A',
+        date: DateTime(2026, 8, 14),
+        weight: 75,
+        reps: 9,
+      );
+      controller.history.addAll([current, newerDifferentName, baseline]);
+
+      final comparison = controller.comparisonFor(current);
+      expect(comparison?.baseline.id, baseline.id);
+      expect(comparison?.volumeDelta, 115);
+      expect(comparison?.exerciseProgress.single.weightDelta, 5);
+      expect(comparison?.exerciseProgress.single.repsDelta, 1);
     } finally {
       controller.dispose();
     }

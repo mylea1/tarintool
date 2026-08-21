@@ -357,7 +357,9 @@ class WorkoutSet {
     this.reps = 8,
     this.targetMin = 6,
     this.targetMax = 8,
-    this.restSeconds = 120,
+    // A live/free-training set has no implicit rest. Prescribed plans and
+    // restored legacy records can still pass an explicit positive value.
+    this.restSeconds = 0,
     this.completed = false,
     this.failed = false,
     this.note = '',
@@ -430,7 +432,9 @@ class WorkoutExercise {
     required this.id,
     required this.exerciseId,
     required this.sets,
-    this.restSeconds = 120,
+    // Rest is deliberately unset until the athlete chooses it for a live
+    // session. Plan snapshots may provide their own positive value.
+    this.restSeconds = 0,
     this.note = '',
     this.collapsed = false,
     this.supersetId,
@@ -500,6 +504,45 @@ class WorkoutRecord {
   /// A snapshot of the exercises and sets performed in this record.
   /// Older records may omit it and fall back to [exerciseIds].
   final List<WorkoutExercise> exercises;
+}
+
+/// A compact comparison between the finished session and its most relevant
+/// previous baseline. Kept as a model so the summary UI and future exports
+/// use the same comparison semantics.
+class WorkoutComparison {
+  const WorkoutComparison({
+    required this.baseline,
+    required this.volumeDelta,
+    required this.effectiveSetsDelta,
+    required this.durationDelta,
+    required this.exerciseProgress,
+  });
+
+  final WorkoutRecord baseline;
+  final double volumeDelta;
+  final int effectiveSetsDelta;
+  final int durationDelta;
+  final List<WorkoutExerciseProgress> exerciseProgress;
+}
+
+class WorkoutExerciseProgress {
+  const WorkoutExerciseProgress({
+    required this.exerciseId,
+    required this.weightDelta,
+    required this.repsDelta,
+    required this.currentWeight,
+    required this.previousWeight,
+    required this.currentReps,
+    required this.previousReps,
+  });
+
+  final String exerciseId;
+  final double weightDelta;
+  final int repsDelta;
+  final double currentWeight;
+  final double previousWeight;
+  final int currentReps;
+  final int previousReps;
 }
 
 class Routine {
@@ -1060,6 +1103,13 @@ const curatedCatalog = <Exercise>[
   ),
 ];
 
+/// The user-facing picker intentionally stays small and hand-reviewed. The
+/// complete generated dataset remains available through [catalog] so old
+/// history, imported plans and stable exercise IDs continue to resolve.
+final List<Exercise> selectableCatalog = List<Exercise>.unmodifiable(
+  curatedCatalog,
+);
+
 final List<Exercise> _rawCatalog = <Exercise>[
   ...curatedCatalog,
   for (final entry in datasetExerciseEntries.entries)
@@ -1198,15 +1248,40 @@ String muscleGroupForLabel(String muscle) {
 /// are functionally searched together share one filter entry.
 String equipmentGroupForLabel(String equipment) {
   final normalized = equipment.trim().toLowerCase();
+  if (normalized.isEmpty) return '其他';
   if (normalized.contains('杠铃') ||
-      normalized == '奥杆' ||
+      normalized.contains('哑铃') ||
       normalized.contains('barbell') ||
+      normalized.contains('dumbbell') ||
       normalized.contains('olympic bar') ||
       normalized.contains('ez bar') ||
+      normalized.contains('曲杆') ||
+      normalized.contains('六角杠') ||
+      normalized.contains('奥杆') ||
       normalized.contains('trap bar')) {
-    return '杠铃';
+    return '哑铃杠铃';
   }
-  return equipment.trim().isEmpty ? '其他' : equipment.trim();
+  if (normalized.contains('固定器械') ||
+      normalized.contains('史密斯') ||
+      normalized.contains('machine') ||
+      normalized.contains('smith')) {
+    return '固定器械';
+  }
+  if (normalized.contains('徒手') ||
+      normalized.contains('自重') ||
+      normalized.contains('bodyweight') ||
+      normalized.contains('assisted')) {
+    return '徒手';
+  }
+  if (normalized.contains('绳索') ||
+      normalized.contains('缆绳') ||
+      normalized.contains('弹力带') ||
+      normalized.contains('阻力带') ||
+      normalized.contains('cable') ||
+      normalized.contains('band')) {
+    return '绳索弹力带';
+  }
+  return '其他';
 }
 
 String exerciseAsset(String id) {

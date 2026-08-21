@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>形域 · 自由训练交互预览</title>
+  <style>
+    :root{--ink:#2b1d16;--muted:#7c6a61;--bg:#fff8f2;--card:#fff;--line:#ead8cc;--orange:#e95416;--orange2:#ff7b3d;--green:#17724b;--greenbg:#e5f5eb;--shadow:0 10px 28px #61351d18}
+    *{box-sizing:border-box} body{margin:0;background:#f4eee9;color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif} button,input{font:inherit}
+    .stage{min-height:100vh;display:grid;place-items:center;padding:24px}.phone{width:min(100%,390px);min-height:760px;background:var(--bg);border:1px solid #e6d7ce;border-radius:30px;overflow:hidden;box-shadow:0 28px 80px #3f241a30}.screen{padding:18px 15px 92px}.brand{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}.brand h1{font-size:23px;margin:0}.badge{color:var(--orange);font-weight:800}.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px;box-shadow:var(--shadow);margin-bottom:12px}.row{display:flex;align-items:center;gap:10px}.grow{flex:1;min-width:0}.muted{color:var(--muted);font-size:12px}.timer{font-size:28px;font-weight:900;font-variant-numeric:tabular-nums}.actions{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:12px}.primary,.secondary,.icon-btn{border:0;border-radius:14px;min-height:46px;font-weight:800;cursor:pointer}.primary{background:linear-gradient(135deg,var(--orange),var(--orange2));color:white;padding:0 18px}.secondary{background:#fff3e9;color:#a53a0b;border:1px solid #f1c5aa;padding:0 15px}.icon-btn{width:62px;background:#fff3e9;color:var(--orange);font-size:21px}.exercise img{width:58px;height:58px;border-radius:14px;object-fit:cover;border:1px solid var(--line);cursor:pointer}.exercise strong{display:block;font-size:16px}.set{display:grid;grid-template-columns:28px 1fr 1fr 38px;gap:6px;align-items:center;margin-top:10px}.field{min-width:0;border:1px solid var(--line);border-radius:10px;padding:10px 7px;background:#fff;text-align:center}.check{border:0;border-radius:10px;height:40px;background:var(--green);color:white;font-weight:900}.rest-only{display:flex;align-items:center;gap:8px;margin-top:10px;color:#a53a0b;font-weight:800}.summary{display:none}.summary.show{display:block}.delta{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:10px 0}.metric{background:#fff7f0;border:1px solid var(--line);border-radius:12px;padding:9px;min-width:0}.metric b{display:block;font-size:16px;overflow-wrap:anywhere}.up{color:var(--green)} dialog{width:min(calc(100% - 28px),360px);border:0;border-radius:20px;padding:0;box-shadow:0 24px 80px #2d1a1260}dialog::backdrop{background:#2e1b1466}.dialog-body{padding:20px}.dialog-body h2{margin:0 0 5px}.rest-input{display:flex;align-items:center;gap:8px;margin:16px 0}.rest-input input{width:100%;min-width:0;border:1px solid var(--line);border-radius:13px;padding:13px;font-size:24px;font-weight:900;text-align:center}.dialog-actions{display:grid;grid-template-columns:1fr 1.35fr;gap:8px}.bottom{position:absolute}.hint{margin-top:6px;color:var(--muted);font-size:11px}
+    @media(max-width:340px){.stage{padding:0}.phone{border-radius:0;border:0;min-height:100vh}.screen{padding-inline:11px}.actions{grid-template-columns:1fr}.secondary{width:100%}.delta{grid-template-columns:1fr}.timer{font-size:24px}.set{grid-template-columns:24px minmax(0,1fr) minmax(0,1fr) 36px}}
+    @media(prefers-reduced-motion:no-preference){.summary.show{animation:rise .28s ease-out}@keyframes rise{from{opacity:0;transform:translateY(10px)}}}
+  </style>
+</head>
+<body>
+<main class="stage"><section class="phone"><div class="screen">
+  <div class="brand"><h1><span class="badge">形域</span> 自由训练</h1><span class="muted">准备中</span></div>
+  <section class="card">
+    <div class="row"><div class="grow"><strong>自由训练</strong><div class="muted">2 个动作 · 休息尚未设置</div></div><div class="timer">00:00</div></div>
+    <div class="actions"><button class="primary" id="start">开始计时</button><button class="secondary" id="ai">✨ AI 定制</button></div>
+    <button class="secondary rest-only" id="rest">⏱ 组间休息 <span class="muted">未设置</span></button>
+  </section>
+  <section class="card exercise">
+    <div class="row"><img id="detail" alt="器械推胸动作缩略图" src="../../mobile/assets/exercises/bench_press_0.png"><div class="grow"><strong>器械推胸</strong><div class="muted">点击图片查看动作详情</div></div></div>
+    <div class="set"><b>1</b><input class="field" aria-label="重量 kg" placeholder="kg"><input class="field" aria-label="次数" placeholder="次数"><button class="check" id="complete" aria-label="完成第1组">✓</button></div>
+  </section>
+  <section class="card summary" id="summary">
+    <div class="row"><div class="grow"><strong>本次比上次更进一步</strong><div class="muted">对比 8 月 14 日 · 同一训练计划</div></div><span class="up">▲ 8%</span></div>
+    <div class="delta"><div class="metric"><span class="muted">容量</span><b>3,260 kg</b><span class="up">+240</span></div><div class="metric"><span class="muted">有效组</span><b>10 组</b><span class="up">+1</span></div><div class="metric"><span class="muted">时长</span><b>46 分</b><span>-3 分</span></div></div>
+    <button class="primary" style="width:100%">让 AI 总结本次进步</button>
+  </section>
+  <p class="hint">交互：点击动作图片、完成组、AI 定制与休息按钮。点击标题区域可切换到总结预览。</p>
+  </div></section></main>
+  <dialog id="restDialog"><div class="dialog-body"><h2>设置本次训练的组间休息</h2><p class="muted">只需设置一次，将应用到之后所有动作和未完成组。</p><div class="rest-input"><input id="restValue" value="3:00" inputmode="numeric" aria-label="组间休息时间"></div><div class="dialog-actions"><button class="secondary" id="cancel">取消</button><button class="primary" id="apply">应用并开始休息</button></div></div></dialog>
+  <script>
+    const d=document.querySelector('#restDialog'), summary=document.querySelector('#summary');
+    document.querySelector('#complete').onclick=()=>d.showModal(); document.querySelector('#rest').onclick=()=>d.showModal();
+    document.querySelector('#cancel').onclick=()=>d.close(); document.querySelector('#apply').onclick=()=>{d.close();document.querySelector('#rest span').textContent=document.querySelector('#restValue').value};
+    document.querySelector('#detail').onclick=()=>alert('打开：器械推胸动作详情'); document.querySelector('#ai').onclick=()=>alert('打开 AI 定制：目标、部位、时长');
+    document.querySelector('.brand').onclick=()=>summary.classList.toggle('show');
+  </script>
+</body></html>

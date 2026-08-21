@@ -24,11 +24,11 @@ void main() {
   });
 
   test('equipment variants share one compact barbell filter', () {
-    expect(equipmentGroupForLabel('杠铃'), '杠铃');
-    expect(equipmentGroupForLabel('曲杆杠铃'), '杠铃');
-    expect(equipmentGroupForLabel('六角杠铃'), '杠铃');
-    expect(equipmentGroupForLabel('奥杆'), '杠铃');
-    expect(equipmentGroupForLabel('哑铃'), '哑铃');
+    expect(equipmentGroupForLabel('杠铃'), '哑铃杠铃');
+    expect(equipmentGroupForLabel('曲杆杠铃'), '哑铃杠铃');
+    expect(equipmentGroupForLabel('六角杠铃'), '哑铃杠铃');
+    expect(equipmentGroupForLabel('奥杆'), '哑铃杠铃');
+    expect(equipmentGroupForLabel('哑铃'), '哑铃杠铃');
   });
 
   test('deltoid labels are included in shoulder filtering', () {
@@ -39,20 +39,21 @@ void main() {
   test('controller filters grouped barbell variants and deltoids', () {
     final controller = AppController();
     addTearDown(controller.dispose);
-    controller.equipmentFilter = '杠铃';
+    controller.equipmentFilter = '哑铃杠铃';
+    expect(controller.visibleExercises, isNotEmpty);
     expect(
-      controller.visibleExercises.any((item) => item.equipment == '曲杆杠铃'),
-      isTrue,
-    );
-    expect(
-      controller.visibleExercises.any((item) => item.equipment == '六角杠铃'),
+      controller.visibleExercises.every(
+        (item) => equipmentGroupForLabel(item.equipment) == '哑铃杠铃',
+      ),
       isTrue,
     );
 
     controller.equipmentFilter = '全部';
     controller.muscleFilter = '肩';
     expect(
-      controller.visibleExercises.any((item) => item.muscle.contains('三角肌')),
+      controller.visibleExercises.any(
+        (item) => muscleGroupForLabel(item.muscle) == '肩',
+      ),
       isTrue,
     );
   });
@@ -94,7 +95,7 @@ void main() {
     controller.selectPage(PageId.exercises);
     await tester.pumpAndSettle();
     expect(find.text('Exercise Library'), findsWidgets);
-    expect(find.text(catalog.first.englishName), findsWidgets);
+    expect(find.text(selectableCatalog.first.englishName), findsWidgets);
     controller.dispose();
   });
 

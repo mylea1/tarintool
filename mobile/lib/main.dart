@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -14,7 +15,6 @@ import 'exercise_media.dart';
 import 'link_utils.dart';
 import 'membership_ui.dart';
 import 'models.dart';
-import 'natural_workout_parser.dart';
 import 'recognition_api.dart';
 
 // Warm-orange Material 3 tokens. The older names remain as compatibility
@@ -41,7 +41,7 @@ const hairline = Color(0xFFEAD9CD);
 const emberTint = Color(0xFFFFEFE4);
 const emberShadow = Color(0x1F8E3D15);
 const danger = Color(0xFFB3261E);
-const kiloAppVersion = '1.0.12';
+const kiloAppVersion = '1.0.15';
 const kiloAppBuild = '13';
 const kiloAppVersionLabel = '$kiloAppVersion ($kiloAppBuild)';
 const kiloAppNavigationLabel = '优化休息继承与动作卡片密度';
@@ -1922,34 +1922,29 @@ class _LiveWorkoutTimingPanel extends StatelessWidget {
               ),
             ),
             Tooltip(
-              message: controller.batchMode ? '退出批量' : '批量修改',
+              message: '设置本次及后续组间休息',
               child: OutlinedButton.icon(
-                key: const Key('workout-batch-button'),
-                onPressed: controller.toggleBatchMode,
-                icon: Icon(
-                  controller.batchMode ? Icons.check_circle : Icons.checklist,
+                key: const Key('workout-rest-button'),
+                onPressed: () => _showActiveRestEditor(context, controller),
+                icon: const Icon(Icons.timer_outlined),
+                label: const Text('组间休息'),
+              ),
+            ),
+            if (controller.freeWorkout && !controller.workoutTimerStarted)
+              Tooltip(
+                message: '让 AI 为本次自由训练生成可编辑计划',
+                child: OutlinedButton.icon(
+                  key: const Key('ai-customize-workout-button'),
+                  onPressed: controller.aiTyping
+                      ? null
+                      : () {
+                          HapticFeedback.selectionClick();
+                          unawaited(controller.requestAiCustomizedWorkout());
+                        },
+                  icon: const Icon(Icons.auto_awesome_outlined),
+                  label: const Text('AI 定制本次训练'),
                 ),
-                label: Text(controller.batchMode ? '退出批量' : '批量'),
               ),
-            ),
-            Tooltip(
-              message: '杠片计算器',
-              child: OutlinedButton.icon(
-                key: const Key('plate-calculator-button'),
-                onPressed: () => _showPlateCalculator(context),
-                icon: const Icon(Icons.calculate_outlined),
-                label: const Text('杠片'),
-              ),
-            ),
-            Tooltip(
-              message: '训练设置',
-              child: OutlinedButton.icon(
-                key: const Key('workout-settings-button'),
-                onPressed: () => _showWorkoutSettings(context, controller),
-                icon: const Icon(Icons.tune),
-                label: const Text('设置'),
-              ),
-            ),
           ],
         );
       },
@@ -2217,24 +2212,10 @@ class _LiveWorkoutControls extends StatelessWidget {
             ),
             const SizedBox(width: 4),
             IconButton(
-              key: const Key('workout-batch-button'),
-              tooltip: controller.batchMode ? '退出批量' : '批量修改',
-              onPressed: controller.toggleBatchMode,
-              icon: Icon(
-                controller.batchMode ? Icons.check_circle : Icons.checklist,
-              ),
-            ),
-            IconButton(
-              key: const Key('plate-calculator-button'),
-              tooltip: '杠片计算器',
-              onPressed: () => _showPlateCalculator(context),
-              icon: const Icon(Icons.calculate_outlined),
-            ),
-            IconButton(
-              key: const Key('workout-settings-button'),
-              tooltip: '训练设置',
-              onPressed: () => _showWorkoutSettings(context, controller),
-              icon: const Icon(Icons.tune),
+              key: const Key('workout-rest-button'),
+              tooltip: '组间休息',
+              onPressed: () => _showActiveRestEditor(context, controller),
+              icon: const Icon(Icons.timer_outlined),
             ),
           ],
         ),
@@ -2362,7 +2343,24 @@ class _WorkoutExerciseCard extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(14, 13, 10, 12),
               child: Row(
                 children: [
-                  _ExerciseThumb(exerciseId: exercise.exerciseId, size: 38),
+                  Semantics(
+                    button: true,
+                    label:
+                        '查看${controller.displayExerciseName(definition)}动作详情',
+                    child: InkWell(
+                      key: Key('exercise-thumbnail-${exercise.id}'),
+                      borderRadius: BorderRadius.circular(10),
+                      onTap: () =>
+                          _showExerciseDetail(context, controller, definition),
+                      child: Padding(
+                        padding: const EdgeInsets.all(2),
+                        child: _ExerciseThumb(
+                          exerciseId: exercise.exerciseId,
+                          size: 38,
+                        ),
+                      ),
+                    ),
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
@@ -3210,11 +3208,22 @@ class _SetRow extends StatelessWidget {
                                   !controller.workoutTimerStarted;
                               HapticFeedback.mediumImpact();
                               controller.completeSet(set, exercise);
+                              if (controller.restSetupPending) {
+                                WidgetsBinding.instance.addPostFrameCallback((
+                                  _,
+                                ) {
+                                  if (context.mounted) {
+                                    _showInitialRestSetup(context, controller);
+                                  }
+                                });
+                              }
                               if (autoStarted) {
                                 showKiloSnack(
                                   context,
                                   controller.restRunning
                                       ? '训练已开始，本组完成，休息计时已启动'
+                                      : controller.restSetupPending
+                                      ? '本组已完成，请设置一次组间休息'
                                       : '训练已开始，本组已完成',
                                 );
                               }
@@ -3428,16 +3437,6 @@ class _PlansView extends StatelessWidget {
             label: const Text('自由训练 · 立即开始'),
           ),
         ),
-        const SizedBox(height: 8),
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
-            key: const Key('natural-workout-capture-button'),
-            onPressed: () => _showNaturalWorkoutCapture(context, controller),
-            icon: const Icon(Icons.auto_fix_high_outlined),
-            label: const Text('用训练备注快速记录'),
-          ),
-        ),
         const SizedBox(height: 16),
         SectionTitle(
           '我的计划',
@@ -3464,134 +3463,6 @@ class _PlansView extends StatelessWidget {
       ],
     );
   }
-}
-
-Future<void> _showNaturalWorkoutCapture(
-  BuildContext context,
-  AppController controller,
-) async {
-  final input = TextEditingController();
-  ParsedWorkoutNote? parsed;
-  await showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    builder: (sheetContext) => StatefulBuilder(
-      builder: (context, setState) {
-        final current = parsed;
-        return Padding(
-          padding: EdgeInsets.fromLTRB(
-            18,
-            16,
-            18,
-            16 + MediaQuery.viewInsetsOf(context).bottom,
-          ),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    const Expanded(
-                      child: Text(
-                        '训练备注转记录',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: '关闭',
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close),
-                    ),
-                  ],
-                ),
-                const Text(
-                  '每行一个动作，例如：卧推 80kg 8,8,7 休息120秒',
-                  style: TextStyle(color: secondaryInk, fontSize: 12),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: input,
-                  minLines: 4,
-                  maxLines: 8,
-                  autofocus: true,
-                  textInputAction: TextInputAction.newline,
-                  decoration: const InputDecoration(
-                    hintText:
-                        '卧推 80kg 8,8,7 休息120秒\n高位下拉 50kg 10×3\n备注：今天肩部状态良好',
-                    alignLabelWithHint: true,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                OutlinedButton.icon(
-                  onPressed: () => setState(() {
-                    parsed = controller.parseNaturalWorkout(input.text);
-                  }),
-                  icon: const Icon(Icons.manage_search),
-                  label: const Text('预览结构化记录'),
-                ),
-                if (current != null) ...[
-                  const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFF3E9),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '识别到 ${current.exercises.length} 个动作',
-                          style: const TextStyle(fontWeight: FontWeight.w800),
-                        ),
-                        for (final exercise in current.exercises)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 5),
-                            child: Text(
-                              '${controller.displayExerciseName(controller.exerciseFor(exercise.exerciseId))} · '
-                              '${exercise.sets.map((set) => '${set.weight.toStringAsFixed(set.weight == set.weight.roundToDouble() ? 0 : 1)} kg × ${set.reps}').join(' / ')}',
-                            ),
-                          ),
-                        if (current.unmatched.isNotEmpty) ...[
-                          const SizedBox(height: 8),
-                          Text(
-                            '未识别：${current.unmatched.join('；')}',
-                            style: const TextStyle(
-                              color: Colors.deepOrange,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  FilledButton.icon(
-                    onPressed: current.exercises.isEmpty
-                        ? null
-                        : () {
-                            controller.applyNaturalWorkout(current);
-                            controller.openLiveWorkout();
-                            Navigator.pop(context);
-                            showKiloSnack(context, '已转换为可编辑训练记录');
-                          },
-                    icon: const Icon(Icons.check_circle_outline),
-                    label: Text('加入 ${current.exercises.length} 个动作'),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        );
-      },
-    ),
-  );
-  input.dispose();
 }
 
 class _RoutineCard extends StatelessWidget {
@@ -4657,7 +4528,10 @@ class _ExerciseLibraryPageState extends State<ExerciseLibraryPage> {
     final cardAspectRatio = textScale >= 1.5 ? .42 : .80;
     return PageFrame(
       children: [
-        SectionTitle('动作库', subtitle: '${controller.allExercises.length} 个动作'),
+        SectionTitle(
+          '动作库',
+          subtitle: '${controller.selectableExercises.length} 个动作',
+        ),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -8678,8 +8552,10 @@ class ProfilePage extends StatelessWidget {
                 ),
                 _ProfileQuickAction(
                   icon: Icons.timer_outlined,
-                  title: '默认休息',
-                  caption: '${controller.defaultRestSeconds} 秒',
+                  title: '组间休息',
+                  caption: controller.defaultRestSeconds > 0
+                      ? '${controller.defaultRestSeconds} 秒'
+                      : '完成首组时设置',
                   onTap: () => _showWorkoutSettings(context, controller),
                 ),
                 _ProfileQuickAction(
@@ -9121,79 +8997,6 @@ void _showRestSheet(BuildContext context, AppController controller) {
           const SizedBox(height: 8),
         ],
       ),
-    ),
-  );
-}
-
-void _showPlateCalculator(BuildContext context) {
-  final weight = TextEditingController(text: '80');
-  showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    builder: (context) => StatefulBuilder(
-      builder: (context, setState) {
-        final total = double.tryParse(weight.text) ?? 0;
-        final perSide = ((total - 20) / 2).clamp(0, double.infinity);
-        final plates = <double>[20, 10, 5, 2.5, 1.25];
-        var remaining = perSide;
-        final counts = <double, int>{};
-        for (final plate in plates) {
-          counts[plate] = (remaining / plate).floor();
-          remaining -= counts[plate]! * plate;
-        }
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  '杠片计算器',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  '按 20 kg 杠铃计算每侧配置，结果仅作装片提示。',
-                  style: TextStyle(color: quiet),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: weight,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  decoration: const InputDecoration(labelText: '目标总重量（kg）'),
-                  onChanged: (_) => setState(() {}),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  '每侧约 ${perSide.toStringAsFixed(2)} kg',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w800,
-                    color: cobalt,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final plate in plates)
-                      if ((counts[plate] ?? 0) > 0)
-                        Chip(
-                          label: Text(
-                            '${counts[plate]} × ${plate.toStringAsFixed(2)} kg',
-                          ),
-                        ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-              ],
-            ),
-          ),
-        );
-      },
     ),
   );
 }
@@ -10184,6 +9987,53 @@ void _showActiveRestEditor(BuildContext context, AppController controller) {
   );
 }
 
+void _showInitialRestSetup(BuildContext context, AppController controller) {
+  if (!controller.restSetupPending || !controller.workoutStarted) return;
+  final seconds = TextEditingController(text: '180');
+  showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (dialogContext) => AlertDialog(
+      key: const Key('initial-rest-dialog'),
+      title: const Text('设置组间休息'),
+      content: TextField(
+        key: const Key('initial-rest-seconds-input'),
+        controller: seconds,
+        autofocus: true,
+        keyboardType: TextInputType.number,
+        decoration: const InputDecoration(
+          labelText: '休息时间（秒）',
+          hintText: '默认 180 秒（3 分钟）',
+          suffixText: 's',
+        ),
+      ),
+      actions: [
+        TextButton(
+          key: const Key('initial-rest-cancel-button'),
+          onPressed: () {
+            controller.dismissRestSetup();
+            Navigator.pop(dialogContext);
+          },
+          child: const Text('稍后设置'),
+        ),
+        FilledButton(
+          key: const Key('initial-rest-save-button'),
+          onPressed: () {
+            final value = int.tryParse(seconds.text.trim());
+            if (value == null || value < 0 || value > 600) {
+              showKiloSnack(context, '请输入 0–600 秒');
+              return;
+            }
+            controller.applyInitialRestSeconds(value);
+            Navigator.pop(dialogContext);
+          },
+          child: const Text('应用到本次训练'),
+        ),
+      ],
+    ),
+  ).whenComplete(() => seconds.dispose());
+}
+
 class _ActiveRestEditorSheet extends StatefulWidget {
   const _ActiveRestEditorSheet({required this.controller});
   final AppController controller;
@@ -10490,7 +10340,7 @@ class _ExercisePickerSheetState extends State<_ExercisePickerSheet> {
 
   List<Exercise> get filtered {
     final needle = query.text.trim().toLowerCase();
-    return widget.controller.allExercises.where((item) {
+    return widget.controller.selectableExercises.where((item) {
       final queryMatch =
           needle.isEmpty ||
           item.name.toLowerCase().contains(needle) ||
@@ -10567,18 +10417,7 @@ class _ExercisePickerSheetState extends State<_ExercisePickerSheet> {
       '手臂': '手臂',
       '核心': '核心',
     };
-    final equipments =
-        <String>{
-          '全部',
-          for (final item in widget.controller.allExercises)
-            widget.controller.equipmentGroupFor(item.equipment),
-        }.toList()..sort(
-          (a, b) => a == '全部'
-              ? -1
-              : b == '全部'
-              ? 1
-              : a.compareTo(b),
-        );
+    const equipments = ['全部', '固定器械', '哑铃杠铃', '徒手', '绳索弹力带', '其他'];
     return SizedBox(
       key: const Key('exercise-picker'),
       height: MediaQuery.sizeOf(context).height * .84,
@@ -10885,14 +10724,6 @@ void _showExerciseActions(
           },
         ),
         ListTile(
-          leading: const Icon(Icons.calculate_outlined),
-          title: const Text('杠片计算器'),
-          onTap: () {
-            Navigator.pop(context);
-            _showPlateCalculator(context);
-          },
-        ),
-        ListTile(
           leading: const Icon(Icons.delete_outline),
           title: const Text('移除动作'),
           onTap: () {
@@ -10921,9 +10752,19 @@ void _showWorkoutSettings(BuildContext context, AppController controller) {
                 style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 14),
-              Text('默认组间休息：${controller.defaultRestSeconds} 秒'),
+              Text(
+                controller.defaultRestSeconds > 0
+                    ? '本次训练组间休息：${controller.defaultRestSeconds} 秒'
+                    : '训练中按需设置（滑动后应用）',
+              ),
               Slider(
-                value: controller.defaultRestSeconds.toDouble(),
+                // A zero value means “unset”; use a temporary visual thumb
+                // position so Flutter's min/max assertion is never hit.
+                // Merely opening this sheet does not persist the 180-second
+                // visual suggestion.
+                value: controller.defaultRestSeconds > 0
+                    ? controller.defaultRestSeconds.clamp(30, 300).toDouble()
+                    : 180,
                 min: 30,
                 max: 300,
                 divisions: 9,
@@ -11290,6 +11131,11 @@ class _WorkoutCelebration extends StatelessWidget {
                         controller: controller,
                         record: record,
                       ),
+                      const SizedBox(height: 12),
+                      _WorkoutComparisonSummary(
+                        controller: controller,
+                        record: record,
+                      ),
                       const SizedBox(height: 22),
                       if (constraints.maxWidth < 380)
                         Column(
@@ -11355,6 +11201,169 @@ class _WorkoutCelebration extends StatelessWidget {
       ),
     );
   }
+}
+
+class _WorkoutComparisonSummary extends StatelessWidget {
+  const _WorkoutComparisonSummary({
+    required this.controller,
+    required this.record,
+  });
+
+  final AppController controller;
+  final WorkoutRecord record;
+
+  String _deltaNumber(num value, {String suffix = ''}) {
+    final sign = value > 0 ? '+' : '';
+    return '$sign${value is double ? value.toStringAsFixed(value % 1 == 0 ? 0 : 1) : value}$suffix';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final comparison = controller.comparisonFor(record);
+    final baseline = comparison?.baseline;
+    return Card(
+      key: const Key('workout-comparison-summary'),
+      color: const Color(0xFFFFF7EF),
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(13, 12, 13, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.compare_arrows_rounded, color: primary),
+                const SizedBox(width: 7),
+                const Expanded(
+                  child: Text(
+                    '与上次对比',
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
+                  ),
+                ),
+                if (baseline != null)
+                  Text(
+                    baseline.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: quiet, fontSize: 11),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (comparison == null)
+              const Text(
+                '暂无包含相同动作的历史训练。完成下一次同类训练后，这里会显示重量、次数、容量和时长变化。',
+                style: TextStyle(color: secondaryInk, fontSize: 12),
+              )
+            else ...[
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _ComparisonPill(
+                    label: '容量',
+                    value: _deltaNumber(comparison.volumeDelta, suffix: ' kg'),
+                  ),
+                  _ComparisonPill(
+                    label: '有效组',
+                    value: _deltaNumber(
+                      comparison.effectiveSetsDelta,
+                      suffix: ' 组',
+                    ),
+                  ),
+                  _ComparisonPill(
+                    label: '时长',
+                    value: _deltaNumber(comparison.durationDelta, suffix: ' 秒'),
+                  ),
+                ],
+              ),
+              if (comparison.exerciseProgress.isNotEmpty) ...[
+                const SizedBox(height: 9),
+                for (final progress in comparison.exerciseProgress.take(3))
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            controller.displayExerciseName(
+                              controller.exerciseFor(progress.exerciseId),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          '${_deltaNumber(progress.weightDelta, suffix: ' kg')} · ${_deltaNumber(progress.repsDelta, suffix: ' 次')}',
+                          style: TextStyle(
+                            color:
+                                progress.weightDelta >= 0 &&
+                                    progress.repsDelta >= 0
+                                ? const Color(0xFF1E7A4A)
+                                : const Color(0xFF9C5B19),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ],
+            const SizedBox(height: 9),
+            OutlinedButton.icon(
+              key: const Key('workout-celebration-ai-summary'),
+              onPressed: () {
+                final selectedBaseline = baseline;
+                Navigator.pop(context);
+                unawaited(
+                  controller.sendWorkoutComparisonForReview(
+                    record,
+                    baseline: selectedBaseline,
+                  ),
+                );
+              },
+              icon: const Icon(Icons.auto_awesome_outlined, size: 18),
+              label: const Text('让 AI 总结本次进步'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ComparisonPill extends StatelessWidget {
+  const _ComparisonPill({required this.label, required this.value});
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: const Color(0xFFF0D5BD)),
+    ),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: const TextStyle(color: quiet, fontSize: 10)),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _CelebrationExerciseSummary extends StatelessWidget {
@@ -12697,7 +12706,7 @@ void _showRoutineReplacePicker(
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
               ),
             ),
-            for (final item in controller.allExercises)
+            for (final item in controller.selectableExercises)
               ListTile(
                 title: Text(controller.displayExerciseName(item)),
                 subtitle: Text('${item.muscle} · ${item.equipment}'),
@@ -13242,20 +13251,7 @@ Future<Exercise?> _showCustomExercise(
 }
 
 void _showLibraryFilters(BuildContext context, AppController controller) {
-  final equipment =
-      [
-        '全部',
-        ...{
-          for (final item in controller.allExercises)
-            controller.equipmentGroupFor(item.equipment),
-        },
-      ]..sort(
-        (a, b) => a == '全部'
-            ? -1
-            : b == '全部'
-            ? 1
-            : a.compareTo(b),
-      );
+  const equipment = <String>['全部', '固定器械', '哑铃杠铃', '徒手', '绳索弹力带', '其他'];
   showModalBottomSheet<void>(
     context: context,
     builder: (sheetContext) => SafeArea(
