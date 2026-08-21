@@ -47,4 +47,36 @@ void main() {
     expect(result, isTrue);
     expect(opened, uri);
   });
+
+  test(
+    'launchTrainingUri falls back to the browser after app routing fails',
+    () async {
+      final calls = <String>[];
+      final uri = Uri.parse('https://example.com/training');
+      final result = await launchTrainingUri(
+        uri,
+        nonBrowserOpener: (target) async {
+          calls.add('app');
+          return false;
+        },
+        browserOpener: (target) async {
+          calls.add('browser');
+          return true;
+        },
+      );
+
+      expect(result, isTrue);
+      expect(calls, ['app', 'browser']);
+    },
+  );
+
+  test('launchTrainingUri reports false when both openers fail', () async {
+    final result = await launchTrainingUri(
+      Uri.parse('https://example.com/training'),
+      nonBrowserOpener: (_) async => false,
+      browserOpener: (_) async => false,
+    );
+
+    expect(result, isFalse);
+  });
 }

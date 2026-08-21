@@ -6758,6 +6758,25 @@ class _AiPageState extends State<AiPage> {
                       ScrollViewKeyboardDismissBehavior.onDrag,
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
                   children: [
+                    if (controller.aiToolReading)
+                      const _AiToolStatus(
+                        icon: Icons.auto_awesome_outlined,
+                        message: '正在读取你的训练资料…',
+                      ),
+                    if (!controller.aiToolReading &&
+                        controller.aiToolUses.isNotEmpty &&
+                        controller.aiToolError == null)
+                      _AiToolStatus(
+                        icon: Icons.check_circle_outline,
+                        message:
+                            '已读取 ${controller.aiToolUses.map((item) => item.count > 1 ? '${_aiToolName(item.name)}（${item.count} 次）' : _aiToolName(item.name)).join('、')}',
+                      ),
+                    if (controller.aiToolError != null)
+                      _AiToolStatus(
+                        icon: Icons.info_outline,
+                        message: controller.aiToolError!,
+                        error: true,
+                      ),
                     if (controller.chat.isEmpty && !controller.aiTyping)
                       const Padding(
                         padding: EdgeInsets.only(bottom: 10),
@@ -6894,6 +6913,46 @@ class _AiPageState extends State<AiPage> {
     );
   }
 }
+
+class _AiToolStatus extends StatelessWidget {
+  const _AiToolStatus({
+    required this.icon,
+    required this.message,
+    this.error = false,
+  });
+
+  final IconData icon;
+  final String message;
+  final bool error;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    key: Key(error ? 'ai-tool-error' : 'ai-tool-reading'),
+    margin: const EdgeInsets.only(bottom: 8),
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+    decoration: BoxDecoration(
+      color: (error ? Colors.red : primary).withValues(alpha: .09),
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(
+        color: (error ? Colors.red : primary).withValues(alpha: .25),
+      ),
+    ),
+    child: Row(
+      children: [
+        Icon(icon, size: 18, color: error ? Colors.red : primary),
+        const SizedBox(width: 8),
+        Expanded(child: Text(message, style: const TextStyle(fontSize: 12))),
+      ],
+    ),
+  );
+}
+
+String _aiToolName(String name) => switch (name) {
+  'read_training_plans' => '训练计划',
+  'read_workout_history' => '训练记录',
+  'read_active_workout' => '当前训练',
+  _ => '训练资料',
+};
 
 class _AiSkillQuickBar extends StatelessWidget {
   const _AiSkillQuickBar({required this.controller});
@@ -7296,8 +7355,8 @@ void _showAiSettings(BuildContext context, AppController controller) {
                 contentPadding: EdgeInsets.zero,
                 value: useTrainingData,
                 onChanged: (value) => setState(() => useTrainingData = value),
-                title: const Text('允许 AI 参考训练资料'),
-                subtitle: const Text('只有你主动选择时，才会发送对应的训练记录。'),
+                title: const Text('允许 AI 按需读取训练资料'),
+                subtitle: const Text('开启后，AI 只在回答需要时读取计划、历史或当前训练；不会修改资料。'),
               ),
             ],
           ),

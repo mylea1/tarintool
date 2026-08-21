@@ -6,10 +6,45 @@ import 'package:http/http.dart' as http;
 import 'models.dart';
 
 class CoachAnswer {
-  const CoachAnswer({required this.body, this.citations = const [], this.plan});
+  const CoachAnswer({
+    required this.body,
+    this.citations = const [],
+    this.plan,
+    this.toolCalls = const [],
+    this.toolUses = const [],
+  });
   final String body;
   final List<String> citations;
   final AiPlanDraft? plan;
+  final List<CoachToolCall> toolCalls;
+  final List<CoachToolUse> toolUses;
+}
+
+/// A bounded read-only request selected by the model. The app, rather than
+/// the server, executes it against the current user's local state.
+class CoachToolCall {
+  const CoachToolCall({
+    required this.id,
+    required this.name,
+    required this.arguments,
+  });
+
+  final String id;
+  final String name;
+  final Map<String, dynamic> arguments;
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'arguments': arguments,
+  };
+}
+
+class CoachToolUse {
+  const CoachToolUse({required this.name, required this.count});
+
+  final String name;
+  final int count;
 }
 
 sealed class CoachStreamEvent {
@@ -51,7 +86,26 @@ abstract interface class CoachApi {
   });
 }
 
-class HttpCoachApi implements CoachApi, StreamingCoachApi {
+/// Extended protocol used only when the AI page has granted read-only local
+/// data access. Keeping this separate preserves compatibility with existing
+/// mock/third-party CoachApi implementations.
+abstract interface class AgentCoachApi {
+  Future<CoachAnswer> answer({
+    required String prompt,
+    required bool includeTrainingSummary,
+    String locale = 'zh-CN',
+    String? trainingSummary,
+    List<Map<String, String>> exerciseCatalog = const [],
+    List<Map<String, String>> skills = const [],
+    String? requestId,
+    List<Map<String, dynamic>> availableTools = const [],
+    List<Map<String, dynamic>> toolResults = const [],
+  });
+
+  Future<void> rollbackQuotaReservation(String requestId);
+}
+
+class HttpCoachApi implements CoachApi, AgentCoachApi, StreamingCoachApi {
   HttpCoachApi({
     required this.baseUrl,
     http.Client? client,
@@ -63,6 +117,21 @@ class HttpCoachApi implements CoachApi, StreamingCoachApi {
   String? _sessionToken;
 
   bool get hasSession => _sessionToken?.isNotEmpty == true;
+
+  /// Releases a pending AI reservation when a local tool or its follow-up
+  /// request fails. The request id makes this operation idempotent server-side.
+  @override
+  Future<void> rollbackQuotaReservation(String requestId) async {
+    if (requestId.trim().isEmpty) return;
+    final response = await _client
+        .post(
+          _endpoint('/v1/usage/rollback'),
+          headers: _authHeaders,
+          body: jsonEncode({'kind': 'ai', 'requestId': requestId}),
+        )
+        .timeout(requestTimeout);
+    _decodeJsonResponse(response, 'coach_rollback');
+  }
 
   Future<void> signIn({
     required String identifier,
@@ -327,6 +396,9 @@ class HttpCoachApi implements CoachApi, StreamingCoachApi {
     String? trainingSummary,
     List<Map<String, String>> exerciseCatalog = const [],
     List<Map<String, String>> skills = const [],
+    String? requestId,
+    List<Map<String, dynamic>> availableTools = const [],
+    List<Map<String, dynamic>> toolResults = const [],
   }) async {
     final uri = Uri.parse(
       '${baseUrl.replaceAll(RegExp(r'/+$'), '')}/v1/coach/answer',
@@ -346,6 +418,7 @@ class HttpCoachApi implements CoachApi, StreamingCoachApi {
             },
             body: jsonEncode({
               'question': prompt,
+              if (requestId?.trim().isNotEmpty == true) 'requestId': requestId,
               'locale': locale,
               'useTrainingData': includeTrainingSummary,
               if (includeTrainingSummary &&
@@ -354,6 +427,9 @@ class HttpCoachApi implements CoachApi, StreamingCoachApi {
               if (exerciseCatalog.isNotEmpty)
                 'exerciseCatalog': exerciseCatalog,
               if (skills.isNotEmpty) 'skills': skills,
+              if (includeTrainingSummary && availableTools.isNotEmpty)
+                'availableTools': availableTools,
+              if (toolResults.isNotEmpty) 'toolResults': toolResults,
             }),
           )
           .timeout(requestTimeout);
@@ -379,6 +455,45 @@ class HttpCoachApi implements CoachApi, StreamingCoachApi {
           return source.isEmpty || source == title ? title : '$title｜$source';
         })
         .where((item) => item.isNotEmpty)
+        .toList();
+    final toolCalls = (payload['toolCalls'] as List<dynamic>? ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .map((item) {
+          final rawArguments = item['arguments'];
+          Map<String, dynamic> arguments;
+          if (rawArguments is Map<String, dynamic>) {
+            arguments = rawArguments;
+          } else {
+            try {
+              final parsed = jsonDecode(rawArguments?.toString() ?? '{}');
+              arguments = parsed is Map<String, dynamic>
+                  ? parsed
+                  : <String, dynamic>{};
+            } on FormatException {
+              arguments = <String, dynamic>{};
+            }
+          }
+          return CoachToolCall(
+            id: (item['id'] ?? '').toString(),
+            name: (item['name'] ?? '').toString(),
+            arguments: arguments,
+          );
+        })
+        .where((item) => item.id.isNotEmpty && item.name.isNotEmpty)
+        .take(3)
+        .toList();
+    final toolUses = (payload['toolUses'] as List<dynamic>? ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .map(
+          (item) => CoachToolUse(
+            name: (item['name'] ?? '').toString(),
+            count: (((item['count'] as num?)?.toInt() ?? 0).clamp(
+              0,
+              3,
+            )).toInt(),
+          ),
+        )
+        .where((item) => item.name.isNotEmpty && item.count > 0)
         .toList();
     final planPayload = payload['plan'];
     AiPlanDraft? plan;
@@ -440,6 +555,8 @@ class HttpCoachApi implements CoachApi, StreamingCoachApi {
       body: (payload['answer'] ?? payload['body'] ?? '').toString(),
       citations: citations,
       plan: plan,
+      toolCalls: toolCalls,
+      toolUses: toolUses,
     );
   }
 }

@@ -390,6 +390,258 @@ test('AI streaming uses the configured request timeout instead of aborting immed
   }
 });
 
+test('AI agent continuation preserves tool message order, consent and one quota charge', async () => {
+  const upstreamBodies = [];
+  const upstream = createHttpServer(async (req, res) => {
+    let text = '';
+    for await (const chunk of req) text += chunk;
+    upstreamBodies.push(JSON.parse(text));
+    res.writeHead(200, { 'content-type': 'application/json' });
+    if (upstreamBodies.length === 1) {
+      res.end(JSON.stringify({
+        choices: [{
+          message: {
+            content: null,
+            tool_calls: [{
+              id: 'call_read_plans',
+              type: 'function',
+              function: { name: 'read_training_plans', arguments: '{}' },
+            }],
+          },
+        }],
+      }));
+      return;
+    }
+    res.end(JSON.stringify({ choices: [{ message: { content: '已读取你的训练计划。' } }] }));
+  });
+  await new Promise((resolve) => upstream.listen(0, '127.0.0.1', resolve));
+  const isolatedRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'kilo-agent-'));
+  const cfg = loadConfig({
+    ...process.env,
+    NODE_ENV: 'test',
+    KILO_ENABLE_TEST_ADMIN: 'false',
+    KILO_ENABLE_TEST_MEMBER: 'true',
+    KILO_ENABLE_PASSWORD_REGISTRATION: 'true',
+    KILO_SESSION_PEPPER: 'agent-test-pepper-12345678901234567890',
+    KILO_GPU_API_KEY: 'agent-gpu-key-123456789012345678901234',
+    KILO_DATA_DIR: isolatedRoot,
+    KILO_DATABASE_PATH: path.join(isolatedRoot, 'kilo.sqlite3'),
+    KILO_MEDIA_DIR: path.join(isolatedRoot, 'media'),
+    DEEPSEEK_API_KEY: 'agent-test-key',
+    DEEPSEEK_BASE_URL: `http://127.0.0.1:${upstream.address().port}`,
+    KILO_AI_REQUEST_TIMEOUT_SECONDS: '2',
+  });
+  const isolatedServer = await startServer({ config: cfg, port: 0 });
+  const isolatedBase = `http://127.0.0.1:${isolatedServer.address().port}`;
+  try {
+    const login = await fetch(`${isolatedBase}/v1/auth/phone/login`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ identifier: '123', password: '123' }),
+    });
+    assert.equal(login.status, 200);
+    const token = (await login.json()).session.token;
+    const auth = { authorization: `Bearer ${token}` };
+    const before = (await fetch(`${isolatedBase}/v1/me/entitlements`, { headers: auth })).json();
+    const beforeQuota = (await before).aiRemaining;
+    const availableTools = [{
+      type: 'function',
+      function: { name: 'read_training_plans' },
+    }];
+    const first = await fetch(`${isolatedBase}/v1/coach/answer`, {
+      method: 'POST',
+      headers: { ...auth, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        question: '读取我的训练计划',
+        requestId: 'agent-order-1',
+        useTrainingData: true,
+        availableTools,
+      }),
+    });
+    const firstBody = await first.json();
+    assert.equal(first.status, 200);
+    assert.equal(firstBody.toolCalls[0].name, 'read_training_plans');
+    const afterReserve = (await fetch(`${isolatedBase}/v1/me/entitlements`, { headers: auth })).json();
+    assert.equal((await afterReserve).aiRemaining, beforeQuota - 1);
+
+    const second = await fetch(`${isolatedBase}/v1/coach/answer`, {
+      method: 'POST',
+      headers: { ...auth, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        question: '读取我的训练计划',
+        requestId: 'agent-order-1',
+        useTrainingData: true,
+        toolResults: [{
+          id: 'call_read_plans',
+          name: 'read_training_plans',
+          arguments: {},
+          result: { tool: 'read_training_plans', plans: [], count: 0 },
+        }],
+      }),
+    });
+    const secondBody = await second.json();
+    assert.equal(second.status, 200);
+    assert.equal(secondBody.answer, '已读取你的训练计划。');
+    const continuation = upstreamBodies[1].messages;
+    const userIndex = continuation.findIndex((item) => item.role === 'user' && item.content === '读取我的训练计划');
+    const assistantIndex = continuation.findIndex((item) => item.role === 'assistant' && Array.isArray(item.tool_calls));
+    const toolIndex = continuation.findIndex((item) => item.role === 'tool' && item.tool_call_id === 'call_read_plans');
+    assert.ok(userIndex >= 0 && userIndex < assistantIndex && assistantIndex < toolIndex);
+    assert.deepEqual(
+      continuation.slice(assistantIndex, toolIndex + 1).map((item) => item.role),
+      ['assistant', 'tool'],
+    );
+    const afterCommit = (await fetch(`${isolatedBase}/v1/me/entitlements`, { headers: auth })).json();
+    assert.equal((await afterCommit).aiRemaining, beforeQuota - 1);
+
+    const consentOff = await fetch(`${isolatedBase}/v1/coach/answer`, {
+      method: 'POST',
+      headers: { ...auth, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        question: '普通问题，不读取训练资料',
+        requestId: 'agent-consent-off',
+        useTrainingData: false,
+        availableTools,
+      }),
+    });
+    assert.equal(consentOff.status, 200);
+    assert.equal(upstreamBodies[2].tools, undefined);
+
+    const unknownTools = await fetch(`${isolatedBase}/v1/coach/answer`, {
+      method: 'POST',
+      headers: { ...auth, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        question: '不应启用未知工具',
+        requestId: 'agent-unknown-tool',
+        useTrainingData: true,
+        availableTools: [{ type: 'function', function: { name: 'delete_all_data' } }],
+      }),
+    });
+    assert.equal(unknownTools.status, 400);
+    assert.equal((await unknownTools.json()).error, 'invalid_ai_tools');
+    const consentResults = await fetch(`${isolatedBase}/v1/coach/answer`, {
+      method: 'POST',
+      headers: { ...auth, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        question: '未授权时不应读取训练资料',
+        requestId: 'agent-consent-result-off',
+        useTrainingData: false,
+        toolResults: [{
+          id: 'call_plans',
+          name: 'read_training_plans',
+          arguments: {},
+          result: { tool: 'read_training_plans', plans: [], count: 0 },
+        }],
+      }),
+    });
+    assert.equal(consentResults.status, 400);
+    assert.equal((await consentResults.json()).error, 'ai_tools_consent_required');
+    const afterUnknown = (await fetch(`${isolatedBase}/v1/me/entitlements`, { headers: auth })).json();
+    assert.equal((await afterUnknown).aiRemaining, beforeQuota - 2);
+  } finally {
+    await isolatedServer.closeGracefully();
+    await new Promise((resolve) => upstream.close(resolve));
+    await fs.rm(isolatedRoot, { recursive: true, force: true });
+  }
+});
+
+test('AI agent follow-up failure rolls back its pending quota reservation', async () => {
+  let callCount = 0;
+  const upstream = createHttpServer(async (req, res) => {
+    for await (const _chunk of req) { /* consume request */ }
+    callCount += 1;
+    if (callCount === 1) {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({
+        choices: [{
+          message: {
+            content: null,
+            tool_calls: [{
+              id: 'call_history',
+              type: 'function',
+              function: { name: 'read_workout_history', arguments: '{}' },
+            }],
+          },
+        }],
+      }));
+      return;
+    }
+    res.writeHead(500, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ error: 'upstream unavailable' }));
+  });
+  await new Promise((resolve) => upstream.listen(0, '127.0.0.1', resolve));
+  const isolatedRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'kilo-agent-failure-'));
+  const cfg = loadConfig({
+    ...process.env,
+    NODE_ENV: 'test',
+    KILO_ENABLE_TEST_ADMIN: 'false',
+    KILO_ENABLE_TEST_MEMBER: 'true',
+    KILO_SESSION_PEPPER: 'agent-failure-pepper-12345678901234567890',
+    KILO_GPU_API_KEY: 'agent-failure-gpu-key-12345678901234567890',
+    KILO_DATA_DIR: isolatedRoot,
+    KILO_DATABASE_PATH: path.join(isolatedRoot, 'kilo.sqlite3'),
+    KILO_MEDIA_DIR: path.join(isolatedRoot, 'media'),
+    DEEPSEEK_API_KEY: 'agent-failure-key',
+    DEEPSEEK_BASE_URL: `http://127.0.0.1:${upstream.address().port}`,
+    KILO_AI_REQUEST_TIMEOUT_SECONDS: '2',
+  });
+  const isolatedServer = await startServer({ config: cfg, port: 0 });
+  const isolatedBase = `http://127.0.0.1:${isolatedServer.address().port}`;
+  try {
+    const login = await fetch(`${isolatedBase}/v1/auth/phone/login`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ identifier: '123', password: '123' }),
+    });
+    assert.equal(login.status, 200);
+    const token = (await login.json()).session.token;
+    const auth = { authorization: `Bearer ${token}` };
+    const before = (await fetch(`${isolatedBase}/v1/me/entitlements`, { headers: auth })).json();
+    const beforeQuota = (await before).aiRemaining;
+    const availableTools = [{
+      type: 'function',
+      function: { name: 'read_workout_history' },
+    }];
+    const first = await fetch(`${isolatedBase}/v1/coach/answer`, {
+      method: 'POST',
+      headers: { ...auth, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        question: '读取我的训练记录',
+        requestId: 'agent-failure-1',
+        useTrainingData: true,
+        availableTools,
+      }),
+    });
+    assert.equal(first.status, 200);
+    assert.equal((await first.json()).toolCalls[0].name, 'read_workout_history');
+    const afterReserve = (await fetch(`${isolatedBase}/v1/me/entitlements`, { headers: auth })).json();
+    assert.equal((await afterReserve).aiRemaining, beforeQuota - 1);
+
+    const second = await fetch(`${isolatedBase}/v1/coach/answer`, {
+      method: 'POST',
+      headers: { ...auth, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        question: '读取我的训练记录',
+        requestId: 'agent-failure-1',
+        useTrainingData: true,
+        toolResults: [{
+          id: 'call_history',
+          name: 'read_workout_history',
+          arguments: {},
+          result: { tool: 'read_workout_history', records: [], count: 0 },
+        }],
+      }),
+    });
+    assert.equal(second.status, 502);
+    const afterRollback = (await fetch(`${isolatedBase}/v1/me/entitlements`, { headers: auth })).json();
+    assert.equal((await afterRollback).aiRemaining, beforeQuota);
+  } finally {
+    await isolatedServer.closeGracefully();
+    await new Promise((resolve) => upstream.close(resolve));
+    await fs.rm(isolatedRoot, { recursive: true, force: true });
+  }
+});
+
 test('recognition upload, GPU protocol, media authorization and result', async () => {
   const created = await api('/v1/analysis/jobs', { method: 'POST', headers: { authorization: `Bearer ${user2Token}` }, body: JSON.stringify({ exerciseId: 'barbell_squat', camera: 'side', includeOverlay: false }) });
   assert.equal(created.body.includeOverlay, false);

@@ -29,8 +29,38 @@ typedef TrainingUriOpener = Future<bool> Function(Uri uri);
 
 /// Opens a normalized web link through the operating system.
 ///
-/// The optional opener keeps this pure at the UI boundary and lets widget
-/// tests verify success and failure without launching a real browser or app.
-Future<bool> launchTrainingUri(Uri uri, {TrainingUriOpener? opener}) =>
-    (opener ??
-    (target) => launchUrl(target, mode: LaunchMode.externalApplication))(uri);
+/// The operating system gets the first chance to route a universal/app link to
+/// an installed application. A normal external launch is the browser fallback
+/// for links which are not claimed by an app. KILO deliberately does not
+/// invent private third-party schemes: whether an HTTPS link opens an app is
+/// decided by that app's universal-link/app-link registration.
+///
+/// [opener] is retained for existing callers and is treated as the primary
+/// opener. The two explicit openers make the fallback order testable without
+/// launching a real browser or app.
+Future<bool> launchTrainingUri(
+  Uri uri, {
+  TrainingUriOpener? opener,
+  TrainingUriOpener? nonBrowserOpener,
+  TrainingUriOpener? browserOpener,
+}) async {
+  final primary =
+      nonBrowserOpener ??
+      opener ??
+      (target) =>
+          launchUrl(target, mode: LaunchMode.externalNonBrowserApplication);
+  final fallback =
+      browserOpener ??
+      (target) => launchUrl(target, mode: LaunchMode.externalApplication);
+
+  try {
+    if (await primary(uri)) return true;
+  } catch (_) {
+    // A missing handler should be recoverable through the browser fallback.
+  }
+  try {
+    return await fallback(uri);
+  } catch (_) {
+    return false;
+  }
+}

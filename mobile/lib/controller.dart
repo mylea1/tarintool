@@ -989,8 +989,13 @@ class AppController extends ChangeNotifier {
       fallbackRecognitionCapabilities.first.cameras.first.id;
   bool savedCue = false;
   bool analysisAttached = false;
-  bool aiUseTrainingData = false;
+  // The AI agent is useful without a manual attachment step. It remains
+  // read-only and can be disabled at any time from AI settings.
+  bool aiUseTrainingData = true;
   bool aiConsentSeen = false;
+  bool aiToolReading = false;
+  List<CoachToolUse> aiToolUses = const [];
+  String? aiToolError;
   bool aiTyping = false;
   int aiWaitingSeconds = 0;
   final List<ChatMessage> chat = [];
@@ -2681,6 +2686,180 @@ class AppController extends ChangeNotifier {
     ];
   }
 
+  /// The only tools exposed to the model. They are read-only and run against
+  /// this device's in-memory state; no server can call Dart or mutate a plan.
+  List<Map<String, dynamic>> get aiAvailableTools => const [
+    {
+      'type': 'function',
+      'function': {
+        'name': 'read_training_plans',
+        'description': '读取当前用户保存的训练计划及动作组数据',
+        'parameters': {
+          'type': 'object',
+          'properties': {
+            'query': {'type': 'string'},
+            'limit': {'type': 'integer', 'minimum': 1, 'maximum': 10},
+          },
+          'additionalProperties': false,
+        },
+      },
+    },
+    {
+      'type': 'function',
+      'function': {
+        'name': 'read_workout_history',
+        'description': '读取当前用户的已完成训练及每组数据',
+        'parameters': {
+          'type': 'object',
+          'properties': {
+            'startDate': {'type': 'string'},
+            'endDate': {'type': 'string'},
+            'query': {'type': 'string'},
+            'limit': {'type': 'integer', 'minimum': 1, 'maximum': 20},
+          },
+          'additionalProperties': false,
+        },
+      },
+    },
+    {
+      'type': 'function',
+      'function': {
+        'name': 'read_active_workout',
+        'description': '读取当前正在进行的训练',
+        'parameters': {
+          'type': 'object',
+          'properties': {},
+          'additionalProperties': false,
+        },
+      },
+    },
+  ];
+
+  Map<String, dynamic> executeAiTool(CoachToolCall call) {
+    final args = call.arguments;
+    if (call.name == 'read_training_plans') {
+      final query = (args['query'] ?? '').toString().trim().toLowerCase();
+      final limit = (((args['limit'] as num?)?.toInt() ?? 10).clamp(
+        1,
+        10,
+      )).toInt();
+      final selected = routines
+          .where((routine) {
+            if (query.isEmpty) return true;
+            return routine.name.toLowerCase().contains(query) ||
+                routine.exercises.any(
+                  (exercise) => displayExerciseName(
+                    exerciseFor(exercise.exerciseId),
+                  ).toLowerCase().contains(query),
+                );
+          })
+          .take(limit)
+          .map(_aiRoutinePayload)
+          .toList();
+      return {'tool': call.name, 'plans': selected, 'count': selected.length};
+    }
+    if (call.name == 'read_workout_history') {
+      final query = (args['query'] ?? '').toString().trim().toLowerCase();
+      final start = _aiDate(args['startDate']);
+      final end = _aiDate(args['endDate']);
+      final limit = (((args['limit'] as num?)?.toInt() ?? 20).clamp(
+        1,
+        20,
+      )).toInt();
+      final selected = history
+          .where((record) {
+            final day = DateTime(
+              record.date.year,
+              record.date.month,
+              record.date.day,
+            );
+            if (start != null && day.isBefore(start)) return false;
+            if (end != null && day.isAfter(end)) return false;
+            if (query.isEmpty) return true;
+            return record.name.toLowerCase().contains(query) ||
+                record.exercises.any(
+                  (exercise) => displayExerciseName(
+                    exerciseFor(exercise.exerciseId),
+                  ).toLowerCase().contains(query),
+                );
+          })
+          .take(limit)
+          .map(_aiRecordPayload)
+          .toList();
+      return {'tool': call.name, 'records': selected, 'count': selected.length};
+    }
+    if (call.name == 'read_active_workout') {
+      if (!workoutStarted && !workoutDraft) {
+        return {'tool': call.name, 'active': false, 'message': '当前没有正在进行的训练。'};
+      }
+      return {
+        'tool': call.name,
+        'active': true,
+        'name': workoutName,
+        'timerStarted': workoutTimerStarted,
+        'paused': workoutPaused,
+        'elapsedSeconds': currentElapsed,
+        'completedSets': completedSets,
+        'totalSets': totalSets,
+        'exercises': workout.take(12).map(_aiWorkoutExercisePayload).toList(),
+      };
+    }
+    throw ArgumentError('unsupported_ai_tool');
+  }
+
+  DateTime? _aiDate(Object? value) {
+    if (value is! String || value.isEmpty) return null;
+    final parsed = DateTime.tryParse(value);
+    return parsed == null
+        ? null
+        : DateTime(parsed.year, parsed.month, parsed.day);
+  }
+
+  Map<String, dynamic> _aiSetPayload(WorkoutSet set) => {
+    'type': set.type,
+    'weightKg': set.weight,
+    'plannedWeightKg': set.plannedWeight,
+    'reps': set.reps,
+    'targetMin': set.targetMin,
+    'targetMax': set.targetMax,
+    'restSeconds': set.restSeconds,
+    'completed': set.completed,
+    'note': set.note.trim(),
+    'durationSeconds': set.durationSeconds,
+  };
+
+  Map<String, dynamic> _aiWorkoutExercisePayload(WorkoutExercise exercise) => {
+    'exerciseId': exercise.exerciseId,
+    'name': displayExerciseName(exerciseFor(exercise.exerciseId)),
+    'note': exercise.note.trim(),
+    'restSeconds': exercise.restSeconds,
+    'sets': exercise.sets.take(12).map(_aiSetPayload).toList(),
+  };
+
+  Map<String, dynamic> _aiRoutinePayload(Routine routine) => {
+    'id': routine.id,
+    'name': routine.name,
+    'updatedAt': routine.updatedAt.toIso8601String(),
+    'exercises': routine.exercises
+        .take(12)
+        .map(_aiWorkoutExercisePayload)
+        .toList(),
+  };
+
+  Map<String, dynamic> _aiRecordPayload(WorkoutRecord record) => {
+    'id': record.id,
+    'date': record.date.toIso8601String().split('T').first,
+    'name': record.name,
+    'durationSeconds': record.durationSeconds,
+    'volumeKg': record.volume,
+    'completedSets': record.effectiveSets,
+    'note': record.note.trim(),
+    'exercises': record.exercises
+        .take(12)
+        .map(_aiWorkoutExercisePayload)
+        .toList(),
+  };
+
   int _weekNumber(DateTime date) {
     final first = DateTime(date.year, 1, 1);
     return ((date.difference(first).inDays + first.weekday) / 7).ceil();
@@ -2762,6 +2941,96 @@ class AppController extends ChangeNotifier {
     return blocks.where((item) => item.trim().isNotEmpty).join('\n\n---\n\n');
   }
 
+  Future<CoachAnswer> _requestAgentAnswer(
+    AgentCoachApi api,
+    String prompt, {
+    required bool includeSummary,
+    String? selectedTrainingContext,
+  }) async {
+    final requestId = 'ai_${DateTime.now().microsecondsSinceEpoch}';
+    aiToolUses = const [];
+    aiToolError = null;
+    notifyListeners();
+    // With the automatic authorization toggle, do not silently attach the
+    // complete local summary. The model must request one of the three tools;
+    // an explicitly selected context remains supported for legacy/manual use.
+    final summary = selectedTrainingContext;
+    final first = await api.answer(
+      prompt: prompt,
+      requestId: requestId,
+      includeTrainingSummary: includeSummary,
+      locale: appLanguage.storageValue,
+      trainingSummary: summary,
+      exerciseCatalog: _aiExerciseCatalog(),
+      skills: _activeAiSkillPayload(),
+      availableTools: aiAvailableTools,
+    );
+    if (first.toolCalls.isEmpty) return first;
+    if (first.toolCalls.length > 3) {
+      await _rollbackAgentQuota(api, requestId);
+      throw const CoachApiException('too_many_ai_tool_calls');
+    }
+    aiToolReading = true;
+    aiToolError = null;
+    aiToolUses = first.toolCalls
+        .fold<Map<String, int>>({}, (counts, call) {
+          counts[call.name] = (counts[call.name] ?? 0) + 1;
+          return counts;
+        })
+        .entries
+        .map((entry) => CoachToolUse(name: entry.key, count: entry.value))
+        .toList(growable: false);
+    notifyListeners();
+    try {
+      final toolResults = <Map<String, dynamic>>[];
+      for (final call in first.toolCalls) {
+        try {
+          toolResults.add({
+            'id': call.id,
+            'name': call.name,
+            'arguments': call.arguments,
+            'result': executeAiTool(call),
+          });
+        } catch (_) {
+          aiToolError = '部分训练资料暂时无法读取';
+          notifyListeners();
+          rethrow;
+        }
+      }
+      final answer = await api.answer(
+        prompt: prompt,
+        requestId: requestId,
+        includeTrainingSummary: includeSummary,
+        locale: appLanguage.storageValue,
+        trainingSummary: summary,
+        exerciseCatalog: _aiExerciseCatalog(),
+        skills: _activeAiSkillPayload(),
+        toolResults: toolResults,
+      );
+      aiToolUses = answer.toolUses.isEmpty ? aiToolUses : answer.toolUses;
+      return answer;
+    } catch (_) {
+      aiToolError = '训练资料读取失败，可重试';
+      await _rollbackAgentQuota(api, requestId);
+      rethrow;
+    } finally {
+      aiToolReading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> _rollbackAgentQuota(
+    AgentCoachApi api,
+    String requestId,
+  ) async {
+    try {
+      await api.rollbackQuotaReservation(requestId);
+    } catch (_) {
+      // Preserve the original answer/tool error. The server also rolls back
+      // requests that reached it, while a later retry uses a fresh request id.
+    }
+  }
+
   Future<CoachAnswer> _requestCoachAnswer(
     String prompt, {
     bool includeTrainingContext = false,
@@ -2773,6 +3042,14 @@ class AppController extends ChangeNotifier {
         selectedTrainingContext != null;
     Future<CoachAnswer> request() async {
       final api = await _activeCoachApi();
+      if (includeSummary && api is AgentCoachApi) {
+        return _requestAgentAnswer(
+          api as AgentCoachApi,
+          prompt,
+          includeSummary: includeSummary,
+          selectedTrainingContext: selectedTrainingContext,
+        );
+      }
       return api.answer(
         prompt: prompt,
         includeTrainingSummary: includeSummary,
@@ -2999,7 +3276,12 @@ class AppController extends ChangeNotifier {
           final api = await _activeCoachApi();
           final includeSummary =
               aiUseTrainingData || includeTrainingContext || selected != null;
-          if (api is StreamingCoachApi && !_isAiPlanRequest(trimmed)) {
+          // A consented local-data question must use the tool handshake. Keep
+          // ordinary no-context questions on the existing streaming path.
+          if (api is StreamingCoachApi &&
+              !_isAiPlanRequest(trimmed) &&
+              !aiUseTrainingData &&
+              selected == null) {
             final streamingApi = api as StreamingCoachApi;
             final done = Completer<CoachAnswer>();
             _activeAiCompleter = done;

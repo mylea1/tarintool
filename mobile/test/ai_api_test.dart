@@ -110,6 +110,126 @@ void main() {
     );
   });
 
+  test('agent tool handshake keeps request id and sends local read result', () async {
+    final bodies = <Map<String, dynamic>>[];
+    var answerCalls = 0;
+    final client = MockClient((request) async {
+      if (request.url.path == '/v1/auth/phone/login') {
+        return http.Response(
+          jsonEncode({
+            'session': {'token': 'agent-session'},
+          }),
+          200,
+        );
+      }
+      expect(request.url.path, '/v1/coach/answer');
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      bodies.add(body);
+      answerCalls += 1;
+      if (answerCalls == 1) {
+        return http.Response(
+          jsonEncode({
+            'answer': '',
+            'toolCalls': [
+              {
+                'id': 'call_plans',
+                'name': 'read_training_plans',
+                'arguments': {'limit': 2},
+              },
+            ],
+          }),
+          200,
+        );
+      }
+      return http.Response.bytes(
+        utf8.encode(jsonEncode({'answer': '我读取到了你的计划。'})),
+        200,
+        headers: {'content-type': 'application/json; charset=utf-8'},
+      );
+    });
+    final api = HttpCoachApi(
+      baseUrl: 'https://api.example.test',
+      client: client,
+    );
+    await api.signIn(identifier: '123', password: '123');
+    const requestId = 'agent-mobile-1';
+    final availableTools = [
+      {
+        'type': 'function',
+        'function': {'name': 'read_training_plans'},
+      },
+    ];
+    final first = await api.answer(
+      prompt: '读取我的训练计划',
+      requestId: requestId,
+      includeTrainingSummary: true,
+      availableTools: availableTools,
+    );
+    expect(first.toolCalls.single.name, 'read_training_plans');
+    expect(bodies.first['requestId'], requestId);
+    expect(bodies.first['useTrainingData'], true);
+    expect(bodies.first['availableTools'], availableTools);
+
+    final second = await api.answer(
+      prompt: '读取我的训练计划',
+      requestId: requestId,
+      includeTrainingSummary: true,
+      toolResults: const [
+        {
+          'id': 'call_plans',
+          'name': 'read_training_plans',
+          'arguments': {'limit': 2},
+          'result': {
+            'tool': 'read_training_plans',
+            'plans': [],
+            'count': 0,
+          },
+        },
+      ],
+    );
+    expect(second.body, '我读取到了你的计划。');
+    expect(bodies[1]['requestId'], requestId);
+    expect(bodies[1].containsKey('availableTools'), false);
+    expect((bodies[1]['toolResults'] as List<dynamic>).single['name'], 'read_training_plans');
+  });
+
+  test('agent registry is not sent when local-data consent is disabled', () async {
+    Map<String, dynamic>? body;
+    final client = MockClient((request) async {
+      if (request.url.path == '/v1/auth/phone/login') {
+        return http.Response(
+          jsonEncode({
+            'session': {'token': 'no-consent-session'},
+          }),
+          200,
+        );
+      }
+      body = jsonDecode(request.body) as Map<String, dynamic>;
+      return http.Response.bytes(
+        utf8.encode(jsonEncode({'answer': '普通回答'})),
+        200,
+        headers: {'content-type': 'application/json; charset=utf-8'},
+      );
+    });
+    final api = HttpCoachApi(
+      baseUrl: 'https://api.example.test',
+      client: client,
+    );
+    await api.signIn(identifier: '123', password: '123');
+    await api.answer(
+      prompt: '普通问题',
+      includeTrainingSummary: false,
+      availableTools: const [
+        {
+          'type': 'function',
+          'function': {'name': 'read_training_plans'},
+        },
+      ],
+    );
+    expect(body?['useTrainingData'], false);
+    expect(body?.containsKey('availableTools'), false);
+  });
+
   test(
     'coach client forwards an explicitly consented training summary',
     () async {

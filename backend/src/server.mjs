@@ -12,6 +12,51 @@ import { ConcurrencyGate, QueueCapacityError } from './concurrency.mjs';
 const JSON_CONTENT_TYPE = 'application/json; charset=utf-8';
 const MAX_TEXT = 4000;
 const MAX_SUMMARY = 6000;
+const MAX_AGENT_TOOL_RESULTS = 3;
+const MAX_AGENT_RESULT_BYTES = 12000;
+const AI_TOOL_DEFINITIONS = [
+  {
+    type: 'function',
+    function: {
+      name: 'read_training_plans',
+      description: '读取当前用户保存的训练计划及其中的动作、组数、重量、次数和休息时间。只读。',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: '按计划或动作名称筛选，可省略。' },
+          limit: { type: 'integer', minimum: 1, maximum: 10 },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'read_workout_history',
+      description: '读取当前用户已完成训练的日期、动作、每组重量次数、休息和备注。只读。',
+      parameters: {
+        type: 'object',
+        properties: {
+          startDate: { type: 'string', description: 'YYYY-MM-DD，可省略。' },
+          endDate: { type: 'string', description: 'YYYY-MM-DD，可省略。' },
+          query: { type: 'string', description: '按训练或动作名称筛选，可省略。' },
+          limit: { type: 'integer', minimum: 1, maximum: 20 },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'read_active_workout',
+      description: '读取当前用户设备上正在进行的训练及完成状态。没有训练时返回空状态。只读。',
+      parameters: { type: 'object', properties: {}, additionalProperties: false },
+    },
+  },
+];
+const AI_TOOL_NAMES = new Set(AI_TOOL_DEFINITIONS.map((item) => item.function.name));
 const ALLOWED_ENTITIES = new Set(['workout', 'plan', 'template', 'settings']);
 const PLANS = new Set(['oneMonth', 'threeMonths', 'forever']);
 // Only the monthly and yearly products are displayed to customers. Legacy
@@ -412,7 +457,91 @@ async function verifyProviderToken(provider, token, cfg) {
   }
 }
 
-async function callDeepSeek(ctx, messages, userId) {
+function validateAgentDate(value, code) {
+  if (value === undefined || value === null || value === '') return undefined;
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/u.test(value)) throw httpError(400, code);
+  const date = new Date(`${value}T00:00:00.000Z`);
+  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value) throw httpError(400, code);
+  return value;
+}
+
+function validateAgentArguments(name, value) {
+  if (!AI_TOOL_NAMES.has(name) || !value || typeof value !== 'object' || Array.isArray(value)) throw httpError(400, 'invalid_ai_tool_arguments');
+  const args = { ...value };
+  const allowed = name === 'read_training_plans'
+    ? new Set(['query', 'limit'])
+    : name === 'read_workout_history'
+      ? new Set(['startDate', 'endDate', 'query', 'limit'])
+      : new Set();
+  for (const key of Object.keys(args)) if (!allowed.has(key)) throw httpError(400, 'invalid_ai_tool_argument');
+  if (args.query !== undefined && (typeof args.query !== 'string' || args.query.length > 100)) throw httpError(400, 'invalid_ai_tool_query');
+  if (args.limit !== undefined && (!Number.isInteger(args.limit) || args.limit < 1 || args.limit > (name === 'read_training_plans' ? 10 : 20))) throw httpError(400, 'invalid_ai_tool_limit');
+  if (name === 'read_workout_history') {
+    args.startDate = validateAgentDate(args.startDate, 'invalid_ai_tool_start_date');
+    args.endDate = validateAgentDate(args.endDate, 'invalid_ai_tool_end_date');
+    if (args.startDate && args.endDate && args.startDate > args.endDate) throw httpError(400, 'invalid_ai_tool_date_range');
+  }
+  if (name === 'read_active_workout' && Object.keys(args).length) throw httpError(400, 'invalid_ai_tool_argument');
+  return args;
+}
+
+function parseModelToolCalls(rawCalls) {
+  if (!Array.isArray(rawCalls) || !rawCalls.length) return [];
+  if (rawCalls.length > MAX_AGENT_TOOL_RESULTS) throw httpError(502, 'too_many_ai_tool_calls');
+  return rawCalls.map((item) => {
+    const id = String(item?.id || '').slice(0, 120);
+    const fn = item?.function || {};
+    const name = String(fn.name || '').trim();
+    if (!id || !AI_TOOL_NAMES.has(name)) throw httpError(502, 'invalid_ai_tool_call');
+    let args;
+    try { args = typeof fn.arguments === 'string' ? JSON.parse(fn.arguments || '{}') : fn.arguments; } catch { throw httpError(502, 'invalid_ai_tool_arguments'); }
+    return { id, name, arguments: validateAgentArguments(name, args || {}) };
+  });
+}
+
+function parseClientToolResults(value) {
+  if (value === undefined) return [];
+  if (!Array.isArray(value) || value.length > MAX_AGENT_TOOL_RESULTS) throw httpError(400, 'invalid_ai_tool_results');
+  return value.map((item) => {
+    const id = requireString(item?.id, 'tool_result_id_required', 120);
+    const name = requireString(item?.name, 'tool_result_name_required', 80);
+    const argumentsValue = validateAgentArguments(name, item?.arguments || {});
+    if (!Object.prototype.hasOwnProperty.call(item, 'result')) throw httpError(400, 'tool_result_required');
+    let resultJson;
+    try { resultJson = JSON.stringify(item.result); } catch { throw httpError(400, 'invalid_ai_tool_result'); }
+    if (resultJson.length > MAX_AGENT_RESULT_BYTES) throw httpError(413, 'ai_tool_result_too_large');
+    return { id, name, arguments: argumentsValue, result: item.result };
+  });
+}
+
+// The mobile client sends its local registry so the server can tell whether
+// the user actually granted the agent read access. Never trust the registry's
+// descriptions or schemas: the server owns the canonical allow-list above.
+// Rejecting unknown/duplicate names also prevents a future client bug from
+// silently turning on an unreviewed tool.
+function parseClientAvailableTools(value) {
+  if (value === undefined) return [];
+  if (!Array.isArray(value) || value.length > AI_TOOL_DEFINITIONS.length) {
+    throw httpError(400, 'invalid_ai_tools');
+  }
+  const names = [];
+  for (const item of value) {
+    const name = String(item?.function?.name || '').trim();
+    if (!AI_TOOL_NAMES.has(name) || names.includes(name)) {
+      throw httpError(400, 'invalid_ai_tools');
+    }
+    names.push(name);
+  }
+  return names;
+}
+
+function toolUsesFor(names) {
+  const counts = new Map();
+  for (const name of names) counts.set(name, (counts.get(name) || 0) + 1);
+  return [...counts.entries()].map(([name, count]) => ({ name, count }));
+}
+
+async function callDeepSeek(ctx, messages, userId, options = {}) {
   if (!ctx.cfg.deepSeekApiKey) throw httpError(503, 'deepseek_not_configured');
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), ctx.cfg.aiRequestTimeoutSeconds * 1000);
@@ -428,14 +557,17 @@ async function callDeepSeek(ctx, messages, userId) {
         // scheduling isolation without sending a phone number or Apple id.
         user_id: userId,
         messages,
+        ...(options.tools?.length ? { tools: options.tools, tool_choice: 'auto' } : {}),
       }),
       signal: controller.signal,
     });
     if (!response.ok) throw httpError(response.status === 429 ? 503 : 502, 'deepseek_upstream_error', { upstreamStatus: response.status });
     const payload = await response.json().catch(() => null);
-    const answer = payload?.choices?.[0]?.message?.content;
-    if (typeof answer !== 'string' || !answer.trim()) throw httpError(502, 'deepseek_empty_response');
-    return answer.trim();
+    const message = payload?.choices?.[0]?.message || {};
+    const answer = typeof message.content === 'string' ? message.content.trim() : '';
+    const toolCalls = options.tools?.length ? parseModelToolCalls(message.tool_calls) : [];
+    if (!answer && !toolCalls.length) throw httpError(502, 'deepseek_empty_response');
+    return options.tools?.length ? { answer, toolCalls } : answer;
   } catch (error) {
     if (error instanceof HttpError) throw error;
     if (error?.name === 'AbortError') throw httpError(504, 'deepseek_timeout');
@@ -1356,20 +1488,81 @@ ${languageInstruction}
 每个动作必须给出具体组型、重量（kg）、次数和组间休息；自重动作的 weight 使用 0。没有用户历史重量时使用保守可调整的起始重量，不要编造极限重量。dayOffset 为本周从今天起第几天（0-6）；如果用户要求一个月，weeks 设为 4。不要在机器可读块中使用 Markdown 代码围栏。
 月计划不得默认套用上肢/下肢轮换。先依据用户明确提供的每周训练天数、经验和恢复状态设计；信息不足时采用每周 3 天、隔天进行的保守全身或推拉腿起点，并在正文明确这是可调整假设。只有用户明确每周 4 天且恢复允许时才采用上肢/下肢。不得在回答中提及内部技能名、仓库名或知识库文件名。` });
       }
+      const clientToolResults = parseClientToolResults(body.toolResults);
+      const availableToolNames = parseClientAvailableTools(body.availableTools);
+      if (clientToolResults.length && body.useTrainingData !== true) {
+        throw httpError(400, 'ai_tools_consent_required');
+      }
+      const enabledTools = AI_TOOL_DEFINITIONS.filter((item) =>
+        availableToolNames.includes(item.function.name),
+      );
+      const toolsEnabled = body.useTrainingData === true
+        && enabledTools.length > 0
+        && clientToolResults.length === 0;
+      // Keep the current user question before the synthetic assistant/tool
+      // turn. OpenAI-compatible providers require this ordering for a
+      // continuation request: user -> assistant(tool_calls) -> tool results.
+      // The previous order appended the question after tool results, which
+      // made DeepSeek reject or ignore the local data on some requests.
+      if (clientToolResults.length) {
+        messages.push({ role: 'system', content: '设备已按用户授权读取训练资料。不要再次调用工具，直接基于随后返回的工具资料回答，并说明资料不足之处。' });
+      }
       messages.push({ role: 'user', content: question });
+      if (clientToolResults.length) {
+        // The app executed these calls locally. Reconstruct the OpenAI
+        // assistant/tool turn so the model can answer from the minimum data
+        // returned by the device. No client result is treated as a write.
+        messages.push({
+          role: 'assistant',
+          content: null,
+          tool_calls: clientToolResults.map((item) => ({
+            id: item.id,
+            type: 'function',
+            function: { name: item.name, arguments: JSON.stringify(item.arguments) },
+          })),
+        });
+        for (const item of clientToolResults) {
+          messages.push({
+            role: 'tool',
+            tool_call_id: item.id,
+            name: item.name,
+            content: JSON.stringify(item.result).slice(0, MAX_AGENT_RESULT_BYTES),
+          });
+        }
+      }
       let rawAnswer;
       try {
-        rawAnswer = await ctx.aiGate.run(() => callDeepSeek(ctx, messages, user.id));
+        rawAnswer = await ctx.aiGate.run(() => callDeepSeek(
+          ctx,
+          messages,
+          user.id,
+          toolsEnabled ? { tools: enabledTools } : {},
+        ));
       } catch (error) {
         if (error instanceof QueueCapacityError) {
           throw httpError(503, 'ai_busy', { retryAfterSeconds: 5 });
         }
         throw error;
       }
+      if (toolsEnabled && rawAnswer?.toolCalls?.length) {
+        // Keep the reservation pending. The client must execute these
+        // read-only calls and send the result with the same requestId; only
+        // the final answer commits the single AI quota reservation.
+        writeJson(res, 200, {
+          conversationId,
+          answer: rawAnswer.answer || '',
+          toolCalls: rawAnswer.toolCalls,
+          toolUses: toolUsesFor(rawAnswer.toolCalls.map((item) => item.name)),
+          citations: [],
+          plan: null,
+        }, req, ctx.cfg);
+        return;
+      }
+      const rawText = typeof rawAnswer === 'string' ? rawAnswer : String(rawAnswer?.answer || '');
       const allowedExerciseIds = new Set(exerciseCatalog.map((item) => item.id));
       const parsedAnswer = planRequested
-        ? extractPlanDraft(rawAnswer, allowedExerciseIds)
-        : { answer: rawAnswer, plan: null };
+        ? extractPlanDraft(rawText, allowedExerciseIds)
+        : { answer: rawText, plan: null };
       const answer = parsedAnswer.answer;
       const stamp = nowIso(); transaction(ctx.db, () => { ctx.db.prepare('INSERT INTO conversation_messages (id, conversation_id, role, content, created_at) VALUES (?, ?, \'user\', ?, ?)').run(randomId('msg_'), conversationId, question, stamp); ctx.db.prepare('INSERT INTO conversation_messages (id, conversation_id, role, content, created_at) VALUES (?, ?, \'assistant\', ?, ?)').run(randomId('msg_'), conversationId, answer, nowIso()); ctx.db.prepare('UPDATE conversations SET updated_at = ? WHERE id = ?').run(nowIso(), conversationId); });
       // Memory summarisation is deliberately low frequency and best effort.
@@ -1377,7 +1570,13 @@ ${languageInstruction}
       const visibleCitations = knowledge
         .filter(isVisibleKnowledgeSource)
         .slice(0, 5);
-      changeReservation(ctx.db, user.id, requestId, 'commit'); writeJson(res, 200, { conversationId, answer, citations: visibleCitations.map((item) => ({ id: item.id, title: item.title, source: item.source })), plan: parsedAnswer.plan }, req, ctx.cfg);
+      changeReservation(ctx.db, user.id, requestId, 'commit'); writeJson(res, 200, {
+        conversationId,
+        answer,
+        citations: visibleCitations.map((item) => ({ id: item.id, title: item.title, source: item.source })),
+        plan: parsedAnswer.plan,
+        toolUses: toolUsesFor(clientToolResults.map((item) => item.name)),
+      }, req, ctx.cfg);
     } catch (error) { try { changeReservation(ctx.db, user.id, requestId, 'rollback'); } catch { /* preserve original error */ } throw error; }
     return;
   }
