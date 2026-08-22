@@ -241,6 +241,71 @@ class HttpCoachApi implements CoachApi, AgentCoachApi, StreamingCoachApi {
     return _decodeJsonResponse(response, 'checkin');
   }
 
+  Future<Map<String, dynamic>> updateWorldPresence({
+    required String venueCode,
+    required String anonymousName,
+    required String trainingFocus,
+    required int trainingLevel,
+    required DateTime trainingStartedAt,
+    required bool allowFistBump,
+    required bool allowCheer,
+  }) async {
+    final response = await _client
+        .post(
+          _endpoint('/v1/world/presence'),
+          headers: _authHeaders,
+          body: jsonEncode({
+            'venueCode': venueCode,
+            'anonymousName': anonymousName,
+            'trainingFocus': trainingFocus,
+            'trainingLevel': trainingLevel,
+            'trainingStartedAt': trainingStartedAt.toIso8601String(),
+            'allowFistBump': allowFistBump,
+            'allowCheer': allowCheer,
+          }),
+        )
+        .timeout(requestTimeout);
+    return _decodeJsonResponse(response, 'world_presence');
+  }
+
+  Future<void> removeWorldPresence() async {
+    final response = await _client
+        .delete(_endpoint('/v1/world/presence'), headers: _authHeaders)
+        .timeout(requestTimeout);
+    _decodeJsonResponse(response, 'world_presence_remove');
+  }
+
+  Future<Map<String, dynamic>> fetchWorldVenue(String venueCode) async {
+    final response = await _client
+        .get(
+          _endpoint(
+            '/v1/world/venue',
+          ).replace(queryParameters: {'venueCode': venueCode}),
+          headers: _authHeaders,
+        )
+        .timeout(requestTimeout);
+    return _decodeJsonResponse(response, 'world_venue');
+  }
+
+  Future<void> sendWorldInteraction({
+    required String venueCode,
+    required String targetUserId,
+    required String type,
+  }) async {
+    final response = await _client
+        .post(
+          _endpoint('/v1/world/interactions'),
+          headers: _authHeaders,
+          body: jsonEncode({
+            'venueCode': venueCode,
+            'targetUserId': targetUserId,
+            'type': type,
+          }),
+        )
+        .timeout(requestTimeout);
+    _decodeJsonResponse(response, 'world_interaction');
+  }
+
   Map<String, dynamic> _decodeJsonResponse(
     http.Response response,
     String operation,

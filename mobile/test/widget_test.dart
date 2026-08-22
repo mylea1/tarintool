@@ -10,6 +10,16 @@ import 'package:kilo_strength/models.dart';
 import 'package:kilo_strength/recognition_api.dart';
 
 Future<void> _openRoute(WidgetTester tester, String label) async {
+  if (label == '动作') {
+    await tester.tap(find.text('训练').last);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(
+      find.byKey(const Key('train-exercise-library-entry')),
+    );
+    await tester.tap(find.byKey(const Key('train-exercise-library-entry')));
+    await tester.pumpAndSettle();
+    return;
+  }
   await tester.tap(find.text(label).last);
   await tester.pumpAndSettle();
 }

@@ -153,6 +153,79 @@ test('quota reserve commit rollback and idempotency', async () => {
   assert.equal(rolledBack.body.aiRemaining, before.aiRemaining);
 });
 
+test('world venue uses opt-in anonymous presence without exact location or fake users', async () => {
+  const empty = await api('/v1/world/venue?venueCode=GYM-TEST', {
+    headers: { authorization: `Bearer ${userToken}` },
+  });
+  assert.equal(empty.response.status, 200);
+  assert.deepEqual(empty.body.active, []);
+  assert.deepEqual(empty.body.echoes, []);
+
+  const first = await api('/v1/world/presence', {
+    method: 'POST',
+    headers: { authorization: `Bearer ${userToken}` },
+    body: JSON.stringify({
+      venueCode: 'gym-test',
+      anonymousName: '夜行者',
+      trainingFocus: '背部训练',
+      trainingLevel: 22,
+      trainingStartedAt: new Date(Date.now() - 31 * 60000).toISOString(),
+      allowFistBump: true,
+      allowCheer: false,
+      latitude: 31.22,
+      longitude: 121.48,
+    }),
+  });
+  assert.equal(first.response.status, 200);
+  const second = await api('/v1/world/presence', {
+    method: 'POST',
+    headers: { authorization: `Bearer ${user2Token}` },
+    body: JSON.stringify({
+      venueCode: 'GYM-TEST',
+      anonymousName: '404',
+      trainingFocus: '腿部训练',
+      trainingStartedAt: new Date(Date.now() - 12 * 60000).toISOString(),
+    }),
+  });
+  assert.equal(second.response.status, 200);
+
+  const venue = await api('/v1/world/venue?venueCode=GYM-TEST', {
+    headers: { authorization: `Bearer ${userToken}` },
+  });
+  assert.equal(venue.response.status, 200);
+  assert.equal(venue.body.active.length, 2);
+  assert.equal(venue.body.echoes.length, 2);
+  assert.equal('latitude' in venue.body.active[0], false);
+  assert.equal('longitude' in venue.body.active[0], false);
+  assert.equal(venue.body.active.find((item) => item.anonymousName === '夜行者').trainingLevel, 22);
+  const target = venue.body.active.find((item) => item.anonymousName === '404');
+  assert.equal(target.id.startsWith('usr_'), false);
+  const bump = await api('/v1/world/interactions', {
+    method: 'POST',
+    headers: { authorization: `Bearer ${userToken}` },
+    body: JSON.stringify({ venueCode: 'GYM-TEST', targetUserId: target.id, type: 'fist_bump' }),
+  });
+  assert.equal(bump.response.status, 201);
+  const duplicateBump = await api('/v1/world/interactions', {
+    method: 'POST',
+    headers: { authorization: `Bearer ${userToken}` },
+    body: JSON.stringify({ venueCode: 'GYM-TEST', targetUserId: target.id, type: 'fist_bump' }),
+  });
+  assert.equal(duplicateBump.response.status, 409);
+  assert.equal(duplicateBump.body.error, 'interaction_already_sent');
+
+  const removed = await api('/v1/world/presence', {
+    method: 'DELETE',
+    headers: { authorization: `Bearer ${userToken}` },
+  });
+  assert.equal(removed.response.status, 200);
+  const after = await api('/v1/world/venue?venueCode=GYM-TEST', {
+    headers: { authorization: `Bearer ${userToken}` },
+  });
+  assert.equal(after.body.active.length, 1);
+  assert.equal(after.body.echoes.length, 2);
+});
+
 test('membership products are public but orders and verification are protected', async () => {
   const products = await api('/v1/membership/products');
   assert.equal(products.response.status, 200);

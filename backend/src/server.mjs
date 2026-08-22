@@ -73,6 +73,12 @@ const PUBLIC_MEMBERSHIP_PRODUCTS = new Map([
   ['com.kilostrength.pro.yearly', 'yearly'],
 ]);
 const JOB_STATES = new Set(['created', 'uploading', 'queued', 'processing', 'completed', 'failed', 'cancelled', 'expired']);
+const WORLD_INTERACTIONS = new Set(['fist_bump', 'cheer', 'challenge']);
+const worldParticipantToken = (ctx, userId, venueCode) =>
+  sha256(
+    `${venueCode}:${shanghaiDayKey()}:${userId}`,
+    ctx.cfg.sessionPepper,
+  ).slice(0, 24);
 const ALLOWED_MEDIA_TYPES = new Set(extensionForType.keys());
 const MEDIA_CONTENT_TYPES = new Map([
   ['.mp4', 'video/mp4'], ['.mov', 'video/quicktime'], ['.webm', 'video/webm'],
@@ -1172,6 +1178,99 @@ async function handleRequest(req, res, ctx) {
 
   if (req.method === 'GET' && url.pathname === '/v1/me/entitlements') {
     const user = authenticate(req, ctx); writeJson(res, 200, publicEntitlement(entitlementRow(ctx.db, user.id)), req, ctx.cfg); return;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/v1/world/presence') {
+    const user = authenticate(req, ctx);
+    const body = await readBody(req, ctx.cfg.maxJsonBytes);
+    const venueCode = requireString(body.venueCode, 'venue_code_required', 64).toUpperCase();
+    const anonymousName = requireString(body.anonymousName || `训练者-${user.id.slice(-4)}`, 'anonymous_name_required', 32);
+    const trainingFocus = requireString(body.trainingFocus || '训练中', 'training_focus_required', 32);
+    const trainingLevel = Math.max(1, Math.min(100, Number.parseInt(body.trainingLevel, 10) || 1));
+    const startedAt = typeof body.trainingStartedAt === 'string' && Number.isFinite(Date.parse(body.trainingStartedAt))
+      ? new Date(body.trainingStartedAt).toISOString() : nowIso();
+    const stamp = nowIso();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+    const durationMinutes = Math.max(0, Math.min(1440, Math.floor((Date.now() - Date.parse(startedAt)) / 60000)));
+    transaction(ctx.db, () => {
+      ctx.db.prepare(`INSERT INTO world_presences
+        (user_id, venue_code, anonymous_name, training_focus, training_level, training_started_at, expires_at, allow_fist_bump, allow_cheer, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(user_id) DO UPDATE SET venue_code=excluded.venue_code, anonymous_name=excluded.anonymous_name,
+          training_focus=excluded.training_focus, training_level=excluded.training_level, training_started_at=excluded.training_started_at,
+          expires_at=excluded.expires_at, allow_fist_bump=excluded.allow_fist_bump,
+          allow_cheer=excluded.allow_cheer, updated_at=excluded.updated_at`)
+        .run(user.id, venueCode, anonymousName, trainingFocus, trainingLevel, startedAt, expiresAt, body.allowFistBump === false ? 0 : 1, body.allowCheer === false ? 0 : 1, stamp);
+      ctx.db.prepare(`INSERT INTO world_echoes
+        (user_id, venue_code, day_key, anonymous_name, training_focus, training_level, duration_minutes, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(user_id, venue_code, day_key) DO UPDATE SET anonymous_name=excluded.anonymous_name,
+          training_focus=excluded.training_focus, training_level=excluded.training_level,
+          duration_minutes=MAX(world_echoes.duration_minutes, excluded.duration_minutes),
+          updated_at=excluded.updated_at`)
+        .run(user.id, venueCode, shanghaiDayKey(), anonymousName, trainingFocus, trainingLevel, durationMinutes, stamp);
+    });
+    writeJson(res, 200, { active: true, expiresAt }, req, ctx.cfg); return;
+  }
+  if (req.method === 'DELETE' && url.pathname === '/v1/world/presence') {
+    const user = authenticate(req, ctx);
+    ctx.db.prepare('DELETE FROM world_presences WHERE user_id = ?').run(user.id);
+    writeJson(res, 200, { active: false }, req, ctx.cfg); return;
+  }
+  if (req.method === 'GET' && url.pathname === '/v1/world/venue') {
+    const user = authenticate(req, ctx);
+    const venueCode = requireString(url.searchParams.get('venueCode'), 'venue_code_required', 64).toUpperCase();
+    ctx.db.prepare('DELETE FROM world_presences WHERE expires_at <= ?').run(nowIso());
+    const active = ctx.db.prepare(`SELECT user_id, anonymous_name, training_focus, training_level, training_started_at,
+      allow_fist_bump, allow_cheer FROM world_presences WHERE venue_code = ? AND expires_at > ?
+      ORDER BY updated_at DESC LIMIT 30`).all(venueCode, nowIso());
+    const echoes = ctx.db.prepare(`SELECT anonymous_name, training_focus, training_level, duration_minutes, updated_at
+      FROM world_echoes WHERE venue_code = ? AND day_key = ? ORDER BY updated_at DESC LIMIT 30`)
+      .all(venueCode, shanghaiDayKey());
+    const interactions = ctx.db.prepare(`SELECT type, created_at FROM world_interactions
+      WHERE target_user_id = ? AND created_at > ? ORDER BY created_at DESC LIMIT 20`)
+      .all(user.id, new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+    writeJson(res, 200, {
+      venueCode,
+      active: active.map((row) => ({
+        id: worldParticipantToken(ctx, row.user_id, venueCode),
+        anonymousName: row.anonymous_name,
+        trainingFocus: row.training_focus,
+        trainingLevel: row.training_level,
+        elapsedMinutes: Math.max(0, Math.floor((Date.now() - Date.parse(row.training_started_at)) / 60000)),
+        allowFistBump: Boolean(row.allow_fist_bump),
+        allowCheer: Boolean(row.allow_cheer),
+        self: row.user_id === user.id,
+      })),
+      echoes: echoes.map((row) => ({ anonymousName: row.anonymous_name, trainingFocus: row.training_focus,
+        trainingLevel: row.training_level,
+        durationMinutes: row.duration_minutes, updatedAt: row.updated_at })),
+      interactions: interactions.map((row) => ({ type: row.type, createdAt: row.created_at })),
+    }, req, ctx.cfg); return;
+  }
+  if (req.method === 'POST' && url.pathname === '/v1/world/interactions') {
+    const user = authenticate(req, ctx);
+    const body = await readBody(req, ctx.cfg.maxJsonBytes);
+    const targetUserId = requireString(body.targetUserId, 'target_user_required', 200);
+    const venueCode = requireString(body.venueCode, 'venue_code_required', 64).toUpperCase();
+    const type = requireString(body.type, 'interaction_type_required', 24);
+    if (!WORLD_INTERACTIONS.has(type)) throw httpError(400, 'invalid_interaction_type');
+    if (targetUserId === user.id) throw httpError(400, 'cannot_interact_with_self');
+    const target = ctx.db.prepare('SELECT * FROM world_presences WHERE venue_code = ? AND expires_at > ?')
+      .all(venueCode, nowIso())
+      .find((row) => worldParticipantToken(ctx, row.user_id, venueCode) === targetUserId);
+    if (!target) throw httpError(404, 'training_partner_not_found');
+    if (target.user_id === user.id) throw httpError(400, 'cannot_interact_with_self');
+    if (type === 'fist_bump' && !target.allow_fist_bump) throw httpError(403, 'interaction_disabled');
+    if (type === 'cheer' && !target.allow_cheer) throw httpError(403, 'interaction_disabled');
+    const interactionCutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const duplicate = ctx.db.prepare(`SELECT 1 FROM world_interactions
+      WHERE sender_user_id = ? AND target_user_id = ? AND type = ? AND created_at > ? LIMIT 1`)
+      .get(user.id, target.user_id, type, interactionCutoff);
+    if (duplicate) throw httpError(409, 'interaction_already_sent');
+    ctx.db.prepare(`INSERT INTO world_interactions (id, sender_user_id, target_user_id, venue_code, type, created_at)
+      VALUES (?, ?, ?, ?, ?, ?)`).run(randomId('world_'), user.id, target.user_id, venueCode, type, nowIso());
+    writeJson(res, 201, { sent: true, type }, req, ctx.cfg); return;
   }
   if (req.method === 'GET' && ['/v1/checkin/status', '/v1/checkins/status'].includes(url.pathname)) {
     const user = authenticate(req, ctx);

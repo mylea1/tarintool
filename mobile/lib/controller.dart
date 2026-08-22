@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart';
@@ -9,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'account_membership.dart';
 import 'app_localizations.dart';
 import 'ai_api.dart';
+import 'gamification.dart';
 import 'natural_workout_parser.dart';
 import 'models.dart';
 import 'recognition_api.dart';
@@ -216,6 +218,7 @@ class AppController extends ChangeNotifier {
     WorkoutHistoryPersistence? workoutHistoryPersistence,
     ActiveWorkoutPersistence? activeWorkoutPersistence,
     TrainingLibraryPersistence? trainingLibraryPersistence,
+    GamificationPersistence? gamificationPersistence,
   }) : accountService = accountService ?? AccountService(),
        workoutHistoryPersistence =
            workoutHistoryPersistence ??
@@ -225,7 +228,10 @@ class AppController extends ChangeNotifier {
            SharedPreferencesActiveWorkoutPersistence(),
        trainingLibraryPersistence =
            trainingLibraryPersistence ??
-           SharedPreferencesTrainingLibraryPersistence() {
+           SharedPreferencesTrainingLibraryPersistence(),
+       gamificationPersistence =
+           gamificationPersistence ??
+           SharedPreferencesGamificationPersistence() {
     _seed();
     PlatformTimerBridge.setSystemActionHandlers(
       onRestSkipped: skipRest,
@@ -244,6 +250,7 @@ class AppController extends ChangeNotifier {
   final WorkoutHistoryPersistence workoutHistoryPersistence;
   final ActiveWorkoutPersistence activeWorkoutPersistence;
   final TrainingLibraryPersistence trainingLibraryPersistence;
+  final GamificationPersistence gamificationPersistence;
   Future<void> _historyWriteChain = Future<void>.value();
   Future<void> _activeWorkoutWriteChain = Future<void>.value();
   Future<void> _trainingLibraryWriteChain = Future<void>.value();
@@ -254,6 +261,7 @@ class AppController extends ChangeNotifier {
   String? _loadedTrainingLibraryUserId;
   String? _loadedCustomExercisesUserId;
   String? _loadedAiConversationsUserId;
+  String? _loadedGamificationUserId;
   String? _observedAccountUserId;
   bool _pendingSystemWorkoutOpen = false;
   HttpCoachApi? _defaultCoachApi;
@@ -263,6 +271,15 @@ class AppController extends ChangeNotifier {
   String? _remoteIdentifier;
   String? _remotePassword;
   bool _disposed = false;
+  PlayerProgress playerProgress = const PlayerProgress();
+  WorkoutGameSettlement? latestGameSettlement;
+  String? setGameFeedback;
+  Future<void> _gamificationWriteChain = Future<void>.value();
+  List<Map<String, dynamic>> worldActive = const [];
+  List<Map<String, dynamic>> worldEchoes = const [];
+  List<Map<String, dynamic>> worldInteractions = const [];
+  bool worldLoading = false;
+  String? worldError;
 
   AccountUser? get currentUser => accountService.currentUser;
   bool get isAuthenticated => accountService.isAuthenticated;
@@ -441,6 +458,7 @@ class AppController extends ChangeNotifier {
       chat.clear();
       activeConversationId = 'conversation-main';
       if (userId != null && userId.isNotEmpty) {
+        unawaited(hydrateGamification(force: true));
         unawaited(hydrateAiConversations(force: true));
         unawaited(hydrateMembershipOrders());
         unawaited(hydrateCheckinStatus());
@@ -465,6 +483,7 @@ class AppController extends ChangeNotifier {
       unawaited(hydrateTrainingLibrary(force: true));
       unawaited(hydrateCustomExercises(force: true));
       unawaited(hydrateAiSkills());
+      unawaited(hydrateGamification(force: true));
     }
     return result;
   }
@@ -474,6 +493,12 @@ class AppController extends ChangeNotifier {
   AuthResult loginWithGoogle() => accountService.loginWithGoogle();
 
   void logout() {
+    _worldHeartbeatTimer?.cancel();
+    _worldHeartbeatTimer = null;
+    final coachApi = _defaultCoachApi;
+    if (playerProgress.showAtVenue && coachApi != null) {
+      unawaited(coachApi.removeWorldPresence().catchError((_) {}));
+    }
     _remoteIdentifier = null;
     _remotePassword = null;
     _defaultCoachApi?.clearSession();
@@ -483,6 +508,7 @@ class AppController extends ChangeNotifier {
     _loadedTrainingLibraryUserId = null;
     _loadedCustomExercisesUserId = null;
     _loadedAiConversationsUserId = null;
+    _loadedGamificationUserId = null;
     history.clear();
     routines.clear();
     routineFolders.clear();
@@ -493,7 +519,218 @@ class AppController extends ChangeNotifier {
     conversations.clear();
     chat.clear();
     activeConversationId = 'conversation-main';
+    playerProgress = const PlayerProgress();
+    latestGameSettlement = null;
+    setGameFeedback = null;
     notifyListeners();
+  }
+
+  Future<void> hydrateGamification({bool force = false}) async {
+    final userId = currentUser?.id;
+    if (userId == null || userId.isEmpty) return;
+    if (!force && _loadedGamificationUserId == userId) return;
+    await _gamificationWriteChain;
+    final stored = await gamificationPersistence.read(userId);
+    if (currentUser?.id != userId) return;
+    final today = questForDay(DateTime.now());
+    playerProgress = stored.quest?.dayKey == today.dayKey
+        ? stored
+        : stored.copyWith(quest: today);
+    _loadedGamificationUserId = userId;
+    _persistGamification();
+    _restartWorldHeartbeat();
+    notifyListeners();
+  }
+
+  void _persistGamification() {
+    final userId = currentUser?.id;
+    if (userId == null || userId.isEmpty) return;
+    final snapshot = playerProgress;
+    _gamificationWriteChain = _gamificationWriteChain
+        .then((_) => gamificationPersistence.write(userId, snapshot))
+        .catchError((_) {});
+  }
+
+  void updateAvatar(AvatarStyle avatar) {
+    playerProgress = playerProgress.copyWith(avatar: avatar);
+    _persistGamification();
+    notifyListeners();
+  }
+
+  void updateWorldPrivacy({
+    bool? showAtVenue,
+    bool? allowFistBump,
+    bool? allowCheer,
+    String? venueCode,
+  }) {
+    playerProgress = playerProgress.copyWith(
+      showAtVenue: showAtVenue,
+      allowFistBump: allowFistBump,
+      allowCheer: allowCheer,
+      venueCode: venueCode,
+    );
+    _persistGamification();
+    unawaited(_syncWorldPresence());
+    notifyListeners();
+  }
+
+  void updateVenueCodeDraft(String venueCode) {
+    playerProgress = playerProgress.copyWith(venueCode: venueCode);
+    notifyListeners();
+  }
+
+  void commitVenueCode() {
+    playerProgress = playerProgress.copyWith(
+      venueCode: playerProgress.venueCode.trim().toUpperCase(),
+    );
+    _persistGamification();
+    unawaited(_syncWorldPresence());
+    notifyListeners();
+  }
+
+  void _restartWorldHeartbeat() {
+    _worldHeartbeatTimer?.cancel();
+    _worldHeartbeatTimer = null;
+    if (!workoutStarted ||
+        !playerProgress.showAtVenue ||
+        playerProgress.venueCode.trim().isEmpty) {
+      return;
+    }
+    _worldHeartbeatTimer = Timer.periodic(
+      const Duration(minutes: 4),
+      (_) => unawaited(_syncWorldPresence()),
+    );
+    unawaited(_syncWorldPresence());
+  }
+
+  Future<void> _syncWorldPresence() async {
+    final code = playerProgress.venueCode.trim();
+    try {
+      final api = await _activeCoachApi();
+      if (api is! HttpCoachApi) return;
+      if (!playerProgress.showAtVenue || code.isEmpty || !workoutStarted) {
+        await api.removeWorldPresence();
+        worldActive = const [];
+        return;
+      }
+      final suffix = (currentUser?.id ?? '0000');
+      final anonymousName =
+          '训练者-${suffix.substring(math.max(0, suffix.length - 4))}';
+      await api.updateWorldPresence(
+        venueCode: code,
+        anonymousName: anonymousName,
+        trainingFocus: workoutName,
+        trainingLevel: playerProgress.trainingLevel,
+        trainingStartedAt: DateTime.now().subtract(
+          Duration(seconds: currentElapsed),
+        ),
+        allowFistBump: playerProgress.allowFistBump,
+        allowCheer: playerProgress.allowCheer,
+      );
+      await refreshWorldVenue();
+    } catch (_) {
+      // Training remains fully local while the world service is unavailable.
+    }
+  }
+
+  Future<void> refreshWorldVenue() async {
+    final code = playerProgress.venueCode.trim();
+    if (code.isEmpty) {
+      worldActive = const [];
+      worldEchoes = const [];
+      worldInteractions = const [];
+      notifyListeners();
+      return;
+    }
+    worldLoading = true;
+    worldError = null;
+    notifyListeners();
+    try {
+      final api = await _activeCoachApi();
+      if (api is! HttpCoachApi) {
+        throw const CoachApiException('world_unavailable');
+      }
+      final payload = await api.fetchWorldVenue(code);
+      worldActive = (payload['active'] as List<dynamic>? ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .toList();
+      worldEchoes = (payload['echoes'] as List<dynamic>? ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .toList();
+      worldInteractions =
+          (payload['interactions'] as List<dynamic>? ?? const [])
+              .whereType<Map<String, dynamic>>()
+              .toList();
+    } on CoachApiException catch (error) {
+      worldError = error.code;
+    } catch (_) {
+      worldError = 'world_network';
+    } finally {
+      worldLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> sendWorldInteraction(String targetUserId, String type) async {
+    try {
+      final api = await _activeCoachApi();
+      if (api is! HttpCoachApi) return false;
+      await api.sendWorldInteraction(
+        venueCode: playerProgress.venueCode,
+        targetUserId: targetUserId,
+        type: type,
+      );
+      playerProgress = playerProgress.copyWith(
+        socialXp: playerProgress.socialXp + 3,
+      );
+      _persistGamification();
+      notifyListeners();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  void completeDailyQuest() {
+    final quest = playerProgress.quest ?? questForDay(DateTime.now());
+    if (quest.done) return;
+    playerProgress = playerProgress.copyWith(
+      explorerXp: playerProgress.explorerXp + 20,
+      sparkCoins: playerProgress.sparkCoins + 5,
+      quest: quest.copyWith(done: true),
+      collections: {
+        ...playerProgress.collections,
+        '${quest.dayKey} · ${quest.kind}',
+      },
+    );
+    _persistGamification();
+    notifyListeners();
+  }
+
+  MuscleContribution muscleContributionFor(String exerciseId) {
+    final exercise = exerciseFor(exerciseId);
+    MuscleGroup groupFor(String value) {
+      final group = muscleGroupForLabel(value);
+      return switch (group) {
+        '胸' => MuscleGroup.chest,
+        '背' => MuscleGroup.back,
+        '肩' => MuscleGroup.shoulders,
+        '腿' => MuscleGroup.legs,
+        '手臂' => MuscleGroup.arms,
+        '核心' => MuscleGroup.core,
+        _ => MuscleGroup.endurance,
+      };
+    }
+
+    final primary = groupFor(exercise.muscle);
+    final secondary = groupFor(exercise.secondary);
+    return MuscleContribution(
+      primary: primary,
+      secondary: secondary == primary ? null : secondary,
+      allowsZeroWeight:
+          exercise.equipment == '自重' ||
+          exercise.equipment.toLowerCase().contains('bodyweight'),
+    );
   }
 
   Future<void> hydrateWorkoutHistory({bool force = false}) async {
@@ -879,6 +1116,7 @@ class AppController extends ChangeNotifier {
         (_) => notifyListeners(),
       );
     }
+    _restartWorldHeartbeat();
     if (_pendingSystemWorkoutOpen) {
       _pendingSystemWorkoutOpen = false;
       trainView = TrainView.workout;
@@ -1020,6 +1258,7 @@ class AppController extends ChangeNotifier {
   bool restRunning = false;
   String? restExerciseName;
   Timer? _workoutTicker;
+  Timer? _worldHeartbeatTimer;
   Timer? _restTicker;
   Timer? _recognitionTicker;
   Timer? _completionBurstTimer;
@@ -1462,6 +1701,7 @@ class AppController extends ChangeNotifier {
       case PageId.today:
       case PageId.train:
       case PageId.exercises:
+      case PageId.world:
       case PageId.ai:
       case PageId.profile:
         page = next;
@@ -1528,6 +1768,8 @@ class AppController extends ChangeNotifier {
     workoutStartedAt = null;
     _workoutTicker?.cancel();
     _workoutTicker = null;
+    _worldHeartbeatTimer?.cancel();
+    _worldHeartbeatTimer = null;
     if (autoStartTimer) {
       beginWorkoutTimer();
     } else {
@@ -1547,6 +1789,7 @@ class AppController extends ChangeNotifier {
       const Duration(seconds: 1),
       (_) => notifyListeners(),
     );
+    _restartWorldHeartbeat();
     PlatformTimerBridge.startWorkout(
       elapsedSeconds: 0,
       workoutName: workoutName,
@@ -1692,6 +1935,9 @@ class AppController extends ChangeNotifier {
       _activeSetStartedAt = null;
       _activeSetElapsedSeconds = 0;
       triggerCompletionBurst(set.id);
+      final contribution = muscleContributionFor(parent.exerciseId);
+      setGameFeedback =
+          '${contribution.primary.label}经验 +${set.type == 'warmup' ? 2 : 4}';
       restRemainingSeconds = effectiveRestSeconds(set, parent);
       if (restRemainingSeconds > 0) {
         restSetupPending = false;
@@ -1818,6 +2064,7 @@ class AppController extends ChangeNotifier {
     _completionBurstTimer = Timer(const Duration(milliseconds: 800), () {
       completionBurstActive = false;
       completionBurstSetId = null;
+      setGameFeedback = null;
       notifyListeners();
     });
     notifyListeners();
@@ -1957,6 +2204,15 @@ class AppController extends ChangeNotifier {
       prs: prs,
       exercises: historySnapshot,
     );
+    final gameResult = GamificationEngine.settle(
+      progress: playerProgress,
+      record: record,
+      history: history,
+      resolveMuscles: muscleContributionFor,
+    );
+    playerProgress = gameResult.progress;
+    latestGameSettlement = gameResult.settlement;
+    _persistGamification();
     history.insert(0, record);
     _persistWorkoutHistory();
     // A valid completed session grants one recognition credit. The service
@@ -2014,8 +2270,11 @@ class AppController extends ChangeNotifier {
     restRemainingSeconds = 0;
     restExerciseName = null;
     _workoutTicker?.cancel();
+    _worldHeartbeatTimer?.cancel();
+    _worldHeartbeatTimer = null;
     _restTicker?.cancel();
     PlatformTimerBridge.finish();
+    unawaited(_syncWorldPresence());
     persistActiveWorkout();
     notifyListeners();
     return record;
@@ -3591,6 +3850,7 @@ class AppController extends ChangeNotifier {
     accountService.removeListener(_handleAccountChanged);
     PlatformTimerBridge.setSystemActionHandlers();
     _workoutTicker?.cancel();
+    _worldHeartbeatTimer?.cancel();
     _restTicker?.cancel();
     _recognitionTicker?.cancel();
     _completionBurstTimer?.cancel();

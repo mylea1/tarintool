@@ -172,6 +172,46 @@ CREATE TABLE IF NOT EXISTS push_tokens (
   PRIMARY KEY (user_id, token_hash)
 );
 
+CREATE TABLE IF NOT EXISTS world_presences (
+  user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  venue_code TEXT NOT NULL,
+  anonymous_name TEXT NOT NULL,
+  training_focus TEXT NOT NULL,
+  training_level INTEGER NOT NULL DEFAULT 1,
+  training_started_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL,
+  allow_fist_bump INTEGER NOT NULL DEFAULT 1,
+  allow_cheer INTEGER NOT NULL DEFAULT 1,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_world_presences_venue
+  ON world_presences(venue_code, expires_at);
+
+CREATE TABLE IF NOT EXISTS world_echoes (
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  venue_code TEXT NOT NULL,
+  day_key TEXT NOT NULL,
+  anonymous_name TEXT NOT NULL,
+  training_focus TEXT NOT NULL,
+  training_level INTEGER NOT NULL DEFAULT 1,
+  duration_minutes INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (user_id, venue_code, day_key)
+);
+CREATE INDEX IF NOT EXISTS idx_world_echoes_venue
+  ON world_echoes(venue_code, day_key, updated_at DESC);
+
+CREATE TABLE IF NOT EXISTS world_interactions (
+  id TEXT PRIMARY KEY,
+  sender_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  target_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  venue_code TEXT NOT NULL,
+  type TEXT NOT NULL CHECK (type IN ('fist_bump', 'cheer', 'challenge')),
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_world_interactions_target
+  ON world_interactions(target_user_id, created_at DESC);
+
 CREATE TABLE IF NOT EXISTS audit_log (
   id TEXT PRIMARY KEY,
   actor_user_id TEXT REFERENCES users(id),

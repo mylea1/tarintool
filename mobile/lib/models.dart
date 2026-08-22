@@ -4,7 +4,16 @@ import 'exercise_dataset.generated.dart';
 import 'exercise_name_zh.dart';
 import 'exercise_media.dart';
 
-enum PageId { today, train, records, exercises, recognition, ai, profile }
+enum PageId {
+  today,
+  train,
+  records,
+  exercises,
+  world,
+  recognition,
+  ai,
+  profile,
+}
 
 enum TrainView { workout, plans, history }
 

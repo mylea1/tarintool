@@ -90,7 +90,7 @@ void main() {
 
     expect(find.text('Home'), findsWidgets);
     expect(find.text('Train'), findsOneWidget);
-    expect(find.text('Exercises'), findsOneWidget);
+    expect(find.text('World'), findsOneWidget);
 
     controller.selectPage(PageId.exercises);
     await tester.pumpAndSettle();

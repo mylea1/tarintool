@@ -12,6 +12,7 @@ import 'account_membership.dart';
 import 'app_localizations.dart';
 import 'controller.dart';
 import 'exercise_media.dart';
+import 'gamification_ui.dart';
 import 'link_utils.dart';
 import 'membership_ui.dart';
 import 'models.dart';
@@ -41,8 +42,8 @@ const hairline = Color(0xFFEAD9CD);
 const emberTint = Color(0xFFFFEFE4);
 const emberShadow = Color(0x1F8E3D15);
 const danger = Color(0xFFB3261E);
-const kiloAppVersion = '1.0.15';
-const kiloAppBuild = '13';
+const kiloAppVersion = '1.1.0';
+const kiloAppBuild = '17';
 const kiloAppVersionLabel = '$kiloAppVersion ($kiloAppBuild)';
 const kiloAppNavigationLabel = '优化休息继承与动作卡片密度';
 const brandName = '形域';
@@ -637,15 +638,15 @@ class KiloShell extends StatelessWidget {
   static const pages = <PageId>[
     PageId.today,
     PageId.train,
-    PageId.exercises,
+    PageId.world,
     PageId.ai,
     PageId.profile,
   ];
-  static const labels = ['主页', '训练', '动作', 'AI', '我的'];
+  static const labels = ['主页', '训练', '世界', 'AI', '我的'];
   static const icons = [
     Icons.home_outlined,
     Icons.fitness_center_outlined,
-    Icons.menu_book_outlined,
+    Icons.public_rounded,
     Icons.forum_outlined,
     Icons.person_outline,
   ];
@@ -653,7 +654,8 @@ class KiloShell extends StatelessWidget {
   int get navIndex => switch (controller.page) {
     PageId.today => 0,
     PageId.train || PageId.records => 1,
-    PageId.exercises => 2,
+    PageId.exercises => 1,
+    PageId.world => 2,
     PageId.ai || PageId.recognition => 3,
     PageId.profile => 4,
   };
@@ -663,6 +665,7 @@ class KiloShell extends StatelessWidget {
         PageId.train => '训练',
         PageId.records => '记录',
         PageId.exercises => '动作库',
+        PageId.world => '世界',
         PageId.recognition => '动作识别',
         PageId.ai => 'AI',
         PageId.profile => '我的',
@@ -673,6 +676,7 @@ class KiloShell extends StatelessWidget {
         PageId.train => controller.workoutStarted ? '保持专注，完成下一组' : '选择计划并开始训练',
         PageId.records => '训练日历、完成情况和历史记录',
         PageId.exercises => '动作、机位与识别能力',
+        PageId.world => '训练场、探索与匿名互动',
         PageId.recognition => '上传训练视频并查看动作建议',
         PageId.ai => '有来源的训练问答',
         PageId.profile => '训练偏好、设备连接和隐私设置',
@@ -685,6 +689,7 @@ class KiloShell extends StatelessWidget {
       PageId.train => TrainPage(controller: controller),
       PageId.records => TrainPage(controller: controller),
       PageId.exercises => ExerciseLibraryPage(controller: controller),
+      PageId.world => WorldPage(controller: controller),
       PageId.recognition => RecognitionPage(controller: controller),
       PageId.ai => AiPage(controller: controller),
       PageId.profile => ProfilePage(controller: controller),
@@ -714,6 +719,16 @@ class KiloShell extends StatelessWidget {
               onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
               child: body,
             ),
+            if (controller.page == PageId.train &&
+                controller.liveWorkoutVisible)
+              Positioned(
+                left: 0,
+                right: 0,
+                top: 10,
+                child: Center(
+                  child: SetXpFeedback(label: controller.setGameFeedback),
+                ),
+              ),
           ],
         ),
       ),
@@ -1081,6 +1096,8 @@ class HomePage extends StatelessWidget {
           totalEffectiveSets: totalEffectiveSets,
           onTap: () => _showProgress(context, controller),
         ),
+        const SizedBox(height: 12),
+        HomeGameLayer(controller: controller),
         const SizedBox(height: 18),
         SectionTitle(
           '最近记录',
@@ -1553,6 +1570,23 @@ class TrainPage extends StatelessWidget {
               ? RecordsPage(controller: controller, embedded: true)
               : PageFrame(
                   children: [
+                    Card(
+                      key: const Key('train-exercise-library-entry'),
+                      margin: const EdgeInsets.only(bottom: 12),
+                      child: ListTile(
+                        leading: const Icon(
+                          Icons.menu_book_outlined,
+                          color: primary,
+                        ),
+                        title: const Text(
+                          '动作库',
+                          style: TextStyle(fontWeight: FontWeight.w900),
+                        ),
+                        subtitle: const Text('浏览动作教学、历史与备注'),
+                        trailing: const Icon(Icons.chevron_right_rounded),
+                        onTap: () => controller.selectPage(PageId.exercises),
+                      ),
+                    ),
                     SectionTitle('我的训练计划', subtitle: '选择一节训练后进入独立实时记录界面'),
                     _PlansView(controller: controller),
                   ],
@@ -8588,6 +8622,8 @@ class ProfilePage extends StatelessWidget {
             );
           },
         ),
+        const SizedBox(height: 12),
+        ProfileGameLayer(controller: controller),
         const SizedBox(height: 18),
         const _ProfileSectionLabel(title: '服务与安全', icon: Icons.shield_outlined),
         const SizedBox(height: 9),
@@ -11065,6 +11101,13 @@ class _WorkoutCelebration extends StatelessWidget {
                         style: const TextStyle(color: secondaryInk),
                       ),
                       const SizedBox(height: 20),
+                      if (controller.latestGameSettlement?.workoutId ==
+                          record.id) ...[
+                        GameSettlementCard(
+                          settlement: controller.latestGameSettlement!,
+                        ),
+                        const SizedBox(height: 14),
+                      ],
                       LayoutBuilder(
                         builder: (context, metricConstraints) {
                           final width = (metricConstraints.maxWidth - 10) / 2;
