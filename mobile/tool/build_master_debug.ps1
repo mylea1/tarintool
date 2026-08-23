@@ -16,24 +16,47 @@ if ($LASTEXITCODE -eq 0 -and $socialEntryPoints) {
 $commit = (git -C $repoRoot rev-parse --short HEAD).Trim()
 $artifactName = "xingyu-master-$commit-debug.apk"
 $artifactDirectory = Join-Path $mobileRoot 'build\app\outputs\flutter-apk'
-$defaultArtifact = Join-Path $artifactDirectory 'app-debug.apk'
 $namedArtifact = Join-Path $artifactDirectory $artifactName
 $checksumPath = "$namedArtifact.sha256"
+$tempBase = [System.IO.Path]::GetTempPath()
+$snapshotRoot = Join-Path $tempBase ("xingyu-master-build-" + [guid]::NewGuid().ToString('N'))
+$snapshotZip = Join-Path $snapshotRoot 'source.zip'
+$snapshotSource = Join-Path $snapshotRoot 'source'
+$snapshotMobile = Join-Path $snapshotSource 'mobile'
+$snapshotArtifact = Join-Path $snapshotMobile 'build\app\outputs\flutter-apk\app-debug.apk'
 
-Push-Location $mobileRoot
 try {
-  flutter clean
-  flutter pub get
-  flutter build apk --debug
+  New-Item -ItemType Directory -Path $snapshotRoot | Out-Null
+  New-Item -ItemType Directory -Path $snapshotSource | Out-Null
+  git -C $repoRoot archive --format=zip --output=$snapshotZip $commit
+  if ($LASTEXITCODE -ne 0) {
+    throw "Unable to create an isolated source archive for commit $commit."
+  }
+  Expand-Archive -LiteralPath $snapshotZip -DestinationPath $snapshotSource
+
+  Push-Location $snapshotMobile
+  try {
+    flutter pub get
+    flutter build apk --debug
+  } finally {
+    Pop-Location
+  }
+
+  if (-not (Test-Path -LiteralPath $snapshotArtifact)) {
+    throw "Flutter completed without producing $snapshotArtifact"
+  }
+
+  New-Item -ItemType Directory -Path $artifactDirectory -Force | Out-Null
+  Copy-Item -LiteralPath $snapshotArtifact -Destination $namedArtifact -Force
 } finally {
-  Pop-Location
+  $resolvedSnapshot = [System.IO.Path]::GetFullPath($snapshotRoot)
+  $resolvedTemp = [System.IO.Path]::GetFullPath($tempBase)
+  if ($resolvedSnapshot.StartsWith($resolvedTemp, [System.StringComparison]::OrdinalIgnoreCase) -and
+      (Test-Path -LiteralPath $resolvedSnapshot)) {
+    Remove-Item -LiteralPath $resolvedSnapshot -Recurse -Force
+  }
 }
 
-if (-not (Test-Path -LiteralPath $defaultArtifact)) {
-  throw "Flutter completed without producing $defaultArtifact"
-}
-
-Copy-Item -LiteralPath $defaultArtifact -Destination $namedArtifact -Force
 $checksum = (Get-FileHash -LiteralPath $namedArtifact -Algorithm SHA256).Hash.ToLowerInvariant()
 Set-Content -LiteralPath $checksumPath -Value "$checksum  $artifactName" -Encoding ascii
 
