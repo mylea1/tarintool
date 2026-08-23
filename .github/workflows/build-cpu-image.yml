@@ -28,6 +28,14 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Install worker test dependencies
+        working-directory: gpu-worker
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install \
+            --index-url https://mirrors.ustc.edu.cn/pypi/simple \
+            --requirement requirements-test.txt
+
       - name: Test worker logic
         working-directory: gpu-worker
         run: python -m unittest discover -s tests -v

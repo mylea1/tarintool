@@ -391,104 +391,157 @@ void main() {
     await tester.pump();
   });
 
-  testWidgets('recognition result opens a full report with AI review', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(320, 900);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(() {
-      tester.view.resetPhysicalSize();
-      tester.view.resetDevicePixelRatio();
-    });
-    final controller = AppController();
-    addTearDown(controller.dispose);
-    controller.recognitionStatus = RecognitionStatus.complete;
-    controller.recognitionResult = const RecognitionResult(
-      status: RecognitionStatus.complete,
-      confidence: .88,
-      repetitions: 8,
-      summary: '骨骼识别完成',
-      metrics: {'durationSeconds': 12.6, 'detectionRate': .9},
-      events: [
-        RecognitionEvent(
-          id: 'event-001',
-          code: 'SQUAT_DEPTH_LIMITED',
-          label: '下蹲深度可能不足',
-          startMs: 11800,
-          peakMs: 12400,
-          endMs: 13000,
-          displayTime: '00:12.4',
-          explanation: '最低位置的膝角高于当前参考线。',
-          confidence: .86,
+  testWidgets(
+    'recognition result shows detailed time evidence without system status panels',
+    (tester) async {
+      tester.view.physicalSize = const Size(320, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+      final controller = AppController();
+      addTearDown(controller.dispose);
+      controller.recognitionStatus = RecognitionStatus.complete;
+      controller.recognitionResult = const RecognitionResult(
+        status: RecognitionStatus.complete,
+        confidence: .88,
+        repetitions: 8,
+        summary: '骨骼识别完成',
+        metrics: {'durationSeconds': 18.6, 'detectionRate': .9},
+        events: [
+          RecognitionEvent(
+            id: 'event-001',
+            code: 'LAT_PULLDOWN_RANGE_INCOMPLETE',
+            label: '高位下拉行程可能不足',
+            startMs: 11800,
+            peakMs: 12400,
+            endMs: 13000,
+            displayTime: '00:12.4',
+            explanation: '可见侧肘角没有稳定覆盖当前参考范围。',
+            confidence: .86,
+          ),
+          RecognitionEvent(
+            id: 'event-002',
+            code: 'LAT_PULLDOWN_ELBOW_PATH_LIMITED',
+            label: '肘部向下移动不明显',
+            startMs: 15900,
+            peakMs: 16800,
+            endMs: 17700,
+            displayTime: '00:16.8',
+            explanation: '肘部向下移动的距离低于当前参考线。',
+            confidence: .84,
+          ),
+          RecognitionEvent(
+            id: 'event-003',
+            code: 'LAT_PULLDOWN_RANGE_INCOMPLETE',
+            label: '高位下拉行程可能不足',
+            startMs: 15900,
+            peakMs: 16800,
+            endMs: 17700,
+            displayTime: '00:16.8',
+            explanation: '最低位置的肘角仍偏大。',
+            confidence: .82,
+          ),
+        ],
+        aiReview: RecognitionAiReview(
+          headline: '整体轨迹稳定',
+          strengths: ['动作节奏一致'],
+          risks: ['末端控制可加强'],
+          nextSet: '保持重量并减慢离心',
+          basis: '视频时间事件与骨骼关键点轨迹',
         ),
-      ],
-      aiReview: RecognitionAiReview(
-        headline: '整体轨迹稳定',
-        strengths: ['动作节奏一致'],
-        risks: ['末端控制可加强'],
-        nextSet: '保持重量并减慢离心',
-        basis: '视频时间事件与骨骼关键点轨迹',
-      ),
-    );
-    await tester.pumpWidget(
-      MediaQuery(
-        data: const MediaQueryData(textScaler: TextScaler.linear(2)),
-        child: KiloApp(initialController: controller),
-      ),
-    );
-    await _openRoute(tester, 'AI');
-    await tester.tap(find.byKey(const Key('ai-recognition')));
-    await tester.pump();
-    await tester.ensureVisible(
-      find.byKey(const Key('recognition-open-result')),
-    );
-    await tester.tap(find.byKey(const Key('recognition-open-result')));
-    await tester.pumpAndSettle();
+      );
+      await tester.pumpWidget(
+        MediaQuery(
+          data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+          child: KiloApp(initialController: controller),
+        ),
+      );
+      await _openRoute(tester, 'AI');
+      await tester.tap(find.byKey(const Key('ai-recognition')));
+      await tester.pump();
+      await tester.ensureVisible(
+        find.byKey(const Key('recognition-open-result')),
+      );
+      await tester.tap(find.byKey(const Key('recognition-open-result')));
+      await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('recognition-result-page')), findsOneWidget);
-    expect(find.byKey(const Key('recognition-ai-review')), findsOneWidget);
-    expect(find.text('整体轨迹稳定'), findsOneWidget);
-    expect(find.textContaining('末端控制可加强'), findsOneWidget);
-    expect(find.text('00:12.4 附近'), findsOneWidget);
-    expect(find.text('下蹲深度可能不足'), findsOneWidget);
-    expect(find.textContaining('完成 8 次'), findsNothing);
-  });
+      expect(find.byKey(const Key('recognition-result-page')), findsOneWidget);
+      expect(
+        find.byKey(const Key('recognition-coach-summary')),
+        findsOneWidget,
+      );
+      expect(find.text('整体轨迹稳定'), findsOneWidget);
+      expect(find.textContaining('保持重量并减慢离心'), findsOneWidget);
+      expect(find.text('00:12.4'), findsWidgets);
+      expect(find.text('下拉行程没有稳定覆盖完整范围'), findsNWidgets(2));
+      expect(find.text('系统看到了什么'), findsNWidgets(3));
+      expect(find.text('这意味着什么'), findsNWidgets(3));
+      expect(find.text('下一组这样调整'), findsNWidgets(3));
+      expect(find.textContaining('缩短背阔肌参与的有效动作路径'), findsNWidgets(2));
+      expect(find.textContaining('完成 8 次'), findsNothing);
+      expect(find.textContaining('目标锁定'), findsNothing);
+      expect(find.textContaining('骨骼追踪'), findsNothing);
+      expect(find.textContaining('个时间提示'), findsNothing);
+      expect(find.textContaining('播放骨骼证据'), findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.drag(
+        find.byKey(const Key('recognition-result-page')),
+        const Offset(0, -900),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('recognition-event-group-00:16.8')),
+        findsOneWidget,
+      );
+      expect(find.text('肘部下降路径偏短'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
-  testWidgets('completed overlay report hides the original video', (
-    tester,
-  ) async {
-    final controller = AppController();
-    addTearDown(controller.dispose);
-    controller.selectedMediaPath = 'missing-original.mp4';
-    controller.selectedMediaName = '原视频.mp4';
-    controller.recognitionIncludeOverlay = true;
-    controller.recognitionStatus = RecognitionStatus.complete;
-    controller.recognitionResult = const RecognitionResult(
-      status: RecognitionStatus.complete,
-      confidence: .32,
-      repetitions: 6,
-      summary: '内部结果',
-      overlayUrl: 'http://127.0.0.1:1/overlay.mp4',
-    );
-    await tester.pumpWidget(KiloApp(initialController: controller));
-    await _openRoute(tester, 'AI');
-    await tester.tap(find.byKey(const Key('ai-recognition')));
-    await tester.pump();
-    await tester.ensureVisible(
-      find.byKey(const Key('recognition-open-result')),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('recognition-open-result')));
-    await tester.pumpAndSettle();
+  testWidgets(
+    'completed overlay report keeps video behind the evidence surface',
+    (tester) async {
+      final controller = AppController();
+      addTearDown(controller.dispose);
+      controller.selectedMediaPath = 'missing-original.mp4';
+      controller.selectedMediaName = '原视频.mp4';
+      controller.recognitionIncludeOverlay = true;
+      controller.recognitionStatus = RecognitionStatus.complete;
+      controller.recognitionResult = const RecognitionResult(
+        status: RecognitionStatus.complete,
+        confidence: .32,
+        repetitions: 6,
+        summary: '内部结果',
+        overlayUrl: 'http://127.0.0.1:1/overlay.mp4',
+      );
+      await tester.pumpWidget(KiloApp(initialController: controller));
+      await _openRoute(tester, 'AI');
+      await tester.tap(find.byKey(const Key('ai-recognition')));
+      await tester.pump();
+      await tester.ensureVisible(
+        find.byKey(const Key('recognition-open-result')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('recognition-open-result')));
+      await tester.pumpAndSettle();
 
-    expect(
-      find.byKey(const Key('recognition-result-original-video')),
-      findsNothing,
-    );
-    expect(find.byKey(const Key('recognition-overlay-video')), findsOneWidget);
-    expect(find.textContaining('置信'), findsNothing);
-    expect(find.textContaining('算法'), findsNothing);
-  });
+      expect(
+        find.byKey(const Key('recognition-result-original-video')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const Key('recognition-evidence-hero')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('recognition-overlay-video')), findsNothing);
+      expect(find.textContaining('播放骨骼证据'), findsNothing);
+      expect(find.textContaining('完整骨骼视频'), findsNothing);
+      expect(find.textContaining('置信'), findsNothing);
+      expect(find.textContaining('算法'), findsNothing);
+    },
+  );
 
   testWidgets(
     'recognition keeps video visible and exposes live processing stages',

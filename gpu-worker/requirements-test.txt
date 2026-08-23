@@ -1,0 +1,3 @@
+# Keep CI unit tests lightweight. Runtime-only dependencies such as
+# Ultralytics, PyTorch, and OpenCV are installed while building the image.
+numpy==2.1.3
