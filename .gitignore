@@ -15,6 +15,7 @@ design-previews/kilo-themes/preview-*.png
 
 # Downloaded ML weights are deployment artifacts, not source files.
 gpu-worker/*.pt
+gpu-worker/.venv-local/
 
 # Python bytecode and local interpreter caches are not deployment inputs.
 __pycache__/

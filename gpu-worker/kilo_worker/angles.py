@@ -41,7 +41,8 @@ class EvidenceAssessment:
 
 def assess_exercise_evidence(
     *,
-    repetitions: int,
+    repetitions: int | None = None,
+    complete_cycles: int | None = None,
     confidence: float,
     detected_frames: int,
     inference_frames: int,
@@ -68,6 +69,7 @@ def assess_exercise_evidence(
         return EvidenceAssessment(False, "insufficient_pose_quality", angle_range)
     if len(angle_samples) < 6 or angle_range < minimum_angle_range:
         return EvidenceAssessment(False, "insufficient_motion", angle_range)
-    if repetitions < 1:
-        return EvidenceAssessment(False, "no_complete_repetition", angle_range)
+    cycles = complete_cycles if complete_cycles is not None else int(repetitions or 0)
+    if cycles < 1:
+        return EvidenceAssessment(False, "no_complete_motion_cycle", angle_range)
     return EvidenceAssessment(True, "assessable", angle_range)

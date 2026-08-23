@@ -1266,46 +1266,26 @@ String muscleGroupForLabel(String muscle) {
   return '其他';
 }
 
-/// Returns the compact equipment category used by filters.
+/// Returns the equipment category used by filters.
 ///
-/// Exercise details keep the original equipment label, while variants that
-/// are functionally searched together share one filter entry.
+/// Only barbell variants are intentionally consolidated. Every other catalog
+/// label remains independently selectable so restoring the full exercise
+/// library does not hide equipment such as kettlebells, medicine balls or
+/// cardio machines behind an opaque "other" bucket.
 String equipmentGroupForLabel(String equipment) {
   final normalized = equipment.trim().toLowerCase();
   if (normalized.isEmpty) return '其他';
   if (normalized.contains('杠铃') ||
-      normalized.contains('哑铃') ||
       normalized.contains('barbell') ||
-      normalized.contains('dumbbell') ||
       normalized.contains('olympic bar') ||
       normalized.contains('ez bar') ||
       normalized.contains('曲杆') ||
       normalized.contains('六角杠') ||
       normalized.contains('奥杆') ||
       normalized.contains('trap bar')) {
-    return '哑铃杠铃';
+    return '杠铃';
   }
-  if (normalized.contains('固定器械') ||
-      normalized.contains('史密斯') ||
-      normalized.contains('machine') ||
-      normalized.contains('smith')) {
-    return '固定器械';
-  }
-  if (normalized.contains('徒手') ||
-      normalized.contains('自重') ||
-      normalized.contains('bodyweight') ||
-      normalized.contains('assisted')) {
-    return '徒手';
-  }
-  if (normalized.contains('绳索') ||
-      normalized.contains('缆绳') ||
-      normalized.contains('弹力带') ||
-      normalized.contains('阻力带') ||
-      normalized.contains('cable') ||
-      normalized.contains('band')) {
-    return '绳索弹力带';
-  }
-  return '其他';
+  return equipment.trim();
 }
 
 String exerciseAsset(String id) {

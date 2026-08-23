@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>动作识别时间证据预览</title>
+  <style>
+    :root { color-scheme: light; --ink:#211a17; --muted:#6c625d; --line:#ded7d2; --paper:#f8f6f3; --accent:#9b4b22; --issue:#fff3e9; }
+    * { box-sizing: border-box; }
+    body { margin:0; background:#ebe7e2; color:var(--ink); font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif; }
+    main { width:min(100%, 420px); min-height:100dvh; margin:auto; padding:24px 16px 40px; background:var(--paper); }
+    h1 { margin:0; font-size:24px; }
+    .lead { margin:6px 0 20px; color:var(--muted); }
+    .event { margin-top:12px; overflow:hidden; border:1px solid var(--line); border-radius:14px; background:white; }
+    .event-copy { padding:14px; }
+    .time { display:inline-flex; align-items:center; min-height:32px; padding:4px 10px; border-radius:999px; background:var(--issue); color:var(--accent); font-weight:800; }
+    h2 { margin:10px 0 4px; font-size:17px; }
+    p { margin:0; }
+    .why { color:var(--muted); }
+    .skeleton { display:block; width:100%; aspect-ratio:16/10; object-fit:cover; background:#211f22; }
+    details { margin-top:18px; padding:12px 14px; border:1px solid var(--line); border-radius:14px; background:white; }
+    summary { cursor:pointer; font-weight:800; }
+    .slow { margin-top:8px; color:var(--muted); }
+    button { width:100%; margin-top:18px; min-height:46px; border:0; border-radius:12px; color:white; background:var(--accent); font-weight:800; }
+    button:focus-visible, summary:focus-visible { outline:3px solid #2f76d0; outline-offset:3px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>视频中的动作提示</h1>
+    <p class="lead">按时间查看问题和对应骨骼依据，不显示动作次数。</p>
+
+    <article class="event">
+      <div class="event-copy">
+        <span class="time">00:12.4 附近</span>
+        <h2>底部小臂偏离竖直方向</h2>
+        <p class="why">小臂相对竖直参考线偏离约 23.6°，当前参考范围为 18°以内。</p>
+      </div>
+      <img class="skeleton" alt="00:12.4 时刻的卧推骨骼证据示意图" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 500'%3E%3Crect width='800' height='500' fill='%23211f22'/%3E%3Cg stroke='%23ff9d5c' stroke-width='12' stroke-linecap='round'%3E%3Cpath d='M210 250L350 250L470 330L590 250'/%3E%3Cpath d='M350 250L390 160'/%3E%3C/g%3E%3Cg fill='%235fe3ad'%3E%3Ccircle cx='210' cy='250' r='15'/%3E%3Ccircle cx='350' cy='250' r='15'/%3E%3Ccircle cx='470' cy='330' r='15'/%3E%3Ccircle cx='590' cy='250' r='15'/%3E%3C/g%3E%3Cpath d='M470 410V230' stroke='%23f4f4f4' stroke-width='5' stroke-dasharray='14 12'/%3E%3Ctext x='32' y='58' fill='white' font-size='30' font-family='sans-serif'%3E00:12.4  23.6 deg%3C/text%3E%3C/svg%3E">
+    </article>
+
+    <details>
+      <summary>为什么完整骨骼视频更慢</summary>
+      <p class="slow">证据图只处理少量关键帧。完整视频需要逐帧绘制、重新编码并上传，因此默认不生成。</p>
+    </details>
+    <button type="button" onclick="document.querySelector('details').open=true">查看耗时说明</button>
+  </main>
+</body>
+</html>

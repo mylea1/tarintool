@@ -29,7 +29,7 @@ npm start
 - Bearer session 只以 pepper 哈希存库；Apple/Google token 必须通过服务端 JWKS 校验，未配置 provider 返回 `provider_not_configured`；短信供应商未接入时返回同样的明确失败。
 - 密码注册默认关闭，生产环境即使误设 `KILO_ENABLE_PASSWORD_REGISTRATION=true` 也会拒绝启动；客户端可使用 `/v1/auth/logout` 撤销当前 opaque session。
 - AI 额度使用 requestId 原子 reserve/commit/rollback。DeepSeek key 只读服务端环境变量；未配置或上游失败会回滚额度。若 key 曾泄露，应立即在 DeepSeek 控制台撤销并重新生成。
-- 识别任务为 `create -> upload -> queued -> processing -> completed/failed` 状态机。上传 token 仅 15 分钟有效；GPU 只接受 `KILO_GPU_API_KEY`，原始视频、overlay 和 preview 均经过大小、MIME 和路径校验。artifact 支持 `PUT` 流式上传（`x-artifact-kind: overlay|preview`），大文件不受 JSON body 限制。
+- 识别任务为 `create -> upload -> queued -> processing -> completed/failed` 状态机。上传 token 仅 15 分钟有效；计算节点只接受 `KILO_GPU_API_KEY`，原始视频、overlay、preview 和事件证据图均经过大小、MIME、路径及所有者校验。artifact 支持 `PUT` 流式上传（`x-artifact-kind: overlay|preview|evidence`；证据图另带 `x-artifact-id`），大文件不受 JSON body 限制。结果事件以 `startMs/peakMs/endMs/displayTime` 定位，完整 overlay 默认关闭。
 - 训练摘要只有请求显式 `useTrainingData: true` 时才注入 AI；对话仅发送近期窗口和可选 `memory_summary`，不会每次上传全部历史。
 
 ## 训练方法知识库测试

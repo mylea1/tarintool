@@ -69,6 +69,8 @@ abstract interface class StreamingCoachApi {
     String? trainingSummary,
     List<Map<String, String>> exerciseCatalog = const [],
     List<Map<String, String>> skills = const [],
+    String? requestId,
+    List<Map<String, dynamic>> toolResults = const [],
   });
 }
 
@@ -306,6 +308,8 @@ class HttpCoachApi implements CoachApi, AgentCoachApi, StreamingCoachApi {
     String? trainingSummary,
     List<Map<String, String>> exerciseCatalog = const [],
     List<Map<String, String>> skills = const [],
+    String? requestId,
+    List<Map<String, dynamic>> toolResults = const [],
   }) {
     final controller = StreamController<CoachStreamEvent>();
     final client = http.Client();
@@ -336,6 +340,9 @@ class HttpCoachApi implements CoachApi, AgentCoachApi, StreamingCoachApi {
                 if (exerciseCatalog.isNotEmpty)
                   'exerciseCatalog': exerciseCatalog,
                 if (skills.isNotEmpty) 'skills': skills,
+                if (requestId?.trim().isNotEmpty == true)
+                  'requestId': requestId!.trim(),
+                if (toolResults.isNotEmpty) 'toolResults': toolResults,
               });
         final response = await client.send(request).timeout(requestTimeout);
         if (response.statusCode < 200 || response.statusCode >= 300) {

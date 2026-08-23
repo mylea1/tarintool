@@ -16,9 +16,7 @@ import 'workout_history_persistence.dart';
 
 const String defaultCoachApiBaseUrl = String.fromEnvironment(
   'KILO_API_BASE_URL',
-  // Temporary pre-ICP test endpoint. Switch the build define back to
-  // https://api.kilostrength.cn after the filed domain is reachable publicly.
-  defaultValue: 'https://magnitude-detail-pipe-cake.trycloudflare.com',
+  defaultValue: 'https://api.kilostrength.cn',
 );
 
 class PlatformTimerBridge {
@@ -1008,7 +1006,7 @@ class AppController extends ChangeNotifier {
   RecognitionStage recognitionStage = RecognitionStage.idle;
   double recognitionProgress = 0;
   int recognitionElapsedSeconds = 0;
-  bool recognitionIncludeOverlay = true;
+  bool recognitionIncludeOverlay = false;
   List<RecognitionCapability> recognitionCapabilities =
       fallbackRecognitionCapabilities;
   bool recognitionCapabilitiesLoading = false;
@@ -1187,8 +1185,10 @@ class AppController extends ChangeNotifier {
       (item) => item.exerciseId == exerciseId,
       orElse: () => recognitionCapabilities.first,
     );
+    if (recognitionExerciseId == capability.exerciseId) return;
     recognitionExerciseId = capability.exerciseId;
     recognitionCamera = capability.cameras.first.id;
+    _invalidateRecognitionAnalysis();
     notifyListeners();
   }
 
@@ -1198,7 +1198,9 @@ class AppController extends ChangeNotifier {
     )) {
       return;
     }
+    if (recognitionCamera == cameraId) return;
     recognitionCamera = cameraId;
+    _invalidateRecognitionAnalysis();
     notifyListeners();
   }
 
@@ -1261,6 +1263,29 @@ class AppController extends ChangeNotifier {
 
   String equipmentGroupFor(String equipment) =>
       equipmentGroupForLabel(equipment);
+
+  List<String> get equipmentFilterOptions {
+    const preferred = <String>[
+      '固定器械',
+      '哑铃',
+      '杠铃',
+      '史密斯机',
+      '绳索',
+      '自重',
+      '壶铃',
+      '弹力带',
+      '阻力带',
+    ];
+    final available = <String>{
+      for (final item in selectableExercises) equipmentGroupFor(item.equipment),
+    }..removeWhere((item) => item.trim().isEmpty || item == '全部');
+    final result = <String>['全部'];
+    for (final item in preferred) {
+      if (available.remove(item)) result.add(item);
+    }
+    result.addAll(available.toList()..sort());
+    return result;
+  }
 
   Exercise get selectedExercise => exerciseFor(selectedExerciseId);
 
@@ -2700,7 +2725,7 @@ class AppController extends ChangeNotifier {
           selectedMediaPath = file.path;
           selectedMediaName = file.name;
           selectedMediaBytes = file.size;
-          recognitionStatus = RecognitionStatus.ready;
+          _invalidateRecognitionAnalysis();
         }
       }
     } catch (_) {
@@ -2737,8 +2762,26 @@ class AppController extends ChangeNotifier {
 
   void setRecognitionIncludeOverlay(bool value) {
     if (recognitionStatus == RecognitionStatus.processing) return;
+    if (recognitionIncludeOverlay == value) return;
     recognitionIncludeOverlay = value;
+    _invalidateRecognitionAnalysis();
     notifyListeners();
+  }
+
+  void _invalidateRecognitionAnalysis() {
+    _recognitionReservation?.rollback();
+    _recognitionReservation = null;
+    _recognitionTicker?.cancel();
+    recognitionStatus = selectedMediaPath == null
+        ? RecognitionStatus.idle
+        : RecognitionStatus.ready;
+    recognitionStage = RecognitionStage.idle;
+    recognitionProgress = 0;
+    recognitionElapsedSeconds = 0;
+    recognitionResult = null;
+    savedCue = false;
+    analysisAttached = false;
+    mediaError = null;
   }
 
   void _updateRecognitionProgress(RecognitionProgressUpdate update) {
@@ -3289,6 +3332,7 @@ class AppController extends ChangeNotifier {
     String prompt, {
     required bool includeSummary,
     String? selectedTrainingContext,
+    void Function(String delta)? onDelta,
   }) async {
     final requestId = 'ai_${DateTime.now().microsecondsSinceEpoch}';
     aiToolUses = const [];
@@ -3340,16 +3384,26 @@ class AppController extends ChangeNotifier {
           rethrow;
         }
       }
-      final answer = await api.answer(
-        prompt: prompt,
-        requestId: requestId,
-        includeTrainingSummary: includeSummary,
-        locale: appLanguage.storageValue,
-        trainingSummary: summary,
-        exerciseCatalog: _aiExerciseCatalog(),
-        skills: _activeAiSkillPayload(),
-        toolResults: toolResults,
-      );
+      final answer = api is StreamingCoachApi && onDelta != null
+          ? await _consumeCoachStream(
+              api as StreamingCoachApi,
+              prompt: prompt,
+              includeTrainingSummary: includeSummary,
+              trainingSummary: summary,
+              requestId: requestId,
+              toolResults: toolResults,
+              onDelta: onDelta,
+            )
+          : await api.answer(
+              prompt: prompt,
+              requestId: requestId,
+              includeTrainingSummary: includeSummary,
+              locale: appLanguage.storageValue,
+              trainingSummary: summary,
+              exerciseCatalog: _aiExerciseCatalog(),
+              skills: _activeAiSkillPayload(),
+              toolResults: toolResults,
+            );
       aiToolUses = answer.toolUses.isEmpty ? aiToolUses : answer.toolUses;
       return answer;
     } catch (_) {
@@ -3386,6 +3440,7 @@ class AppController extends ChangeNotifier {
     String prompt, {
     bool includeTrainingContext = false,
     String? selectedTrainingContext,
+    void Function(String delta)? onDelta,
   }) async {
     final includeSummary =
         aiUseTrainingData ||
@@ -3399,6 +3454,7 @@ class AppController extends ChangeNotifier {
           prompt,
           includeSummary: includeSummary,
           selectedTrainingContext: selectedTrainingContext,
+          onDelta: onDelta,
         );
       }
       return api.answer(
@@ -3436,6 +3492,52 @@ class AppController extends ChangeNotifier {
       }
     }
     throw const CoachApiException('coach_retry_exhausted');
+  }
+
+  Future<CoachAnswer> _consumeCoachStream(
+    StreamingCoachApi api, {
+    required String prompt,
+    required bool includeTrainingSummary,
+    String? trainingSummary,
+    String? requestId,
+    List<Map<String, dynamic>> toolResults = const [],
+    required void Function(String delta) onDelta,
+  }) async {
+    final done = Completer<CoachAnswer>();
+    _activeAiCompleter = done;
+    _aiStreamSubscription = api
+        .streamAnswer(
+          prompt: prompt,
+          includeTrainingSummary: includeTrainingSummary,
+          locale: appLanguage.storageValue,
+          trainingSummary: trainingSummary,
+          exerciseCatalog: _aiExerciseCatalog(),
+          skills: _activeAiSkillPayload(),
+          requestId: requestId,
+          toolResults: toolResults,
+        )
+        .listen(
+          (event) {
+            if (event is CoachStreamDelta) {
+              onDelta(event.text);
+            } else if (event is CoachStreamDone && !done.isCompleted) {
+              done.complete(event.answer);
+            }
+          },
+          onError: (Object error) {
+            if (!done.isCompleted) done.completeError(error);
+          },
+          onDone: () {
+            if (!done.isCompleted) {
+              done.completeError(
+                const CoachApiException('coach_stream_incomplete'),
+              );
+            }
+          },
+        );
+    final answer = await done.future;
+    if (_aiCancelled) throw const CoachApiException('coach_cancelled');
+    return answer;
   }
 
   bool _isAiPlanRequest(String prompt) {
@@ -3573,10 +3675,12 @@ class AppController extends ChangeNotifier {
     includeTrainingContext: true,
   );
 
-  Future<void> requestAiCustomizedWorkout() {
-    selectAiView(AiView.chat);
+  Future<void> requestAiCustomizedWorkout({String details = ''}) {
+    final request = details.trim();
     return sendChat(
-      '请为我刚进入的本次自由训练生成一节可直接执行的训练计划。请结合我的历史训练和当前能力，明确给出动作、组数、每组重量、次数和组间休息；如果数据不足请留空并说明依据，不要虚构我的能力。生成结构化计划卡，方便我查看和保存。',
+      '请为我生成一节可直接执行的训练计划。${request.isEmpty ? '' : '我的要求：$request。'}'
+      '请结合我的历史训练和当前能力，明确给出动作、组数、每组重量、次数和组间休息；'
+      '如果数据不足请留空并说明依据，不要虚构我的能力。生成结构化计划卡，方便我查看和保存。',
       includeTrainingContext: true,
     );
   }
@@ -3668,42 +3772,29 @@ class AppController extends ChangeNotifier {
               !_isAiPlanRequest(trimmed) &&
               !aiUseTrainingData &&
               selected == null) {
-            final streamingApi = api as StreamingCoachApi;
-            final done = Completer<CoachAnswer>();
-            _activeAiCompleter = done;
-            _aiStreamSubscription = streamingApi
-                .streamAnswer(
-                  prompt: trimmed,
-                  includeTrainingSummary: includeSummary,
-                  locale: appLanguage.storageValue,
-                  trainingSummary: includeSummary
-                      ? selected ?? _buildAiTrainingSummary()
-                      : null,
-                  exerciseCatalog: _aiExerciseCatalog(),
-                  skills: _activeAiSkillPayload(),
-                )
-                .listen(
-                  (event) {
-                    if (event is CoachStreamDelta) {
-                      answerMessage.body += event.text;
-                      notifyListeners();
-                    } else if (event is CoachStreamDone && !done.isCompleted) {
-                      done.complete(event.answer);
-                    }
-                  },
-                  onError: (Object error) {
-                    if (!done.isCompleted) done.completeError(error);
-                  },
-                );
-            remoteAnswer = await done.future;
-            if (_aiCancelled) {
-              throw const CoachApiException('coach_cancelled');
-            }
+            remoteAnswer = await _consumeCoachStream(
+              api as StreamingCoachApi,
+              prompt: trimmed,
+              includeTrainingSummary: includeSummary,
+              trainingSummary: includeSummary
+                  ? selected ?? _buildAiTrainingSummary()
+                  : null,
+              onDelta: (delta) {
+                answerMessage.body += delta;
+                notifyListeners();
+              },
+            );
           } else {
             remoteAnswer = await _requestCoachAnswer(
               trimmed,
               includeTrainingContext: includeTrainingContext,
               selectedTrainingContext: selected,
+              onDelta: _isAiPlanRequest(trimmed)
+                  ? null
+                  : (delta) {
+                      answerMessage.body += delta;
+                      notifyListeners();
+                    },
             );
           }
           answerMessage

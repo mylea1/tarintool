@@ -3,14 +3,22 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 import subprocess
-from typing import Any, Callable
+from typing import Any, Callable, Sequence
 
 import cv2
 import numpy as np
 import torch
 from ultralytics import YOLO
 
-from .angles import RepetitionCounter, assess_exercise_evidence, joint_angle
+from .angles import assess_exercise_evidence
+from .events import (
+    MotionEvent,
+    PoseSample,
+    analyze_pose_events,
+    event_to_result,
+    format_video_time,
+)
+from .subject_tracking import SubjectTracker
 
 
 SKELETON = (
@@ -24,6 +32,7 @@ class AnalysisOutput:
     result: dict[str, Any]
     overlay_path: Path | None
     preview_path: Path
+    evidence_paths: dict[str, Path]
 
 
 class PoseAnalyzer:
@@ -60,8 +69,9 @@ class PoseAnalyzer:
         source: Path,
         output_dir: Path,
         exercise_id: str,
+        camera: str,
         progress: Callable[[int, int], None] | None = None,
-        include_overlay: bool = True,
+        include_overlay: bool = False,
     ) -> AnalysisOutput:
         capture = cv2.VideoCapture(str(source))
         if not capture.isOpened():
@@ -79,6 +89,7 @@ class PoseAnalyzer:
             capture.release()
             raise ValueError("video_too_long")
 
+        output_dir.mkdir(parents=True, exist_ok=True)
         scale = min(1.0, self.max_dimension / max(width, height))
         output_width = max(2, int(width * scale) // 2 * 2)
         output_height = max(2, int(height * scale) // 2 * 2)
@@ -88,26 +99,27 @@ class PoseAnalyzer:
         raw_overlay_path = output_dir / "overlay-raw.mp4"
         preview_path = output_dir / "preview.jpg"
         output_fps = max(1.0, fps / inference_stride)
-        writer = cv2.VideoWriter(
-            str(raw_overlay_path),
-            cv2.VideoWriter_fourcc(*"mp4v"),
-            output_fps,
-            (output_width, output_height),
-        ) if include_overlay else None
+        writer = (
+            cv2.VideoWriter(
+                str(raw_overlay_path),
+                cv2.VideoWriter_fourcc(*"mp4v"),
+                output_fps,
+                (output_width, output_height),
+            )
+            if include_overlay
+            else None
+        )
         if writer is not None and not writer.isOpened():
             capture.release()
             raise RuntimeError("video_writer_unavailable")
 
-        configuration = self._counter_configuration(exercise_id)
-        counter = RepetitionCounter(configuration[3], configuration[4])
         confidence_total = 0.0
         detected_frames = 0
         frame_count = 0
         inference_frames = 0
         preview_written = False
-        last_points = None
-        last_scores = None
-        angle_samples: list[float] = []
+        samples: list[PoseSample] = []
+        subject_tracker = SubjectTracker(self.confidence)
 
         try:
             while True:
@@ -117,13 +129,16 @@ class PoseAnalyzer:
                 frame_count += 1
                 if frame_count > int(self.max_duration_seconds * fps) + 1:
                     raise ValueError("video_too_long")
-                should_infer = (frame_count - 1) % inference_stride == 0
-                if not should_infer:
+                if (frame_count - 1) % inference_stride != 0:
                     if progress is not None:
                         progress(frame_count, source_frames)
                     continue
                 if scale < 1.0:
-                    frame = cv2.resize(frame, (output_width, output_height), interpolation=cv2.INTER_AREA)
+                    frame = cv2.resize(
+                        frame,
+                        (output_width, output_height),
+                        interpolation=cv2.INTER_AREA,
+                    )
                 inference_frames += 1
                 prediction = self.model.predict(
                     frame,
@@ -132,24 +147,53 @@ class PoseAnalyzer:
                     imgsz=self.image_size,
                     verbose=False,
                 )[0]
-                last_points, last_scores = self._best_pose(prediction)
-                points, scores = last_points, last_scores
+                points, scores = self._best_pose(
+                    prediction,
+                    subject_tracker,
+                    output_width,
+                    output_height,
+                )
+                timestamp_ms = round((frame_count - 1) * 1000.0 / fps)
                 if points is not None and scores is not None:
                     detected_frames += 1
-                    confidence_total += float(np.mean(scores[scores > 0])) if np.any(scores > 0) else 0.0
-                    self._draw_pose(frame, points, scores)
-                    a, b, c, _, _ = configuration
-                    if min(scores[a], scores[b], scores[c]) >= self.confidence:
-                        angle = joint_angle(points[a], points[b], points[c])
-                        angle_samples.append(angle)
-                        counter.update(angle)
-                        cv2.putText(frame, f"Angle {angle:.0f}", (20, 74), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (255, 179, 71), 2)
-                cv2.putText(frame, f"Reps {counter.count}", (20, 42), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (48, 210, 122), 2)
-                if writer is not None:
-                    writer.write(frame)
-                if not preview_written and detected_frames:
-                    cv2.imwrite(str(preview_path), frame, [cv2.IMWRITE_JPEG_QUALITY, 88])
-                    preview_written = True
+                    confidence_total += (
+                        float(np.mean(scores[scores > 0]))
+                        if np.any(scores > 0)
+                        else 0.0
+                    )
+                    samples.append(
+                        PoseSample(
+                            timestamp_ms=timestamp_ms,
+                            source_frame_index=frame_count - 1,
+                            points=points.copy(),
+                            scores=scores.copy(),
+                        )
+                    )
+                render_frame = writer is not None or (
+                    not preview_written and points is not None
+                )
+                if render_frame:
+                    if points is not None and scores is not None:
+                        self._draw_pose(frame, points, scores)
+                    cv2.putText(
+                        frame,
+                        format_video_time(timestamp_ms),
+                        (20, 42),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.8,
+                        (48, 210, 122),
+                        2,
+                        cv2.LINE_AA,
+                    )
+                    if writer is not None:
+                        writer.write(frame)
+                    if not preview_written and points is not None:
+                        cv2.imwrite(
+                            str(preview_path),
+                            frame,
+                            [cv2.IMWRITE_JPEG_QUALITY, 88],
+                        )
+                        preview_written = True
                 if progress is not None:
                     progress(frame_count, source_frames)
         finally:
@@ -161,8 +205,18 @@ class PoseAnalyzer:
             raise ValueError("empty_video")
         if not preview_written:
             fallback = np.zeros((output_height, output_width, 3), dtype=np.uint8)
-            cv2.putText(fallback, "No pose detected", (20, max(50, output_height // 2)), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (230, 230, 230), 2)
-            cv2.imwrite(str(preview_path), fallback, [cv2.IMWRITE_JPEG_QUALITY, 88])
+            cv2.putText(
+                fallback,
+                "No pose detected",
+                (20, max(50, output_height // 2)),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.8,
+                (230, 230, 230),
+                2,
+            )
+            cv2.imwrite(
+                str(preview_path), fallback, [cv2.IMWRITE_JPEG_QUALITY, 88]
+            )
 
         if include_overlay:
             self._encode_compatible_overlay(raw_overlay_path, overlay_path)
@@ -170,27 +224,68 @@ class PoseAnalyzer:
         detection_rate = detected_frames / inference_frames if inference_frames else 0.0
         pose_confidence = confidence_total / detected_frames if detected_frames else 0.0
         overall_confidence = round(min(1.0, detection_rate * pose_confidence), 4)
+        event_analysis = analyze_pose_events(
+            exercise_id,
+            camera,
+            samples,
+            confidence_floor=self.confidence,
+        )
         evidence = assess_exercise_evidence(
-            repetitions=counter.count,
+            complete_cycles=event_analysis.complete_motion_cycles,
             confidence=overall_confidence,
             detected_frames=detected_frames,
             inference_frames=inference_frames,
-            angle_samples=angle_samples,
+            angle_samples=event_analysis.primary_angles,
         )
-        summary = (
-            "本次动作已经分析完成"
-            if evidence.assessable
-            else "这段视频不足以评价所选动作，请上传至少一次完整动作。"
+        report_events = event_analysis.events if evidence.assessable else ()
+        event_pairs = [
+            (f"event-{number:03d}", event)
+            for number, event in enumerate(report_events, start=1)
+        ]
+        rendered = self._render_evidence_images(
+            source,
+            output_dir,
+            samples,
+            event_pairs,
+            scale,
+            output_width,
+            output_height,
         )
-        angle_min = round(min(angle_samples), 2) if angle_samples else None
-        angle_max = round(max(angle_samples), 2) if angle_samples else None
+        event_pairs = [
+            (evidence_id, event)
+            for evidence_id, event in event_pairs
+            if evidence_id in rendered
+        ]
+        result_events = [
+            event_to_result(event, samples, evidence_id)
+            for evidence_id, event in event_pairs
+        ]
+        if not evidence.assessable:
+            summary = "这段视频不足以评价所选动作，请上传包含完整动作过程的视频。"
+        elif result_events:
+            summary = f"在视频中的 {len(result_events)} 个时间点发现需要注意的动作现象。"
+        else:
+            summary = "分析完成，当前规则没有发现能够确认的问题。"
+
+        angle_min = (
+            round(min(event_analysis.primary_angles), 2)
+            if event_analysis.primary_angles
+            else None
+        )
+        angle_max = (
+            round(max(event_analysis.primary_angles), 2)
+            if event_analysis.primary_angles
+            else None
+        )
+        tracking_metrics = subject_tracker.metrics
         result = {
             "status": "complete",
             "assessment": "assessable" if evidence.assessable else "insufficient_evidence",
             "evidenceReason": evidence.reason,
             "confidence": overall_confidence,
-            "repetitions": counter.count,
             "summary": summary,
+            "events": result_events,
+            "limitations": list(event_analysis.limitations),
             "metrics": {
                 "frames": frame_count,
                 "detectedFrames": detected_frames,
@@ -205,20 +300,179 @@ class PoseAnalyzer:
                 "primaryAngleMin": angle_min,
                 "primaryAngleMax": angle_max,
                 "primaryAngleRange": round(evidence.angle_range, 2),
+                "completeMotionCycles": event_analysis.complete_motion_cycles,
+                "eventCount": len(result_events),
+                "subjectSelectionStrategy": "temporal_primary_subject",
+                "multiPersonFrames": tracking_metrics.multi_person_frames,
+                "maxDetectedPeople": tracking_metrics.max_detected_people,
+                "missingTargetFrames": tracking_metrics.missing_target_frames,
+                "subjectReacquisitions": tracking_metrics.reacquisitions,
                 "assessable": evidence.assessable,
                 "evidenceReason": evidence.reason,
             },
         }
-        return AnalysisOutput(result, overlay_path if include_overlay else None, preview_path)
+        return AnalysisOutput(
+            result=result,
+            overlay_path=overlay_path if include_overlay else None,
+            preview_path=preview_path,
+            evidence_paths=rendered,
+        )
+
+    def _render_evidence_images(
+        self,
+        source: Path,
+        output_dir: Path,
+        samples: Sequence[PoseSample],
+        events: Sequence[tuple[str, MotionEvent]],
+        scale: float,
+        output_width: int,
+        output_height: int,
+    ) -> dict[str, Path]:
+        if not events:
+            return {}
+        capture = cv2.VideoCapture(str(source))
+        if not capture.isOpened():
+            raise ValueError("invalid_video")
+        evidence_dir = output_dir / "evidence"
+        evidence_dir.mkdir(parents=True, exist_ok=True)
+        paths: dict[str, Path] = {}
+        try:
+            for evidence_id, event in events:
+                sample = samples[event.peak_index]
+                capture.set(cv2.CAP_PROP_POS_FRAMES, sample.source_frame_index)
+                ok, frame = capture.read()
+                if not ok:
+                    continue
+                if scale < 1.0:
+                    frame = cv2.resize(
+                        frame,
+                        (output_width, output_height),
+                        interpolation=cv2.INTER_AREA,
+                    )
+                self._draw_pose(frame, sample.points, sample.scores)
+                self._draw_event_reference(frame, event, samples)
+                self._draw_evidence_header(frame, event, sample.timestamp_ms)
+                if frame.shape[1] > 960:
+                    ratio = 960 / frame.shape[1]
+                    frame = cv2.resize(
+                        frame,
+                        (960, round(frame.shape[0] * ratio)),
+                        interpolation=cv2.INTER_AREA,
+                    )
+                destination = evidence_dir / f"{evidence_id}.jpg"
+                if cv2.imwrite(
+                    str(destination), frame, [cv2.IMWRITE_JPEG_QUALITY, 88]
+                ):
+                    paths[evidence_id] = destination
+        finally:
+            capture.release()
+        return paths
+
+    def _draw_event_reference(
+        self,
+        frame: np.ndarray,
+        event: MotionEvent,
+        samples: Sequence[PoseSample],
+    ) -> None:
+        sample = samples[event.peak_index]
+        points = sample.points
+        color = (70, 225, 255)
+        for start, end in zip(
+            event.highlight_landmarks, event.highlight_landmarks[1:]
+        ):
+            if min(sample.scores[start], sample.scores[end]) >= self.confidence:
+                cv2.line(
+                    frame,
+                    tuple(points[start].astype(int)),
+                    tuple(points[end].astype(int)),
+                    color,
+                    6,
+                    cv2.LINE_AA,
+                )
+        if event.reference == "hip_ankle_line" and len(event.highlight_landmarks) >= 3:
+            hip, _, ankle = event.highlight_landmarks[:3]
+            cv2.line(
+                frame,
+                tuple(points[hip].astype(int)),
+                tuple(points[ankle].astype(int)),
+                (245, 245, 245),
+                3,
+                cv2.LINE_AA,
+            )
+        elif event.reference == "vertical_forearm" and event.highlight_landmarks:
+            elbow = event.highlight_landmarks[0]
+            x, y = points[elbow].astype(int)
+            length = max(80, round(frame.shape[0] * 0.22))
+            cv2.line(
+                frame,
+                (x, max(0, y - length)),
+                (x, min(frame.shape[0] - 1, y + length)),
+                (245, 245, 245),
+                3,
+                cv2.LINE_AA,
+            )
+        elif event.reference == "elbow_path" and len(event.highlight_landmarks) >= 2:
+            elbow = event.highlight_landmarks[-1]
+            start_point = samples[event.start_index].points[elbow]
+            end_point = points[elbow]
+            cv2.arrowedLine(
+                frame,
+                tuple(start_point.astype(int)),
+                tuple(end_point.astype(int)),
+                (245, 245, 245),
+                3,
+                cv2.LINE_AA,
+                tipLength=0.12,
+            )
+
+    @staticmethod
+    def _draw_evidence_header(
+        frame: np.ndarray,
+        event: MotionEvent,
+        timestamp_ms: int,
+    ) -> None:
+        height, width = frame.shape[:2]
+        bar_height = max(52, round(height * 0.09))
+        overlay = frame.copy()
+        cv2.rectangle(overlay, (0, 0), (width, bar_height), (18, 20, 23), -1)
+        cv2.addWeighted(overlay, 0.82, frame, 0.18, 0, frame)
+        label = (
+            f"{format_video_time(timestamp_ms)}  "
+            f"{PoseAnalyzer._measurement_label(event)}"
+        )
+        cv2.putText(
+            frame,
+            label,
+            (18, max(35, round(bar_height * 0.68))),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            max(0.58, width / 1200),
+            (238, 248, 255),
+            2,
+            cv2.LINE_AA,
+        )
+
+    @staticmethod
+    def _measurement_label(event: MotionEvent) -> str:
+        values = event.measurements
+        if "forearmVerticalDeviationDeg" in values:
+            return f"Forearm {values['forearmVerticalDeviationDeg']} deg"
+        if "kneeAngleDeg" in values:
+            return f"Knee {values['kneeAngleDeg']} deg"
+        if "hipAngleDeg" in values:
+            return f"Hip {values['hipAngleDeg']} deg"
+        if "bottomElbowAngleDeg" in values:
+            return f"Elbow {values['bottomElbowAngleDeg']} deg"
+        if "medialOffsetNormalized" in values:
+            return f"Knee offset {values['medialOffsetNormalized']}"
+        if "trunkLineShiftDeg" in values:
+            return f"Trunk shift {values['trunkLineShiftDeg']} deg"
+        if "elbowDescentNormalized" in values:
+            return f"Elbow path {values['elbowDescentNormalized']}"
+        return event.code
 
     @staticmethod
     def _encode_compatible_overlay(source: Path, destination: Path) -> None:
-        """Convert OpenCV's intermediate file to mobile-safe H.264 MP4.
-
-        OpenCV's mp4v output is not consistently decoded by AVPlayer and
-        Android MediaCodec. yuv420p + faststart is supported by both clients
-        and lets the app start playback before reading the whole file.
-        """
+        """Convert OpenCV's intermediate file to mobile-safe H.264 MP4."""
         try:
             subprocess.run(
                 [
@@ -229,37 +483,80 @@ class PoseAnalyzer:
                 check=True,
                 timeout=180,
             )
-        except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
+        except (
+            OSError,
+            subprocess.CalledProcessError,
+            subprocess.TimeoutExpired,
+        ) as error:
             raise RuntimeError("overlay_encoding_failed") from error
         finally:
             source.unlink(missing_ok=True)
 
     @staticmethod
-    def _best_pose(prediction: Any) -> tuple[np.ndarray | None, np.ndarray | None]:
+    def _best_pose(
+        prediction: Any,
+        tracker: SubjectTracker,
+        frame_width: int,
+        frame_height: int,
+    ) -> tuple[np.ndarray | None, np.ndarray | None]:
         keypoints = prediction.keypoints
         if keypoints is None or keypoints.xy is None or len(keypoints.xy) == 0:
+            tracker.select_index(
+                np.empty((0, 17, 2), dtype=np.float32),
+                np.empty((0, 17), dtype=np.float32),
+                None,
+                None,
+                frame_width=frame_width,
+                frame_height=frame_height,
+            )
             return None, None
         xy = keypoints.xy.detach().cpu().numpy()
         if keypoints.conf is None:
             confidence = np.ones((xy.shape[0], xy.shape[1]), dtype=np.float32)
         else:
             confidence = keypoints.conf.detach().cpu().numpy()
-        best = int(np.argmax(np.mean(confidence, axis=1)))
+        boxes = None
+        detector_confidence = None
+        if prediction.boxes is not None:
+            if prediction.boxes.xyxy is not None:
+                boxes = prediction.boxes.xyxy.detach().cpu().numpy()
+            if prediction.boxes.conf is not None:
+                detector_confidence = prediction.boxes.conf.detach().cpu().numpy()
+        best = tracker.select_index(
+            xy,
+            confidence,
+            boxes,
+            detector_confidence,
+            frame_width=frame_width,
+            frame_height=frame_height,
+        )
+        if best is None:
+            return None, None
         return xy[best], confidence[best]
 
-    def _draw_pose(self, frame: np.ndarray, points: np.ndarray, scores: np.ndarray) -> None:
+    def _draw_pose(
+        self,
+        frame: np.ndarray,
+        points: np.ndarray,
+        scores: np.ndarray,
+    ) -> None:
         for start, end in SKELETON:
             if scores[start] >= self.confidence and scores[end] >= self.confidence:
-                cv2.line(frame, tuple(points[start].astype(int)), tuple(points[end].astype(int)), (255, 142, 46), 3, cv2.LINE_AA)
+                cv2.line(
+                    frame,
+                    tuple(points[start].astype(int)),
+                    tuple(points[end].astype(int)),
+                    (255, 142, 46),
+                    3,
+                    cv2.LINE_AA,
+                )
         for point, score in zip(points, scores):
             if score >= self.confidence:
-                cv2.circle(frame, tuple(point.astype(int)), 4, (60, 230, 150), -1, cv2.LINE_AA)
-
-    @staticmethod
-    def _counter_configuration(exercise_id: str) -> tuple[int, int, int, float, float]:
-        normalized = exercise_id.lower()
-        if any(token in normalized for token in ("squat", "蹲", "leg", "腿")):
-            return 11, 13, 15, 75.0, 155.0
-        if any(token in normalized for token in ("curl", "弯举", "二头")):
-            return 5, 7, 9, 65.0, 145.0
-        return 5, 7, 9, 80.0, 155.0
+                cv2.circle(
+                    frame,
+                    tuple(point.astype(int)),
+                    4,
+                    (60, 230, 150),
+                    -1,
+                    cv2.LINE_AA,
+                )

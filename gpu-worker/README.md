@@ -1,8 +1,10 @@
 # KILO BetterCoach Compute Worker
 
 The worker claims queued recognition jobs from the KILO backend, performs real
-YOLO pose inference, creates a skeleton-overlay video and preview, then submits
-the structured result. It supports the current 4-core CPU node and a future GPU
+YOLO pose inference, creates timestamped skeleton evidence images and a preview,
+then submits the structured result. A full skeleton-overlay video is optional and
+disabled by default because it adds frame rendering and video encoding to the
+critical path. It supports the current 4-core CPU node and a future GPU
 node. It is intentionally stateless: original media and artifacts remain owned
 by the backend/object-storage layer.
 

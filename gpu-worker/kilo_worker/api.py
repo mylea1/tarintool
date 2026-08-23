@@ -51,17 +51,28 @@ class KiloApi:
                     if chunk:
                         target.write(chunk)
 
-    def upload_artifact(self, job_id: str, kind: str, path: Path, content_type: str) -> None:
+    def upload_artifact(
+        self,
+        job_id: str,
+        kind: str,
+        path: Path,
+        content_type: str,
+        *,
+        artifact_id: str | None = None,
+    ) -> None:
         size = path.stat().st_size
+        headers = {
+            "x-artifact-kind": kind,
+            "content-type": content_type,
+            "content-length": str(size),
+        }
+        if artifact_id:
+            headers["x-artifact-id"] = artifact_id
         with path.open("rb") as source:
             response = self.session.put(
                 f"{self.base_url}/v1/internal/gpu/jobs/{job_id}/artifact",
                 data=source,
-                headers={
-                    "x-artifact-kind": kind,
-                    "content-type": content_type,
-                    "content-length": str(size),
-                },
+                headers=headers,
                 timeout=(15, max(self.timeout_seconds, 600)),
             )
         response.raise_for_status()

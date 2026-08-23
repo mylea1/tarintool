@@ -277,7 +277,7 @@ final _theme = ThemeData(
     labelTextStyle: WidgetStatePropertyAll(
       TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: ink),
     ),
-    height: 66,
+    height: 62,
   ),
 );
 
@@ -704,7 +704,7 @@ class KiloShell extends StatelessWidget {
     };
     return Scaffold(
       appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(58),
+        preferredSize: const Size.fromHeight(54),
         child: SafeArea(
           child: _TopBar(controller: controller, title: pageTitle(context)),
         ),
@@ -736,8 +736,8 @@ class KiloShell extends StatelessWidget {
         destinations: [
           for (var i = 0; i < pages.length; i++)
             NavigationDestination(
-              icon: Icon(icons[i]),
-              selectedIcon: Icon(icons[i], color: cobalt),
+              icon: Icon(icons[i], size: 22),
+              selectedIcon: Icon(icons[i], color: cobalt, size: 22),
               label: AppLocalizations.of(context).text(labels[i]),
             ),
         ],
@@ -754,8 +754,8 @@ class _TopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 58,
-      padding: const EdgeInsets.fromLTRB(16, 0, 10, 0),
+      height: 54,
+      padding: const EdgeInsets.fromLTRB(14, 0, 8, 0),
       decoration: const BoxDecoration(
         color: paper,
         border: Border(bottom: BorderSide(color: hairline)),
@@ -766,15 +766,15 @@ class _TopBar extends StatelessWidget {
           Expanded(
             child: Row(
               children: [
-                const BrandLogo(size: 35),
-                const SizedBox(width: 10),
+                const BrandLogo(size: 30),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     AppLocalizations.of(context).text(title),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      fontSize: 21,
+                      fontSize: 19,
                       fontWeight: FontWeight.w800,
                       color: ink,
                     ),
@@ -855,7 +855,7 @@ class PageFrame extends StatelessWidget {
   const PageFrame({
     super.key,
     required this.children,
-    this.padding = const EdgeInsets.fromLTRB(16, 18, 16, 100),
+    this.padding = const EdgeInsets.fromLTRB(14, 14, 14, 86),
   });
   final List<Widget> children;
   final EdgeInsets padding;
@@ -1307,7 +1307,7 @@ class _HomeProgressPanel extends StatelessWidget {
       borderRadius: BorderRadius.circular(18),
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         child: controller.history.isEmpty
             ? const Row(
                 children: [
@@ -1943,21 +1943,6 @@ class _LiveWorkoutTimingPanel extends StatelessWidget {
                 label: const Text('组间休息'),
               ),
             ),
-            if (controller.freeWorkout && !controller.workoutTimerStarted)
-              Tooltip(
-                message: '让 AI 为本次自由训练生成可编辑计划',
-                child: OutlinedButton.icon(
-                  key: const Key('ai-customize-workout-button'),
-                  onPressed: controller.aiTyping
-                      ? null
-                      : () {
-                          HapticFeedback.selectionClick();
-                          unawaited(controller.requestAiCustomizedWorkout());
-                        },
-                  icon: const Icon(Icons.auto_awesome_outlined),
-                  label: const Text('AI 定制本次训练'),
-                ),
-              ),
           ],
         );
       },
@@ -2899,8 +2884,10 @@ void _showSetTypeSheet(
   BuildContext context,
   AppController controller,
   WorkoutSet set,
-  int index,
-) {
+  int index, {
+  bool persistWorkout = true,
+  VoidCallback? onChanged,
+}) {
   showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -2928,7 +2915,8 @@ void _showSetTypeSheet(
                   selected: entry.key == set.type,
                   onTap: () {
                     set.type = entry.key;
-                    controller.refresh(persistWorkout: true);
+                    controller.refresh(persistWorkout: persistWorkout);
+                    onChanged?.call();
                     Navigator.pop(sheetContext);
                   },
                 ),
@@ -2953,11 +2941,15 @@ class _SetTypeButton extends StatelessWidget {
     required this.set,
     required this.index,
     required this.compact,
+    this.persistWorkout = true,
+    this.onChanged,
   });
   final AppController controller;
   final WorkoutSet set;
   final int index;
   final bool compact;
+  final bool persistWorkout;
+  final VoidCallback? onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -2970,7 +2962,14 @@ class _SetTypeButton extends StatelessWidget {
       child: InkWell(
         key: Key('set-type-${set.id}'),
         borderRadius: BorderRadius.circular(8),
-        onTap: () => _showSetTypeSheet(context, controller, set, index),
+        onTap: () => _showSetTypeSheet(
+          context,
+          controller,
+          set,
+          index,
+          persistWorkout: persistWorkout,
+          onChanged: onChanged,
+        ),
         child: Container(
           constraints: BoxConstraints(
             minWidth: compact ? 31 : 43,
@@ -3454,17 +3453,37 @@ class _PlansView extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(
-          width: double.infinity,
-          child: FilledButton.icon(
-            key: const Key('free-workout-button'),
-            onPressed: () {
-              controller.startWorkout(name: '自由训练', autoStartTimer: false);
-              controller.openLiveWorkout();
-            },
-            icon: const Icon(Icons.play_arrow),
-            label: const Text('自由训练 · 立即开始'),
-          ),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final freeWorkout = FilledButton.icon(
+              key: const Key('free-workout-button'),
+              onPressed: () {
+                controller.startWorkout(name: '自由训练', autoStartTimer: false);
+                controller.openLiveWorkout();
+              },
+              icon: const Icon(Icons.play_arrow, size: 19),
+              label: const Text('自由训练'),
+            );
+            final aiWorkout = OutlinedButton.icon(
+              key: const Key('ai-customize-plan-entry'),
+              onPressed: () => _showAiWorkoutPlanner(context, controller),
+              icon: const Icon(Icons.auto_awesome_outlined, size: 18),
+              label: const Text('AI 定制计划'),
+            );
+            if (constraints.maxWidth < 320) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [freeWorkout, const SizedBox(height: 8), aiWorkout],
+              );
+            }
+            return Row(
+              children: [
+                Expanded(child: freeWorkout),
+                const SizedBox(width: 8),
+                Expanded(child: aiWorkout),
+              ],
+            );
+          },
         ),
         const SizedBox(height: 16),
         SectionTitle(
@@ -3492,6 +3511,167 @@ class _PlansView extends StatelessWidget {
       ],
     );
   }
+}
+
+void _showAiWorkoutPlanner(BuildContext context, AppController controller) {
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    backgroundColor: paper,
+    builder: (_) => _AiWorkoutPlannerSheet(controller: controller),
+  );
+}
+
+class _AiWorkoutPlannerSheet extends StatefulWidget {
+  const _AiWorkoutPlannerSheet({required this.controller});
+  final AppController controller;
+
+  @override
+  State<_AiWorkoutPlannerSheet> createState() => _AiWorkoutPlannerSheetState();
+}
+
+class _AiWorkoutPlannerSheetState extends State<_AiWorkoutPlannerSheet> {
+  final details = TextEditingController();
+  late final int initialAssistantCount;
+  bool requested = false;
+
+  @override
+  void initState() {
+    super.initState();
+    initialAssistantCount = widget.controller.chat
+        .where((message) => message.role == 'assistant')
+        .length;
+  }
+
+  @override
+  void dispose() {
+    details.dispose();
+    super.dispose();
+  }
+
+  ChatMessage? _response() {
+    final answers = widget.controller.chat
+        .where((message) => message.role == 'assistant')
+        .toList(growable: false);
+    if (!requested || answers.length <= initialAssistantCount) return null;
+    return answers.last;
+  }
+
+  void generate() {
+    if (widget.controller.aiTyping) return;
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() => requested = true);
+    HapticFeedback.selectionClick();
+    unawaited(
+      widget.controller.requestAiCustomizedWorkout(details: details.text),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: widget.controller,
+    builder: (context, _) {
+      final response = _response();
+      final bottom = MediaQuery.viewInsetsOf(context).bottom;
+      return Padding(
+        padding: EdgeInsets.fromLTRB(14, 8, 14, 14 + bottom),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(context).height * .9,
+          ),
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.auto_awesome_rounded, color: primary),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'AI 定制训练计划',
+                      style: TextStyle(
+                        fontSize: 19,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: '关闭',
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+              const Text(
+                '可填写目标肌群、时长、器械或限制；不填写时会参考历史生成保守方案。',
+                style: TextStyle(fontSize: 12, color: muted),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                key: const Key('ai-workout-details'),
+                controller: details,
+                minLines: 2,
+                maxLines: 4,
+                enabled: !widget.controller.aiTyping,
+                decoration: const InputDecoration(
+                  hintText: '例如：练胸和肩，45 分钟，只有哑铃',
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 9),
+              FilledButton.icon(
+                key: const Key('ai-workout-generate'),
+                onPressed: widget.controller.aiTyping ? null : generate,
+                icon: Icon(
+                  widget.controller.aiTyping
+                      ? Icons.hourglass_top_rounded
+                      : Icons.auto_awesome_outlined,
+                  size: 18,
+                ),
+                label: Text(widget.controller.aiTyping ? '正在生成…' : '生成训练计划'),
+              ),
+              if (requested && response == null) ...[
+                const SizedBox(height: 12),
+                const LinearProgressIndicator(minHeight: 3),
+              ],
+              if (response != null && response.body.trim().isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Semantics(
+                  liveRegion: true,
+                  label: 'AI 正在输出训练计划',
+                  child: Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: MarkdownBody(
+                        data: response.body,
+                        selectable: true,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+              if (response?.plan != null)
+                _AiPlanCard(
+                  plan: response!.plan!,
+                  controller: widget.controller,
+                ),
+              if (widget.controller.aiTyping) ...[
+                const SizedBox(height: 6),
+                TextButton.icon(
+                  onPressed: widget.controller.cancelAiResponse,
+                  icon: const Icon(Icons.stop_circle_outlined, size: 18),
+                  label: Text(
+                    '停止回答 · 已等待 ${widget.controller.aiWaitingSeconds} 秒',
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      );
+    },
+  );
 }
 
 class _RoutineCard extends StatelessWidget {
@@ -5080,14 +5260,14 @@ class RecognitionPage extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            '生成分析视频',
+                            '生成完整骨骼视频（耗时更长）',
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w800,
                             ),
                           ),
                           Text(
-                            '关闭后仅返回数据、文字和预览图',
+                            '发现问题时会返回对应骨骼图；开启后还需绘制整段分析帧并重新编码视频',
                             style: TextStyle(fontSize: 10, color: quiet),
                           ),
                         ],
@@ -6141,23 +6321,40 @@ class _RecognitionReport extends StatelessWidget {
         Text(
           result.status == RecognitionStatus.complete ||
                   result.status == RecognitionStatus.lowConfidence
-              ? '这段动作已经看完，下面直接告诉你做得怎么样，以及下一组怎么调整。'
+              ? result.summary
               : result.summary,
           style: const TextStyle(fontSize: 13),
         ),
-        if (result.repetitions > 0)
-          Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Text(
-              '完成 ${result.repetitions} 次 · ${controller.displayExerciseName(controller.exerciseFor(controller.recognitionExerciseId))}',
-              style: const TextStyle(fontSize: 12, color: secondaryInk),
-            ),
+        if (result.events.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          const Text(
+            '视频中的动作提示',
+            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
           ),
+          const SizedBox(height: 4),
+          const Text(
+            '按时间查看问题和对应骨骼依据，不显示动作次数。',
+            style: TextStyle(fontSize: 12, color: secondaryInk),
+          ),
+          const SizedBox(height: 9),
+          for (final event in result.events) ...[
+            _RecognitionEventCard(
+              event: event,
+              mediaHeaders: result.mediaHeaders,
+            ),
+            if (event != result.events.last) const SizedBox(height: 9),
+          ],
+        ],
         if (result.overlayUrl != null) ...[
           const SizedBox(height: 14),
           const Text(
-            '骨骼标记视频',
+            '完整骨骼视频（可选）',
             style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+          ),
+          const SizedBox(height: 3),
+          const Text(
+            '完整视频需要绘制整段分析帧、重新编码和上传，所以会比只返回证据图更慢。',
+            style: TextStyle(fontSize: 12, color: secondaryInk),
           ),
           const SizedBox(height: 7),
           _NetworkRecognitionVideo(
@@ -6176,10 +6373,10 @@ class _RecognitionReport extends StatelessWidget {
                   icon: Icons.timer_outlined,
                   label: '${result.metrics['durationSeconds']} 秒',
                 ),
-              if (result.repetitions > 0)
+              if (result.events.isNotEmpty)
                 _RecognitionMetricChip(
-                  icon: Icons.repeat_rounded,
-                  label: '${result.repetitions} 次',
+                  icon: Icons.schedule_rounded,
+                  label: '${result.events.length} 个时间提示',
                 ),
             ],
           ),
@@ -6201,6 +6398,167 @@ class _RecognitionReport extends StatelessWidget {
       ],
     ),
   );
+}
+
+class _RecognitionEventCard extends StatelessWidget {
+  const _RecognitionEventCard({
+    required this.event,
+    required this.mediaHeaders,
+  });
+
+  final RecognitionEvent event;
+  final Map<String, String> mediaHeaders;
+
+  Future<void> _showEvidence(BuildContext context) async {
+    final url = event.evidenceImageUrl;
+    if (url == null) return;
+    await showDialog<void>(
+      context: context,
+      builder: (context) => Dialog(
+        insetPadding: const EdgeInsets.all(16),
+        backgroundColor: const Color(0xFF211F22),
+        child: Stack(
+          children: [
+            InteractiveViewer(
+              minScale: 1,
+              maxScale: 4,
+              child: Image.network(
+                url,
+                headers: mediaHeaders,
+                fit: BoxFit.contain,
+                semanticLabel: '${event.displayTime} 时刻的骨骼证据图',
+              ),
+            ),
+            Positioned(
+              top: 4,
+              right: 4,
+              child: IconButton.filledTonal(
+                tooltip: '关闭',
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.close_rounded),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final imageUrl = event.evidenceImageUrl;
+    return Container(
+      key: Key('recognition-event-${event.id}'),
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(13),
+        border: Border.all(color: hairline),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 9,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF3E9),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    '${event.displayTime} 附近',
+                    style: const TextStyle(
+                      color: primary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 9),
+                Text(
+                  event.label,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                if (event.explanation.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    event.explanation,
+                    style: const TextStyle(
+                      color: secondaryInk,
+                      fontSize: 12,
+                      height: 1.45,
+                    ),
+                  ),
+                ],
+                if (event.endMs > event.startMs) ...[
+                  const SizedBox(height: 5),
+                  Text(
+                    '持续区间 ${event.timeRangeLabel}',
+                    style: const TextStyle(color: quiet, fontSize: 11),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (imageUrl != null)
+            Semantics(
+              button: true,
+              label: '查看 ${event.displayTime} 时刻的骨骼证据图',
+              child: InkWell(
+                onTap: () => _showEvidence(context),
+                child: AspectRatio(
+                  aspectRatio: 16 / 10,
+                  child: Image.network(
+                    imageUrl,
+                    headers: mediaHeaders,
+                    fit: BoxFit.cover,
+                    semanticLabel: '${event.displayTime} 时刻的骨骼证据图',
+                    loadingBuilder: (context, child, progress) =>
+                        progress == null
+                        ? child
+                        : const ColoredBox(
+                            color: Color(0xFF211F22),
+                            child: Center(
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                    errorBuilder: (context, error, stackTrace) =>
+                        const ColoredBox(
+                          color: Color(0xFFF3EFEB),
+                          child: Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(16),
+                              child: Text(
+                                '骨骼证据图加载失败，请检查网络后重试。',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: secondaryInk,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 }
 
 class _RecognitionMetricChip extends StatelessWidget {
@@ -6478,7 +6836,7 @@ class _NetworkRecognitionVideoState extends State<_NetworkRecognitionVideo> {
                   child: Padding(
                     padding: EdgeInsets.symmetric(horizontal: 8, vertical: 5),
                     child: Text(
-                      '骨骼标记视频 · 点击播放',
+                      '完整骨骼视频，点击播放',
                       style: TextStyle(color: Colors.white, fontSize: 10),
                     ),
                   ),
@@ -8252,12 +8610,12 @@ class _AccountMembershipCard extends StatelessWidget {
                       clipBehavior: Clip.none,
                       children: [
                         Container(
-                          width: 56,
-                          height: 56,
+                          width: 46,
+                          height: 46,
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
                             color: ink,
-                            borderRadius: BorderRadius.circular(18),
+                            borderRadius: BorderRadius.circular(14),
                           ),
                           child: Text(
                             user.displayName.isEmpty
@@ -8265,7 +8623,7 @@ class _AccountMembershipCard extends StatelessWidget {
                                 : user.displayName.substring(0, 1),
                             style: const TextStyle(
                               color: Colors.white,
-                              fontSize: 20,
+                              fontSize: 18,
                               fontWeight: FontWeight.w900,
                             ),
                           ),
@@ -8275,12 +8633,12 @@ class _AccountMembershipCard extends StatelessWidget {
                           bottom: -5,
                           child: MembershipMark(
                             isMember: quota.isMember,
-                            size: 22,
+                            size: 19,
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -8321,7 +8679,7 @@ class _AccountMembershipCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       identity,
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
                       Align(alignment: Alignment.centerLeft, child: badge),
                     ],
                   );
@@ -8335,7 +8693,7 @@ class _AccountMembershipCard extends StatelessWidget {
                 );
               },
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 11),
             LayoutBuilder(
               builder: (context, constraints) {
                 final compact = constraints.maxWidth < 330 || textScale > 1.5;
@@ -8353,22 +8711,22 @@ class _AccountMembershipCard extends StatelessWidget {
                 );
                 return compact
                     ? Column(
-                        children: [ai, const Divider(height: 20), recognition],
+                        children: [ai, const Divider(height: 14), recognition],
                       )
                     : Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(child: ai),
                           const SizedBox(
-                            height: 64,
-                            child: VerticalDivider(width: 24),
+                            height: 52,
+                            child: VerticalDivider(width: 18),
                           ),
                           Expanded(child: recognition),
                         ],
                       );
               },
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 10),
             Row(
               children: [
                 Expanded(
@@ -8394,7 +8752,7 @@ class _AccountMembershipCard extends StatelessWidget {
               ],
             ),
             if (user.isAdmin) ...[
-              const Divider(height: 24),
+              const Divider(height: 18),
               const Row(
                 children: [
                   Icon(Icons.admin_panel_settings_outlined, size: 18),
@@ -8405,7 +8763,7 @@ class _AccountMembershipCard extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -8447,15 +8805,15 @@ class _QuotaMetric extends StatelessWidget {
   Widget build(BuildContext context) => Row(
     children: [
       Container(
-        width: 34,
-        height: 34,
+        width: 30,
+        height: 30,
         decoration: BoxDecoration(
           color: primaryContainer,
-          borderRadius: BorderRadius.circular(11),
+          borderRadius: BorderRadius.circular(9),
         ),
-        child: Icon(icon, color: primary, size: 18),
+        child: Icon(icon, color: primary, size: 16),
       ),
-      const SizedBox(width: 9),
+      const SizedBox(width: 7),
       Expanded(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -8466,7 +8824,7 @@ class _QuotaMetric extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                fontSize: 20,
+                fontSize: 17,
                 color: ink,
                 fontWeight: FontWeight.w900,
               ),
@@ -8507,15 +8865,15 @@ class ProfilePage extends StatelessWidget {
     return PageFrame(
       children: [
         _AccountMembershipCard(controller: controller),
-        const SizedBox(height: 18),
+        const SizedBox(height: 14),
         const _ProfileSectionLabel(
           title: '训练资产',
           icon: Icons.bar_chart_rounded,
         ),
-        const SizedBox(height: 9),
+        const SizedBox(height: 7),
         Card(
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final textScale = MediaQuery.textScalerOf(context).scale(1);
@@ -8556,9 +8914,9 @@ class ProfilePage extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 14),
         const _ProfileSectionLabel(title: '个性化', icon: Icons.tune_rounded),
-        const SizedBox(height: 9),
+        const SizedBox(height: 7),
         LayoutBuilder(
           builder: (context, constraints) {
             final textScale = MediaQuery.textScalerOf(context).scale(1);
@@ -8568,10 +8926,10 @@ class ProfilePage extends StatelessWidget {
               physics: const NeverScrollableScrollPhysics(),
               crossAxisCount: singleColumn ? 1 : 2,
               crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
+              mainAxisSpacing: 8,
               mainAxisExtent: singleColumn
-                  ? (textScale > 1.45 ? 124 : 96)
-                  : (textScale > 1.2 ? 132 : 116),
+                  ? (textScale > 1.45 ? 124 : 86)
+                  : (textScale > 1.2 ? 116 : 96),
               children: [
                 _ProfileQuickAction(
                   icon: Icons.insights_rounded,
@@ -8617,9 +8975,9 @@ class ProfilePage extends StatelessWidget {
             );
           },
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 14),
         const _ProfileSectionLabel(title: '服务与安全', icon: Icons.shield_outlined),
-        const SizedBox(height: 9),
+        const SizedBox(height: 7),
         Card(
           child: Column(
             children: [
@@ -8680,9 +9038,9 @@ class _ProfileSectionLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(
     children: [
-      Icon(icon, size: 18, color: primary),
+      Icon(icon, size: 16, color: primary),
       const SizedBox(width: 7),
-      Text(title, style: Theme.of(context).textTheme.titleLarge),
+      Text(title, style: Theme.of(context).textTheme.titleMedium),
     ],
   );
 }
@@ -8700,7 +9058,7 @@ class _ProfileMetric extends StatelessWidget {
         fit: BoxFit.scaleDown,
         child: Text(
           value,
-          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
         ),
       ),
       Text(label, style: const TextStyle(fontSize: 11, color: quiet)),
@@ -8734,20 +9092,20 @@ class _ProfileQuickAction extends StatelessWidget {
     child: InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(10),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              width: 34,
-              height: 34,
+              width: 30,
+              height: 30,
               decoration: BoxDecoration(
                 color: primaryContainer,
-                borderRadius: BorderRadius.circular(11),
+                borderRadius: BorderRadius.circular(9),
               ),
-              child: Icon(icon, size: 18, color: primary),
+              child: Icon(icon, size: 16, color: primary),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 8),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -8793,15 +9151,16 @@ class _ProfileSettingRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ListTile(
-    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 3),
+    dense: true,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
     leading: Container(
-      width: 34,
-      height: 34,
+      width: 30,
+      height: 30,
       decoration: BoxDecoration(
         color: primaryContainer,
-        borderRadius: BorderRadius.circular(11),
+        borderRadius: BorderRadius.circular(9),
       ),
-      child: Icon(icon, size: 18, color: primary),
+      child: Icon(icon, size: 16, color: primary),
     ),
     title: Text(
       AppLocalizations.of(context).text(title),
@@ -10446,7 +10805,7 @@ class _ExercisePickerSheetState extends State<_ExercisePickerSheet> {
       '手臂': '手臂',
       '核心': '核心',
     };
-    const equipments = ['全部', '固定器械', '哑铃杠铃', '徒手', '绳索弹力带', '其他'];
+    final equipments = widget.controller.equipmentFilterOptions;
     return SizedBox(
       key: const Key('exercise-picker'),
       height: MediaQuery.sizeOf(context).height * .84,
@@ -12763,32 +13122,25 @@ class _RoutineSetEditor extends _RoutineSetEditorBase {
                 ),
               ),
             ),
-            Expanded(
-              child: DropdownButtonFormField<String>(
-                initialValue: set.type,
-                isDense: true,
-                isExpanded: true,
-                decoration: const InputDecoration(
-                  labelText: '\u7EC4\u522B\u7C7B\u578B',
-                  contentPadding: EdgeInsets.symmetric(
-                    horizontal: 9,
-                    vertical: 8,
-                  ),
+            SizedBox(
+              width: 74,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: primaryContainer.withValues(alpha: .46),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: hairline),
                 ),
-                items: [
-                  for (final entry in setTypeLabels.entries)
-                    DropdownMenuItem(
-                      value: entry.key,
-                      child: Text(entry.value, overflow: TextOverflow.ellipsis),
-                    ),
-                ],
-                onChanged: (value) {
-                  if (value == null) return;
-                  set.type = value;
-                  controller.refresh();
-                },
+                child: _SetTypeButton(
+                  controller: controller,
+                  set: set,
+                  index: index,
+                  compact: false,
+                  persistWorkout: false,
+                  onChanged: controller.refresh,
+                ),
               ),
             ),
+            const Spacer(),
             const SizedBox(width: 4),
             IconButton(
               tooltip: '\u5220\u9664\u8FD9\u4E00\u7EC4',
@@ -13594,7 +13946,7 @@ Future<Exercise?> _showCustomExercise(
 }
 
 void _showLibraryFilters(BuildContext context, AppController controller) {
-  const equipment = <String>['全部', '固定器械', '哑铃杠铃', '徒手', '绳索弹力带', '其他'];
+  final equipment = controller.equipmentFilterOptions;
   showModalBottomSheet<void>(
     context: context,
     builder: (sheetContext) => SafeArea(

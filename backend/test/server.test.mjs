@@ -654,12 +654,44 @@ test('recognition upload, GPU protocol, media authorization and result', async (
   assert.equal(heartbeat.response.status, 200); assert.equal(heartbeat.body.status, 'processing');
   const input = await fetch(`${base}/v1/internal/gpu/jobs/${created.body.id}/input`, { headers: { 'x-kilo-gpu-key': 'gpu-test-key-123456789012345678901234' } }); assert.equal(input.status, 200); assert.equal(input.headers.get('content-type'), 'video/mp4'); assert.equal(await input.text(), 'test');
   const artifact = await api(`/v1/internal/gpu/jobs/${created.body.id}/artifact`, { method: 'POST', headers: { 'x-kilo-gpu-key': 'gpu-test-key-123456789012345678901234' }, body: JSON.stringify({ kind: 'preview', contentType: 'image/png', dataBase64: Buffer.from('png').toString('base64') }) }); assert.equal(artifact.response.status, 200);
-  const done = await api(`/v1/internal/gpu/jobs/${created.body.id}/result`, { method: 'POST', headers: { 'x-kilo-gpu-key': 'gpu-test-key-123456789012345678901234' }, body: JSON.stringify({ result: { status: 'complete', confidence: 0.9, repetitions: 8, summary: 'ok' }, modelVersion: 'test-v1' }) }); assert.equal(done.response.status, 200); assert.equal(done.body.status, 'completed');
+  const evidenceArtifact = await fetch(`${base}/v1/internal/gpu/jobs/${created.body.id}/artifact`, { method: 'PUT', headers: { 'x-kilo-gpu-key': 'gpu-test-key-123456789012345678901234', 'x-artifact-kind': 'evidence', 'x-artifact-id': 'event-001', 'content-type': 'image/jpeg', 'content-length': '4' }, body: Buffer.from('jpeg') });
+  assert.equal(evidenceArtifact.status, 200);
+  const done = await api(`/v1/internal/gpu/jobs/${created.body.id}/result`, {
+    method: 'POST',
+    headers: { 'x-kilo-gpu-key': 'gpu-test-key-123456789012345678901234' },
+    body: JSON.stringify({
+      result: {
+        status: 'complete',
+        confidence: 0.9,
+        summary: '在视频中的 1 个时间点发现需要注意的动作现象。',
+        metrics: { completeMotionCycles: 1, durationSeconds: 12.4 },
+        events: [{
+          id: 'event-001',
+          evidenceId: 'event-001',
+          code: 'SQUAT_DEPTH_LIMITED',
+          label: '下蹲深度可能不足',
+          startMs: 11800,
+          peakMs: 12400,
+          endMs: 13000,
+          displayTime: '00:12.4',
+          explanation: '最低位置可见侧膝角约 126.0°，高于当前参考线。',
+          measurements: { kneeAngleDeg: 126, referenceLimitDeg: 118 },
+        }],
+      },
+      modelVersion: 'test-v2-time-evidence',
+    }),
+  });
+  assert.equal(done.response.status, 200); assert.equal(done.body.status, 'completed');
+  assert.equal(done.body.result.events[0].displayTime, '00:12.4');
+  assert.match(done.body.result.events[0].evidenceImageUrl, /\/media\/evidence\/event-001$/);
+  assert.equal('repetitions' in done.body.result, false);
   const ownerMedia = await fetch(`${base}/v1/analysis/jobs/${created.body.id}/media/preview`, { headers: { authorization: `Bearer ${user2Token}` } }); assert.equal(ownerMedia.status, 200); assert.equal(ownerMedia.headers.get('content-type'), 'image/png');
   const otherMedia = await fetch(`${base}/v1/analysis/jobs/${created.body.id}/media/preview`, { headers: { authorization: `Bearer ${userToken}` } }); assert.equal(otherMedia.status, 404);
+  const ownerEvidence = await fetch(`${base}/v1/analysis/jobs/${created.body.id}/media/evidence/event-001`, { headers: { authorization: `Bearer ${user2Token}` } }); assert.equal(ownerEvidence.status, 200); assert.equal(ownerEvidence.headers.get('content-type'), 'image/jpeg'); assert.equal(await ownerEvidence.text(), 'jpeg');
+  const otherEvidence = await fetch(`${base}/v1/analysis/jobs/${created.body.id}/media/evidence/event-001`, { headers: { authorization: `Bearer ${userToken}` } }); assert.equal(otherEvidence.status, 404);
 });
 
-test('recognition refuses to invent coaching feedback without a complete repetition', async () => {
+test('recognition refuses to invent coaching feedback without a complete motion cycle', async () => {
   const created = await api('/v1/analysis/jobs', { method: 'POST', headers: { authorization: `Bearer ${adminToken}` }, body: JSON.stringify({ exerciseId: 'barbell_squat', camera: 'side', includeOverlay: false }) });
   assert.equal(created.response.status, 202);
   const issuedUpload = new URL(created.body.upload.url);
@@ -675,9 +707,8 @@ test('recognition refuses to invent coaching feedback without a complete repetit
       result: {
         status: 'complete',
         confidence: 0.0988,
-        repetitions: 0,
         summary: '本次动作已经分析完成',
-        metrics: { detectedFrames: 29, inferenceFrames: 29, detectionRate: 1, durationSeconds: 3.01 },
+        metrics: { completeMotionCycles: 0, detectedFrames: 29, inferenceFrames: 29, detectionRate: 1, durationSeconds: 3.01 },
       },
       modelVersion: 'test-v1',
     }),
@@ -694,6 +725,7 @@ test('recognition refuses to invent coaching feedback without a complete repetit
 test('recognition rejects unsafe or oversized uploads', async () => {
   const before = (await api('/v1/me/entitlements', { headers: { authorization: `Bearer ${user2Token}` } })).body.recognitionRemaining;
   const created = await api('/v1/analysis/jobs', { method: 'POST', headers: { authorization: `Bearer ${user2Token}` }, body: JSON.stringify({ exerciseId: 'barbell_squat', camera: 'side' }) });
+  assert.equal(created.body.includeOverlay, false);
   const issuedUpload = new URL(created.body.upload.url); const upload = new URL(`${issuedUpload.pathname}${issuedUpload.search}`, base); const badType = await fetch(upload, { method: 'PUT', headers: { 'content-type': 'text/plain' }, body: 'x' }); assert.equal(badType.status, 415);
   const after = (await api('/v1/me/entitlements', { headers: { authorization: `Bearer ${user2Token}` } })).body.recognitionRemaining; assert.equal(after, before);
 });

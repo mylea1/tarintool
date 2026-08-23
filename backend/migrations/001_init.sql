@@ -147,7 +147,7 @@ CREATE TABLE IF NOT EXISTS recognition_jobs (
   user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   exercise_id TEXT NOT NULL,
   camera TEXT NOT NULL,
-  include_overlay INTEGER NOT NULL DEFAULT 1,
+  include_overlay INTEGER NOT NULL DEFAULT 0,
   status TEXT NOT NULL CHECK (status IN ('created', 'uploading', 'queued', 'processing', 'completed', 'failed', 'cancelled', 'expired')),
   upload_token_hash TEXT NOT NULL,
   upload_expires_at TEXT,
@@ -162,6 +162,19 @@ CREATE TABLE IF NOT EXISTS recognition_jobs (
   updated_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_recognition_queue ON recognition_jobs(status, created_at);
+
+CREATE TABLE IF NOT EXISTS recognition_artifacts (
+  job_id TEXT NOT NULL REFERENCES recognition_jobs(id) ON DELETE CASCADE,
+  artifact_id TEXT NOT NULL,
+  kind TEXT NOT NULL CHECK (kind IN ('evidence')),
+  storage_key TEXT NOT NULL,
+  content_type TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (job_id, artifact_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_recognition_artifacts_job
+  ON recognition_artifacts(job_id, created_at);
 
 CREATE TABLE IF NOT EXISTS push_tokens (
   user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,

@@ -85,6 +85,7 @@ const RECOGNITION_CAPABILITIES = [
     cameras: [
       { id: 'side', label: '正侧面', hint: '镜头与髋部同高，完整拍到头、髋、膝和脚。' },
       { id: 'side_rear', label: '侧后方', hint: '从侧后方完整拍到双脚与杠铃，便于观察膝髋轨迹。' },
+      { id: 'front', label: '正前方', hint: '镜头正对身体，完整拍到髋、双膝和双脚，用于观察膝部横向移动。' },
     ],
   },
   {
@@ -113,6 +114,7 @@ const RECOGNITION_CAPABILITIES = [
   { exerciseId: 'goblet_squat', group: '腿部', cameras: [
     { id: 'side', label: '正侧面', hint: '拍全头、髋、膝与双脚，镜头保持水平。' },
     { id: 'side_rear', label: '侧后方', hint: '从侧后方约 30° 拍摄，保留双脚与膝髋轨迹。' },
+    { id: 'front', label: '正前方', hint: '镜头正对身体，完整拍到髋、双膝和双脚。' },
   ] },
   { exerciseId: 'deadlift', group: '臀腿', cameras: [
     { id: 'side', label: '正侧面', hint: '完整拍到杠铃、肩、髋、膝和脚。' },
@@ -120,11 +122,11 @@ const RECOGNITION_CAPABILITIES = [
   ] },
   { exerciseId: 'bench_press', group: '胸部', cameras: [
     { id: 'side', label: '正侧面', hint: '完整拍到杠铃、肩肘、躯干和双脚。' },
-    { id: 'side_front', label: '侧前方', hint: '从侧前方约 30° 拍摄，避免器械遮住手肘。' },
+    { id: 'side_front', label: '侧前方', hint: '从侧前方约 30° 拍摄可减少遮挡；底部小臂垂直度需正侧面判断。' },
   ] },
   { exerciseId: 'dumbbell_press', group: '胸部', cameras: [
     { id: 'side', label: '正侧面', hint: '拍全哑铃、肩肘、躯干和双脚。' },
-    { id: 'side_front', label: '侧前方', hint: '侧前方拍摄，确保两侧哑铃都可见。' },
+    { id: 'side_front', label: '侧前方', hint: '侧前方拍摄可观察两侧路径；底部小臂垂直度需正侧面判断。' },
   ] },
   { exerciseId: 'shoulder_press', group: '肩部', cameras: [
     { id: 'front', label: '正前方', hint: '拍全双手、肩、肘和躯干。' },
@@ -196,6 +198,24 @@ function addMonths(from, months) {
   return d;
 }
 
+function recognitionResultWithEvidenceUrls(row, cfg) {
+  if (!row?.result_json) return null;
+  const result = JSON.parse(row.result_json);
+  if (!Array.isArray(result?.events)) return result;
+  return {
+    ...result,
+    events: result.events.map((event) => {
+      const evidenceId = typeof event?.evidenceId === 'string' ? event.evidenceId : '';
+      return {
+        ...event,
+        evidenceImageUrl: evidenceId
+          ? `${cfg.publicBaseUrl}/v1/analysis/jobs/${encodeURIComponent(row.id)}/media/evidence/${encodeURIComponent(evidenceId)}`
+          : null,
+      };
+    }),
+  };
+}
+
 function publicJob(row, cfg) {
   if (!row) return null;
   return {
@@ -209,7 +229,7 @@ function publicJob(row, cfg) {
     updatedAt: row.updated_at,
     modelVersion: row.model_version,
     error: row.error_code,
-    result: row.result_json ? JSON.parse(row.result_json) : null,
+    result: recognitionResultWithEvidenceUrls(row, cfg),
     media: {
       input: row.input_key ? `${cfg.publicBaseUrl}/v1/analysis/jobs/${encodeURIComponent(row.id)}/media/input` : null,
       overlay: row.overlay_key ? `${cfg.publicBaseUrl}/v1/analysis/jobs/${encodeURIComponent(row.id)}/media/overlay` : null,
@@ -224,8 +244,16 @@ function mediaContentType(key) {
 
 function artifactContentTypeAllowed(kind, contentType) {
   if (!ALLOWED_MEDIA_TYPES.has(contentType)) return false;
-  if (kind === 'preview') return contentType.startsWith('image/');
+  if (kind === 'preview' || kind === 'evidence') return contentType.startsWith('image/');
   return kind === 'overlay' && (contentType.startsWith('image/') || contentType.startsWith('video/'));
+}
+
+function requireEvidenceArtifactId(value) {
+  const artifactId = String(value || '').trim();
+  if (!/^[A-Za-z0-9_-]{1,64}$/.test(artifactId)) {
+    throw httpError(400, 'invalid_artifact_id');
+  }
+  return artifactId;
 }
 
 function userFromDb(db, id) { return db.prepare('SELECT * FROM users WHERE id = ?').get(id); }
@@ -752,12 +780,14 @@ export function recognitionEvidenceAssessment(result) {
     return { assessable: false, reason: String(result?.evidenceReason || metrics.evidenceReason || 'insufficient_evidence') };
   }
   const confidence = Number(result?.confidence || 0);
-  const repetitions = Number(result?.repetitions || 0);
+  const completeMotionCycles = Number(
+    metrics.completeMotionCycles ?? result?.repetitions ?? 0,
+  );
   const detectedFrames = Number(metrics.detectedFrames || 0);
   const inferenceFrames = Number(metrics.inferenceFrames || 0);
   if (inferenceFrames > 0 && (detectedFrames < 6 || detectedFrames / inferenceFrames < 0.55)) return { assessable: false, reason: 'insufficient_landmarks' };
   if (!Number.isFinite(confidence) || confidence < 0.25) return { assessable: false, reason: 'insufficient_pose_quality' };
-  if (!Number.isFinite(repetitions) || repetitions < 1) return { assessable: false, reason: 'no_complete_repetition' };
+  if (!Number.isFinite(completeMotionCycles) || completeMotionCycles < 1) return { assessable: false, reason: 'no_complete_motion_cycle' };
   return { assessable: true, reason: 'assessable' };
 }
 
@@ -980,13 +1010,13 @@ function insufficientRecognitionResult(result, reason) {
     ...result,
     assessment: 'insufficient_evidence',
     evidenceReason: reason,
-    summary: '这段视频不足以评价所选动作，请上传至少一次完整动作。',
+    summary: '这段视频不足以评价所选动作，请上传包含完整动作过程的视频。',
     aiReview: {
       headline: '这段视频还不足以评价所选动作',
       strengths: [],
       risks: [],
-      nextSet: '请重新上传一段完整视频：从起始位开始，完成至少一次动作，再回到起始位。',
-      basis: '当前没有足够的完整动作过程，所以不会猜测你哪里做得好或哪里需要改。',
+      nextSet: '请重新上传一段完整视频，从起始位开始，完成动作后再回到起始位。',
+      basis: '当前没有足够的动作过程，所以不会猜测哪里需要调整。',
     },
     aiReviewError: null,
   };
@@ -994,13 +1024,24 @@ function insufficientRecognitionResult(result, reason) {
 
 function recognitionCoachingObservations(result) {
   const metrics = result?.metrics && typeof result.metrics === 'object' ? result.metrics : {};
-  const observations = { repetitions: Number(result?.repetitions || 0) };
-  for (const key of ['durationSeconds', 'primaryAngleMin', 'primaryAngleMax', 'primaryAngleRange']) {
+  const observations = { events: [] };
+  for (const key of ['durationSeconds']) {
     const value = Number(metrics[key]);
     if (Number.isFinite(value)) observations[key] = value;
   }
-  if (observations.repetitions > 0 && observations.durationSeconds > 0) {
-    observations.secondsPerRepetition = Number((observations.durationSeconds / observations.repetitions).toFixed(2));
+  if (Array.isArray(result?.events)) {
+    observations.events = result.events.slice(0, 8).map((event) => ({
+      code: String(event?.code || '').slice(0, 80),
+      label: String(event?.label || '').slice(0, 120),
+      displayTime: String(event?.displayTime || '').slice(0, 20),
+      startMs: Number(event?.startMs || 0),
+      peakMs: Number(event?.peakMs || 0),
+      endMs: Number(event?.endMs || 0),
+      explanation: String(event?.explanation || '').slice(0, 500),
+      measurements: event?.measurements && typeof event.measurements === 'object'
+        ? event.measurements
+        : {},
+    }));
   }
   return observations;
 }
@@ -1015,11 +1056,12 @@ async function enrichRecognitionResult(ctx, job, result) {
       role: 'system',
       content: `你是形域里一位有经验、会说人话的训练搭档。用户刚完成一组动作，希望立刻知道做得怎么样、下一组怎么改。
 写法要求：
-1. 像训练搭档当面说话，直接、自然、鼓励但不敷衍，不使用报告腔。
-2. 你只能改写用户 JSON 中 observations 已明确给出的事实，不能新增任何观察结论。
-3. 没有对应测量值时，禁止评价深度、膝盖方向、站姿、重心、稳定性、左右对称、关节轨迹或动作质量；信息不足的字段直接省略。
-4. 绝不能出现算法、模型、置信度、关键点、识别率、拍摄、机位、光线、画面质量或技术故障等词。
-5. 不推测伤病，不责怪用户。建议只能依据 observations，证据不足时 strengths 和 risks 必须为空数组。
+ 1. 像训练搭档当面说话，直接、自然、鼓励但不敷衍，不使用报告腔。
+ 2. 你只能改写用户 JSON 中 observations.events 已明确给出的事实，不能新增任何观察结论。
+ 3. 需要定位问题时，只能使用事件的 displayTime，例如“00:12.4 附近”。禁止写“第几次动作”、动作序号或完成次数。
+ 4. 没有对应测量值时，禁止评价深度、膝盖方向、站姿、重心、稳定性、左右对称、关节轨迹或动作质量；信息不足的字段直接省略。
+ 5. 绝不能出现算法、模型、置信度、关键点、识别率、拍摄、机位、光线、画面质量或技术故障等词。
+ 6. 不推测伤病，不责怪用户。建议只能依据 observations，证据不足时 strengths 和 risks 必须为空数组。
 仅输出 JSON：{"headline":"一句自然的总体判断","strengths":["做得好的地方"],"risks":["下一组注意"],"nextSet":"下一组具体怎么做","basis":"用普通训练语言简述理由"}。每个数组最多 3 条。`,
     },
     {
@@ -1033,7 +1075,7 @@ async function enrichRecognitionResult(ctx, job, result) {
   try {
     const raw = await ctx.aiGate.run(() => callDeepSeek(ctx, messages, job.user_id));
     const match = raw.match(/\{[\s\S]*\}/u);
-    if (!match) return { ...result, assessment: 'assessable', aiReview: { headline: `已识别到 ${observations.repetitions} 次完整动作`, strengths: [], risks: [], nextSet: '', basis: '只展示本次能够确认的完整动作次数。' }, aiReviewError: 'ai_review_invalid_json' };
+    if (!match) return { ...result, assessment: 'assessable', aiReview: { headline: observations.events.length ? '已找到可以复核的动作时间点' : '这段动作已经看完了', strengths: [], risks: observations.events.map((event) => `${event.displayTime} 附近：${event.label}`).slice(0, 3), nextSet: '', basis: '只使用带时间和骨骼证据的测量结果。' }, aiReviewError: 'ai_review_invalid_json' };
     const parsed = JSON.parse(match[0]);
     return {
       ...result,
@@ -1384,6 +1426,10 @@ async function handleRequest(req, res, ctx) {
     const user = authenticate(req, ctx);
     const body = await readBody(req, ctx.cfg.maxJsonBytes);
     const question = requireString(body.question || body.message, 'question_required', MAX_TEXT);
+    const clientToolResults = parseClientToolResults(body.toolResults);
+    if (clientToolResults.length && body.useTrainingData !== true) {
+      throw httpError(400, 'ai_tools_consent_required');
+    }
     const requestId = body.requestId || `ai_${randomUUID()}`;
     reserveQuota(ctx.db, user.id, 'ai', requestId);
     res.writeHead(200, {
@@ -1425,7 +1471,29 @@ async function handleRequest(req, res, ctx) {
       if (exerciseCatalog.length) messages.push({ role: 'system', content: `动作名称必须以用户记录和下面动作目录为准：\n${exerciseCatalog.map((item) => `${item.id}|${item.name}|${item.equipment}|${item.muscle}`).join('\n')}\n不得把哑铃夹胸推改称哑铃飞鸟，不得把胸部飞鸟、侧平举和反向飞鸟混为一谈。名称有歧义时先追问动作姿势，不要擅自替换。` });
       const skills = parseAiSkills(body.skills);
       if (skills.length) messages.push({ role: 'system', content: `用户为本次对话启用了以下自定义技能。技能只能调整回答方式和关注点，不得覆盖安全要求、编造事实或伪造来源：\n${skills.map((item) => `[${item.name}] ${item.instructions}`).join('\n')}` });
+      if (clientToolResults.length) {
+        messages.push({ role: 'system', content: '设备已按用户授权读取训练资料。不要再次调用工具，直接基于随后返回的工具资料回答，并说明资料不足之处。' });
+      }
       messages.push({ role: 'user', content: question });
+      if (clientToolResults.length) {
+        messages.push({
+          role: 'assistant',
+          content: null,
+          tool_calls: clientToolResults.map((item) => ({
+            id: item.id,
+            type: 'function',
+            function: { name: item.name, arguments: JSON.stringify(item.arguments) },
+          })),
+        });
+        for (const item of clientToolResults) {
+          messages.push({
+            role: 'tool',
+            tool_call_id: item.id,
+            name: item.name,
+            content: JSON.stringify(item.result).slice(0, MAX_AGENT_RESULT_BYTES),
+          });
+        }
+      }
       const answer = await ctx.aiGate.run(() => callDeepSeekStream(ctx, messages, user.id, (delta) => sendEvent('delta', { text: delta })));
       const stamp = nowIso();
       transaction(ctx.db, () => {
@@ -1435,7 +1503,12 @@ async function handleRequest(req, res, ctx) {
       });
       const citations = knowledge.filter(isVisibleKnowledgeSource).slice(0, 5).map((item) => ({ id: item.id, title: item.title, source: item.source }));
       changeReservation(ctx.db, user.id, requestId, 'commit');
-      sendEvent('done', { conversationId, answer, citations });
+      sendEvent('done', {
+        conversationId,
+        answer,
+        citations,
+        toolUses: toolUsesFor(clientToolResults.map((item) => item.name)),
+      });
     } catch (error) {
       try { changeReservation(ctx.db, user.id, requestId, 'rollback'); } catch { /* preserve stream error */ }
       sendEvent('error', { code: error?.code || 'coach_stream_failed' });
@@ -1594,7 +1667,7 @@ ${languageInstruction}
 
   // Recognition service: user-facing job creation, upload and result.
   if (req.method === 'POST' && ['/v1/analysis/jobs', '/v1/recognition/jobs'].includes(url.pathname)) {
-    const user = authenticate(req, ctx); const body = await readBody(req, ctx.cfg.maxJsonBytes); const exerciseId = requireString(body.exerciseId, 'exercise_id_required', 200); const camera = requireString(body.camera, 'camera_required', 100); const includeOverlay = body.includeOverlay !== false; if (!RECOGNITION_EXERCISE_IDS.has(exerciseId)) throw httpError(400, 'recognition_exercise_unsupported'); if (!RECOGNITION_CAMERAS.get(exerciseId)?.has(camera)) throw httpError(400, 'recognition_camera_unsupported'); const id = randomId('job_'); const quotaRequestId = `recognition:${id}`; const uploadToken = randomToken(); const stamp = nowIso(); const uploadExpiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+    const user = authenticate(req, ctx); const body = await readBody(req, ctx.cfg.maxJsonBytes); const exerciseId = requireString(body.exerciseId, 'exercise_id_required', 200); const camera = requireString(body.camera, 'camera_required', 100); const includeOverlay = body.includeOverlay === true; if (!RECOGNITION_EXERCISE_IDS.has(exerciseId)) throw httpError(400, 'recognition_exercise_unsupported'); if (!RECOGNITION_CAMERAS.get(exerciseId)?.has(camera)) throw httpError(400, 'recognition_camera_unsupported'); const id = randomId('job_'); const quotaRequestId = `recognition:${id}`; const uploadToken = randomToken(); const stamp = nowIso(); const uploadExpiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
     const job = transaction(ctx.db, () => {
       reserveQuotaInternal(ctx.db, user.id, 'recognition', quotaRequestId);
       ctx.db.prepare(`INSERT INTO recognition_jobs (id, user_id, exercise_id, camera, include_overlay, status, upload_token_hash, upload_expires_at, input_key, result_json, overlay_key, preview_key, error_code, model_version, quota_request_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 'created', ?, ?, '', NULL, NULL, NULL, NULL, NULL, ?, ?, ?)`).run(id, user.id, exerciseId, camera, includeOverlay ? 1 : 0, sha256(uploadToken, ctx.cfg.sessionPepper), uploadExpiresAt, quotaRequestId, stamp, stamp);
@@ -1629,6 +1702,22 @@ ${languageInstruction}
   if (mediaMatch && req.method === 'GET') {
     const user = authenticate(req, ctx); const job = assertJobOwner(ctx.db, decodeURIComponent(mediaMatch[1]), user.id); const kind = mediaMatch[2]; const key = kind === 'input' ? job.input_key : kind === 'overlay' ? job.overlay_key : job.preview_key; if (!key || !ctx.storage.exists(key)) throw httpError(404, 'media_not_found'); const stream = ctx.storage.createReadStream(key); const stat = ctx.storage.stat(key); const origin = parseOrigin(req, ctx.cfg); const headers = { 'content-length': stat.size, 'content-type': mediaContentType(key), 'content-disposition': 'inline', 'cache-control': 'private, max-age=300', 'x-content-type-options': 'nosniff' }; if (origin) headers['access-control-allow-origin'] = origin; res.writeHead(200, headers); stream.pipe(res); return;
   }
+  const evidenceMediaMatch = url.pathname.match(/^\/v1\/(?:analysis|recognition)\/jobs\/([^/]+)\/media\/evidence\/([^/]+)$/);
+  if (evidenceMediaMatch && req.method === 'GET') {
+    const user = authenticate(req, ctx);
+    const job = assertJobOwner(ctx.db, decodeURIComponent(evidenceMediaMatch[1]), user.id);
+    const artifactId = requireEvidenceArtifactId(decodeURIComponent(evidenceMediaMatch[2]));
+    const artifact = ctx.db.prepare("SELECT * FROM recognition_artifacts WHERE job_id = ? AND artifact_id = ? AND kind = 'evidence'").get(job.id, artifactId);
+    if (!artifact?.storage_key || !ctx.storage.exists(artifact.storage_key)) throw httpError(404, 'media_not_found');
+    const stream = ctx.storage.createReadStream(artifact.storage_key);
+    const stat = ctx.storage.stat(artifact.storage_key);
+    const origin = parseOrigin(req, ctx.cfg);
+    const headers = { 'content-length': stat.size, 'content-type': artifact.content_type || mediaContentType(artifact.storage_key), 'content-disposition': 'inline', 'cache-control': 'private, max-age=300', 'x-content-type-options': 'nosniff' };
+    if (origin) headers['access-control-allow-origin'] = origin;
+    res.writeHead(200, headers);
+    stream.pipe(res);
+    return;
+  }
 
   // Compute-worker protocol. The route name stays /gpu/ for backwards
   // compatibility, but both the current CPU worker and a future GPU worker use
@@ -1654,19 +1743,30 @@ ${languageInstruction}
     if (action === 'artifact' && req.method === 'PUT' && req.headers['x-artifact-kind']) {
       if (job.status !== 'processing') throw httpError(409, 'invalid_job_state');
       const kind = String(req.headers['x-artifact-kind']).trim();
-      if (!['overlay', 'preview'].includes(kind)) throw httpError(400, 'invalid_artifact_kind');
+      if (!['overlay', 'preview', 'evidence'].includes(kind)) throw httpError(400, 'invalid_artifact_kind');
       const contentType = String(req.headers['content-type'] || '').split(';')[0].toLowerCase();
       if (!artifactContentTypeAllowed(kind, contentType)) throw httpError(415, 'unsupported_media_type');
       if (Number(req.headers['content-length'] || 0) > ctx.cfg.maxUploadBytes) throw httpError(413, 'artifact_too_large', { maxBytes: ctx.cfg.maxUploadBytes });
-      const key = `artifacts/${job.user_id}/${job.id}/${kind}${extensionForType.get(contentType) || '.bin'}`;
+      const artifactId = kind === 'evidence' ? requireEvidenceArtifactId(req.headers['x-artifact-id']) : kind;
+      const key = kind === 'evidence'
+        ? `artifacts/${job.user_id}/${job.id}/evidence/${artifactId}${extensionForType.get(contentType) || '.bin'}`
+        : `artifacts/${job.user_id}/${job.id}/${kind}${extensionForType.get(contentType) || '.bin'}`;
       try {
         await ctx.storage.putStream(key, req, { maxBytes: ctx.cfg.maxUploadBytes });
       } catch (error) {
         if (error?.code === 'upload_too_large') throw httpError(413, 'artifact_too_large', { maxBytes: ctx.cfg.maxUploadBytes });
         throw error;
       }
-      ctx.db.prepare(`UPDATE recognition_jobs SET ${kind}_key = ?, updated_at = ? WHERE id = ? AND status = 'processing'`).run(key, nowIso(), id);
-      writeJson(res, 200, { kind, key }, req, ctx.cfg); return;
+      if (kind === 'evidence') {
+        ctx.db.prepare(`INSERT INTO recognition_artifacts (job_id, artifact_id, kind, storage_key, content_type, created_at)
+          VALUES (?, ?, 'evidence', ?, ?, ?)
+          ON CONFLICT(job_id, artifact_id) DO UPDATE SET storage_key = excluded.storage_key, content_type = excluded.content_type, created_at = excluded.created_at`)
+          .run(id, artifactId, key, contentType, nowIso());
+        ctx.db.prepare("UPDATE recognition_jobs SET updated_at = ? WHERE id = ? AND status = 'processing'").run(nowIso(), id);
+      } else {
+        ctx.db.prepare(`UPDATE recognition_jobs SET ${kind}_key = ?, updated_at = ? WHERE id = ? AND status = 'processing'`).run(key, nowIso(), id);
+      }
+      writeJson(res, 200, { kind, artifactId, key }, req, ctx.cfg); return;
     }
     if (action === 'artifact' && (req.method === 'POST' || req.method === 'PUT')) { if (job.status !== 'processing') throw httpError(409, 'invalid_job_state'); const body = await readBody(req, ctx.cfg.maxJsonBytes); const kind = requireString(body.kind || body.type, 'artifact_kind_required', 20); if (!['overlay', 'preview'].includes(kind)) throw httpError(400, 'invalid_artifact_kind'); const base64 = requireString(body.dataBase64, 'artifact_data_required', Math.ceil(ctx.cfg.maxUploadBytes * 1.4)); let bytes; try { bytes = Buffer.from(base64, 'base64'); } catch { throw httpError(400, 'invalid_artifact_data'); } if (!bytes.length || bytes.length > ctx.cfg.maxUploadBytes) throw httpError(413, 'artifact_too_large'); const contentType = String(body.contentType || 'image/jpeg').split(';')[0].toLowerCase(); if (!artifactContentTypeAllowed(kind, contentType)) throw httpError(415, 'unsupported_media_type'); const key = `artifacts/${job.user_id}/${job.id}/${kind}${extensionForType.get(contentType) || '.bin'}`; await ctx.storage.putBuffer(key, bytes, { maxBytes: ctx.cfg.maxUploadBytes }); ctx.db.prepare(`UPDATE recognition_jobs SET ${kind}_key = ?, updated_at = ? WHERE id = ? AND status = 'processing'`).run(key, nowIso(), id); writeJson(res, 200, { kind, key }, req, ctx.cfg); return; }
     if (action === 'result' && req.method === 'POST') {

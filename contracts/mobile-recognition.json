@@ -18,12 +18,40 @@
     },
     "result": {
       "type": "object",
-      "required": ["status", "confidence", "repetitions", "summary"],
+      "required": ["status", "confidence", "summary", "events"],
       "properties": {
         "status": {"enum": ["complete", "low-confidence", "offline", "error"]},
         "confidence": {"type": "number", "minimum": 0, "maximum": 1},
-        "repetitions": {"type": "integer", "minimum": 0},
+        "repetitions": {
+          "type": "integer",
+          "minimum": 0,
+          "deprecated": true,
+          "description": "仅用于兼容旧结果，不得用于用户问题定位文案。"
+        },
         "summary": {"type": "string"},
+        "events": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "type": "object",
+            "required": ["id", "code", "label", "startMs", "peakMs", "endMs", "displayTime", "explanation"],
+            "properties": {
+              "id": {"type": "string", "minLength": 1},
+              "code": {"type": "string", "minLength": 1},
+              "label": {"type": "string", "minLength": 1},
+              "startMs": {"type": "integer", "minimum": 0},
+              "peakMs": {"type": "integer", "minimum": 0},
+              "endMs": {"type": "integer", "minimum": 0},
+              "displayTime": {"type": "string", "pattern": "^[0-9]{2,}:[0-9]{2}\\.[0-9]$"},
+              "stage": {"type": "string"},
+              "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+              "measurements": {"type": "object"},
+              "explanation": {"type": "string"},
+              "evidenceImageUrl": {"type": ["string", "null"]}
+            },
+            "additionalProperties": true
+          }
+        },
         "error": {"type": ["string", "null"]}
       },
       "additionalProperties": false

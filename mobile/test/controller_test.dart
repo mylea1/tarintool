@@ -27,8 +27,74 @@ class _CapturingCoachApi implements CoachApi {
   }
 }
 
+class _StreamingAgentCoachApi
+    implements CoachApi, AgentCoachApi, StreamingCoachApi {
+  bool streamedToolContinuation = false;
+
+  @override
+  Future<CoachAnswer> answer({
+    required String prompt,
+    required bool includeTrainingSummary,
+    String locale = 'zh-CN',
+    String? trainingSummary,
+    List<Map<String, String>> exerciseCatalog = const [],
+    List<Map<String, String>> skills = const [],
+    String? requestId,
+    List<Map<String, dynamic>> availableTools = const [],
+    List<Map<String, dynamic>> toolResults = const [],
+  }) async {
+    if (toolResults.isNotEmpty) {
+      throw StateError('tool continuation must use the streaming endpoint');
+    }
+    return const CoachAnswer(
+      body: '',
+      toolCalls: [
+        CoachToolCall(
+          id: 'plans_1',
+          name: 'read_training_plans',
+          arguments: {},
+        ),
+      ],
+    );
+  }
+
+  @override
+  Stream<CoachStreamEvent> streamAnswer({
+    required String prompt,
+    required bool includeTrainingSummary,
+    String locale = 'zh-CN',
+    String? trainingSummary,
+    List<Map<String, String>> exerciseCatalog = const [],
+    List<Map<String, String>> skills = const [],
+    String? requestId,
+    List<Map<String, dynamic>> toolResults = const [],
+  }) async* {
+    streamedToolContinuation = toolResults.isNotEmpty;
+    yield const CoachStreamDelta('你的计划');
+    yield const CoachStreamDelta('可以这样调整');
+    yield const CoachStreamDone(CoachAnswer(body: '你的计划可以这样调整'));
+  }
+
+  @override
+  Future<void> rollbackQuotaReservation(String requestId) async {}
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  test('AI plan-reading advice streams after local tool execution', () async {
+    final api = _StreamingAgentCoachApi();
+    final controller = AppController(coachApi: api);
+    try {
+      await controller.sendChat('直接查看我的训练计划并给出建议');
+
+      expect(api.streamedToolContinuation, isTrue);
+      expect(controller.chat.last.body, '你的计划可以这样调整');
+      expect(controller.aiToolUses.single.name, 'read_training_plans');
+    } finally {
+      controller.dispose();
+    }
+  });
 
   test(
     'agent tool registry is read-only and exposes only three approved tools',

@@ -13,7 +13,7 @@ abstract interface class RecognitionApi {
     required String camera,
     required String scenario,
     required String mediaPath,
-    bool includeOverlay = true,
+    bool includeOverlay = false,
     void Function(RecognitionProgressUpdate update)? onProgress,
   });
 }
@@ -22,11 +22,12 @@ class RecognitionResult {
   const RecognitionResult({
     required this.status,
     required this.confidence,
-    required this.repetitions,
     required this.summary,
+    this.repetitions = 0,
     this.error,
     this.overlayUrl,
     this.previewUrl,
+    this.events = const <RecognitionEvent>[],
     this.mediaHeaders = const <String, String>{},
     this.metrics = const <String, dynamic>{},
     this.aiReview,
@@ -35,15 +36,60 @@ class RecognitionResult {
 
   final RecognitionStatus status;
   final double confidence;
+
+  /// Legacy API compatibility only. Recognition UI must use [events].
   final int repetitions;
   final String summary;
   final String? error;
   final String? overlayUrl;
   final String? previewUrl;
+  final List<RecognitionEvent> events;
   final Map<String, String> mediaHeaders;
   final Map<String, dynamic> metrics;
   final RecognitionAiReview? aiReview;
   final String? aiReviewError;
+}
+
+class RecognitionEvent {
+  const RecognitionEvent({
+    required this.id,
+    required this.code,
+    required this.label,
+    required this.startMs,
+    required this.peakMs,
+    required this.endMs,
+    required this.displayTime,
+    required this.explanation,
+    required this.confidence,
+    this.stage = '',
+    this.evidenceImageUrl,
+    this.measurements = const <String, dynamic>{},
+  });
+
+  final String id;
+  final String code;
+  final String label;
+  final int startMs;
+  final int peakMs;
+  final int endMs;
+  final String displayTime;
+  final String explanation;
+  final double confidence;
+  final String stage;
+  final String? evidenceImageUrl;
+  final Map<String, dynamic> measurements;
+
+  String get timeRangeLabel {
+    if (endMs <= startMs) return displayTime;
+    return '${_formatMs(startMs)}-${_formatMs(endMs)}';
+  }
+
+  static String _formatMs(int value) {
+    final seconds = value.clamp(0, 1 << 31) / 1000;
+    final minutes = seconds ~/ 60;
+    final remainder = seconds - minutes * 60;
+    return '${minutes.toString().padLeft(2, '0')}:${remainder.toStringAsFixed(1).padLeft(4, '0')}';
+  }
 }
 
 class RecognitionAiReview {
@@ -171,7 +217,7 @@ class HttpRecognitionApi implements RecognitionApi {
     required String camera,
     required String scenario,
     required String mediaPath,
-    bool includeOverlay = true,
+    bool includeOverlay = false,
     void Function(RecognitionProgressUpdate update)? onProgress,
   }) async {
     final token = _sessionToken;
@@ -353,6 +399,31 @@ class HttpRecognitionApi implements RecognitionApi {
         : const <String, dynamic>{};
     final rawMetrics = body['metrics'];
     final rawReview = body['aiReview'];
+    final rawEvents = body['events'];
+    final events = <RecognitionEvent>[];
+    if (rawEvents is List<dynamic>) {
+      for (final item in rawEvents.whereType<Map<String, dynamic>>()) {
+        final rawMeasurements = item['measurements'];
+        events.add(
+          RecognitionEvent(
+            id: (item['id'] ?? item['evidenceId'] ?? '').toString(),
+            code: (item['code'] ?? '').toString(),
+            label: (item['label'] ?? '动作提示').toString(),
+            startMs: (item['startMs'] as num?)?.toInt() ?? 0,
+            peakMs: (item['peakMs'] as num?)?.toInt() ?? 0,
+            endMs: (item['endMs'] as num?)?.toInt() ?? 0,
+            displayTime: (item['displayTime'] ?? '00:00.0').toString(),
+            explanation: (item['explanation'] ?? '').toString(),
+            confidence: (item['confidence'] as num?)?.toDouble() ?? 0,
+            stage: (item['stage'] ?? '').toString(),
+            evidenceImageUrl: _optionalMediaUrl(item['evidenceImageUrl']),
+            measurements: rawMeasurements is Map<String, dynamic>
+                ? Map<String, dynamic>.unmodifiable(rawMeasurements)
+                : const <String, dynamic>{},
+          ),
+        );
+      }
+    }
     return RecognitionResult(
       // Confidence remains available for diagnostics, but a completed server
       // job is a completed user task. Never turn an internal score into a
@@ -363,6 +434,7 @@ class HttpRecognitionApi implements RecognitionApi {
       summary: (body['summary'] ?? '动作分析已完成').toString(),
       overlayUrl: _optionalMediaUrl(mediaMap['overlay']),
       previewUrl: _optionalMediaUrl(mediaMap['preview']),
+      events: List<RecognitionEvent>.unmodifiable(events),
       mediaHeaders: {'Authorization': 'Bearer $token'},
       metrics: rawMetrics is Map<String, dynamic>
           ? Map<String, dynamic>.unmodifiable(rawMetrics)
@@ -463,7 +535,7 @@ class UnconfiguredRecognitionApi implements RecognitionApi {
     required String camera,
     required String scenario,
     required String mediaPath,
-    bool includeOverlay = true,
+    bool includeOverlay = false,
     void Function(RecognitionProgressUpdate update)? onProgress,
   }) async {
     return const RecognitionResult(

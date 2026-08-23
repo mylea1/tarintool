@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>形域 · 动作识别五种方向</title>
+  <style>
+    :root{--orange:#e85a1c;--ink:#241b17;--muted:#766862;--line:#e9ddd5;--paper:#fffaf6;--card:#fff;--cyan:#52d9c5}
+    *{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#ece7e3;color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}button{font:inherit}
+    .stage{min-height:100vh;padding:18px;display:grid;gap:14px;place-items:center}.chooser{width:min(100%,720px);display:flex;gap:7px;overflow:auto;padding:4px}.chooser button{border:1px solid #d9cec7;background:#fff;color:#5d514b;border-radius:999px;padding:8px 12px;white-space:nowrap;cursor:pointer}.chooser button[aria-selected="true"]{background:#231b18;color:#fff;border-color:#231b18}
+    .phone{width:min(100%,390px);min-height:844px;background:var(--paper);border:1px solid #dfd4cd;border-radius:34px;overflow:hidden;box-shadow:0 30px 80px #3b241d2e}.screen{display:none;min-height:844px;padding:18px 16px 32px}.screen.active{display:block}.top{display:flex;align-items:center;gap:10px;margin:3px 0 15px}.back{width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:#fff;font-size:20px}.title{min-width:0;flex:1}.title h1{font-size:22px;line-height:1.1;margin:0}.title p{color:var(--muted);font-size:11px;margin:3px 0 0}.subject{display:flex;align-items:center;gap:9px;padding:9px 11px;background:#fff;border:1px solid var(--line);border-radius:14px;margin-bottom:11px}.subject img{width:38px;height:38px;border-radius:10px;object-fit:cover}.subject b{display:block}.subject small{color:#19865f}.media{position:relative;aspect-ratio:16/10;border-radius:18px;overflow:hidden;background:#222}.media>img{width:100%;height:100%;object-fit:cover}.media .badge{position:absolute;left:10px;bottom:10px;background:#15120fce;color:#fff;border-radius:999px;padding:6px 9px;font-size:11px}.play{position:absolute;right:12px;bottom:11px;width:38px;height:38px;border:0;border-radius:50%;background:#fff;color:#201713}.summary{margin-top:12px}.summary h2{font-size:18px;margin:0 0 4px}.summary p{color:var(--muted);margin:0}.timeline{display:flex;align-items:center;gap:0;margin:18px 5px 12px}.rail{height:3px;background:#e4d9d2;flex:1}.dot{width:15px;height:15px;border:3px solid #fff;border-radius:50%;background:var(--orange);box-shadow:0 0 0 2px var(--orange)}.events{display:grid;gap:9px}.event{background:#fff;border:1px solid var(--line);border-radius:15px;padding:12px}.event header{display:flex;gap:8px;align-items:center}.time{color:var(--orange);font-weight:900}.event p{font-size:12px;color:var(--muted);margin:5px 0 0;overflow-wrap:anywhere}.event img{display:block;width:100%;aspect-ratio:16/8;object-fit:cover;border-radius:10px;margin-top:9px}.primary{border:0;border-radius:14px;background:var(--orange);color:#fff;width:100%;min-height:48px;font-weight:850;margin-top:14px}
+    /* B editorial */
+    #b{background:#f7f4ef}.editorial-kicker{font:700 11px/1.2 ui-monospace,monospace;letter-spacing:.1em;color:#b24b20;text-transform:uppercase}.scoreline{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:end;border-top:1px solid #cfc5bc;border-bottom:1px solid #cfc5bc;padding:16px 0;margin:13px 0}.scoreline strong{font:800 27px/1.05 Georgia,serif}.scoreline span{font:800 44px/1 Georgia,serif;color:#c64d1a}.quote{font:600 18px/1.45 Georgia,serif;margin:13px 0}.evidence-row{display:grid;grid-template-columns:84px minmax(0,1fr);gap:11px;padding:12px 0;border-top:1px solid #d6cdc5}.evidence-row img{width:84px;height:72px;object-fit:cover}.evidence-row p{margin:3px 0;color:#6d625b;font-size:12px}
+    /* C subject-first */
+    #c{background:#f6fbf8}.lock-panel{background:#143f35;color:#fff;border-radius:22px;padding:15px;margin-bottom:12px}.lock-panel h2{margin:0 0 4px;font-size:18px}.lock-grid{display:grid;grid-template-columns:1.4fr .6fr;gap:8px;margin-top:11px}.target,.other{position:relative;border-radius:14px;overflow:hidden;min-width:0}.target img,.other img{width:100%;height:150px;object-fit:cover}.target::after{content:"当前目标";position:absolute;left:8px;bottom:8px;background:#49d4ac;color:#09241d;padding:5px 8px;border-radius:999px;font-size:10px;font-weight:900}.other::after{content:"已忽略";position:absolute;left:8px;bottom:8px;background:#ffffffd9;color:#48413d;padding:5px 8px;border-radius:999px;font-size:10px}.trust{display:flex;gap:8px;align-items:center;color:#215e4d;font-weight:800;margin:10px 2px}.trust i{display:grid;place-items:center;width:22px;height:22px;border-radius:50%;background:#d9f6ea;font-style:normal}.c-event{display:grid;grid-template-columns:74px minmax(0,1fr);gap:10px;background:#fff;border:1px solid #d9e8e1;border-radius:15px;padding:10px;margin-top:8px}.c-event b{color:#14654e;font-size:16px}.c-event p{margin:2px 0;color:#67736e;font-size:12px}
+    /* D lab */
+    #d{background:#141718;color:#f7f7f2}.lab-top p{color:#9ca5a5}.lab-chip{display:inline-flex;gap:6px;align-items:center;background:#22302d;border:1px solid #386157;border-radius:999px;padding:6px 9px;color:#78ead1;font-size:11px}.lab-media{border:1px solid #3a4444;box-shadow:inset 0 0 0 1px #000}.lab-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:10px 0}.lab-metric{background:#1d2223;border:1px solid #353d3e;border-radius:11px;padding:9px;min-width:0}.lab-metric small{color:#98a1a1}.lab-metric b{display:block;color:#f0a15f;overflow-wrap:anywhere}.lab-event{border-left:2px solid #f08b44;padding:9px 11px;background:#1d2223;margin-top:8px}.lab-event p{color:#abb3b3;font-size:12px;margin:3px 0}.lab-button{background:#78ead1;color:#11231f}
+    /* E conversation */
+    #e{background:#fff8f2}.coach{display:flex;gap:9px;align-items:center;margin:8px 0}.avatar{width:42px;height:42px;border-radius:14px;background:#241b17;color:#fff;display:grid;place-items:center;font-weight:900}.bubble{background:#fff;border:1px solid var(--line);border-radius:4px 16px 16px 16px;padding:13px;margin:8px 0}.bubble h2{font-size:17px;margin:0 0 5px}.bubble p{color:var(--muted);margin:0}.action-card{display:grid;grid-template-columns:92px minmax(0,1fr);gap:10px;background:#fff;border:1px solid var(--line);border-radius:16px;padding:9px;margin-top:9px}.action-card img{width:92px;height:82px;object-fit:cover;border-radius:11px}.action-card b{display:block}.action-card p{font-size:12px;color:var(--muted);margin:3px 0}.next{background:#271c17;color:#fff;border-radius:16px;padding:13px;margin-top:11px}.next small{color:#ffc09c}.next p{margin:4px 0 0}
+    @media(max-width:340px){.stage{padding:0}.chooser{padding:8px}.phone{border:0;border-radius:0;min-height:100vh}.screen{padding-inline:12px}.lock-grid{grid-template-columns:1fr}.other{display:none}.lab-metrics{grid-template-columns:1fr 1fr}.action-card{grid-template-columns:76px minmax(0,1fr)}.action-card img{width:76px}.scoreline strong{font-size:23px}}
+  </style>
+</head>
+<body>
+<main class="stage">
+  <nav class="chooser" aria-label="设计方向">
+    <button data-screen="a" aria-selected="true">A 证据时间轴</button><button data-screen="b">B 极简报告</button><button data-screen="c">C 目标确认</button><button data-screen="d">D 运动实验室</button><button data-screen="e">E 教练对话</button>
+  </nav>
+  <section class="phone">
+    <article class="screen active" id="a">
+      <div class="top"><button class="back">‹</button><div class="title"><h1>动作分析</h1><p>高位下拉 · 后方机位</p></div></div>
+      <div class="subject"><img src="recognition-analysis-20260823/frame-08s.jpg" alt="前景高位下拉者"><div><b>识别对象：前景高位下拉者</b><small>✓ 全程跟踪稳定</small></div></div>
+      <div class="media"><img src="recognition-analysis-20260823/frame-08s.jpg" alt="高位下拉视频"><span class="badge">18.57 秒</span><button class="play">▶</button></div>
+      <section class="summary"><h2>动作可评价</h2><p>系统锁定了前景训练者，发现 2 个需要回看的时间点。</p></section>
+      <div class="timeline"><span class="dot"></span><span class="rail"></span><span class="dot"></span><span class="rail"></span><span class="dot"></span></div>
+      <div class="events"><section class="event"><header><span class="time">00:12.3</span><b>下拉行程可能偏短</b></header><p>查看这个时刻的肘角和下拉位置。</p></section><section class="event"><header><span class="time">00:16.8</span><b>肘部向下移动不明显</b></header><img src="recognition-analysis-20260823/tracked-no-overlay/evidence/event-002.jpg" alt="16.8秒骨骼证据图"></section></div>
+      <button class="primary">查看下一组建议</button>
+    </article>
+    <article class="screen" id="b">
+      <div class="top"><button class="back">‹</button><div class="title"><span class="editorial-kicker">Movement review</span><h1>高位下拉分析</h1></div></div>
+      <div class="scoreline"><strong>系统已看对人，<br>动作过程可评价。</strong><span>2</span></div>
+      <div class="media"><img src="recognition-analysis-20260823/frame-14s.jpg" alt="高位下拉视频"><span class="badge">前景训练者 · 已锁定</span></div>
+      <p class="quote">“先保持当前重量，把每次下拉的末端位置做得更一致。”</p>
+      <section class="evidence-row"><img src="recognition-analysis-20260823/tracked-no-overlay/evidence/event-001.jpg" alt="12.3秒骨骼图"><div><b>00:12.3 · 下拉行程</b><p>这一时刻的肘角没有稳定到达参考范围。</p></div></section>
+      <section class="evidence-row"><img src="recognition-analysis-20260823/tracked-no-overlay/evidence/event-002.jpg" alt="16.8秒骨骼图"><div><b>00:16.8 · 肘部路径</b><p>点开对照骨骼线与动作原画面。</p></div></section>
+      <button class="primary">保存为下一组提醒</button>
+    </article>
+    <article class="screen" id="c">
+      <div class="top"><button class="back">‹</button><div class="title"><h1>确认识别对象</h1><p>画面中检测到多个人物</p></div></div>
+      <section class="lock-panel"><h2>已锁定前景训练者</h2><p>系统按人物大小、位置与连续运动轨迹完成选择。</p><div class="lock-grid"><div class="target"><img src="recognition-analysis-20260823/frame-08s.jpg" alt="当前目标"></div><div class="other"><img src="recognition-analysis-20260823/tracked-no-overlay/preview.jpg" alt="忽略的背景人物"></div></div></section>
+      <div class="trust"><i>✓</i> 后续骨骼与建议只来自该人物</div>
+      <div class="media"><img src="recognition-analysis-20260823/tracked-no-overlay/evidence/event-001.jpg" alt="骨骼证据"><span class="badge">00:12.3</span></div>
+      <section class="c-event"><b>12.3 秒</b><div><strong>下拉行程可能偏短</strong><p>点击查看原视频前后 1 秒与骨骼叠加。</p></div></section>
+      <section class="c-event"><b>16.8 秒</b><div><strong>肘部路径需要留意</strong><p>系统没有切换到右后方经过的人。</p></div></section>
+      <button class="primary">确认对象并查看建议</button>
+    </article>
+    <article class="screen" id="d">
+      <div class="top lab-top"><button class="back">‹</button><div class="title"><h1>动作轨迹</h1><p>LAT PULLDOWN · REAR VIEW</p></div><span class="lab-chip">● 已锁定</span></div>
+      <div class="media lab-media"><img src="recognition-analysis-20260823/tracked-no-overlay/evidence/event-001.jpg" alt="动作实验室视图"><span class="badge">00:12.3 / 18.57</span></div>
+      <div class="lab-metrics"><div class="lab-metric"><small>目标</small><b>前景人物</b></div><div class="lab-metric"><small>动作证据</small><b>可评价</b></div><div class="lab-metric"><small>时间提示</small><b>2 处</b></div></div>
+      <section class="lab-event"><b>00:12.3 · 行程</b><p>可见侧肘角未稳定覆盖参考范围。</p></section><section class="lab-event"><b>00:16.8 · 路径</b><p>肘部向下位移幅度较小，建议结合原视频复看。</p></section>
+      <button class="primary lab-button">播放骨骼证据</button>
+    </article>
+    <article class="screen" id="e">
+      <div class="top"><button class="back">‹</button><div class="title"><h1>教练反馈</h1><p>高位下拉 · 已完成分析</p></div></div>
+      <div class="coach"><div class="avatar">形域</div><div><b>动作教练</b><small style="display:block;color:#27825f">已锁定前景训练者</small></div></div>
+      <section class="bubble"><h2>这段视频可以评价</h2><p>整体控制比较稳定。下面两处值得放慢看看，我已经把对应骨骼画面放在时间卡片里。</p></section>
+      <section class="action-card"><img src="recognition-analysis-20260823/tracked-no-overlay/evidence/event-001.jpg" alt="12.3秒证据"><div><b>00:12.3 · 行程</b><p>下拉末端略短，点开查看前后动作。</p><span class="time">查看证据 →</span></div></section>
+      <section class="action-card"><img src="recognition-analysis-20260823/tracked-no-overlay/evidence/event-002.jpg" alt="16.8秒证据"><div><b>00:16.8 · 肘部路径</b><p>保持肘部继续向下，而不是只往后。</p><span class="time">查看证据 →</span></div></section>
+      <section class="next"><small>下一组这样做</small><p>保持当前重量，在下拉末端停半秒，再有控制地回到顶部。</p></section>
+      <button class="primary">保存到下一组</button>
+    </article>
+  </section>
+</main>
+<script>
+  const buttons=[...document.querySelectorAll('[data-screen]')];
+  buttons.forEach(button=>button.addEventListener('click',()=>{
+    buttons.forEach(item=>item.setAttribute('aria-selected',String(item===button)));
+    document.querySelectorAll('.screen').forEach(screen=>screen.classList.toggle('active',screen.id===button.dataset.screen));
+  }));
+</script>
+</body>
+</html>

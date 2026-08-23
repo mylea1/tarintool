@@ -394,6 +394,12 @@ void main() {
   testWidgets('recognition result opens a full report with AI review', (
     tester,
   ) async {
+    tester.view.physicalSize = const Size(320, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
     final controller = AppController();
     addTearDown(controller.dispose);
     controller.recognitionStatus = RecognitionStatus.complete;
@@ -403,15 +409,33 @@ void main() {
       repetitions: 8,
       summary: '骨骼识别完成',
       metrics: {'durationSeconds': 12.6, 'detectionRate': .9},
+      events: [
+        RecognitionEvent(
+          id: 'event-001',
+          code: 'SQUAT_DEPTH_LIMITED',
+          label: '下蹲深度可能不足',
+          startMs: 11800,
+          peakMs: 12400,
+          endMs: 13000,
+          displayTime: '00:12.4',
+          explanation: '最低位置的膝角高于当前参考线。',
+          confidence: .86,
+        ),
+      ],
       aiReview: RecognitionAiReview(
         headline: '整体轨迹稳定',
         strengths: ['动作节奏一致'],
         risks: ['末端控制可加强'],
         nextSet: '保持重量并减慢离心',
-        basis: '骨骼捕获率和动作重复数据',
+        basis: '视频时间事件与骨骼关键点轨迹',
       ),
     );
-    await tester.pumpWidget(KiloApp(initialController: controller));
+    await tester.pumpWidget(
+      MediaQuery(
+        data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+        child: KiloApp(initialController: controller),
+      ),
+    );
     await _openRoute(tester, 'AI');
     await tester.tap(find.byKey(const Key('ai-recognition')));
     await tester.pump();
@@ -425,6 +449,9 @@ void main() {
     expect(find.byKey(const Key('recognition-ai-review')), findsOneWidget);
     expect(find.text('整体轨迹稳定'), findsOneWidget);
     expect(find.textContaining('末端控制可加强'), findsOneWidget);
+    expect(find.text('00:12.4 附近'), findsOneWidget);
+    expect(find.text('下蹲深度可能不足'), findsOneWidget);
+    expect(find.textContaining('完成 8 次'), findsNothing);
   });
 
   testWidgets('completed overlay report hides the original video', (
@@ -702,8 +729,8 @@ void main() {
       tester.view.resetDevicePixelRatio();
     });
     final controller = AppController();
-    // Keep the preparation state visible so the secondary AI customization
-    // action is available without blocking the primary timer path.
+    // AI plan customization belongs to the training landing page, not the
+    // focused live-workout controls.
     controller.startWorkout(name: '自由训练', autoStartTimer: false);
     controller.addExercise('bench_press');
     controller.addSet(controller.workout.single);
@@ -716,10 +743,7 @@ void main() {
     expect(find.byKey(const Key('live-workout-controls')), findsOneWidget);
     expect(find.byKey(const Key('start-workout-timer-button')), findsOneWidget);
     expect(find.byKey(const Key('workout-rest-button')), findsOneWidget);
-    expect(
-      find.byKey(const Key('ai-customize-workout-button')),
-      findsOneWidget,
-    );
+    expect(find.byKey(const Key('ai-customize-workout-button')), findsNothing);
     expect(find.byKey(const Key('workout-batch-button')), findsNothing);
     expect(find.byKey(const Key('plate-calculator-button')), findsNothing);
     expect(find.byKey(const Key('workout-settings-button')), findsNothing);
@@ -732,6 +756,30 @@ void main() {
     expect(tester.takeException(), isNull);
     controller.finishWorkout();
     await tester.pump();
+  });
+
+  testWidgets('AI workout planner is exposed on training landing page', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(375, 812);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    final controller = AppController();
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: TrainPage(controller: controller)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('free-workout-button')), findsOneWidget);
+    expect(find.byKey(const Key('ai-customize-plan-entry')), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('free workout thumbnail opens details and note capture is gone', (

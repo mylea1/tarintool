@@ -2,9 +2,9 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .venv/
+.venv-local/
 tests/
 output/
 *.mp4
 *.mov
 *.avi
-
