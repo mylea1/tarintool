@@ -18,14 +18,15 @@ $artifactName = "xingyu-master-$commit-debug.apk"
 $artifactDirectory = Join-Path $mobileRoot 'build\app\outputs\flutter-apk'
 $namedArtifact = Join-Path $artifactDirectory $artifactName
 $checksumPath = "$namedArtifact.sha256"
-$tempBase = [System.IO.Path]::GetTempPath()
-$snapshotRoot = Join-Path $tempBase ("xingyu-master-build-" + [guid]::NewGuid().ToString('N'))
+$snapshotBase = Join-Path (Split-Path -Parent $repoRoot) '.codex-build-snapshots'
+$snapshotRoot = Join-Path $snapshotBase ("xingyu-master-build-" + [guid]::NewGuid().ToString('N'))
 $snapshotZip = Join-Path $snapshotRoot 'source.zip'
 $snapshotSource = Join-Path $snapshotRoot 'source'
 $snapshotMobile = Join-Path $snapshotSource 'mobile'
 $snapshotArtifact = Join-Path $snapshotMobile 'build\app\outputs\flutter-apk\app-debug.apk'
 
 try {
+  New-Item -ItemType Directory -Path $snapshotBase -Force | Out-Null
   New-Item -ItemType Directory -Path $snapshotRoot | Out-Null
   New-Item -ItemType Directory -Path $snapshotSource | Out-Null
   git -C $repoRoot archive --format=zip --output=$snapshotZip $commit
@@ -50,8 +51,8 @@ try {
   Copy-Item -LiteralPath $snapshotArtifact -Destination $namedArtifact -Force
 } finally {
   $resolvedSnapshot = [System.IO.Path]::GetFullPath($snapshotRoot)
-  $resolvedTemp = [System.IO.Path]::GetFullPath($tempBase)
-  if ($resolvedSnapshot.StartsWith($resolvedTemp, [System.StringComparison]::OrdinalIgnoreCase) -and
+  $resolvedBase = [System.IO.Path]::GetFullPath($snapshotBase)
+  if ($resolvedSnapshot.StartsWith($resolvedBase, [System.StringComparison]::OrdinalIgnoreCase) -and
       (Test-Path -LiteralPath $resolvedSnapshot)) {
     Remove-Item -LiteralPath $resolvedSnapshot -Recurse -Force
   }
