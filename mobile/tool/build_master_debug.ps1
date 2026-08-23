@@ -54,7 +54,11 @@ try {
   $resolvedBase = [System.IO.Path]::GetFullPath($snapshotBase)
   if ($resolvedSnapshot.StartsWith($resolvedBase, [System.StringComparison]::OrdinalIgnoreCase) -and
       (Test-Path -LiteralPath $resolvedSnapshot)) {
-    Remove-Item -LiteralPath $resolvedSnapshot -Recurse -Force
+    # Gradle may still release deeply nested Windows paths while cleanup is
+    # running. A cleanup miss must never turn a successfully built APK into a
+    # failed build result; stale snapshots remain confined to the verified
+    # task-specific base directory and can be removed on the next run.
+    Remove-Item -LiteralPath $resolvedSnapshot -Recurse -Force -ErrorAction SilentlyContinue
   }
 }
 
