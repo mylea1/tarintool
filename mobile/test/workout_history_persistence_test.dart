@@ -22,6 +22,16 @@ void main() {
         note: '训练备注',
         exerciseIds: const ['bench_press'],
         prs: const ['bench_press'],
+        prDetails: [
+          WorkoutPrDetail(
+            exerciseId: 'bench_press',
+            metric: 'estimated1rm',
+            currentValue: 87,
+            previousValue: 84,
+            previousRecordId: 'history-0',
+            previousDate: DateTime.utc(2026, 8, 3),
+          ),
+        ],
         exercises: [
           WorkoutExercise(
             id: 'exercise-1',
@@ -57,6 +67,8 @@ void main() {
       expect(restored.single.exercises.single.note, '肩胛收紧，窄握');
       expect(restored.single.exercises.single.sets.single.plannedWeight, 70);
       expect(restored.single.exercises.single.sets.single.note, '组备注');
+      expect(restored.single.prDetails.single.metric, 'estimated1rm');
+      expect(restored.single.prDetails.single.previousRecordId, 'history-0');
       expect(
         await SharedPreferencesWorkoutHistoryPersistence().read('phone:1234'),
         isEmpty,

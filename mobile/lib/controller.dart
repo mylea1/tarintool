@@ -872,6 +872,18 @@ class AppController extends ChangeNotifier {
     workoutStartedAt = snapshot.timerStarted && !snapshot.paused
         ? snapshot.startedAt ?? DateTime.now()
         : null;
+    defaultRestSeconds = snapshot.defaultRestSeconds;
+    restSetupPending = snapshot.restSetupPending;
+    pendingRestSetId = snapshot.pendingRestSetId;
+    restRunning = snapshot.restRunning;
+    restRemainingSeconds = snapshot.restRemainingSeconds;
+    restExerciseName = snapshot.restExerciseName;
+    _restEndsAt = snapshot.restEndsAt;
+    if (restRunning) {
+      if (workoutPaused) _restEndsAt = null;
+      reconcileRestClock();
+      if (restRunning && !workoutPaused) _scheduleRestTicker();
+    }
     if (workoutTimerStarted && !workoutPaused) {
       _workoutTicker?.cancel();
       _workoutTicker = Timer.periodic(
@@ -900,8 +912,20 @@ class AppController extends ChangeNotifier {
             timerStarted: workoutTimerStarted,
             paused: workoutPaused,
             elapsedSeconds: currentElapsed,
-            startedAt: workoutStartedAt,
+            // The elapsed snapshot already includes the current foreground
+            // segment. Restart that segment at persistence time so process
+            // restoration never counts the same seconds twice.
+            startedAt: workoutTimerStarted && !workoutPaused
+                ? DateTime.now()
+                : null,
             exercises: workout.map((item) => item.copy()).toList(),
+            defaultRestSeconds: defaultRestSeconds,
+            restRunning: restRunning,
+            restRemainingSeconds: _currentRestRemaining(),
+            restEndsAt: _restEndsAt,
+            restExerciseName: restExerciseName,
+            restSetupPending: restSetupPending,
+            pendingRestSetId: pendingRestSetId,
           )
         : null;
     _activeWorkoutWriteChain = _activeWorkoutWriteChain
@@ -1021,6 +1045,7 @@ class AppController extends ChangeNotifier {
   String? restExerciseName;
   Timer? _workoutTicker;
   Timer? _restTicker;
+  DateTime? _restEndsAt;
   Timer? _recognitionTicker;
   Timer? _completionBurstTimer;
   Timer? _aiWaitingTimer;
@@ -1312,6 +1337,16 @@ class AppController extends ChangeNotifier {
     return fallback;
   }
 
+  List<WorkoutRecord> exerciseHistoryFor(String exerciseId) => history
+      .where(
+        (record) => record.exercises.any(
+          (exercise) =>
+              exercise.exerciseId == exerciseId &&
+              exercise.sets.any((set) => set.completed),
+        ),
+      )
+      .toList(growable: false);
+
   /// Picks the most useful previous session for the completion summary: an
   /// exact plan/session name first, then the most recent record sharing the
   /// largest number of exercises.
@@ -1501,6 +1536,11 @@ class AppController extends ChangeNotifier {
     defaultRestSeconds = freeWorkout ? 0 : _positivePlanRest(source);
     restSetupPending = false;
     pendingRestSetId = null;
+    restRunning = false;
+    restRemainingSeconds = 0;
+    restExerciseName = null;
+    _restEndsAt = null;
+    _restTicker?.cancel();
     if (source == null && workoutCompleted) {
       workout.clear();
     }
@@ -1581,6 +1621,8 @@ class AppController extends ChangeNotifier {
 
   void pauseWorkout() {
     if (!workoutStarted || !workoutTimerStarted) return;
+    final pausing = !workoutPaused;
+    if (pausing) _freezeRestClock();
     workoutElapsedSeconds = currentElapsed;
     if (!workoutPaused && _activeSetStartedAt != null) {
       _activeSetElapsedSeconds += DateTime.now()
@@ -1590,6 +1632,7 @@ class AppController extends ChangeNotifier {
     }
     workoutPaused = !workoutPaused;
     workoutStartedAt = workoutPaused ? null : DateTime.now();
+    if (!workoutPaused) _resumeRestClock();
     if (workoutPaused) {
       PlatformTimerBridge.pause();
     } else {
@@ -1618,6 +1661,7 @@ class AppController extends ChangeNotifier {
 
   void setWorkoutPausedFromSystem(bool paused) {
     if (!workoutStarted || workoutPaused == paused) return;
+    if (paused) _freezeRestClock();
     workoutElapsedSeconds = currentElapsed;
     if (paused && _activeSetStartedAt != null) {
       _activeSetElapsedSeconds += DateTime.now()
@@ -1629,6 +1673,31 @@ class AppController extends ChangeNotifier {
     }
     workoutPaused = paused;
     workoutStartedAt = paused ? null : DateTime.now();
+    if (!paused) _resumeRestClock();
+    persistActiveWorkout();
+    notifyListeners();
+  }
+
+  /// Reconciles wall-clock timers after iOS/Android resumes the Flutter
+  /// isolate. A backgrounded isolate may not receive periodic timer callbacks,
+  /// so elapsed time is always derived from the persisted absolute deadline.
+  @visibleForTesting
+  void reconcileRestClock([DateTime? now]) {
+    if (!restRunning || workoutPaused || _restEndsAt == null) return;
+    final next = _secondsUntil(_restEndsAt!, now ?? DateTime.now());
+    restRemainingSeconds = next;
+    if (next <= 0) _completeRestCountdown();
+  }
+
+  void handleAppResumed() {
+    reconcileRestClock();
+    if (restRunning && !workoutPaused) {
+      _scheduleRestTicker();
+      PlatformTimerBridge.update(
+        exercise: restExerciseName ?? '休息计时',
+        seconds: restRemainingSeconds,
+      );
+    }
     persistActiveWorkout();
     notifyListeners();
   }
@@ -1706,6 +1775,7 @@ class AppController extends ChangeNotifier {
         restRemainingSeconds = 0;
         restRunning = false;
         restExerciseName = null;
+        _restEndsAt = null;
         _restTicker?.cancel();
         PlatformTimerBridge.clearRest();
       }
@@ -1720,6 +1790,7 @@ class AppController extends ChangeNotifier {
       restRemainingSeconds = 0;
       restRunning = false;
       restExerciseName = null;
+      _restEndsAt = null;
       _restTicker?.cancel();
       PlatformTimerBridge.clearRest();
     }
@@ -1825,11 +1896,18 @@ class AppController extends ChangeNotifier {
 
   void addRestSeconds([int seconds = 15]) {
     if (!restRunning) return;
-    restRemainingSeconds += seconds;
+    reconcileRestClock();
+    restRemainingSeconds = (restRemainingSeconds + seconds)
+        .clamp(0, 600)
+        .toInt();
+    if (!workoutPaused) {
+      _restEndsAt = DateTime.now().add(Duration(seconds: restRemainingSeconds));
+    }
     PlatformTimerBridge.update(
       exercise: restExerciseName ?? '休息计时',
       seconds: restRemainingSeconds,
     );
+    persistActiveWorkout();
     notifyListeners();
   }
 
@@ -1838,6 +1916,7 @@ class AppController extends ChangeNotifier {
       restRemainingSeconds = 0;
       restRunning = false;
       restExerciseName = null;
+      _restEndsAt = null;
       _restTicker?.cancel();
       PlatformTimerBridge.clearRest();
       notifyListeners();
@@ -1846,30 +1925,61 @@ class AppController extends ChangeNotifier {
     restRemainingSeconds = seconds;
     restRunning = true;
     restExerciseName = exercise;
+    _restEndsAt = DateTime.now().add(Duration(seconds: seconds));
     PlatformTimerBridge.start(exercise: exercise, seconds: seconds);
+    _scheduleRestTicker();
+    persistActiveWorkout();
+    notifyListeners();
+  }
+
+  int _secondsUntil(DateTime deadline, DateTime now) {
+    final milliseconds = deadline.difference(now).inMilliseconds;
+    if (milliseconds <= 0) return 0;
+    return (milliseconds / 1000).ceil();
+  }
+
+  int _currentRestRemaining() {
+    if (!restRunning || workoutPaused || _restEndsAt == null) {
+      return restRemainingSeconds;
+    }
+    return _secondsUntil(_restEndsAt!, DateTime.now());
+  }
+
+  void _scheduleRestTicker() {
     _restTicker?.cancel();
+    if (!restRunning || workoutPaused) return;
     _restTicker = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (workoutPaused) {
-        notifyListeners();
-        return;
-      }
-      if (restRemainingSeconds > 0) {
-        restRemainingSeconds -= 1;
-      }
-      if (restRemainingSeconds <= 0) {
-        restRemainingSeconds = 0;
-        restRunning = false;
-        restExerciseName = null;
-        _restTicker?.cancel();
-        PlatformTimerBridge.completeRest();
-        SystemSound.play(SystemSoundType.alert);
-        HapticFeedback.heavyImpact();
-        _activeSetStartedAt = DateTime.now();
-        _activeSetElapsedSeconds = 0;
-      }
+      reconcileRestClock();
       notifyListeners();
     });
-    notifyListeners();
+  }
+
+  void _freezeRestClock() {
+    if (!restRunning) return;
+    reconcileRestClock();
+    _restEndsAt = null;
+    _restTicker?.cancel();
+  }
+
+  void _resumeRestClock() {
+    if (!restRunning || restRemainingSeconds <= 0) return;
+    _restEndsAt = DateTime.now().add(Duration(seconds: restRemainingSeconds));
+    _scheduleRestTicker();
+  }
+
+  void _completeRestCountdown() {
+    if (!restRunning) return;
+    restRemainingSeconds = 0;
+    restRunning = false;
+    restExerciseName = null;
+    _restEndsAt = null;
+    _restTicker?.cancel();
+    PlatformTimerBridge.completeRest();
+    SystemSound.play(SystemSoundType.alert);
+    HapticFeedback.heavyImpact();
+    _activeSetStartedAt = DateTime.now();
+    _activeSetElapsedSeconds = 0;
+    persistActiveWorkout();
   }
 
   void updateExerciseRest(WorkoutExercise exercise, int seconds) {
@@ -1899,10 +2009,12 @@ class AppController extends ChangeNotifier {
     restRemainingSeconds = 0;
     restRunning = false;
     restExerciseName = null;
+    _restEndsAt = null;
     _restTicker?.cancel();
     PlatformTimerBridge.clearRest();
     _activeSetStartedAt = workoutPaused ? null : DateTime.now();
     _activeSetElapsedSeconds = 0;
+    persistActiveWorkout();
     notifyListeners();
   }
 
@@ -1915,31 +2027,11 @@ class AppController extends ChangeNotifier {
     final now = DateTime.now();
     final wasFreeWorkout = freeWorkout;
     final historySnapshot = workout.map((item) => item.copy()).toList();
-    final prs = <String>[];
-    for (final exercise in historySnapshot) {
-      final currentBest = exercise.sets
-          .where((set) => set.completed && set.weight > 0)
-          .fold<double>(
-            0,
-            (best, set) => set.weight > best ? set.weight : best,
-          );
-      if (currentBest <= 0) continue;
-      var previousBest = 0.0;
-      for (final previousRecord in history) {
-        for (final previousExercise in previousRecord.exercises.where(
-          (item) => item.exerciseId == exercise.exerciseId,
-        )) {
-          for (final set in previousExercise.sets.where(
-            (set) => set.completed,
-          )) {
-            if (set.weight > previousBest) previousBest = set.weight;
-          }
-        }
-      }
-      if (currentBest > previousBest) {
-        prs.add(displayExerciseName(exerciseFor(exercise.exerciseId)));
-      }
-    }
+    final prDetails = _calculateWorkoutPrs(historySnapshot);
+    final prs = prDetails
+        .map((detail) => displayExerciseName(exerciseFor(detail.exerciseId)))
+        .toSet()
+        .toList(growable: false);
     final record = WorkoutRecord(
       id: 'history-${now.microsecondsSinceEpoch}',
       name: workoutName,
@@ -1955,6 +2047,7 @@ class AppController extends ChangeNotifier {
       note: note,
       exerciseIds: workout.map((item) => item.exerciseId).toList(),
       prs: prs,
+      prDetails: prDetails,
       exercises: historySnapshot,
     );
     history.insert(0, record);
@@ -2013,6 +2106,7 @@ class AppController extends ChangeNotifier {
     restRunning = false;
     restRemainingSeconds = 0;
     restExerciseName = null;
+    _restEndsAt = null;
     _workoutTicker?.cancel();
     _restTicker?.cancel();
     PlatformTimerBridge.finish();
@@ -2020,6 +2114,97 @@ class AppController extends ChangeNotifier {
     notifyListeners();
     return record;
   }
+
+  List<WorkoutPrDetail> _calculateWorkoutPrs(
+    List<WorkoutExercise> currentExercises,
+  ) {
+    final details = <WorkoutPrDetail>[];
+    for (final exercise in currentExercises) {
+      final current = exercise.sets
+          .where((set) => set.completed && set.weight > 0 && set.reps > 0)
+          .toList(growable: false);
+      if (current.isEmpty) continue;
+
+      final previousSessions = <(WorkoutRecord, List<WorkoutSet>)>[];
+      for (final record in history) {
+        final sets = record.exercises
+            .where((item) => item.exerciseId == exercise.exerciseId)
+            .expand((item) => item.sets)
+            .where((set) => set.completed && set.weight > 0 && set.reps > 0)
+            .toList(growable: false);
+        if (sets.isNotEmpty) previousSessions.add((record, sets));
+      }
+      // A first entry is a baseline, not a fabricated personal record.
+      if (previousSessions.isEmpty) continue;
+
+      final currentWeight = current.fold<double>(
+        0,
+        (best, set) => set.weight > best ? set.weight : best,
+      );
+      final currentE1rm = current.fold<double>(0, (best, set) {
+        final value = _estimatedOneRepMax(set);
+        return value > best ? value : best;
+      });
+      final currentVolume = current.fold<double>(
+        0,
+        (sum, set) => sum + set.weight * set.reps,
+      );
+
+      void addIfRecord({
+        required String metric,
+        required double currentValue,
+        required double Function(List<WorkoutSet>) previousValueFor,
+      }) {
+        WorkoutRecord? baseline;
+        var previousValue = 0.0;
+        for (final session in previousSessions) {
+          final value = previousValueFor(session.$2);
+          if (value > previousValue) {
+            previousValue = value;
+            baseline = session.$1;
+          }
+        }
+        if (baseline == null || currentValue <= previousValue + .001) return;
+        details.add(
+          WorkoutPrDetail(
+            exerciseId: exercise.exerciseId,
+            metric: metric,
+            currentValue: currentValue,
+            previousValue: previousValue,
+            previousRecordId: baseline.id,
+            previousDate: baseline.date,
+          ),
+        );
+      }
+
+      addIfRecord(
+        metric: 'estimated1rm',
+        currentValue: currentE1rm,
+        previousValueFor: (sets) => sets.fold<double>(0, (best, set) {
+          final value = _estimatedOneRepMax(set);
+          return value > best ? value : best;
+        }),
+      );
+      addIfRecord(
+        metric: 'weight',
+        currentValue: currentWeight,
+        previousValueFor: (sets) => sets.fold<double>(
+          0,
+          (best, set) => set.weight > best ? set.weight : best,
+        ),
+      );
+      addIfRecord(
+        metric: 'volume',
+        currentValue: currentVolume,
+        previousValueFor: (sets) =>
+            sets.fold<double>(0, (sum, set) => sum + set.weight * set.reps),
+      );
+    }
+    return details;
+  }
+
+  double _estimatedOneRepMax(WorkoutSet set) =>
+      set.weight * (1 + set.reps / 30);
 
   String _defaultFreeRoutineName(DateTime date) =>
       '自由训练 ${date.month.toString().padLeft(2, '0')}月${date.day.toString().padLeft(2, '0')}日 ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
@@ -2239,6 +2424,7 @@ class AppController extends ChangeNotifier {
       note: note,
       exerciseIds: record.exerciseIds,
       prs: record.prs,
+      prDetails: record.prDetails,
       exercises: record.exercises.map((item) => item.copy()).toList(),
     );
     _persistWorkoutHistory();

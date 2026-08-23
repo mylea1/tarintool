@@ -61,7 +61,7 @@ class KiloApp extends StatefulWidget {
 // Kept as a compatibility alias for the generated Flutter smoke test.
 typedef MyApp = KiloApp;
 
-class _KiloAppState extends State<KiloApp> {
+class _KiloAppState extends State<KiloApp> with WidgetsBindingObserver {
   late final AppController controller;
   late final bool ownsController;
   late bool durableStateReady;
@@ -69,6 +69,7 @@ class _KiloAppState extends State<KiloApp> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     ownsController = widget.initialController == null;
     controller = widget.initialController ?? AppController();
     durableStateReady = widget.initialController != null;
@@ -109,8 +110,20 @@ class _KiloAppState extends State<KiloApp> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     if (ownsController) controller.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      controller.handleAppResumed();
+    } else if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      controller.persistActiveWorkout();
+    }
   }
 
   @override
@@ -2331,6 +2344,7 @@ class _WorkoutExerciseCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final definition = controller.exerciseFor(exercise.exerciseId);
+    final exerciseHistory = controller.exerciseHistoryFor(exercise.exerciseId);
     return Card(
       child: Column(
         children: [
@@ -2508,29 +2522,44 @@ class _WorkoutExerciseCard extends StatelessWidget {
                       );
                     },
                   ),
-                  Row(
-                    children: [
-                      if (controller.hasPreviousValues(exercise))
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Wrap(
+                      spacing: 2,
+                      runSpacing: 2,
+                      children: [
+                        if (controller.hasPreviousValues(exercise))
+                          TextButton.icon(
+                            key: Key('reuse-previous-${exercise.id}'),
+                            onPressed: () {
+                              controller.reusePreviousValues(exercise);
+                              showKiloSnack(context, '已带入上次完成数据');
+                            },
+                            icon: const Icon(Icons.history, size: 17),
+                            label: const Text('带入上次'),
+                          ),
+                        if (exerciseHistory.isNotEmpty)
+                          TextButton.icon(
+                            key: Key('exercise-history-${exercise.id}'),
+                            onPressed: () => _showExerciseHistory(
+                              context,
+                              controller,
+                              exercise.exerciseId,
+                            ),
+                            icon: const Icon(Icons.timeline_rounded, size: 17),
+                            label: Text('历史 ${exerciseHistory.length}'),
+                          ),
                         TextButton.icon(
-                          key: Key('reuse-previous-${exercise.id}'),
+                          key: Key('clear-values-${exercise.id}'),
                           onPressed: () {
-                            controller.reusePreviousValues(exercise);
-                            showKiloSnack(context, '已带入上次完成数据');
+                            controller.clearExerciseValues(exercise);
+                            showKiloSnack(context, '重量和次数已清空');
                           },
-                          icon: const Icon(Icons.history, size: 17),
-                          label: const Text('带入上次'),
+                          icon: const Icon(Icons.backspace_outlined, size: 17),
+                          label: const Text('清空'),
                         ),
-                      TextButton.icon(
-                        key: Key('clear-values-${exercise.id}'),
-                        onPressed: () {
-                          controller.clearExerciseValues(exercise);
-                          showKiloSnack(context, '重量和次数已清空');
-                        },
-                        icon: const Icon(Icons.backspace_outlined, size: 17),
-                        label: const Text('清空'),
-                      ),
-                      const Spacer(),
-                    ],
+                      ],
+                    ),
                   ),
                   Align(
                     alignment: Alignment.centerLeft,
@@ -10962,7 +10991,11 @@ class _WorkoutCelebration extends StatelessWidget {
       ('训练容量', _volume(), Icons.fitness_center_outlined),
       ('有效组数', '${record.effectiveSets}', Icons.check_circle_outline),
       ('主要肌群', _primaryMuscles(), Icons.accessibility_new),
-      ('本次 PR', '${record.prs.length}', Icons.emoji_events_outlined),
+      (
+        '本次 PR',
+        '${record.prDetails.isNotEmpty ? record.prDetails.length : record.prs.length}',
+        Icons.emoji_events_outlined,
+      ),
       ('完成率', _completionRate(), Icons.task_alt_outlined),
     ];
     final hero = reducedMotion
@@ -11132,6 +11165,11 @@ class _WorkoutCelebration extends StatelessWidget {
                         record: record,
                       ),
                       const SizedBox(height: 12),
+                      _WorkoutPrHistorySummary(
+                        controller: controller,
+                        record: record,
+                      ),
+                      const SizedBox(height: 12),
                       _WorkoutComparisonSummary(
                         controller: controller,
                         record: record,
@@ -11197,6 +11235,144 @@ class _WorkoutCelebration extends StatelessWidget {
               particleLayer,
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _WorkoutPrHistorySummary extends StatelessWidget {
+  const _WorkoutPrHistorySummary({
+    required this.controller,
+    required this.record,
+  });
+
+  final AppController controller;
+  final WorkoutRecord record;
+
+  String _metricLabel(String metric) => switch (metric) {
+    'estimated1rm' => '估算 1RM',
+    'volume' => '单动作容量',
+    _ => '最大重量',
+  };
+
+  String _value(WorkoutPrDetail detail) {
+    final digits = detail.currentValue % 1 == 0 ? 0 : 1;
+    return '${detail.currentValue.toStringAsFixed(digits)} kg';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final details = record.prDetails;
+    return Card(
+      key: const Key('workout-pr-history-summary'),
+      margin: EdgeInsets.zero,
+      color: details.isEmpty ? Colors.white : const Color(0xFFFFF1E5),
+      child: Padding(
+        padding: const EdgeInsets.all(13),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  details.isEmpty
+                      ? Icons.insights_outlined
+                      : Icons.emoji_events_rounded,
+                  color: details.isEmpty ? quiet : primary,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    details.isEmpty ? '历史基线' : '历史个人纪录',
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                if (details.isNotEmpty)
+                  const Text(
+                    'NEW PR',
+                    style: TextStyle(
+                      color: primary,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 7),
+            if (details.isEmpty)
+              const Text(
+                '本次没有超过同动作历史最佳；首次记录只建立基线，不会被误报为 PR。',
+                style: TextStyle(color: secondaryInk, fontSize: 12),
+              )
+            else
+              for (final detail in details)
+                Container(
+                  key: Key('workout-pr-${detail.exerciseId}-${detail.metric}'),
+                  margin: const EdgeInsets.only(top: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 9,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(11),
+                    border: Border.all(color: const Color(0xFFF0D5BD)),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              controller.displayExerciseName(
+                                controller.exerciseFor(detail.exerciseId),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            Text(
+                              '${_metricLabel(detail.metric)} · 此前 ${detail.previousValue.toStringAsFixed(detail.previousValue % 1 == 0 ? 0 : 1)} kg（${detail.previousDate.month}月${detail.previousDate.day}日）',
+                              style: const TextStyle(
+                                color: quiet,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            _value(detail),
+                            style: const TextStyle(
+                              color: primary,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          Text(
+                            '+${(detail.currentValue - detail.previousValue).toStringAsFixed(1)} kg',
+                            style: const TextStyle(
+                              color: Color(0xFF1E7A4A),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+          ],
         ),
       ),
     );
@@ -12877,6 +13053,173 @@ class _DraftPlanComposerState extends State<_DraftPlanComposer> {
                   ),
                 ),
               ],
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+void _showExerciseHistory(
+  BuildContext context,
+  AppController controller,
+  String exerciseId,
+) {
+  final records = controller.exerciseHistoryFor(exerciseId);
+  final definition = controller.exerciseFor(exerciseId);
+  final pageContext = context;
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    builder: (sheetContext) => SafeArea(
+      child: SizedBox(
+        height: MediaQuery.sizeOf(sheetContext).height * .82,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 18, 12, 10),
+              child: Row(
+                children: [
+                  _ExerciseThumb(exerciseId: exerciseId, size: 46),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          controller.displayExerciseName(definition),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(sheetContext).textTheme.titleLarge,
+                        ),
+                        Text(
+                          '${records.length} 次历史 · 点击查看当时完整备注',
+                          style: const TextStyle(color: quiet, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: '关闭',
+                    onPressed: () => Navigator.pop(sheetContext),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: ListView.builder(
+                key: Key('exercise-history-list-$exerciseId'),
+                padding: const EdgeInsets.fromLTRB(14, 12, 14, 24),
+                itemCount: records.length,
+                itemBuilder: (context, index) {
+                  final record = records[index];
+                  final performed = record.exercises.firstWhere(
+                    (item) => item.exerciseId == exerciseId,
+                  );
+                  final completed = performed.sets
+                      .where((set) => set.completed)
+                      .toList(growable: false);
+                  final best = completed.isEmpty
+                      ? null
+                      : completed.reduce((a, b) {
+                          final aE1rm = a.weight * (1 + a.reps / 30);
+                          final bE1rm = b.weight * (1 + b.reps / 30);
+                          return bE1rm > aE1rm ? b : a;
+                        });
+                  final setNotes = completed
+                      .where((set) => set.note.trim().isNotEmpty)
+                      .map((set) => set.note.trim())
+                      .take(2)
+                      .join('；');
+                  final noteLines = <String>[
+                    if (performed.note.trim().isNotEmpty)
+                      '动作：${performed.note.trim()}',
+                    if (setNotes.isNotEmpty) '组：$setNotes',
+                    if (record.note.trim().isNotEmpty)
+                      '训练：${record.note.trim()}',
+                  ];
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 9),
+                    color: Colors.white,
+                    child: InkWell(
+                      key: Key('exercise-history-record-${record.id}'),
+                      borderRadius: BorderRadius.circular(16),
+                      onTap: () {
+                        Navigator.pop(sheetContext);
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (pageContext.mounted) {
+                            _showRecordDetail(pageContext, controller, record);
+                          }
+                        });
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.all(13),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    '${record.date.month}月${record.date.day}日 · ${record.name}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                ),
+                                const Icon(
+                                  Icons.chevron_right,
+                                  color: quiet,
+                                  size: 20,
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              best == null
+                                  ? '${completed.length} 组完成'
+                                  : '${completed.length} 组 · 最佳 ${_displayWeight(best.weight)} kg × ${best.reps}',
+                              style: const TextStyle(
+                                color: secondaryInk,
+                                fontSize: 12,
+                              ),
+                            ),
+                            if (noteLines.isNotEmpty) ...[
+                              const SizedBox(height: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: emberTint,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  noteLines.join('\n'),
+                                  maxLines: 4,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: secondaryInk,
+                                    fontSize: 11,
+                                    height: 1.35,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
             ),
           ],
         ),

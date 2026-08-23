@@ -199,6 +199,13 @@ class ActiveWorkoutSnapshot {
     required this.elapsedSeconds,
     required this.startedAt,
     required this.exercises,
+    this.defaultRestSeconds = 0,
+    this.restRunning = false,
+    this.restRemainingSeconds = 0,
+    this.restEndsAt,
+    this.restExerciseName,
+    this.restSetupPending = false,
+    this.pendingRestSetId,
   });
 
   final String name;
@@ -210,6 +217,13 @@ class ActiveWorkoutSnapshot {
   final int elapsedSeconds;
   final DateTime? startedAt;
   final List<WorkoutExercise> exercises;
+  final int defaultRestSeconds;
+  final bool restRunning;
+  final int restRemainingSeconds;
+  final DateTime? restEndsAt;
+  final String? restExerciseName;
+  final bool restSetupPending;
+  final String? pendingRestSetId;
 }
 
 abstract class ActiveWorkoutPersistence {
@@ -246,6 +260,13 @@ class SharedPreferencesActiveWorkoutPersistence
         elapsedSeconds: _asInt(map['elapsedSeconds']),
         startedAt: DateTime.tryParse(map['startedAt']?.toString() ?? ''),
         exercises: _asMapList(map['exercises']).map(_exerciseFromMap).toList(),
+        defaultRestSeconds: _asInt(map['defaultRestSeconds']),
+        restRunning: map['restRunning'] == true,
+        restRemainingSeconds: _asInt(map['restRemainingSeconds']),
+        restEndsAt: DateTime.tryParse(map['restEndsAt']?.toString() ?? ''),
+        restExerciseName: map['restExerciseName']?.toString(),
+        restSetupPending: map['restSetupPending'] == true,
+        pendingRestSetId: map['pendingRestSetId']?.toString(),
       );
     } catch (_) {
       return null;
@@ -281,6 +302,13 @@ class SharedPreferencesActiveWorkoutPersistence
         'elapsedSeconds': snapshot.elapsedSeconds,
         'startedAt': snapshot.startedAt?.toIso8601String(),
         'exercises': snapshot.exercises.map(_exerciseToMap).toList(),
+        'defaultRestSeconds': snapshot.defaultRestSeconds,
+        'restRunning': snapshot.restRunning,
+        'restRemainingSeconds': snapshot.restRemainingSeconds,
+        'restEndsAt': snapshot.restEndsAt?.toIso8601String(),
+        'restExerciseName': snapshot.restExerciseName,
+        'restSetupPending': snapshot.restSetupPending,
+        'pendingRestSetId': snapshot.pendingRestSetId,
       };
     }
     root['version'] = 1;
@@ -317,6 +345,7 @@ Map<String, dynamic> _recordToMap(WorkoutRecord record) => {
   'note': record.note,
   'exerciseIds': record.exerciseIds,
   'prs': record.prs,
+  'prDetails': record.prDetails.map(_prDetailToMap).toList(),
   'exercises': record.exercises.map(_exerciseToMap).toList(),
 };
 
@@ -331,7 +360,28 @@ WorkoutRecord _recordFromMap(Map<String, dynamic> map) => WorkoutRecord(
   note: map['note']?.toString() ?? '',
   exerciseIds: _asStringList(map['exerciseIds']),
   prs: _asStringList(map['prs']),
+  prDetails: _asMapList(map['prDetails']).map(_prDetailFromMap).toList(),
   exercises: _asMapList(map['exercises']).map(_exerciseFromMap).toList(),
+);
+
+Map<String, dynamic> _prDetailToMap(WorkoutPrDetail detail) => {
+  'exerciseId': detail.exerciseId,
+  'metric': detail.metric,
+  'currentValue': detail.currentValue,
+  'previousValue': detail.previousValue,
+  'previousRecordId': detail.previousRecordId,
+  'previousDate': detail.previousDate.toIso8601String(),
+};
+
+WorkoutPrDetail _prDetailFromMap(Map<String, dynamic> map) => WorkoutPrDetail(
+  exerciseId: map['exerciseId']?.toString() ?? '',
+  metric: map['metric']?.toString() ?? 'weight',
+  currentValue: _asDouble(map['currentValue']),
+  previousValue: _asDouble(map['previousValue']),
+  previousRecordId: map['previousRecordId']?.toString() ?? '',
+  previousDate:
+      DateTime.tryParse(map['previousDate']?.toString() ?? '') ??
+      DateTime.fromMillisecondsSinceEpoch(0),
 );
 
 Map<String, dynamic> _routineToMap(Routine routine) => {

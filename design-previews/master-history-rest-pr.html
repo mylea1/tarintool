@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>形域 · 历史、休息与 PR 预览</title>
+  <style>
+    :root{font-family:system-ui,-apple-system,"PingFang SC",sans-serif;color:#241a15;background:#fff7f0;--orange:#d95718;--line:#ead9cd;--muted:#756156;--green:#1e7a4a}
+    *{box-sizing:border-box} body{margin:0;min-height:100dvh;padding:20px}.phone{width:min(100%,414px);margin:auto;background:#fffaf6;border:1px solid var(--line);border-radius:28px;overflow:hidden;box-shadow:0 18px 60px #8e3d1520}
+    header{padding:20px 18px 12px;font-size:25px;font-weight:900}.tabs{display:flex;gap:6px;padding:0 14px 14px}.tabs button{flex:1;border:1px solid var(--line);background:white;padding:10px;border-radius:12px;font-weight:800}.tabs button.active{color:white;background:var(--orange);border-color:var(--orange)}main{padding:0 14px 18px}.view{display:none}.view.active{display:block}.card{background:white;border:1px solid var(--line);border-radius:18px;padding:14px;margin-bottom:12px}.row{display:flex;align-items:center;gap:10px}.grow{flex:1;min-width:0}.title{font-size:17px;font-weight:900}.meta{font-size:12px;color:var(--muted);margin-top:3px}.timer{font-size:30px;font-weight:900;font-variant-numeric:tabular-nums;color:var(--orange)}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.actions button,.history{border:1px solid var(--line);background:white;color:#663219;border-radius:11px;padding:9px 11px;font-weight:800}.history{width:100%;text-align:left;margin-top:12px}.note{background:#fff0e5;border-radius:10px;padding:9px;margin-top:8px;font-size:12px}.set{display:grid;grid-template-columns:26px 1fr auto;gap:8px;padding:9px 0;border-bottom:1px solid #f2e7df}.badge{color:var(--green);font-weight:900}.pr{border-left:4px solid var(--orange)}.pr strong{color:var(--orange)}.sheet{display:none;position:fixed;inset:0;background:#241a1566;padding:8vh 12px 0}.sheet.open{display:flex;align-items:flex-end;justify-content:center}.sheet>section{width:min(100%,414px);max-height:84vh;overflow:auto;background:#fffaf6;border-radius:24px 24px 0 0;padding:18px}.sheet h2{margin:0 0 4px}.close{float:right;border:0;background:transparent;font-size:24px}.history-item{display:block;width:100%;text-align:left;border:1px solid var(--line);background:white;border-radius:14px;padding:12px;margin-top:10px}.history-item:active{transform:scale(.99)}
+    @media(max-width:340px){body{padding:0}.phone{border-radius:0;border:0}.timer{font-size:25px}.actions button{flex:1}.row{align-items:flex-start}}
+  </style>
+</head>
+<body>
+  <div class="phone">
+    <header>形域训练可信度改进</header>
+    <nav class="tabs">
+      <button class="active" data-view="rest">训练中</button><button data-view="history">历史</button><button data-view="pr">结算</button>
+    </nav>
+    <main>
+      <section id="rest" class="view active">
+        <article class="card">
+          <div class="row"><div class="grow"><div class="title">组间休息</div><div class="meta">器械推胸 · 以结束时间校正</div></div><div class="timer" id="timer">03:00</div></div>
+          <div class="actions"><button id="start">重新开始 3 分钟</button><button id="bg">模拟锁屏 65 秒</button></div>
+        </article>
+        <article class="card"><div class="title">器械推胸</div><div class="meta">上次 80 kg × 8 · 本次 82.5 kg × 8</div><button class="history" data-open>查看历史 4 次　›</button></article>
+      </section>
+      <section id="history" class="view"><article class="card"><div class="title">器械推胸历史</div><button class="history-item" data-open><b>8月20日 · 80 kg × 8</b><div class="meta">3 组 · 容量 1,920 kg</div><div class="note">动作备注：座椅第 6 档<br>本组备注：最后两次速度变慢</div></button><button class="history-item" data-open><b>8月13日 · 77.5 kg × 8</b><div class="meta">3 组 · 点击查看当时备注</div></button></article></section>
+      <section id="pr" class="view"><article class="card pr"><div class="row"><div class="grow"><div class="title">本次创造 2 项个人纪录</div><div class="meta">只与本人同动作历史比较</div></div><strong>NEW PR</strong></div></article><article class="card"><div class="title">器械推胸 · 估算 1RM</div><div class="set"><span>本次</span><b>104.5 kg</b><span class="badge">+3.1 kg</span></div><div class="set"><span>此前</span><b>101.4 kg</b><span>8月20日</span></div><div class="note">82.5 kg × 8 超过历史最佳表现；不是按训练组数判定。</div></article></section>
+    </main>
+  </div>
+  <div class="sheet" id="sheet"><section><button class="close">×</button><h2>8月20日训练详情</h2><div class="meta">器械推胸 · 当时的完整记录</div><article class="card"><div class="title">训练备注</div><div class="note">右肩状态良好，最后一组保留 1 次余力。</div><div class="set"><span>1</span><b>80 kg × 8</b><span>休 180s</span></div><div class="set"><span>2</span><b>80 kg × 8</b><span>休 180s</span></div></article></section></div>
+  <script>
+    document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-view],.view').forEach(x=>x.classList.remove('active'));b.classList.add('active');document.getElementById(b.dataset.view).classList.add('active')});
+    const sheet=document.getElementById('sheet');document.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>sheet.classList.add('open'));document.querySelector('.close').onclick=()=>sheet.classList.remove('open');
+    let end=Date.now()+180000,tick=()=>{let s=Math.max(0,Math.ceil((end-Date.now())/1000));timer.textContent=String(s/60|0).padStart(2,'0')+':'+String(s%60).padStart(2,'0')};setInterval(tick,250);start.onclick=()=>end=Date.now()+180000;bg.onclick=()=>{end-=65000;tick()};tick();
+  </script>
+</body>
+</html>

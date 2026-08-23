@@ -634,6 +634,104 @@ void main() {
     }
   });
 
+  test('rest countdown uses its wall-clock deadline after background time', () {
+    final controller = AppController();
+    try {
+      final startedAt = DateTime.now();
+      controller.startWorkout(name: '后台计时');
+      controller.startRest(exercise: '器械推胸', seconds: 180);
+
+      controller.reconcileRestClock(startedAt.add(const Duration(seconds: 60)));
+
+      expect(controller.restRunning, isTrue);
+      expect(controller.restRemainingSeconds, inInclusiveRange(119, 120));
+      controller.reconcileRestClock(
+        startedAt.add(const Duration(seconds: 181)),
+      );
+      expect(controller.restRunning, isFalse);
+      expect(controller.restRemainingSeconds, 0);
+    } finally {
+      controller.dispose();
+    }
+  });
+
+  test('finished workout PRs cite the previous same-exercise record', () {
+    final controller = AppController();
+    try {
+      final baselineDate = DateTime(2026, 8, 10);
+      controller.history.add(
+        WorkoutRecord(
+          id: 'baseline-bench',
+          name: '上次胸部训练',
+          date: baselineDate,
+          startTime: '18:00',
+          durationSeconds: 1800,
+          volume: 1920,
+          effectiveSets: 3,
+          exerciseIds: const ['bench_press'],
+          exercises: [
+            WorkoutExercise(
+              id: 'baseline-exercise',
+              exerciseId: 'bench_press',
+              sets: [
+                WorkoutSet(
+                  id: 'baseline-set',
+                  weight: 80,
+                  reps: 8,
+                  completed: true,
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+      controller.startWorkout(name: '本次胸部训练');
+      controller.addExercise('bench_press');
+      final exercise = controller.workout.single;
+      controller.addSet(exercise);
+      exercise.sets.single
+        ..weight = 82.5
+        ..reps = 8
+        ..completed = true;
+
+      final record = controller.finishWorkout()!;
+
+      expect(record.prDetails, isNotEmpty);
+      expect(
+        record.prDetails.map((item) => item.metric),
+        containsAll(<String>['estimated1rm', 'weight', 'volume']),
+      );
+      for (final detail in record.prDetails) {
+        expect(detail.previousRecordId, 'baseline-bench');
+        expect(detail.previousDate, baselineDate);
+        expect(detail.currentValue, greaterThan(detail.previousValue));
+      }
+    } finally {
+      controller.dispose();
+    }
+  });
+
+  test('first exercise record establishes a baseline instead of a fake PR', () {
+    final controller = AppController();
+    try {
+      controller.startWorkout(name: '第一次训练');
+      controller.addExercise('bench_press');
+      final exercise = controller.workout.single;
+      controller.addSet(exercise);
+      exercise.sets.single
+        ..weight = 60
+        ..reps = 8
+        ..completed = true;
+
+      final record = controller.finishWorkout()!;
+
+      expect(record.prDetails, isEmpty);
+      expect(record.prs, isEmpty);
+    } finally {
+      controller.dispose();
+    }
+  });
+
   test('previous value action is available only for matching history', () {
     final controller = AppController();
     try {
@@ -759,6 +857,45 @@ void main() {
       expect(restored.workout.single.sets.single.note, '左肩略紧');
       expect(restored.page, PageId.train);
       expect(restored.liveWorkoutVisible, isTrue);
+    } finally {
+      restored.finishWorkout();
+      await restored.flushActiveWorkoutPersistence();
+      restored.dispose();
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, null);
+    }
+  });
+
+  test('active rest deadline survives process recreation', () async {
+    const channel = MethodChannel('kilo.platform.timer');
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async => false);
+    final persistence = InMemoryActiveWorkoutPersistence();
+    AccountService signedInAccount() {
+      final account = AccountService(allowTestAdmin: true);
+      account.loginWithPhone('123', password: '123');
+      return account;
+    }
+
+    final first = AppController(
+      accountService: signedInAccount(),
+      activeWorkoutPersistence: persistence,
+    );
+    first.startWorkout(name: '休息恢复测试');
+    first.startRest(exercise: '器械推胸', seconds: 180);
+    await first.flushActiveWorkoutPersistence();
+    first.dispose();
+
+    final restored = AppController(
+      accountService: signedInAccount(),
+      activeWorkoutPersistence: persistence,
+    );
+    try {
+      await restored.hydrateActiveWorkout();
+
+      expect(restored.restRunning, isTrue);
+      expect(restored.restExerciseName, '器械推胸');
+      expect(restored.restRemainingSeconds, inInclusiveRange(178, 180));
     } finally {
       restored.finishWorkout();
       await restored.flushActiveWorkoutPersistence();

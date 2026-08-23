@@ -488,6 +488,7 @@ class WorkoutRecord {
     this.note = '',
     required this.exerciseIds,
     this.prs = const [],
+    this.prDetails = const [],
     this.exercises = const [],
   });
   final String id;
@@ -500,10 +501,33 @@ class WorkoutRecord {
   final String note;
   final List<String> exerciseIds;
   final List<String> prs;
+  final List<WorkoutPrDetail> prDetails;
 
   /// A snapshot of the exercises and sets performed in this record.
   /// Older records may omit it and fall back to [exerciseIds].
   final List<WorkoutExercise> exercises;
+}
+
+/// A personal record proven against this user's earlier records for the same
+/// exercise. First-time exercise entries are deliberately not labelled PRs.
+class WorkoutPrDetail {
+  const WorkoutPrDetail({
+    required this.exerciseId,
+    required this.metric,
+    required this.currentValue,
+    required this.previousValue,
+    required this.previousRecordId,
+    required this.previousDate,
+  });
+
+  final String exerciseId;
+
+  /// `estimated1rm`, `weight`, `reps` or `volume`.
+  final String metric;
+  final double currentValue;
+  final double previousValue;
+  final String previousRecordId;
+  final DateTime previousDate;
 }
 
 /// A compact comparison between the finished session and its most relevant
