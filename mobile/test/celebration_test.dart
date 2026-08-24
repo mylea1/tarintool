@@ -60,7 +60,16 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('杠铃卧推'), findsWidgets);
+    expect(find.textContaining('kg ×'), findsNothing);
+    await tester.tap(
+      find.byKey(const Key('workout-celebration-exercise-details-0')),
+    );
+    await tester.pumpAndSettle();
     expect(find.textContaining('kg ×'), findsWidgets);
+    expect(
+      find.byKey(const Key('workout-completion-ai-review-locked')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('celebration scrolls safely at 320dp and 200% text', (
@@ -76,8 +85,7 @@ void main() {
       textScale: 2,
     );
     expect(find.text('训练时长'), findsOneWidget);
-    expect(find.text('有效组数'), findsOneWidget);
-    expect(find.text('主要肌群'), findsOneWidget);
+    expect(find.text('训练容量'), findsOneWidget);
     expect(find.text('本次 PR'), findsOneWidget);
     expect(
       find.byKey(const Key('workout-celebration-records')),

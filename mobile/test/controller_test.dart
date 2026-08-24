@@ -1072,6 +1072,83 @@ void main() {
     }
   });
 
+  test('previous set follows latest exact exercise across workout names', () {
+    final controller = AppController();
+    WorkoutRecord record({
+      required String id,
+      required String exerciseId,
+      required DateTime date,
+      required double weight,
+      int sets = 1,
+    }) => WorkoutRecord(
+      id: id,
+      name: id == 'newer' ? '完全不同的计划' : '旧计划',
+      date: date,
+      startTime: '10:00',
+      durationSeconds: 1200,
+      volume: weight * 8 * sets,
+      effectiveSets: sets,
+      exerciseIds: [exerciseId],
+      exercises: [
+        WorkoutExercise(
+          id: '$id-exercise',
+          exerciseId: exerciseId,
+          sets: [
+            for (var index = 0; index < sets; index++)
+              WorkoutSet(
+                id: '$id-set-$index',
+                weight: weight + index,
+                reps: 8,
+                completed: true,
+              ),
+          ],
+        ),
+      ],
+    );
+    try {
+      // Deliberately insert out of chronological order to verify that storage
+      // order and workout name do not affect the selected exercise history.
+      controller.history
+        ..add(
+          record(
+            id: 'newer',
+            exerciseId: 'bench_press',
+            date: DateTime(2026, 8, 24),
+            weight: 82.5,
+          ),
+        )
+        ..add(
+          record(
+            id: 'older',
+            exerciseId: 'bench_press',
+            date: DateTime(2026, 8, 20),
+            weight: 70,
+            sets: 3,
+          ),
+        )
+        ..add(
+          record(
+            id: 'other',
+            exerciseId: 'dumbbell_bench_press',
+            date: DateTime(2026, 8, 25),
+            weight: 100,
+          ),
+        );
+
+      expect(controller.previousSetFor('bench_press', 0)?.weight, 82.5);
+      // The latest bench session had one set, so a new second row repeats that
+      // session instead of leaking the older plan's second set.
+      expect(controller.previousSetFor('bench_press', 1)?.weight, 82.5);
+      expect(controller.previousSetFor('dumbbell_bench_press', 0)?.weight, 100);
+      expect(
+        controller.exerciseHistoryFor('bench_press').map((item) => item.id),
+        ['newer', 'older'],
+      );
+    } finally {
+      controller.dispose();
+    }
+  });
+
   test('AI plan preserves prescriptions and schedules from chosen date', () {
     final controller = AppController();
     try {

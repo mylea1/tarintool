@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -11590,45 +11591,17 @@ class _WorkoutCelebration extends StatelessWidget {
   String _volume() =>
       '${record.volume.toStringAsFixed(record.volume % 1 == 0 ? 0 : 1)} kg';
 
-  String _completionRate() {
-    final total = record.exercises.expand((exercise) => exercise.sets).length;
-    if (total == 0) return '—';
-    final completed = record.exercises
-        .expand((exercise) => exercise.sets)
-        .where((set) => set.completed)
-        .length;
-    return '${(completed * 100 / total).round()}%';
-  }
-
-  String _primaryMuscles() {
-    final counts = <String, int>{};
-    for (final exerciseId in record.exerciseIds) {
-      final group = controller.muscleGroupFor(
-        controller.exerciseFor(exerciseId).muscle,
-      );
-      counts[group] = (counts[group] ?? 0) + 1;
-    }
-    final sorted = counts.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-    return sorted.isEmpty
-        ? '—'
-        : sorted.take(2).map((item) => item.key).join(' · ');
-  }
-
   @override
   Widget build(BuildContext context) {
     final reducedMotion = MediaQuery.disableAnimationsOf(context);
     final metrics = <(String, String, IconData)>[
       ('训练时长', _duration(), Icons.timer_outlined),
       ('训练容量', _volume(), Icons.fitness_center_outlined),
-      ('有效组数', '${record.effectiveSets}', Icons.check_circle_outline),
-      ('主要肌群', _primaryMuscles(), Icons.accessibility_new),
       (
         '本次 PR',
         '${record.prDetails.isNotEmpty ? record.prDetails.length : record.prs.length}',
         Icons.emoji_events_outlined,
       ),
-      ('完成率', _completionRate(), Icons.task_alt_outlined),
     ];
     final hero = reducedMotion
         ? Container(
@@ -11732,7 +11705,7 @@ class _WorkoutCelebration extends StatelessWidget {
                       const SizedBox(height: 20),
                       LayoutBuilder(
                         builder: (context, metricConstraints) {
-                          final width = (metricConstraints.maxWidth - 10) / 2;
+                          final width = (metricConstraints.maxWidth - 20) / 3;
                           return Wrap(
                             spacing: 10,
                             runSpacing: 10,
@@ -11760,7 +11733,7 @@ class _WorkoutCelebration extends StatelessWidget {
                                               color: cobalt,
                                               size: 20,
                                             ),
-                                            const SizedBox(height: 8),
+                                            const SizedBox(height: 6),
                                             Text(
                                               metrics[index].$1,
                                               maxLines: 2,
@@ -11777,7 +11750,7 @@ class _WorkoutCelebration extends StatelessWidget {
                                               overflow: TextOverflow.ellipsis,
                                               style: const TextStyle(
                                                 color: ink,
-                                                fontSize: 19,
+                                                fontSize: 17,
                                                 fontWeight: FontWeight.w900,
                                               ),
                                             ),
@@ -11796,13 +11769,20 @@ class _WorkoutCelebration extends StatelessWidget {
                         controller: controller,
                         record: record,
                       ),
+                      if (record.prDetails.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        _WorkoutPrHistorySummary(
+                          controller: controller,
+                          record: record,
+                        ),
+                      ],
                       const SizedBox(height: 12),
-                      _WorkoutPrHistorySummary(
+                      _WorkoutComparisonSummary(
                         controller: controller,
                         record: record,
                       ),
                       const SizedBox(height: 12),
-                      _WorkoutComparisonSummary(
+                      _WorkoutCompletionAiReview(
                         controller: controller,
                         record: record,
                       ),
@@ -12122,27 +12102,195 @@ class _WorkoutComparisonSummary extends StatelessWidget {
                   ),
               ],
             ],
-            const SizedBox(height: 9),
-            OutlinedButton.icon(
-              key: const Key('workout-celebration-ai-summary'),
-              onPressed: () {
-                final selectedBaseline = baseline;
-                Navigator.pop(context);
-                unawaited(
-                  controller.sendWorkoutComparisonForReview(
-                    record,
-                    baseline: selectedBaseline,
-                  ),
-                );
-              },
-              icon: const Icon(Icons.auto_awesome_outlined, size: 18),
-              label: const Text('让 AI 总结本次进步'),
-            ),
           ],
         ),
       ),
     );
   }
+}
+
+class _WorkoutCompletionAiReview extends StatefulWidget {
+  const _WorkoutCompletionAiReview({
+    required this.controller,
+    required this.record,
+  });
+
+  final AppController controller;
+  final WorkoutRecord record;
+
+  @override
+  State<_WorkoutCompletionAiReview> createState() =>
+      _WorkoutCompletionAiReviewState();
+}
+
+class _WorkoutCompletionAiReviewState
+    extends State<_WorkoutCompletionAiReview> {
+  String? review;
+  Object? error;
+  bool loading = false;
+
+  bool get isMember => widget.controller.entitlements?.isMember == true;
+
+  @override
+  void initState() {
+    super.initState();
+    if (isMember) unawaited(_load());
+  }
+
+  Future<void> _load() async {
+    if (loading) return;
+    setState(() {
+      loading = true;
+      error = null;
+    });
+    try {
+      final value = await widget.controller.generateWorkoutCompletionReview(
+        widget.record,
+        baseline: widget.controller.comparisonBaselineFor(widget.record),
+      );
+      if (!mounted) return;
+      setState(() => review = value);
+    } catch (caught) {
+      if (!mounted) return;
+      setState(() => error = caught);
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!isMember) return _buildLocked(context);
+    return Card(
+      key: const Key('workout-completion-ai-review'),
+      margin: EdgeInsets.zero,
+      color: const Color(0xFFFFF1E5),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.auto_awesome_rounded, color: primary, size: 21),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'AI 训练评价',
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
+                  ),
+                ),
+                MembershipMark(isMember: true, size: 24),
+              ],
+            ),
+            const SizedBox(height: 9),
+            if (loading)
+              const Row(
+                children: [
+                  SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  SizedBox(width: 10),
+                  Expanded(child: Text('正在结合本次与历史训练生成评价…')),
+                ],
+              )
+            else if (review != null)
+              Text(review!, style: const TextStyle(height: 1.55))
+            else if (error != null)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    '训练记录已经保存，但 AI 评价暂时没有生成，不影响本次数据。',
+                    style: TextStyle(color: secondaryInk),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: _load,
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: const Text('重新生成评价'),
+                  ),
+                ],
+              )
+            else
+              const SizedBox.shrink(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLocked(BuildContext context) => Semantics(
+    container: true,
+    label: 'AI 训练评价已锁定，开通形域 PRO 后可在训练完成时自动生成',
+    child: Card(
+      key: const Key('workout-completion-ai-review-locked'),
+      margin: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
+      child: SizedBox(
+        height:
+            154 +
+            (MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 2.0) - 1) *
+                286,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            ExcludeSemantics(
+              child: ImageFiltered(
+                imageFilter: ui.ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                child: const Padding(
+                  padding: EdgeInsets.all(15),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'AI 训练评价',
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      SizedBox(height: 10),
+                      Text('本次训练的主要动作保持稳定，力量表现相比上次有所变化。'),
+                      SizedBox(height: 5),
+                      Text('下一次训练建议优先关注重量、次数与动作完成质量。'),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            ColoredBox(
+              color: Colors.white.withValues(alpha: .68),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.lock_rounded, color: primary, size: 28),
+                    const SizedBox(height: 5),
+                    const Text(
+                      '解锁训练后的 AI 评价',
+                      style: TextStyle(fontWeight: FontWeight.w900),
+                    ),
+                    const SizedBox(height: 7),
+                    FilledButton(
+                      onPressed: () => showMembershipPaywall(
+                        context,
+                        controller: widget.controller,
+                        reason: MembershipPaywallReason.premiumFeature,
+                      ),
+                      child: const Text('开通形域 PRO'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }
 
 class _ComparisonPill extends StatelessWidget {
@@ -12283,65 +12431,49 @@ class _CelebrationExerciseCard extends StatelessWidget {
       key: Key('workout-celebration-exercise-$index'),
       margin: const EdgeInsets.only(bottom: 9),
       color: Colors.white,
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                _ExerciseThumb(exerciseId: exercise.exerciseId, size: 42),
-                const SizedBox(width: 9),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        controller.displayExerciseName(
-                          controller.exerciseFor(exercise.exerciseId),
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: ink,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      Text(
-                        '${completedSets.length}/${exercise.sets.length} 组完成 · ${_displayWeight(volume)} kg 容量',
-                        style: const TextStyle(color: quiet, fontSize: 12),
-                      ),
-                    ],
-                  ),
-                ),
-                Icon(
-                  completedSets.isNotEmpty
-                      ? Icons.check_circle_rounded
-                      : Icons.pending_outlined,
-                  color: completedSets.isNotEmpty
-                      ? const Color(0xFF1E7A4A)
-                      : quiet,
-                ),
-              ],
-            ),
-            if (exercise.note.trim().isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(
-                '动作备注：${exercise.note}',
-                style: const TextStyle(color: secondaryInk, fontSize: 12),
-              ),
-            ],
-            const SizedBox(height: 9),
-            for (var setIndex = 0; setIndex < shownSets.length; setIndex++)
-              Padding(
-                padding: EdgeInsets.only(top: setIndex == 0 ? 0 : 6),
-                child: _CelebrationSetRow(
-                  set: shownSets[setIndex],
-                  originalIndex: exercise.sets.indexOf(shownSets[setIndex]),
-                ),
-              ),
-          ],
+      clipBehavior: Clip.antiAlias,
+      child: ExpansionTile(
+        key: Key('workout-celebration-exercise-details-$index'),
+        initiallyExpanded: false,
+        tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+        childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        shape: const Border(),
+        collapsedShape: const Border(),
+        leading: _ExerciseThumb(exerciseId: exercise.exerciseId, size: 42),
+        title: Text(
+          controller.displayExerciseName(
+            controller.exerciseFor(exercise.exerciseId),
+          ),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(color: ink, fontWeight: FontWeight.w900),
         ),
+        subtitle: Text(
+          '${completedSets.length} 组完成 · ${_displayWeight(volume)} kg 容量',
+          style: const TextStyle(color: quiet, fontSize: 12),
+        ),
+        controlAffinity: ListTileControlAffinity.trailing,
+        children: [
+          if (exercise.note.trim().isNotEmpty)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  '动作备注：${exercise.note}',
+                  style: const TextStyle(color: secondaryInk, fontSize: 12),
+                ),
+              ),
+            ),
+          for (var setIndex = 0; setIndex < shownSets.length; setIndex++)
+            Padding(
+              padding: EdgeInsets.only(top: setIndex == 0 ? 0 : 6),
+              child: _CelebrationSetRow(
+                set: shownSets[setIndex],
+                originalIndex: exercise.sets.indexOf(shownSets[setIndex]),
+              ),
+            ),
+        ],
       ),
     );
   }

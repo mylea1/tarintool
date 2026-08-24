@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>训练完成渐进披露预览</title>
+  <style>
+    :root{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#241a15;background:#fff7f0}
+    *{box-sizing:border-box} body{margin:0} button{font:inherit}
+    main{width:min(100%,430px);min-height:100vh;margin:auto;padding:24px 16px 32px}
+    .hero{text-align:center}.check{display:grid;place-items:center;width:72px;height:72px;margin:auto;border-radius:50%;background:#e6f5ec;color:#21845a;font-size:38px}
+    h1{margin:12px 0 2px;font-size:28px}.sub{margin:0;color:#756156}
+    .summary,.card{margin-top:16px;border:1px solid #ead9cd;border-radius:20px;background:#fff;box-shadow:0 8px 24px #8e3d1512}
+    .summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));padding:14px 4px;text-align:center}
+    .metric{min-width:0;padding:2px 6px;border-right:1px solid #f1e5dc}.metric:last-child{border:0}.metric b{display:block;font-size:18px;overflow-wrap:anywhere}.metric span{font-size:11px;color:#756156}
+    .section-title{display:flex;align-items:center;justify-content:space-between;margin:22px 2px 8px}.section-title h2{font-size:18px;margin:0}.section-title small{color:#756156}
+    .exercise{padding:0;overflow:hidden}.exercise button{width:100%;display:flex;gap:10px;align-items:center;border:0;background:#fff;padding:13px;text-align:left;color:#241a15}
+    .thumb{width:44px;height:44px;border-radius:13px;background:#fff0e5;display:grid;place-items:center;color:#d95718;font-weight:900;flex:0 0 auto}
+    .grow{min-width:0;flex:1}.grow b,.grow span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.grow span{color:#756156;font-size:12px;margin-top:2px}.chev{transition:transform .2s}.open .chev{transform:rotate(180deg)}
+    .sets{display:none;padding:0 13px 13px}.open .sets{display:block}.set{display:grid;grid-template-columns:40px repeat(2,minmax(0,1fr));gap:8px;padding:8px;border-radius:10px;background:#eaf7ee;margin-top:6px;font-size:12px}.set strong{text-align:right}
+    .progress{padding:14px}.progress-head{display:flex;align-items:center;gap:8px}.progress-head b{flex:1}.pr{color:#d95718;font-weight:900}.compare{margin-top:10px;padding:10px;border-radius:12px;background:#fff7f0;color:#5e4c43;font-size:13px}
+    .ai{position:relative;padding:16px;overflow:hidden}.ai h2{font-size:18px;margin:0 0 6px}.ai p{margin:0;color:#5e4c43;line-height:1.55}.locked-copy{filter:blur(5px);user-select:none;opacity:.55}.lock{position:absolute;inset:0;display:grid;place-content:center;text-align:center;background:#fff9;backdrop-filter:blur(1px)}.lock b{display:block;margin-top:6px}.lock button{margin-top:10px;border:0;border-radius:999px;background:#d95718;color:#fff;padding:10px 18px;font-weight:800}
+    .actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:22px}.actions button{min-height:48px;border-radius:999px;border:1px solid #d8c5b8;background:#fff;color:#5e4c43;font-weight:800}.actions .primary{border-color:#d95718;background:#d95718;color:#fff}
+    .mode{position:fixed;right:12px;top:12px;border:0;border-radius:999px;padding:8px 12px;background:#241a15;color:#fff;z-index:3}
+    @media(max-width:350px){main{padding-inline:12px}.summary{grid-template-columns:1fr}.metric{border-right:0;border-bottom:1px solid #f1e5dc;padding:8px}.metric:last-child{border:0}.actions{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <button class="mode" id="mode">切换：免费用户</button>
+  <main>
+    <header class="hero"><div class="check">✓</div><h1>训练完成</h1><p class="sub">上肢力量 A</p></header>
+    <section class="summary" aria-label="本次训练摘要">
+      <div class="metric"><b>54 分钟</b><span>训练时长</span></div><div class="metric"><b>5,840 kg</b><span>训练容量</span></div><div class="metric"><b>1 项</b><span>本次 PR</span></div>
+    </section>
+    <div class="section-title"><h2>本次动作</h2><small>点击查看每组</small></div>
+    <section class="card exercise"><button aria-expanded="false"><span class="thumb">卧</span><span class="grow"><b>杠铃卧推</b><span>4 组完成 · 2,560 kg</span></span><span class="chev">⌄</span></button><div class="sets"><div class="set"><span>第 1 组</span><strong>75 kg</strong><strong>8 次</strong></div><div class="set"><span>第 2 组</span><strong>80 kg</strong><strong>8 次</strong></div></div></section>
+    <section class="card exercise"><button aria-expanded="false"><span class="thumb">划</span><span class="grow"><b>胸托划船</b><span>3 组完成 · 1,920 kg</span></span><span class="chev">⌄</span></button><div class="sets"><div class="set"><span>第 1 组</span><strong>60 kg</strong><strong>10 次</strong></div></div></section>
+    <section class="card progress"><div class="progress-head"><span>↗</span><b>和你的上次训练相比</b><span class="pr">NEW PR</span></div><div class="compare">杠铃卧推：80 kg × 8，上次 77.5 kg × 8，重量提高 2.5 kg。</div></section>
+    <section class="card ai" id="ai"><h2>AI 训练评价</h2><p id="review">卧推重量提高，同时保持了相同次数，这是有效的力量进步。下一次先保持 80 kg，争取让最后一组也稳定完成 8 次。</p><div class="lock" id="lock"><div aria-label="AI 训练评价已锁定"><span style="font-size:28px">🔒</span><b>解锁训练后的 AI 评价</b><button>开通形域 PRO</button></div></div></section>
+    <div class="actions"><button>查看记录</button><button class="primary">完成</button></div>
+  </main>
+  <script>
+    document.querySelectorAll('.exercise>button').forEach(button=>button.onclick=()=>{const card=button.parentElement;card.classList.toggle('open');button.setAttribute('aria-expanded',card.classList.contains('open'))});
+    let vip=false;document.querySelector('#mode').onclick=()=>{vip=!vip;document.querySelector('#lock').hidden=vip;document.querySelector('#review').className=vip?'':'locked-copy';document.querySelector('#mode').textContent=`切换：${vip?'VIP':'免费用户'}`};document.querySelector('#review').className='locked-copy';
+  </script>
+</body>
+</html>

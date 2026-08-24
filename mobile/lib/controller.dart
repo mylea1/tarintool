@@ -1486,38 +1486,48 @@ class AppController extends ChangeNotifier {
   int get totalSets => workout.expand((item) => item.sets).length;
   double get completion => totalSets == 0 ? 0 : completedSets / totalSets;
 
-  /// Returns the latest real history set for an exercise and index.
-  ///
-  /// Records are newest first. An exact completed index wins; if a recent
-  /// record has no matching index, the most recent completed set for the same
-  /// exercise is used as a conservative fallback. Planned values are never
-  /// consulted here.
-  WorkoutSet? previousSetFor(String exerciseId, int setIndex) {
-    WorkoutSet? fallback;
-    for (final record in history) {
+  ({WorkoutRecord record, WorkoutExercise exercise})? _latestExerciseHistory(
+    String exerciseId,
+  ) {
+    final records = [...history]..sort((a, b) => b.date.compareTo(a.date));
+    for (final record in records) {
       for (final exercise in record.exercises) {
-        if (exercise.exerciseId != exerciseId) continue;
-        if (setIndex < exercise.sets.length) {
-          final exact = exercise.sets[setIndex];
-          if (exact.completed) return exact;
-        }
-        for (final set in exercise.sets) {
-          if (set.completed) return fallback ?? set;
+        if (exercise.exerciseId == exerciseId &&
+            exercise.sets.any((set) => set.completed)) {
+          return (record: record, exercise: exercise);
         }
       }
     }
-    return fallback;
+    return null;
   }
 
-  List<WorkoutRecord> exerciseHistoryFor(String exerciseId) => history
-      .where(
-        (record) => record.exercises.any(
-          (exercise) =>
-              exercise.exerciseId == exerciseId &&
-              exercise.sets.any((set) => set.completed),
-        ),
-      )
-      .toList(growable: false);
+  /// Returns a set from the most recent completed session of this exact
+  /// exercise ID. Workout name, plan and list position never participate in
+  /// the lookup, so similarly named movements cannot leak values into one
+  /// another.
+  WorkoutSet? previousSetFor(String exerciseId, int setIndex) {
+    final latest = _latestExerciseHistory(exerciseId)?.exercise;
+    if (latest == null) return null;
+    if (setIndex < latest.sets.length && latest.sets[setIndex].completed) {
+      return latest.sets[setIndex];
+    }
+    final completed = latest.sets.where((set) => set.completed).toList();
+    return completed.isEmpty ? null : completed.last;
+  }
+
+  List<WorkoutRecord> exerciseHistoryFor(String exerciseId) {
+    final records = history
+        .where(
+          (record) => record.exercises.any(
+            (exercise) =>
+                exercise.exerciseId == exerciseId &&
+                exercise.sets.any((set) => set.completed),
+          ),
+        )
+        .toList(growable: false);
+    records.sort((a, b) => b.date.compareTo(a.date));
+    return records;
+  }
 
   /// Picks the most useful previous session for the completion summary: an
   /// exact plan/session name first, then the most recent record sharing the
@@ -3926,6 +3936,60 @@ class AppController extends ChangeNotifier {
       includeTrainingContext: true,
       contexts: selected,
     );
+  }
+
+  /// Generates a private completion review without creating a chat message or
+  /// navigating away from the saved workout. Free users never call the AI
+  /// endpoint; their completion screen renders a local locked preview instead.
+  Future<String> generateWorkoutCompletionReview(
+    WorkoutRecord record, {
+    WorkoutRecord? baseline,
+  }) async {
+    if (entitlements?.isMember != true) {
+      throw const CoachApiException('membership_required');
+    }
+    if (scenario == 'offline') {
+      throw const CoachApiException('coach_network');
+    }
+    if (coachApi == null && aiBaseUrl.trim().isEmpty) {
+      throw const CoachApiException('coach_not_configured');
+    }
+    QuotaReservation? reservation;
+    if (isAuthenticated) {
+      reservation = accountService.reserveAi();
+      if (reservation == null) {
+        throw const CoachApiException('quota_exhausted');
+      }
+    }
+    final contexts = <AiContextSelection>[
+      AiContextSelection(
+        type: AiContextType.workoutRecord,
+        id: record.id,
+        label: '本次训练 · ${record.name}',
+      ),
+      if (baseline != null)
+        AiContextSelection(
+          type: AiContextType.workoutRecord,
+          id: baseline.id,
+          label: '上次训练 · ${baseline.name}',
+        ),
+    ];
+    try {
+      final answer = await _requestCoachAnswer(
+        baseline == null
+            ? '请只依据本次训练数据，简洁评价完成质量、动作表现和下一次最值得执行的一项调整。数据不足时明确说明，不要泛泛鼓励。'
+            : '请比较本次与上次相同动作的重量、次数和容量，简洁指出真正的进步或回退，并给出下一次最值得执行的一项调整及依据。',
+        includeTrainingContext: true,
+        selectedTrainingContext: _buildSelectedAiContext(contexts),
+      );
+      final body = answer.body.trim();
+      if (body.isEmpty) throw const CoachApiException('coach_empty');
+      reservation?.commit();
+      return body;
+    } catch (_) {
+      reservation?.rollback();
+      rethrow;
+    }
   }
 
   Future<void> sendChat(

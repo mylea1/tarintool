@@ -39,6 +39,7 @@ void main() {
 
   test('all reference exercise media assets load', () async {
     expect(catalog, hasLength(1324));
+    expect(selectableCatalog, hasLength(1324));
     expect(catalog.map((item) => item.id).toSet(), hasLength(1324));
     expect(allExerciseMedia, hasLength(1324));
     final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
@@ -75,13 +76,13 @@ void main() {
     await _openRoute(tester, '动作');
 
     expect(find.text('${selectableCatalog.length} 个动作'), findsOneWidget);
-    expect(find.byKey(const Key('exercise-library-load-more')), findsNothing);
+    expect(find.byKey(const Key('exercise-library-load-more')), findsOneWidget);
     expect(
       tester
           .widget<GridView>(find.byKey(const Key('exercise-library-grid')))
           .childrenDelegate
           .estimatedChildCount,
-      selectableCatalog.length,
+      60,
     );
     await tester.enterText(find.byKey(const Key('exercise-search')), '高位下拉');
     await tester.pumpAndSettle();

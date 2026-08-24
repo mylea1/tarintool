@@ -1127,13 +1127,6 @@ const curatedCatalog = <Exercise>[
   ),
 ];
 
-/// The user-facing picker intentionally stays small and hand-reviewed. The
-/// complete generated dataset remains available through [catalog] so old
-/// history, imported plans and stable exercise IDs continue to resolve.
-final List<Exercise> selectableCatalog = List<Exercise>.unmodifiable(
-  curatedCatalog,
-);
-
 final List<Exercise> _rawCatalog = <Exercise>[
   ...curatedCatalog,
   for (final entry in datasetExerciseEntries.entries)
@@ -1163,6 +1156,12 @@ final List<Exercise> _rawCatalog = <Exercise>[
 /// first item and add a compact Chinese variant number only to colliding
 /// variants. Media remains keyed by the stable exercise ID.
 final List<Exercise> catalog = _disambiguateExerciseNames(_rawCatalog);
+
+/// Every packaged exercise is available to the library and workout pickers.
+/// Recognition continues to use its separate server-capability allow-list, so
+/// restoring the complete catalog here does not advertise unsupported video
+/// analysis movements.
+final List<Exercise> selectableCatalog = List<Exercise>.unmodifiable(catalog);
 
 List<Exercise> _disambiguateExerciseNames(List<Exercise> source) {
   final counts = <String, int>{};
