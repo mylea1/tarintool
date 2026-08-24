@@ -20,6 +20,7 @@
 | 2026-08-24 约 12:58 | **提交号绑定的 Android APK**<br>生成 `xingyu-master-c65f0c0-api-kilostrength-debug.apk`。 | Flutter 构建时写入 `KILO_API_BASE_URL=https://api.kilostrength.cn`；成品使用 Master 提交号命名，避免与固定 APK 混淆；SHA256：`6d4be7199117e904506be1a51459623d10fab11b8b07bcd037fa6ca9fefc34ad`。 |
 | 2026-08-24 13:43 | **新增两个普通登录账号**<br>账号：`17880169489`、`13470006920`；均为普通免费用户。 | 写入前备份后端 SQLite 数据库；使用后端现有 `hashPassword`、`openDatabase` 和 `ensureEntitlement` 逻辑创建账号及默认权益；不修改 App 和公开接口；通过公网登录接口验证成功。 |
 | 2026-08-24 14:32 | **生成近期变更记录文档**<br>提交：`99107ea`。 | 根据 Git 提交、Actions、服务器版本和真实测试结果生成 Markdown 变更文档，并推送至 GitHub `master`。 |
+| 2026-08-24 18:07 | **正式登录、管理员创建账号与平台支付收尾**<br>移除登录页测试账号快捷填充；管理员可创建手机号账号并选择立即开通会员；补充 iOS Apple 内购及 Android 微信/支付宝订单流程。 | 登录改为先由后端认证并同步服务端角色；新增管理员专用创建账号接口和键盘安全弹层；iOS 使用 StoreKit 与服务端收据校验确认权益，Android 使用按配置启用的商户网关、服务端固定价格、HMAC 回调和回跳刷新；处理取消与成功回调竞态，所有支付密钥仅保存在服务端。 |
 
 ## 验收结果
 
@@ -34,4 +35,3 @@
 | 腾讯云 Worker | 健康 | systemd 服务在线，并成功领取和完成真实视频任务。 |
 | 证据图片 | 正常 | 使用用户鉴权请求证据图片，返回 HTTP 200。 |
 | Android APK | 已生成 | 使用正式 API 地址构建，并生成唯一文件名和 SHA256。 |
-

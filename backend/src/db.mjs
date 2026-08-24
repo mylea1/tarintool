@@ -77,6 +77,35 @@ export function openDatabase(databasePath) {
         ON membership_orders(user_id, product_id) WHERE status = 'pending';
     `);
   }
+  const paymentOrdersSql = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'membership_orders'").get()?.sql || '';
+  if (!paymentOrdersSql.includes("'wechat_pay'")) {
+    db.exec(`
+      DROP INDEX IF EXISTS idx_membership_orders_pending_product;
+      DROP INDEX IF EXISTS idx_membership_orders_user;
+      ALTER TABLE membership_orders RENAME TO membership_orders_pre_android;
+      CREATE TABLE membership_orders (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        product_id TEXT NOT NULL,
+        plan TEXT NOT NULL CHECK (plan IN ('oneMonth', 'yearly', 'threeMonths', 'forever')),
+        provider TEXT NOT NULL CHECK (provider IN ('app_store', 'google_play', 'wechat_pay', 'alipay', 'redemption')),
+        status TEXT NOT NULL CHECK (status IN ('pending', 'paid', 'restored', 'cancelled', 'failed', 'refunded')),
+        amount_minor INTEGER,
+        currency TEXT,
+        provider_transaction_id TEXT UNIQUE,
+        local_order_id TEXT,
+        failure_reason TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        paid_at TEXT
+      );
+      INSERT INTO membership_orders SELECT * FROM membership_orders_pre_android;
+      DROP TABLE membership_orders_pre_android;
+      CREATE INDEX idx_membership_orders_user ON membership_orders(user_id, created_at DESC);
+      CREATE UNIQUE INDEX idx_membership_orders_pending_product
+        ON membership_orders(user_id, product_id, provider) WHERE status = 'pending';
+    `);
+  }
   // These tables were added after the first release. CREATE IF NOT EXISTS is
   // deliberately used so existing production databases remain untouched.
   db.exec(`

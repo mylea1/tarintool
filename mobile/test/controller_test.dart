@@ -747,9 +747,9 @@ void main() {
   test('rest countdown uses its wall-clock deadline after background time', () {
     final controller = AppController();
     try {
-      final startedAt = DateTime.now();
       controller.startWorkout(name: '后台计时');
       controller.startRest(exercise: '器械推胸', seconds: 180);
+      final startedAt = DateTime.now();
 
       controller.reconcileRestClock(startedAt.add(const Duration(seconds: 60)));
 

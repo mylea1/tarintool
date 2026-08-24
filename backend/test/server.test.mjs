@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createHmac } from 'node:crypto';
 import fs from 'node:fs/promises';
 import { createServer as createHttpServer } from 'node:http';
 import os from 'node:os';
@@ -116,6 +117,48 @@ test('health, auth and admin role boundaries', async () => {
   assert.equal(code.response.status, 201); assert.match(code.body.code, /^KILO-/);
 });
 
+test('admin can create a phone account and optionally grant membership', async () => {
+  const forbidden = await api('/v1/admin/users', {
+    method: 'POST',
+    headers: { authorization: `Bearer ${userToken}` },
+    body: JSON.stringify({ identifier: '17880160001', password: '1234' }),
+  });
+  assert.equal(forbidden.response.status, 403);
+  const invalid = await api('/v1/admin/users', {
+    method: 'POST',
+    headers: { authorization: `Bearer ${adminToken}` },
+    body: JSON.stringify({ identifier: 'not-a-phone', password: '1234' }),
+  });
+  assert.equal(invalid.response.status, 400);
+  assert.equal(invalid.body.error, 'invalid_phone_identifier');
+  const created = await api('/v1/admin/users', {
+    method: 'POST',
+    headers: { authorization: `Bearer ${adminToken}` },
+    body: JSON.stringify({
+      identifier: '17880160001',
+      password: '1234',
+      displayName: '会员测试用户',
+      membershipPlan: 'oneMonth',
+    }),
+  });
+  assert.equal(created.response.status, 201);
+  assert.equal(created.body.user.identifier, '17880160001');
+  assert.equal(created.body.user.role, 'user');
+  assert.equal(created.body.entitlement.membership, 'oneMonth');
+  const duplicate = await api('/v1/admin/users', {
+    method: 'POST',
+    headers: { authorization: `Bearer ${adminToken}` },
+    body: JSON.stringify({ identifier: '17880160001', password: '1234' }),
+  });
+  assert.equal(duplicate.response.status, 409);
+  assert.equal(duplicate.body.error, 'identifier_taken');
+  const login = await api('/v1/auth/phone/login', {
+    method: 'POST',
+    body: JSON.stringify({ identifier: '17880160001', password: '1234' }),
+  });
+  assert.equal(login.response.status, 200);
+});
+
 test('knowledge search falls back to Chinese substring matching', async () => {
   const created = await api('/v1/admin/knowledge', {
     method: 'POST',
@@ -164,6 +207,22 @@ test('membership products are public but orders and verification are protected',
     ],
   );
   assert.equal((await api('/v1/membership/orders')).response.status, 401);
+  const androidCapabilities = await api('/v1/membership/android/capabilities');
+  assert.equal(androidCapabilities.response.status, 200);
+  assert.deepEqual(androidCapabilities.body, { wechatPay: false, alipay: false });
+  const unavailableCheckout = await api('/v1/membership/android/checkout', {
+    method: 'POST',
+    headers: { authorization: `Bearer ${userToken}` },
+    body: JSON.stringify({
+      productId: 'com.kilostrength.pro.monthly',
+      provider: 'wechat_pay',
+      platform: 'android',
+      amountMinor: 1800,
+      currency: 'CNY',
+    }),
+  });
+  assert.equal(unavailableCheckout.response.status, 503);
+  assert.equal(unavailableCheckout.body.error, 'payment_provider_not_configured');
   const orders = await api('/v1/membership/orders', {
     headers: { authorization: `Bearer ${userToken}` },
   });
@@ -696,6 +755,124 @@ test('recognition upload, GPU protocol, media authorization and result', async (
   const otherMedia = await fetch(`${base}/v1/analysis/jobs/${created.body.id}/media/preview`, { headers: { authorization: `Bearer ${userToken}` } }); assert.equal(otherMedia.status, 404);
   const ownerEvidence = await fetch(`${base}/v1/analysis/jobs/${created.body.id}/media/evidence/event-001`, { headers: { authorization: `Bearer ${user2Token}` } }); assert.equal(ownerEvidence.status, 200); assert.equal(ownerEvidence.headers.get('content-type'), 'image/jpeg'); assert.equal(await ownerEvidence.text(), 'jpeg');
   const otherEvidence = await fetch(`${base}/v1/analysis/jobs/${created.body.id}/media/evidence/event-001`, { headers: { authorization: `Bearer ${userToken}` } }); assert.equal(otherEvidence.status, 404);
+});
+
+test('Android gateway checkout and signed webhook grant membership idempotently', async () => {
+  const isolated = await fs.mkdtemp(path.join(os.tmpdir(), 'kilo-android-pay-'));
+  let gatewayRequest;
+  const gateway = createHttpServer(async (req, res) => {
+    let raw = '';
+    for await (const chunk of req) raw += chunk;
+    gatewayRequest = {
+      path: req.url,
+      authorization: req.headers.authorization,
+      body: JSON.parse(raw),
+    };
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ paymentUrl: 'weixin://wap/pay?prepayid=test' }));
+  });
+  await new Promise((resolve) => gateway.listen(0, '127.0.0.1', resolve));
+  const gatewayBase = `http://127.0.0.1:${gateway.address().port}`;
+  const webhookSecret = 'android-webhook-secret-1234567890';
+  const cfg = loadConfig({
+    ...process.env,
+    NODE_ENV: 'test',
+    KILO_ENABLE_PASSWORD_REGISTRATION: 'true',
+    KILO_SESSION_PEPPER: 'android-pay-session-pepper-1234567890',
+    KILO_DATA_DIR: isolated,
+    KILO_DATABASE_PATH: path.join(isolated, 'kilo.sqlite3'),
+    KILO_MEDIA_DIR: path.join(isolated, 'media'),
+    KILO_PUBLIC_BASE_URL: 'https://api.kilostrength.cn',
+    WECHAT_PAY_GATEWAY_URL: gatewayBase,
+    WECHAT_PAY_GATEWAY_SECRET: 'wechat-gateway-secret',
+    ALIPAY_GATEWAY_URL: gatewayBase,
+    ALIPAY_GATEWAY_SECRET: 'alipay-gateway-secret',
+    ANDROID_PAYMENT_WEBHOOK_SECRET: webhookSecret,
+  });
+  const isolatedServer = await startServer({ config: cfg, port: 0 });
+  const isolatedBase = `http://127.0.0.1:${isolatedServer.address().port}`;
+  const localApi = async (pathname, options = {}) => {
+    const headers = { ...(options.body !== undefined ? { 'content-type': 'application/json' } : {}), ...(options.headers || {}) };
+    const response = await fetch(`${isolatedBase}${pathname}`, { ...options, headers });
+    const text = await response.text();
+    return { response, body: text ? JSON.parse(text) : null };
+  };
+  try {
+    assert.deepEqual((await localApi('/v1/membership/android/capabilities')).body, {
+      wechatPay: true,
+      alipay: true,
+    });
+    const registration = await localApi('/v1/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ identifier: '17880160002', password: '1234' }),
+    });
+    const token = registration.body.session.token;
+    const checkout = await localApi('/v1/membership/android/checkout', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        productId: 'com.kilostrength.pro.monthly',
+        provider: 'wechat_pay',
+        platform: 'android',
+        amountMinor: 1,
+        currency: 'USD',
+      }),
+    });
+    assert.equal(checkout.response.status, 201);
+    assert.equal(checkout.body.paymentUrl, 'weixin://wap/pay?prepayid=test');
+    assert.equal(gatewayRequest.path, '/checkout');
+    assert.equal(gatewayRequest.authorization, 'Bearer wechat-gateway-secret');
+    assert.equal(gatewayRequest.body.amountMinor, 1800);
+    assert.equal(gatewayRequest.body.currency, 'CNY');
+    assert.equal(gatewayRequest.body.notifyUrl, 'https://api.kilostrength.cn/v1/membership/android/webhook/wechat_pay');
+
+    const webhook = {
+      orderId: checkout.body.order.id,
+      transactionId: 'wechat-transaction-001',
+      status: 'paid',
+    };
+    // A delayed official callback still grants access if the user cancelled
+    // the local pending order while the provider was completing payment.
+    const cancelled = await localApi(
+      `/v1/membership/orders/${checkout.body.order.id}/cancel`,
+      {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}` },
+      },
+    );
+    assert.equal(cancelled.response.status, 200);
+    assert.equal(cancelled.body.order.status, 'cancelled');
+    const canonicalWebhook = JSON.stringify({
+      orderId: webhook.orderId,
+      status: webhook.status,
+      transactionId: webhook.transactionId,
+    });
+    const signature = createHmac('sha256', webhookSecret)
+      .update(canonicalWebhook)
+      .digest('hex');
+    const paid = await localApi('/v1/membership/android/webhook/wechat_pay', {
+      method: 'POST',
+      headers: { 'x-kilo-payment-signature': signature },
+      body: JSON.stringify(webhook),
+    });
+    assert.equal(paid.response.status, 200);
+    assert.equal(paid.body.idempotent, false);
+    const repeated = await localApi('/v1/membership/android/webhook/wechat_pay', {
+      method: 'POST',
+      headers: { 'x-kilo-payment-signature': signature },
+      body: JSON.stringify(webhook),
+    });
+    assert.equal(repeated.response.status, 200);
+    assert.equal(repeated.body.idempotent, true);
+    const entitlement = await localApi('/v1/me/entitlements', {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    assert.equal(entitlement.body.membership, 'oneMonth');
+  } finally {
+    await isolatedServer.closeGracefully();
+    await new Promise((resolve) => gateway.close(resolve));
+    await fs.rm(isolated, { recursive: true, force: true });
+  }
 });
 
 test('recognition refuses to invent coaching feedback without a complete motion cycle', async () => {

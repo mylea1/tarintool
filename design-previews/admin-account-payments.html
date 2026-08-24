@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" href="data:,">
+<title>形域｜账号与支付预览</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f1ebe6;color:#241a15;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.wrap{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),390px));gap:24px;justify-content:center;padding:24px}.phone{min-width:0;min-height:760px;background:#fff7f0;border:1px solid #ead9cd;border-radius:34px;overflow:hidden;box-shadow:0 20px 60px #6b3f2820}.bar{display:flex;align-items:center;gap:10px;padding:22px 18px 14px;border-bottom:1px solid #ead9cd}.logo{display:grid;place-items:center;width:38px;height:38px;border-radius:50%;background:#241a15;color:#ffb47f}.title{font-size:24px;font-weight:900}.content{padding:16px}.admin{padding:16px;border-radius:22px;background:#fff0e6;border:1px solid #f2cdb7}.row{display:flex;gap:10px;align-items:center}.grow{min-width:0;flex:1}.muted{color:#756156;font-size:12px;line-height:1.45}.actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}button{min-height:44px;border:1px solid #d95718;border-radius:14px;padding:0 14px;background:white;color:#d95718;font-weight:800}button.primary{background:#d95718;color:white}.sheet{margin-top:18px;padding:18px;background:white;border-radius:24px;border:1px solid #ead9cd}.field{display:block;width:100%;min-height:50px;margin-top:10px;padding:0 13px;border:1px solid #d8c6ba;border-radius:13px;background:white;font:inherit}.toggle{display:flex;align-items:center;justify-content:space-between;margin:14px 0}.switch{width:46px;height:27px;padding:3px;border-radius:30px;background:#d95718}.switch:after{content:"";display:block;width:21px;height:21px;margin-left:19px;border-radius:50%;background:white}.plans{display:grid;gap:9px}.plan{padding:14px;border:1px solid #ead9cd;border-radius:17px;background:white}.plan.active{background:#ffeee2;border:2px solid #d95718}.pay{display:flex;gap:8px;margin-top:14px}.pay button{flex:1}.notice{margin-top:12px;padding:12px;border-radius:14px;background:#fff1e8;color:#756156;font-size:12px}.safe{display:flex;gap:8px;margin-top:16px;color:#756156;font-size:11px}.safe b{color:#21845a}@media(max-width:360px){.wrap{padding:0}.phone{border-radius:0;min-height:100vh}.content{padding:13px}.sheet{padding:14px}.pay{flex-direction:column}.title{font-size:21px}}@media(prefers-reduced-motion:no-preference){button:active{transform:scale(.98)}}
+</style>
+<div class="wrap">
+  <section class="phone">
+    <header class="bar"><div class="logo">火</div><div class="title">我的</div></header>
+    <main class="content">
+      <div class="admin">
+        <div class="row"><strong class="grow">管理员工具</strong><span class="muted">账号 1234</span></div>
+        <p class="muted">创建可正式登录的手机号账号，并按需同步开通会员。</p>
+        <div class="actions"><button class="primary" onclick="document.querySelector('#create').scrollIntoView()">＋ 创建账号</button><button>开通会员</button><button>生成兑换码</button></div>
+      </div>
+      <div class="sheet" id="create">
+        <h2>创建会员账号</h2><p class="muted">不会切换当前管理员登录。</p>
+        <input class="field" placeholder="手机号">
+        <input class="field" placeholder="用户昵称（可选）">
+        <input class="field" value="1234" type="password" aria-label="初始密码">
+        <div class="toggle"><span><b>创建时开通会员</b><br><small class="muted">也可创建免费账号</small></span><span class="switch"></span></div>
+        <select class="field"><option>1 个月</option><option>1 年</option><option>永久</option></select>
+        <button class="primary" style="width:100%;margin-top:16px">创建账号</button>
+      </div>
+    </main>
+  </section>
+  <section class="phone">
+    <header class="bar"><div class="logo">PRO</div><div class="title">会员中心</div></header>
+    <main class="content">
+      <div class="sheet"><strong>选择方案</strong><div class="plans" style="margin-top:12px"><div class="plan"><b>月度会员</b><span style="float:right">¥18</span><div class="muted">灵活体验，按月续订</div></div><div class="plan active"><b>年度会员</b><span style="float:right">¥168</span><div class="muted">一次购买一年 · 更省心</div></div></div></div>
+      <div class="sheet"><strong>选择支付方式</strong><div class="pay"><button class="primary"> Apple 内购</button></div><div class="notice">iPhone 上的数字会员仅通过 Apple 内购支付，可在 Apple ID 中管理或恢复订阅。</div></div>
+      <div class="sheet"><strong>Android 支付</strong><div class="pay"><button>微信支付</button><button>支付宝</button></div><div class="notice">支付结果由服务端回调确认，回到 App 后自动刷新权益。渠道未配置时按钮会明确停用。</div></div>
+      <div class="safe"><b>✓</b><span>不在 App 保存商户私钥；重复回调不会重复发放权益；待支付订单可取消。</span></div>
+    </main>
+  </section>
+</div>
+</html>

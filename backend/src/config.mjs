@@ -50,6 +50,11 @@ export function loadConfig(env = process.env) {
     appleSharedSecret: env.APPLE_SHARED_SECRET || '',
     appleBundleId:
       env.APPLE_BUNDLE_ID || 'com.kilostrength.kiloStrength',
+    wechatPayGatewayUrl: (env.WECHAT_PAY_GATEWAY_URL || '').replace(/\/+$/, ''),
+    wechatPayGatewaySecret: env.WECHAT_PAY_GATEWAY_SECRET || '',
+    alipayGatewayUrl: (env.ALIPAY_GATEWAY_URL || '').replace(/\/+$/, ''),
+    alipayGatewaySecret: env.ALIPAY_GATEWAY_SECRET || '',
+    androidPaymentWebhookSecret: env.ANDROID_PAYMENT_WEBHOOK_SECRET || '',
     googleClientId: env.GOOGLE_CLIENT_ID || '',
     sessionTtlDays: intValue(env, 'KILO_SESSION_TTL_DAYS', 30),
     gpuClaimTimeoutSeconds: intValue(env, 'KILO_GPU_CLAIM_TIMEOUT_SECONDS', 900),

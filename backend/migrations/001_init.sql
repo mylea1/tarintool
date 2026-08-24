@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS membership_orders (
   -- yearly is the current public plan. The legacy values remain readable so
   -- old orders and redemption records can be migrated without data loss.
   plan TEXT NOT NULL CHECK (plan IN ('oneMonth', 'yearly', 'threeMonths', 'forever')),
-  provider TEXT NOT NULL CHECK (provider IN ('app_store', 'google_play', 'redemption')),
+  provider TEXT NOT NULL CHECK (provider IN ('app_store', 'google_play', 'wechat_pay', 'alipay', 'redemption')),
   status TEXT NOT NULL CHECK (status IN ('pending', 'paid', 'restored', 'cancelled', 'failed', 'refunded')),
   amount_minor INTEGER,
   currency TEXT,
@@ -66,7 +66,7 @@ CREATE TABLE IF NOT EXISTS membership_orders (
 CREATE INDEX IF NOT EXISTS idx_membership_orders_user
   ON membership_orders(user_id, created_at DESC);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_membership_orders_pending_product
-  ON membership_orders(user_id, product_id) WHERE status = 'pending';
+  ON membership_orders(user_id, product_id, provider) WHERE status = 'pending';
 
 CREATE TABLE IF NOT EXISTS daily_checkins (
   user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,

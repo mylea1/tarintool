@@ -316,6 +316,10 @@ class AppController extends ChangeNotifier {
       plan: productId.endsWith('.yearly') ? 'yearly' : 'oneMonth',
       provider: provider == MembershipOrderProvider.googlePlay
           ? 'google_play'
+          : provider == MembershipOrderProvider.wechatPay
+          ? 'wechat_pay'
+          : provider == MembershipOrderProvider.alipay
+          ? 'alipay'
           : 'app_store',
       amountMinor: _priceToMinor(displayPrice),
     );
@@ -465,6 +469,149 @@ class AppController extends ChangeNotifier {
       unawaited(hydrateAiSkills());
     }
     return result;
+  }
+
+  Future<Map<String, bool>> androidPaymentCapabilities() async {
+    final api = coachApi is HttpCoachApi
+        ? coachApi! as HttpCoachApi
+        : (_defaultCoachApi ??= HttpCoachApi(baseUrl: defaultCoachApiBaseUrl));
+    final payload = await api.fetchAndroidPaymentCapabilities();
+    return {
+      'wechatPay': payload['wechatPay'] == true,
+      'alipay': payload['alipay'] == true,
+    };
+  }
+
+  Future<Uri> createAndroidMembershipCheckout({
+    required MembershipPlan plan,
+    required MembershipOrderProvider provider,
+  }) async {
+    final api = await _activeCoachApi();
+    if (api is! HttpCoachApi) {
+      throw const CoachApiException('android_payment_unavailable');
+    }
+    final productId = membershipProductIdForPlan(plan);
+    final payload = await api.createAndroidMembershipCheckout(
+      productId: productId,
+      provider: provider == MembershipOrderProvider.wechatPay
+          ? 'wechat_pay'
+          : 'alipay',
+      amountMinor: plan == MembershipPlan.threeMonths ? 16800 : 1800,
+    );
+    final raw = payload['order'];
+    if (raw is Map) {
+      accountService.upsertMembershipOrder(
+        _remoteMembershipOrder(Map<String, dynamic>.from(raw)),
+      );
+    }
+    final uri = Uri.tryParse((payload['paymentUrl'] ?? '').toString());
+    if (uri == null || !uri.hasScheme) {
+      throw const CoachApiException('payment_url_missing');
+    }
+    return uri;
+  }
+
+  static String membershipProductIdForPlan(MembershipPlan plan) =>
+      plan == MembershipPlan.threeMonths
+      ? 'com.kilostrength.pro.yearly'
+      : 'com.kilostrength.pro.monthly';
+
+  Future<AuthResult> loginWithPhoneRemote(
+    String identifier, {
+    required String password,
+  }) async {
+    final normalized = identifier.trim();
+    if (normalized.isEmpty) {
+      return const AuthResult.failure(AccountError.emptyIdentifier);
+    }
+    final api = coachApi is HttpCoachApi
+        ? coachApi! as HttpCoachApi
+        : (_defaultCoachApi ??= HttpCoachApi(baseUrl: defaultCoachApiBaseUrl));
+    _defaultCoachApiBaseUrl = defaultCoachApiBaseUrl;
+    try {
+      final payload = await api.signIn(
+        identifier: normalized,
+        password: password,
+      );
+      final rawUser = payload['user'];
+      if (rawUser is! Map) {
+        return const AuthResult.failure(AccountError.invalidCredentials);
+      }
+      final user = Map<String, dynamic>.from(rawUser);
+      final result = accountService.loginAuthenticatedRemote(
+        identifier: (user['identifier'] ?? normalized).toString(),
+        displayName: (user['displayName'] ?? normalized).toString(),
+        isAdmin: user['role'] == 'admin',
+      );
+      if (result.isSuccess) {
+        _remoteIdentifier = normalized;
+        _remotePassword = password;
+        aiSkills.clear();
+        unawaited(hydrateWorkoutHistory(force: true));
+        unawaited(hydrateActiveWorkout());
+        unawaited(hydrateTrainingLibrary(force: true));
+        unawaited(hydrateCustomExercises(force: true));
+        unawaited(hydrateAiSkills());
+      }
+      return result;
+    } on CoachApiException catch (error) {
+      if (error.code == 'invalid_credentials' || error.code == 'coach_auth') {
+        return const AuthResult.failure(AccountError.invalidCredentials);
+      }
+      return AuthResult.failure(
+        AccountError.serviceNotConfigured,
+        message: error.code,
+      );
+    } catch (_) {
+      return const AuthResult.failure(
+        AccountError.serviceNotConfigured,
+        message: 'network_unavailable',
+      );
+    }
+  }
+
+  Future<Map<String, dynamic>> createManagedUserRemote({
+    required String identifier,
+    String password = '1234',
+    String? displayName,
+    MembershipPlan? membershipPlan,
+  }) async {
+    final api = await _activeCoachApi();
+    if (api is! HttpCoachApi) {
+      throw const CoachApiException('admin_user_create_unavailable');
+    }
+    return api.createManagedUser(
+      identifier: identifier,
+      password: password,
+      displayName: displayName,
+      membershipPlan: membershipPlan == null
+          ? null
+          : switch (membershipPlan) {
+              MembershipPlan.oneMonth => 'oneMonth',
+              MembershipPlan.threeMonths => 'yearly',
+              MembershipPlan.forever => 'forever',
+              MembershipPlan.free => 'free',
+            },
+    );
+  }
+
+  Future<Map<String, dynamic>> grantMembershipRemote({
+    required String identifier,
+    required MembershipPlan plan,
+  }) async {
+    final api = await _activeCoachApi();
+    if (api is! HttpCoachApi) {
+      throw const CoachApiException('admin_membership_grant_unavailable');
+    }
+    return api.grantMembershipRemote(
+      identifier: identifier,
+      plan: switch (plan) {
+        MembershipPlan.oneMonth => 'oneMonth',
+        MembershipPlan.threeMonths => 'yearly',
+        MembershipPlan.forever => 'forever',
+        MembershipPlan.free => 'free',
+      },
+    );
   }
 
   AuthResult loginWithApple() => accountService.loginWithApple();

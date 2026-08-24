@@ -32,7 +32,13 @@ enum MembershipOrderStatus {
   refunded,
 }
 
-enum MembershipOrderProvider { appStore, googlePlay, redemption }
+enum MembershipOrderProvider {
+  appStore,
+  googlePlay,
+  wechatPay,
+  alipay,
+  redemption,
+}
 
 enum UsageKind { ai, recognition }
 
@@ -409,6 +415,8 @@ class MembershipOrder {
       productId: (map['productId'] ?? '').toString(),
       provider: switch ((map['provider'] ?? '').toString()) {
         'google_play' || 'googlePlay' => MembershipOrderProvider.googlePlay,
+        'wechat_pay' || 'wechatPay' => MembershipOrderProvider.wechatPay,
+        'alipay' => MembershipOrderProvider.alipay,
         'redemption' => MembershipOrderProvider.redemption,
         _ => MembershipOrderProvider.appStore,
       },
@@ -746,6 +754,20 @@ class AccountService extends ChangeNotifier {
   AuthResult loginWithTestAdmin(String identifier, String password) =>
       loginWithPhone(identifier, password: password);
 
+  /// Completes a login that has already been authenticated by the backend.
+  /// Role and display name come from the signed-in server user rather than a
+  /// debug-only identifier convention.
+  AuthResult loginAuthenticatedRemote({
+    required String identifier,
+    required String displayName,
+    required bool isAdmin,
+  }) => _login(
+    identifier: identifier.trim(),
+    displayName: displayName.trim().isEmpty ? identifier.trim() : displayName,
+    provider: AuthProvider.phone,
+    isAdmin: isAdmin,
+  );
+
   AuthResult loginWithApple() => const AuthResult.failure(
     AccountError.serviceNotConfigured,
     message: 'Apple 登录尚未配置，请先完成服务端凭据配置。',
@@ -769,15 +791,15 @@ class AccountService extends ChangeNotifier {
     required bool isAdmin,
   }) {
     final id = '${provider.name}:${identifier.toLowerCase()}';
-    final user =
-        _users[id] ??
-        AccountUser(
-          id: id,
-          identifier: identifier,
-          displayName: displayName,
-          isAdmin: isAdmin,
-          provider: provider,
-        );
+    // A successful backend login is authoritative. Rebuild the cached user
+    // instead of keeping a stale locally-persisted role or display name.
+    final user = AccountUser(
+      id: id,
+      identifier: identifier,
+      displayName: displayName,
+      isAdmin: isAdmin,
+      provider: provider,
+    );
     _users[id] = user;
     _currentUserId = id;
     final existing = _entitlements[id] ?? _newEntitlements();

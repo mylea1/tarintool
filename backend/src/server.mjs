@@ -1,5 +1,5 @@
 import { createServer } from 'node:http';
-import { randomUUID } from 'node:crypto';
+import { createHmac, randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
@@ -89,7 +89,7 @@ function aiClientTimeInstruction(body) {
   return `用户设备当前本地日期是 ${today}（UTC${offset}）。今天=${today}，昨天=${shiftIsoDay(today, -1)}，明天=${shiftIsoDay(today, 1)}。解析“昨天、今天、明天、本周、上周”等相对日期时必须以这些日期为准；调用 read_workout_history 时必须使用对应的 YYYY-MM-DD，不得依据对话记忆猜测年份或月份。`;
 }
 const ALLOWED_ENTITIES = new Set(['workout', 'plan', 'template', 'settings']);
-const PLANS = new Set(['oneMonth', 'threeMonths', 'forever']);
+const PLANS = new Set(['oneMonth', 'yearly', 'threeMonths', 'forever']);
 // Only the monthly and yearly products are displayed to customers. Legacy
 // product IDs remain verifiable so a previously purchased prototype product
 // is not silently lost during migration.
@@ -100,8 +100,8 @@ const APPLE_MEMBERSHIP_PRODUCTS = new Map([
   ['com.kilostrength.pro.lifetime', 'forever'],
 ]);
 const PUBLIC_MEMBERSHIP_PRODUCTS = new Map([
-  ['com.kilostrength.pro.monthly', 'oneMonth'],
-  ['com.kilostrength.pro.yearly', 'yearly'],
+  ['com.kilostrength.pro.monthly', { plan: 'oneMonth', amountMinor: 1800, currency: 'CNY' }],
+  ['com.kilostrength.pro.yearly', { plan: 'yearly', amountMinor: 16800, currency: 'CNY' }],
 ]);
 const JOB_STATES = new Set(['created', 'uploading', 'queued', 'processing', 'completed', 'failed', 'cancelled', 'expired']);
 const ALLOWED_MEDIA_TYPES = new Set(extensionForType.keys());
@@ -923,14 +923,14 @@ function publicMembershipOrder(row) {
 
 function membershipProduct(productId) {
   const id = String(productId || '').trim();
-  const plan = PUBLIC_MEMBERSHIP_PRODUCTS.get(id);
-  if (!plan) throw httpError(400, 'unknown_membership_product');
-  return { productId: id, plan };
+  const product = PUBLIC_MEMBERSHIP_PRODUCTS.get(id);
+  if (!product) throw httpError(400, 'unknown_membership_product');
+  return { productId: id, ...product };
 }
 
 function normalizeOrderProvider(value) {
   const provider = String(value || 'app_store').trim().toLowerCase();
-  if (!['app_store', 'google_play'].includes(provider)) {
+  if (!['app_store', 'google_play', 'wechat_pay', 'alipay'].includes(provider)) {
     throw httpError(400, 'unsupported_payment_provider');
   }
   return provider;
@@ -940,8 +940,8 @@ function createPendingMembershipOrder(db, userId, body) {
   const product = membershipProduct(body.productId);
   const provider = normalizeOrderProvider(body.provider);
   const existing = db.prepare(`SELECT * FROM membership_orders
-    WHERE user_id = ? AND product_id = ? AND status = 'pending'
-    ORDER BY created_at DESC LIMIT 1`).get(userId, product.productId);
+    WHERE user_id = ? AND product_id = ? AND provider = ? AND status = 'pending'
+    ORDER BY created_at DESC LIMIT 1`).get(userId, product.productId, provider);
   if (existing) return { order: existing, reused: true };
   const stamp = nowIso();
   const row = {
@@ -951,8 +951,10 @@ function createPendingMembershipOrder(db, userId, body) {
     plan: product.plan,
     provider,
     status: 'pending',
-    amount_minor: Number.isFinite(Number(body.amountMinor)) ? Math.max(0, Math.floor(Number(body.amountMinor))) : null,
-    currency: String(body.currency || 'CNY').trim().slice(0, 12) || 'CNY',
+    // Prices are server-owned. Never let a modified client choose what the
+    // official payment gateway will charge for a membership product.
+    amount_minor: product.amountMinor,
+    currency: product.currency,
     provider_transaction_id: null,
     local_order_id: null,
     failure_reason: null,
@@ -971,8 +973,8 @@ function createPendingMembershipOrder(db, userId, body) {
     // pending order so tapping the purchase button twice remains idempotent.
     if (!String(error?.message || '').includes('UNIQUE')) throw error;
     const concurrent = db.prepare(`SELECT * FROM membership_orders
-      WHERE user_id = ? AND product_id = ? AND status = 'pending'
-      ORDER BY created_at DESC LIMIT 1`).get(userId, product.productId);
+      WHERE user_id = ? AND product_id = ? AND provider = ? AND status = 'pending'
+      ORDER BY created_at DESC LIMIT 1`).get(userId, product.productId, provider);
     if (concurrent) return { order: concurrent, reused: true };
     throw error;
   }
@@ -1075,6 +1077,93 @@ function recognitionCoachingObservations(result) {
     }));
   }
   return observations;
+}
+
+function androidPaymentConfig(cfg, provider) {
+  if (provider === 'wechat_pay') {
+    return { url: cfg.wechatPayGatewayUrl, secret: cfg.wechatPayGatewaySecret };
+  }
+  if (provider === 'alipay') {
+    return { url: cfg.alipayGatewayUrl, secret: cfg.alipayGatewaySecret };
+  }
+  return { url: '', secret: '' };
+}
+
+function androidPaymentCapabilities(cfg) {
+  return {
+    wechatPay: Boolean(cfg.wechatPayGatewayUrl && cfg.wechatPayGatewaySecret),
+    alipay: Boolean(cfg.alipayGatewayUrl && cfg.alipayGatewaySecret),
+  };
+}
+
+function canonicalPaymentJson(value) {
+  if (Array.isArray(value)) return `[${value.map(canonicalPaymentJson).join(',')}]`;
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalPaymentJson(value[key])}`).join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
+async function createAndroidCheckout(cfg, provider, order) {
+  const gateway = androidPaymentConfig(cfg, provider);
+  if (!gateway.url || !gateway.secret) {
+    throw httpError(503, 'payment_provider_not_configured', { provider });
+  }
+  const response = await fetch(`${gateway.url}/checkout`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      authorization: `Bearer ${gateway.secret}`,
+    },
+    body: JSON.stringify({
+      provider,
+      orderId: order.id,
+      description: order.plan === 'yearly' ? '形域年度会员' : '形域月度会员',
+      amountMinor: order.amount_minor,
+      currency: order.currency,
+      notifyUrl: `${cfg.publicBaseUrl}/v1/membership/android/webhook/${provider}`,
+      returnUrl: 'ember://membership/payment-result',
+    }),
+    signal: AbortSignal.timeout(20_000),
+  });
+  if (!response.ok) throw httpError(502, 'payment_gateway_unavailable', { provider });
+  const payload = await response.json();
+  const paymentUrl = requireString(payload.paymentUrl, 'payment_url_missing', 2000);
+  return { paymentUrl, expiresAt: payload.expiresAt || null };
+}
+
+function verifyAndroidPaymentWebhook(cfg, body, signature) {
+  if (!cfg.androidPaymentWebhookSecret) throw httpError(503, 'payment_webhook_not_configured');
+  const canonical = canonicalPaymentJson(body);
+  const expected = createHmac('sha256', cfg.androidPaymentWebhookSecret).update(canonical).digest('hex');
+  if (!safeEqualText(expected, signature)) throw httpError(401, 'invalid_payment_signature');
+}
+
+function completeAndroidMembershipOrder(db, provider, body) {
+  const orderId = requireString(body.orderId, 'order_id_required', 180);
+  const transactionId = requireString(body.transactionId, 'transaction_id_required', 180);
+  const order = db.prepare('SELECT * FROM membership_orders WHERE id = ?').get(orderId);
+  if (!order || order.provider !== provider) throw httpError(404, 'membership_order_not_found');
+  const duplicate = db.prepare('SELECT * FROM membership_orders WHERE provider_transaction_id = ?').get(transactionId);
+  if (duplicate && duplicate.id !== order.id) throw httpError(409, 'payment_transaction_conflict');
+  if (order.status === 'paid') return { order, entitlement: publicEntitlement(ensureEntitlement(db, order.user_id)), idempotent: true };
+  // A user can close the app or cancel the local pending order while the
+  // provider's asynchronous paid callback is already in flight. The signed
+  // provider callback is authoritative: never leave a customer charged but
+  // without entitlement solely because that race changed the local status.
+  if (!['pending', 'cancelled'].includes(order.status)) {
+    throw httpError(409, 'membership_order_not_payable', { status: order.status });
+  }
+  const stamp = nowIso();
+  db.prepare(`UPDATE membership_orders SET status = 'paid', provider_transaction_id = ?,
+    paid_at = ?, updated_at = ?, failure_reason = NULL WHERE id = ? AND status IN ('pending', 'cancelled')`)
+    .run(transactionId, stamp, stamp, order.id);
+  const entitlement = grantMembership(db, order.user_id, order.plan);
+  return {
+    order: db.prepare('SELECT * FROM membership_orders WHERE id = ?').get(order.id),
+    entitlement,
+    idempotent: false,
+  };
 }
 
 async function enrichRecognitionResult(ctx, job, result) {
@@ -1264,6 +1353,50 @@ async function handleRequest(req, res, ctx) {
       { productId: 'com.kilostrength.pro.yearly', plan: 'yearly', type: 'subscription' },
     ] }, req, ctx.cfg); return;
   }
+  if (req.method === 'GET' && url.pathname === '/v1/membership/android/capabilities') {
+    writeJson(res, 200, androidPaymentCapabilities(ctx.cfg), req, ctx.cfg); return;
+  }
+  if (req.method === 'POST' && url.pathname === '/v1/membership/android/checkout') {
+    const user = authenticate(req, ctx);
+    const body = await readBody(req, ctx.cfg.maxJsonBytes);
+    const provider = normalizeOrderProvider(body.provider);
+    if (!['wechat_pay', 'alipay'].includes(provider)) throw httpError(400, 'unsupported_payment_provider');
+    if (body.platform !== 'android') throw httpError(400, 'android_payment_only');
+    const gateway = androidPaymentConfig(ctx.cfg, provider);
+    if (!gateway.url || !gateway.secret) {
+      throw httpError(503, 'payment_provider_not_configured', { provider });
+    }
+    const created = transaction(ctx.db, () => {
+      const result = createPendingMembershipOrder(ctx.db, user.id, { ...body, provider });
+      audit(ctx.db, user.id, result.reused ? 'reuse_membership_order' : 'create_membership_order', result.order.id, { provider, productId: result.order.product_id });
+      return result;
+    });
+    const checkout = await createAndroidCheckout(ctx.cfg, provider, created.order);
+    writeJson(res, created.reused ? 200 : 201, {
+      order: publicMembershipOrder(created.order),
+      reused: created.reused,
+      ...checkout,
+    }, req, ctx.cfg); return;
+  }
+  const androidPaymentWebhook = url.pathname.match(/^\/v1\/membership\/android\/webhook\/(wechat_pay|alipay)$/);
+  if (req.method === 'POST' && androidPaymentWebhook) {
+    const body = await readBody(req, ctx.cfg.maxJsonBytes);
+    verifyAndroidPaymentWebhook(ctx.cfg, body, String(req.headers['x-kilo-payment-signature'] || ''));
+    if (body.status !== 'paid') throw httpError(400, 'payment_status_not_paid');
+    const result = transaction(ctx.db, () => {
+      const completed = completeAndroidMembershipOrder(ctx.db, androidPaymentWebhook[1], body);
+      audit(ctx.db, completed.order.user_id, 'verify_android_membership', completed.order.id, {
+        provider: androidPaymentWebhook[1],
+        idempotent: completed.idempotent,
+      });
+      return completed;
+    });
+    writeJson(res, 200, {
+      ok: true,
+      idempotent: result.idempotent,
+      order: publicMembershipOrder(result.order),
+    }, req, ctx.cfg); return;
+  }
   if (req.method === 'POST' && url.pathname === '/v1/membership/orders') {
     const user = authenticate(req, ctx);
     const body = await readBody(req, ctx.cfg.maxJsonBytes);
@@ -1387,6 +1520,46 @@ async function handleRequest(req, res, ctx) {
     const target = ctx.db.prepare('SELECT * FROM users WHERE identifier = ?').get(identifier); if (!target) throw httpError(404, 'user_not_found');
     const entitlement = transaction(ctx.db, () => { ensureEntitlement(ctx.db, target.id); const result = grantMembership(ctx.db, target.id, plan); audit(ctx.db, admin.id, 'grant_membership', target.id, { identifier, plan }); return result; });
     writeJson(res, 200, { user: publicUser(target), entitlement }, req, ctx.cfg); return;
+  }
+  if (req.method === 'POST' && url.pathname === '/v1/admin/users') {
+    const admin = requireAdmin(req, ctx);
+    const body = await readBody(req, ctx.cfg.maxJsonBytes);
+    const identifier = requireString(body.identifier, 'identifier_required', 32).trim();
+    const password = requireString(body.password || '1234', 'password_required', 128);
+    const displayName = typeof body.displayName === 'string' && body.displayName.trim()
+      ? body.displayName.trim().slice(0, 120)
+      : identifier;
+    const membershipPlan = body.membershipPlan == null || body.membershipPlan === 'free'
+      ? null
+      : requireString(body.membershipPlan, 'plan_required', 32);
+    if (!/^1[3-9]\d{9}$/.test(identifier)) throw httpError(400, 'invalid_phone_identifier');
+    if (password.length < 4) throw httpError(400, 'invalid_password');
+    if (membershipPlan && !PLANS.has(membershipPlan)) throw httpError(400, 'invalid_plan');
+    const result = transaction(ctx.db, () => {
+      if (ctx.db.prepare('SELECT 1 FROM users WHERE identifier = ?').get(identifier)) {
+        throw httpError(409, 'identifier_taken');
+      }
+      const id = randomId('usr_');
+      const hp = hashPassword(password);
+      const stamp = nowIso();
+      ctx.db.prepare(`INSERT INTO users
+        (id, identifier, display_name, role, auth_provider, password_salt, password_hash, created_at)
+        VALUES (?, ?, ?, 'user', 'password', ?, ?, ?)`)
+        .run(id, identifier, displayName, hp.salt, hp.hash, stamp);
+      ensureEntitlement(ctx.db, id);
+      const entitlement = membershipPlan
+        ? grantMembership(ctx.db, id, membershipPlan)
+        : publicEntitlement(ensureEntitlement(ctx.db, id));
+      audit(ctx.db, admin.id, 'create_managed_user', id, {
+        identifier,
+        membershipPlan: membershipPlan || 'free',
+      });
+      return {
+        user: publicUser(ctx.db.prepare('SELECT * FROM users WHERE id = ?').get(id)),
+        entitlement,
+      };
+    });
+    writeJson(res, 201, result, req, ctx.cfg); return;
   }
   if (req.method === 'POST' && url.pathname === '/v1/admin/redemption-codes') {
     const admin = requireAdmin(req, ctx); const body = await readBody(req, ctx.cfg.maxJsonBytes); const plan = requireString(body.plan, 'plan_required', 32); if (!PLANS.has(plan)) throw httpError(400, 'invalid_plan');

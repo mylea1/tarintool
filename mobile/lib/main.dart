@@ -10,6 +10,7 @@ import 'package:video_player/video_player.dart';
 
 import 'account_membership.dart';
 import 'app_localizations.dart';
+import 'ai_api.dart';
 import 'controller.dart';
 import 'exercise_media.dart';
 import 'link_utils.dart';
@@ -413,16 +414,17 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-  void submit() {
+  Future<void> submit() async {
     if (busy) return;
     setState(() {
       busy = true;
       error = null;
     });
-    final result = widget.controller.loginWithPhone(
+    final result = await widget.controller.loginWithPhoneRemote(
       identifier.text,
       password: password.text,
     );
+    if (!mounted) return;
     if (!result.isSuccess) {
       setState(() {
         busy = false;
@@ -443,20 +445,10 @@ class _LoginPageState extends State<LoginPage> {
     setState(() => busy = false);
   }
 
-  void fillTestAccount(String value) {
-    setState(() {
-      identifier.text = value;
-      password.text = value;
-      error = null;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final strings = AppLocalizations.of(context);
     final isIos = defaultTargetPlatform == TargetPlatform.iOS;
-    final testAccountEnabled =
-        widget.controller.accountService.isTestAccountEnabled;
     return Scaffold(
       key: const Key('login-page'),
       body: SafeArea(
@@ -577,42 +569,6 @@ class _LoginPageState extends State<LoginPage> {
                               onPressed: busy ? null : submit,
                               child: Text(strings.text(busy ? '登录中…' : '登录')),
                             ),
-                            if (testAccountEnabled) ...[
-                              const SizedBox(height: 10),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: OutlinedButton(
-                                      key: const Key(
-                                        'login-member-account-fill-button',
-                                      ),
-                                      onPressed: busy
-                                          ? null
-                                          : () => fillTestAccount('123'),
-                                      child: Text(strings.text('普通体验 123')),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: OutlinedButton(
-                                      key: const Key(
-                                        'login-test-account-fill-button',
-                                      ),
-                                      onPressed: busy
-                                          ? null
-                                          : () => fillTestAccount('1234'),
-                                      child: Text(strings.text('管理测试 1234')),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                strings.text('测试入口仅在测试构建中显示'),
-                                textAlign: TextAlign.center,
-                                style: TextStyle(fontSize: 11, color: muted),
-                              ),
-                            ],
                           ],
                         ),
                       ),
@@ -8813,6 +8769,13 @@ class _AccountMembershipCard extends StatelessWidget {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
+                  FilledButton.icon(
+                    key: const Key('admin-create-user-button'),
+                    onPressed: () =>
+                        _showAdminCreateUserSheet(context, controller),
+                    icon: const Icon(Icons.person_add_alt_1_rounded, size: 18),
+                    label: const Text('创建账号'),
+                  ),
                   OutlinedButton(
                     key: const Key('admin-grant-membership-button'),
                     onPressed: () => _showAdminGrantDialog(context, controller),
@@ -9270,21 +9233,25 @@ void _showAdminGrantDialog(BuildContext context, AppController controller) {
           ),
           FilledButton(
             key: const Key('admin-grant-submit-button'),
-            onPressed: () {
-              final result = controller.grantMembership(
-                identifier: identifier.text,
-                plan: plan,
-              );
-              if (result.isSuccess) {
+            onPressed: () async {
+              try {
+                await controller.grantMembershipRemote(
+                  identifier: identifier.text,
+                  plan: plan,
+                );
+                if (!dialogContext.mounted || !context.mounted) return;
                 Navigator.pop(dialogContext);
                 showKiloSnack(
                   context,
                   '\u5df2\u4e3a\u7528\u6237\u5f00\u901a\u4f1a\u5458',
                 );
-              } else {
+              } on CoachApiException catch (error) {
+                if (!context.mounted) return;
                 showKiloSnack(
                   context,
-                  _accountErrorMessage(result.error),
+                  error.code == 'user_not_found'
+                      ? '没有找到该手机号账号'
+                      : '开通失败：${error.code}',
                   error: true,
                 );
               }
@@ -9295,6 +9262,222 @@ void _showAdminGrantDialog(BuildContext context, AppController controller) {
       ),
     ),
   );
+}
+
+Future<void> _showAdminCreateUserSheet(
+  BuildContext context,
+  AppController controller,
+) async {
+  final parentContext = context;
+  final phone = TextEditingController();
+  final displayName = TextEditingController();
+  final password = TextEditingController(text: '1234');
+  var grantMember = true;
+  var plan = MembershipPlan.oneMonth;
+  var submitting = false;
+  String? error;
+  await showModalBottomSheet<void>(
+    context: context,
+    useSafeArea: true,
+    isScrollControlled: true,
+    backgroundColor: paper,
+    builder: (sheetContext) => StatefulBuilder(
+      builder: (sheetBodyContext, setState) => AnimatedPadding(
+        duration: const Duration(milliseconds: 180),
+        padding: EdgeInsets.fromLTRB(
+          20,
+          14,
+          20,
+          20 + MediaQuery.viewInsetsOf(sheetBodyContext).bottom,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 42,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: hairline,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              const Row(
+                children: [
+                  CircleAvatar(
+                    backgroundColor: primaryContainer,
+                    foregroundColor: primary,
+                    child: Icon(Icons.person_add_alt_1_rounded),
+                  ),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '创建会员账号',
+                          style: TextStyle(
+                            fontSize: 21,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        Text(
+                          '账号仅在服务端创建，不会切换当前管理员登录。',
+                          style: TextStyle(fontSize: 12, color: muted),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              TextField(
+                key: const Key('admin-create-user-phone'),
+                controller: phone,
+                keyboardType: TextInputType.phone,
+                textInputAction: TextInputAction.next,
+                decoration: const InputDecoration(
+                  labelText: '手机号',
+                  prefixIcon: Icon(Icons.phone_iphone_rounded),
+                  hintText: '11 位中国大陆手机号',
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: displayName,
+                textInputAction: TextInputAction.next,
+                decoration: const InputDecoration(
+                  labelText: '用户昵称（可选）',
+                  prefixIcon: Icon(Icons.badge_outlined),
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                key: const Key('admin-create-user-password'),
+                controller: password,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: '初始密码',
+                  prefixIcon: Icon(Icons.lock_outline_rounded),
+                  helperText: '默认 1234，请提醒用户首次登录后妥善保管。',
+                ),
+              ),
+              const SizedBox(height: 8),
+              SwitchListTile.adaptive(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('创建时开通会员'),
+                subtitle: const Text('关闭后创建为免费账号，可稍后单独开通。'),
+                value: grantMember,
+                onChanged: submitting
+                    ? null
+                    : (value) => setState(() => grantMember = value),
+              ),
+              if (grantMember)
+                DropdownButtonFormField<MembershipPlan>(
+                  initialValue: plan,
+                  decoration: const InputDecoration(
+                    labelText: '会员时长',
+                    prefixIcon: Icon(Icons.workspace_premium_outlined),
+                  ),
+                  items: const [
+                    DropdownMenuItem(
+                      value: MembershipPlan.oneMonth,
+                      child: Text('1 个月'),
+                    ),
+                    DropdownMenuItem(
+                      value: MembershipPlan.threeMonths,
+                      child: Text('1 年'),
+                    ),
+                    DropdownMenuItem(
+                      value: MembershipPlan.forever,
+                      child: Text('永久'),
+                    ),
+                  ],
+                  onChanged: submitting
+                      ? null
+                      : (value) => setState(() => plan = value ?? plan),
+                ),
+              if (error != null) ...[
+                const SizedBox(height: 10),
+                Text(error!, style: const TextStyle(color: danger)),
+              ],
+              const SizedBox(height: 18),
+              FilledButton.icon(
+                key: const Key('admin-create-user-submit'),
+                onPressed: submitting
+                    ? null
+                    : () async {
+                        final normalized = phone.text.trim();
+                        if (!RegExp(r'^1[3-9]\d{9}$').hasMatch(normalized)) {
+                          setState(() => error = '请输入有效的 11 位手机号');
+                          return;
+                        }
+                        if (password.text.length < 4) {
+                          setState(() => error = '初始密码至少 4 位');
+                          return;
+                        }
+                        setState(() {
+                          submitting = true;
+                          error = null;
+                        });
+                        try {
+                          await controller.createManagedUserRemote(
+                            identifier: normalized,
+                            password: password.text,
+                            displayName: displayName.text,
+                            membershipPlan: grantMember ? plan : null,
+                          );
+                          if (!sheetContext.mounted || !parentContext.mounted) {
+                            return;
+                          }
+                          Navigator.pop(sheetContext);
+                          showKiloSnack(
+                            parentContext,
+                            grantMember ? '账号已创建，会员权益已生效' : '账号已创建',
+                          );
+                        } on CoachApiException catch (exception) {
+                          if (!sheetBodyContext.mounted) return;
+                          setState(() {
+                            error = switch (exception.code) {
+                              'identifier_taken' => '该手机号已经注册',
+                              'admin_required' => '当前账号没有管理员权限',
+                              _ => '创建失败：${exception.code}',
+                            };
+                            submitting = false;
+                          });
+                        } catch (_) {
+                          if (!sheetBodyContext.mounted) return;
+                          setState(() {
+                            error = '网络暂时不可用，请稍后重试';
+                            submitting = false;
+                          });
+                        }
+                      },
+                icon: submitting
+                    ? const SizedBox.square(
+                        dimension: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.person_add_alt_1_rounded),
+                label: Text(submitting ? '正在创建…' : '创建账号'),
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+  phone.dispose();
+  displayName.dispose();
+  password.dispose();
 }
 
 void _showAdminCodeDialog(BuildContext context, AppController controller) {
@@ -9360,16 +9543,6 @@ void _showAdminCodeDialog(BuildContext context, AppController controller) {
     ),
   );
 }
-
-String _accountErrorMessage(AccountError error) => switch (error) {
-  AccountError.emptyIdentifier => '\u8bf7\u8f93\u5165\u7528\u6237\u6807\u8bc6',
-  AccountError.invalidCode => '\u5151\u6362\u7801\u65e0\u6548',
-  AccountError.codeAlreadyUsed => '\u5151\u6362\u7801\u5df2\u4f7f\u7528',
-  AccountError.quotaExhausted => '\u989d\u5ea6\u4e0d\u8db3',
-  AccountError.adminRequired => '\u4ec5\u7ba1\u7406\u5458\u53ef\u64cd\u4f5c',
-  AccountError.notAuthenticated => '\u8bf7\u5148\u767b\u5f55',
-  _ => '\u64cd\u4f5c\u5931\u8d25',
-};
 
 void _showAppLanguageSheet(BuildContext context, AppController controller) {
   showModalBottomSheet<void>(

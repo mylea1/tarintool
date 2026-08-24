@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_storekit/in_app_purchase_storekit.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'account_membership.dart';
 import 'ai_api.dart';
@@ -76,6 +77,8 @@ class MembershipPurchaseCoordinator extends ChangeNotifier {
   final Map<String, String> _pendingOrderByProduct = {};
   bool loading = false;
   bool storeAvailable = false;
+  bool wechatPayAvailable = false;
+  bool alipayAvailable = false;
   String? errorMessage;
 
   ProductDetails? productFor(MembershipPlan plan) =>
@@ -89,6 +92,16 @@ class MembershipPurchaseCoordinator extends ChangeNotifier {
     loading = true;
     notifyListeners();
     try {
+      if (Platform.isAndroid) {
+        final capabilities = await controller.androidPaymentCapabilities();
+        wechatPayAvailable = capabilities['wechatPay'] == true;
+        alipayAvailable = capabilities['alipay'] == true;
+        storeAvailable = wechatPayAvailable || alipayAvailable;
+        if (!storeAvailable) {
+          errorMessage = '微信支付和支付宝商户通道尚未配置。';
+        }
+        return;
+      }
       if (Platform.isIOS || Platform.isMacOS) {
         // StoreKit 1 is intentionally kept until the server migrates from
         // receipt verification to signed StoreKit 2 transaction JWS data.
@@ -120,6 +133,48 @@ class MembershipPurchaseCoordinator extends ChangeNotifier {
     } catch (_) {
       storeAvailable = false;
       errorMessage = '当前无法连接 App Store，请检查网络后重试。';
+    } finally {
+      loading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> purchaseAndroid(
+    MembershipPlan plan,
+    MembershipOrderProvider provider,
+  ) async {
+    final enabled = provider == MembershipOrderProvider.wechatPay
+        ? wechatPayAvailable
+        : alipayAvailable;
+    if (!enabled) {
+      errorMessage = provider == MembershipOrderProvider.wechatPay
+          ? '微信支付尚未完成商户配置。'
+          : '支付宝尚未完成商户配置。';
+      notifyListeners();
+      return false;
+    }
+    loading = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      final uri = await controller.createAndroidMembershipCheckout(
+        plan: plan,
+        provider: provider,
+      );
+      final launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched) throw const CoachApiException('payment_app_unavailable');
+      return true;
+    } on CoachApiException catch (error) {
+      errorMessage = error.code == 'payment_provider_not_configured'
+          ? '支付通道尚未完成商户配置。'
+          : '未能打开支付，请检查对应支付应用后重试。';
+      return false;
+    } catch (_) {
+      errorMessage = '未能打开支付，请稍后重试。';
+      return false;
     } finally {
       loading = false;
       notifyListeners();
@@ -449,13 +504,15 @@ class MembershipCenterPage extends StatefulWidget {
   State<MembershipCenterPage> createState() => _MembershipCenterPageState();
 }
 
-class _MembershipCenterPageState extends State<MembershipCenterPage> {
+class _MembershipCenterPageState extends State<MembershipCenterPage>
+    with WidgetsBindingObserver {
   late final MembershipPurchaseCoordinator purchase;
   MembershipPlan selected = MembershipPlan.threeMonths;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     purchase = MembershipPurchaseCoordinator(widget.controller)
       ..addListener(_refresh);
     unawaited(purchase.initialize());
@@ -469,10 +526,20 @@ class _MembershipCenterPageState extends State<MembershipCenterPage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     purchase
       ..removeListener(_refresh)
       ..dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed || !Platform.isAndroid) return;
+    // WeChat/Alipay returns through the app link. The server callback remains
+    // authoritative, so resuming only refreshes the order and entitlement.
+    unawaited(widget.controller.hydrateMembershipOrders());
+    unawaited(widget.controller.hydrateCheckinStatus());
   }
 
   @override
@@ -534,19 +601,23 @@ class _MembershipCenterPageState extends State<MembershipCenterPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              TextButton(
-                onPressed: purchase.restore,
-                child: const Text('恢复购买'),
-              ),
-              const Text('·', style: TextStyle(color: _muted)),
+              if (Platform.isIOS || Platform.isMacOS) ...[
+                TextButton(
+                  onPressed: purchase.restore,
+                  child: const Text('恢复购买'),
+                ),
+                const Text('·', style: TextStyle(color: _muted)),
+              ],
               TextButton(
                 onPressed: () => _showRedeem(context, widget.controller),
                 child: const Text('兑换会员'),
               ),
             ],
           ),
-          const Text(
-            '付款由 App Store / Google Play 安全处理。月付和年付会按商店规则自动续订，可在系统账户中管理。',
+          Text(
+            Platform.isIOS || Platform.isMacOS
+                ? '付款由 App Store 安全处理。月付和年付会按 Apple 规则自动续订，可在 Apple ID 中管理或恢复。'
+                : '微信或支付宝完成支付后，由服务端回调确认订单并发放会员；不要重复支付同一订单。',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 11, height: 1.45, color: _muted),
           ),
@@ -554,25 +625,69 @@ class _MembershipCenterPageState extends State<MembershipCenterPage> {
       ),
       bottomNavigationBar: SafeArea(
         minimum: const EdgeInsets.fromLTRB(16, 8, 16, 14),
-        child: FilledButton(
-          onPressed: purchase.loading
-              ? null
-              : () => purchase.purchase(selected),
-          style: FilledButton.styleFrom(
-            minimumSize: const Size.fromHeight(54),
-            backgroundColor: _ember,
-            disabledBackgroundColor: _line,
-          ),
-          child: purchase.loading
-              ? const SizedBox.square(
-                  dimension: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
+        child: Platform.isAndroid
+            ? Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      key: const Key('membership-wechat-pay'),
+                      onPressed:
+                          purchase.loading || !purchase.wechatPayAvailable
+                          ? null
+                          : () => purchase.purchaseAndroid(
+                              selected,
+                              MembershipOrderProvider.wechatPay,
+                            ),
+                      icon: const Icon(Icons.chat_bubble_rounded, size: 18),
+                      label: const Text('微信支付'),
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(54),
+                        foregroundColor: const Color(0xFF168F55),
+                      ),
+                    ),
                   ),
-                )
-              : Text('使用商店开通 · ${purchase.priceFor(selected)}'),
-        ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton.icon(
+                      key: const Key('membership-alipay'),
+                      onPressed: purchase.loading || !purchase.alipayAvailable
+                          ? null
+                          : () => purchase.purchaseAndroid(
+                              selected,
+                              MembershipOrderProvider.alipay,
+                            ),
+                      icon: const Icon(
+                        Icons.account_balance_wallet_rounded,
+                        size: 18,
+                      ),
+                      label: const Text('支付宝'),
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size.fromHeight(54),
+                        backgroundColor: const Color(0xFF1677FF),
+                      ),
+                    ),
+                  ),
+                ],
+              )
+            : FilledButton(
+                onPressed: purchase.loading
+                    ? null
+                    : () => purchase.purchase(selected),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(54),
+                  backgroundColor: _ember,
+                  disabledBackgroundColor: _line,
+                ),
+                child: purchase.loading
+                    ? const SizedBox.square(
+                        dimension: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Text('使用 Apple 内购 · ${purchase.priceFor(selected)}'),
+              ),
       ),
     );
   }

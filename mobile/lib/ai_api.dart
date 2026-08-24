@@ -135,7 +135,7 @@ class HttpCoachApi implements CoachApi, AgentCoachApi, StreamingCoachApi {
     _decodeJsonResponse(response, 'coach_rollback');
   }
 
-  Future<void> signIn({
+  Future<Map<String, dynamic>> signIn({
     required String identifier,
     required String password,
   }) async {
@@ -165,6 +165,44 @@ class HttpCoachApi implements CoachApi, AgentCoachApi, StreamingCoachApi {
       throw const CoachApiException('coach_auth_token_missing');
     }
     _sessionToken = token;
+    return payload;
+  }
+
+  Future<Map<String, dynamic>> createManagedUser({
+    required String identifier,
+    required String password,
+    String? displayName,
+    String? membershipPlan,
+  }) async {
+    final response = await _client
+        .post(
+          _endpoint('/v1/admin/users'),
+          headers: _authHeaders,
+          body: jsonEncode({
+            'identifier': identifier,
+            'password': password,
+            if (displayName?.trim().isNotEmpty == true)
+              'displayName': displayName!.trim(),
+            if (membershipPlan != null && membershipPlan != 'free')
+              'membershipPlan': membershipPlan,
+          }),
+        )
+        .timeout(requestTimeout);
+    return _decodeJsonResponse(response, 'admin_user_create');
+  }
+
+  Future<Map<String, dynamic>> grantMembershipRemote({
+    required String identifier,
+    required String plan,
+  }) async {
+    final response = await _client
+        .post(
+          _endpoint('/v1/admin/memberships/grant'),
+          headers: _authHeaders,
+          body: jsonEncode({'identifier': identifier, 'plan': plan}),
+        )
+        .timeout(requestTimeout);
+    return _decodeJsonResponse(response, 'admin_membership_grant');
   }
 
   void clearSession() => _sessionToken = null;
@@ -240,6 +278,34 @@ class HttpCoachApi implements CoachApi, AgentCoachApi, StreamingCoachApi {
     return (payload['orders'] as List<dynamic>? ?? const [])
         .whereType<Map<String, dynamic>>()
         .toList();
+  }
+
+  Future<Map<String, dynamic>> fetchAndroidPaymentCapabilities() async {
+    final response = await _client
+        .get(_endpoint('/v1/membership/android/capabilities'))
+        .timeout(requestTimeout);
+    return _decodeJsonResponse(response, 'android_payment_capabilities');
+  }
+
+  Future<Map<String, dynamic>> createAndroidMembershipCheckout({
+    required String productId,
+    required String provider,
+    required int amountMinor,
+  }) async {
+    final response = await _client
+        .post(
+          _endpoint('/v1/membership/android/checkout'),
+          headers: _authHeaders,
+          body: jsonEncode({
+            'productId': productId,
+            'provider': provider,
+            'platform': 'android',
+            'amountMinor': amountMinor,
+            'currency': 'CNY',
+          }),
+        )
+        .timeout(requestTimeout);
+    return _decodeJsonResponse(response, 'android_payment_checkout');
   }
 
   Future<Map<String, dynamic>> fetchCheckinStatus() async {

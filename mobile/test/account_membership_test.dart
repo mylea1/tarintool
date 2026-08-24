@@ -1,5 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:kilo_strength/account_membership.dart';
 import 'package:kilo_strength/ai_api.dart';
 import 'package:kilo_strength/controller.dart';
@@ -15,51 +19,50 @@ void main() {
     expect(find.byType(NavigationBar), findsNothing);
   });
 
-  testWidgets('enabled test account can be filled and signed in', (
+  testWidgets('formal login authenticates with backend and has no shortcuts', (
     tester,
   ) async {
     final service = AccountService(allowTestAdmin: true);
-    final controller = AppController(accountService: service);
+    final api = HttpCoachApi(
+      baseUrl: 'https://api.example.test',
+      client: MockClient((request) async {
+        expect(request.url.path, '/v1/auth/phone/login');
+        return http.Response(
+          jsonEncode({
+            'user': {
+              'identifier': '1234',
+              'displayName': '正式管理员',
+              'role': 'admin',
+            },
+            'session': {'token': 'signed-session'},
+          }),
+          200,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        );
+      }),
+    );
+    final controller = AppController(accountService: service, coachApi: api);
     addTearDown(controller.dispose);
-
     await tester.pumpWidget(
       MaterialApp(home: LoginPage(controller: controller)),
     );
     expect(
       find.byKey(const Key('login-test-account-fill-button')),
-      findsOneWidget,
+      findsNothing,
     );
     expect(
       find.byKey(const Key('login-member-account-fill-button')),
-      findsOneWidget,
+      findsNothing,
     );
-
-    await tester.tap(find.byKey(const Key('login-test-account-fill-button')));
-    await tester.pump();
-    expect(
-      tester
-          .widget<TextField>(find.byKey(const Key('login-identifier')))
-          .controller!
-          .text,
-      '1234',
-    );
-    expect(
-      tester
-          .widget<TextField>(find.byKey(const Key('login-password')))
-          .controller!
-          .text,
-      '1234',
-    );
-
+    await tester.enterText(find.byKey(const Key('login-identifier')), '1234');
+    await tester.enterText(find.byKey(const Key('login-password')), '1234');
     await tester.tap(find.byKey(const Key('login-button')));
-    await tester.pump();
+    await tester.pumpAndSettle();
     expect(service.isAdmin, isTrue);
     expect(service.entitlements?.membership, MembershipPlan.forever);
   });
 
-  testWidgets('normal test account signs in from a compact login screen', (
-    tester,
-  ) async {
+  testWidgets('formal login stays usable on a compact screen', (tester) async {
     tester.view.physicalSize = const Size(320, 812);
     tester.view.devicePixelRatio = 1;
     addTearDown(() {
@@ -67,7 +70,24 @@ void main() {
       tester.view.resetDevicePixelRatio();
     });
     final service = AccountService(allowTestAdmin: true);
-    final controller = AppController(accountService: service);
+    final api = HttpCoachApi(
+      baseUrl: 'https://api.example.test',
+      client: MockClient(
+        (request) async => http.Response(
+          jsonEncode({
+            'user': {
+              'identifier': '17880169489',
+              'displayName': '普通用户',
+              'role': 'user',
+            },
+            'session': {'token': 'signed-session'},
+          }),
+          200,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        ),
+      ),
+    );
+    final controller = AppController(accountService: service, coachApi: api);
     addTearDown(controller.dispose);
 
     await tester.pumpWidget(
@@ -76,14 +96,16 @@ void main() {
         child: MaterialApp(home: LoginPage(controller: controller)),
       ),
     );
-    await tester.ensureVisible(
-      find.byKey(const Key('login-member-account-fill-button')),
+    await tester.enterText(
+      find.byKey(const Key('login-identifier')),
+      '17880169489',
     );
-    await tester.tap(find.byKey(const Key('login-member-account-fill-button')));
+    await tester.enterText(find.byKey(const Key('login-password')), '1234');
+    await tester.ensureVisible(find.byKey(const Key('login-button')));
     await tester.tap(find.byKey(const Key('login-button')));
-    await tester.pump();
+    await tester.pumpAndSettle();
 
-    expect(service.currentUser?.identifier, '123');
+    expect(service.currentUser?.identifier, '17880169489');
     expect(service.isAdmin, isFalse);
     expect(tester.takeException(), isNull);
   });
@@ -92,7 +114,14 @@ void main() {
     'disabled test account hides the shortcut and rejects credentials',
     (tester) async {
       final service = AccountService(allowTestAdmin: false);
-      final controller = AppController(accountService: service);
+      final api = HttpCoachApi(
+        baseUrl: 'https://api.example.test',
+        client: MockClient(
+          (request) async =>
+              http.Response(jsonEncode({'error': 'invalid_credentials'}), 401),
+        ),
+      );
+      final controller = AppController(accountService: service, coachApi: api);
       addTearDown(controller.dispose);
 
       await tester.pumpWidget(
@@ -110,7 +139,7 @@ void main() {
       await tester.enterText(find.byKey(const Key('login-identifier')), '1234');
       await tester.enterText(find.byKey(const Key('login-password')), '1234');
       await tester.tap(find.byKey(const Key('login-button')));
-      await tester.pump();
+      await tester.pumpAndSettle();
       expect(service.currentUser, isNull);
       expect(find.text('账号或密码不正确。'), findsOneWidget);
     },
@@ -143,6 +172,13 @@ void main() {
       findsOneWidget,
     );
     expect(find.byKey(const Key('admin-generate-code-button')), findsOneWidget);
+    await tester.ensureVisible(
+      find.byKey(const Key('admin-create-user-button')),
+    );
+    await tester.tap(find.byKey(const Key('admin-create-user-button')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('admin-create-user-phone')), findsOneWidget);
+    expect(find.byKey(const Key('admin-create-user-password')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
