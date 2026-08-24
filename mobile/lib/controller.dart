@@ -614,6 +614,122 @@ class AppController extends ChangeNotifier {
     );
   }
 
+  Future<Map<String, dynamic>> fetchFriendsRemote() async {
+    final api = await _activeCoachApi();
+    if (api is! HttpCoachApi) {
+      throw const CoachApiException('friends_unavailable');
+    }
+    return api.fetchFriends();
+  }
+
+  Future<Map<String, dynamic>> fetchFriendPlanFeedRemote() async {
+    final api = await _activeCoachApi();
+    if (api is! HttpCoachApi) {
+      throw const CoachApiException('friends_unavailable');
+    }
+    return api.fetchFriendPlanFeed();
+  }
+
+  Future<void> sendFriendRequestRemote(String identifier) async {
+    final api = await _activeCoachApi();
+    if (api is! HttpCoachApi) {
+      throw const CoachApiException('friends_unavailable');
+    }
+    await api.sendFriendRequest(identifier.trim());
+  }
+
+  Future<void> acceptFriendRequestRemote(String requestId) async {
+    final api = await _activeCoachApi();
+    if (api is! HttpCoachApi) {
+      throw const CoachApiException('friends_unavailable');
+    }
+    await api.acceptFriendRequest(requestId);
+  }
+
+  Future<void> shareRoutineWithFriends(Routine routine) async {
+    final api = await _activeCoachApi();
+    if (api is! HttpCoachApi) {
+      throw const CoachApiException('friends_unavailable');
+    }
+    await api.shareFriendPlan(
+      sourcePlanId: routine.id,
+      name: routine.name,
+      plan: {
+        'exercises': [
+          for (final exercise in routine.exercises)
+            {
+              'exerciseId': exercise.exerciseId,
+              'restSeconds': exercise.restSeconds,
+              'sets': [
+                for (final set in exercise.sets)
+                  {
+                    'type': set.type,
+                    'weight': set.plannedWeight ?? set.weight,
+                    'reps': set.reps,
+                    'restSeconds': set.restSeconds,
+                  },
+              ],
+            },
+        ],
+      },
+    );
+  }
+
+  Future<void> reactToFriendPlanRemote(String shareId, String emoji) async {
+    final api = await _activeCoachApi();
+    if (api is! HttpCoachApi) {
+      throw const CoachApiException('friends_unavailable');
+    }
+    await api.reactToFriendPlan(shareId, emoji);
+  }
+
+  void saveFriendPlan(Map<String, dynamic> share) {
+    final rawPlan = share['plan'];
+    if (rawPlan is! Map) return;
+    final exercises = <WorkoutExercise>[];
+    final rawExercises = rawPlan['exercises'];
+    if (rawExercises is! List) return;
+    for (
+      var exerciseIndex = 0;
+      exerciseIndex < rawExercises.length;
+      exerciseIndex++
+    ) {
+      final rawExercise = rawExercises[exerciseIndex];
+      if (rawExercise is! Map) continue;
+      final exerciseId = (rawExercise['exerciseId'] ?? '').toString();
+      if (exerciseId.isEmpty) continue;
+      final sets = <WorkoutSet>[];
+      final rawSets = rawExercise['sets'];
+      if (rawSets is List) {
+        for (var setIndex = 0; setIndex < rawSets.length; setIndex++) {
+          final rawSet = rawSets[setIndex];
+          if (rawSet is! Map) continue;
+          final weight = (rawSet['weight'] as num?)?.toDouble() ?? 0;
+          sets.add(
+            WorkoutSet(
+              id: 'friend-set-${DateTime.now().microsecondsSinceEpoch}-$setIndex',
+              type: (rawSet['type'] ?? 'work').toString(),
+              weight: weight,
+              plannedWeight: weight,
+              reps: (rawSet['reps'] as num?)?.toInt() ?? 0,
+              restSeconds: (rawSet['restSeconds'] as num?)?.toInt() ?? 0,
+            ),
+          );
+        }
+      }
+      exercises.add(
+        WorkoutExercise(
+          id: 'friend-exercise-${DateTime.now().microsecondsSinceEpoch}-$exerciseIndex',
+          exerciseId: exerciseId,
+          sets: sets,
+          restSeconds: (rawExercise['restSeconds'] as num?)?.toInt() ?? 0,
+        ),
+      );
+    }
+    final name = (share['name'] ?? '好友训练计划').toString();
+    saveRoutineFromDraft('$name · 好友分享', exercises, folder: '好友分享');
+  }
+
   AuthResult loginWithApple() => accountService.loginWithApple();
 
   AuthResult loginWithGoogle() => accountService.loginWithGoogle();

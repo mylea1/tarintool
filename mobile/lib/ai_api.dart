@@ -205,6 +205,74 @@ class HttpCoachApi implements CoachApi, AgentCoachApi, StreamingCoachApi {
     return _decodeJsonResponse(response, 'admin_membership_grant');
   }
 
+  Future<Map<String, dynamic>> fetchFriends() async {
+    final response = await _client
+        .get(_endpoint('/v1/friends'), headers: _authHeaders)
+        .timeout(requestTimeout);
+    return _decodeJsonResponse(response, 'friends_fetch');
+  }
+
+  Future<Map<String, dynamic>> fetchFriendPlanFeed() async {
+    final response = await _client
+        .get(_endpoint('/v1/friends/feed'), headers: _authHeaders)
+        .timeout(requestTimeout);
+    return _decodeJsonResponse(response, 'friend_feed_fetch');
+  }
+
+  Future<Map<String, dynamic>> sendFriendRequest(String identifier) async {
+    final response = await _client
+        .post(
+          _endpoint('/v1/friends/requests'),
+          headers: _authHeaders,
+          body: jsonEncode({'identifier': identifier}),
+        )
+        .timeout(requestTimeout);
+    return _decodeJsonResponse(response, 'friend_request');
+  }
+
+  Future<Map<String, dynamic>> acceptFriendRequest(String requestId) async {
+    final response = await _client
+        .post(
+          _endpoint('/v1/friends/requests/$requestId/accept'),
+          headers: _authHeaders,
+        )
+        .timeout(requestTimeout);
+    return _decodeJsonResponse(response, 'friend_accept');
+  }
+
+  Future<Map<String, dynamic>> shareFriendPlan({
+    required String sourcePlanId,
+    required String name,
+    required Map<String, dynamic> plan,
+  }) async {
+    final response = await _client
+        .post(
+          _endpoint('/v1/friends/plans'),
+          headers: _authHeaders,
+          body: jsonEncode({
+            'sourcePlanId': sourcePlanId,
+            'name': name,
+            'plan': plan,
+          }),
+        )
+        .timeout(requestTimeout);
+    return _decodeJsonResponse(response, 'friend_plan_share');
+  }
+
+  Future<Map<String, dynamic>> reactToFriendPlan(
+    String shareId,
+    String emoji,
+  ) async {
+    final response = await _client
+        .post(
+          _endpoint('/v1/friends/plans/$shareId/reactions'),
+          headers: _authHeaders,
+          body: jsonEncode({'emoji': emoji}),
+        )
+        .timeout(requestTimeout);
+    return _decodeJsonResponse(response, 'friend_plan_reaction');
+  }
+
   void clearSession() => _sessionToken = null;
 
   Map<String, String> get _authHeaders {

@@ -397,6 +397,15 @@ function requireAdmin(req, ctx) {
   return user;
 }
 
+function friendPairKey(firstUserId, secondUserId) {
+  return [firstUserId, secondUserId].sort().join(':');
+}
+
+function areFriends(db, firstUserId, secondUserId) {
+  return Boolean(db.prepare("SELECT 1 FROM friend_requests WHERE pair_key = ? AND status = 'accepted'")
+    .get(friendPairKey(firstUserId, secondUserId)));
+}
+
 function entitlementFor(db, userId) {
   return transaction(db, () => publicEntitlement(ensureEntitlement(db, userId)));
 }
@@ -1566,6 +1575,93 @@ async function handleRequest(req, res, ctx) {
     let code; do { code = `KILO-${randomToken().slice(0, 16).toUpperCase()}`; } while (ctx.db.prepare('SELECT 1 FROM redemption_codes WHERE code = ?').get(code));
     ctx.db.prepare('INSERT INTO redemption_codes (code, plan, created_by, created_at) VALUES (?, ?, ?, ?)').run(code, plan, admin.id, nowIso()); audit(ctx.db, admin.id, 'create_redemption_code', code, { plan });
     writeJson(res, 201, { code, plan }, req, ctx.cfg); return;
+  }
+
+  if (req.method === 'GET' && url.pathname === '/v1/friends') {
+    const user = authenticate(req, ctx);
+    const friends = ctx.db.prepare(`SELECT fr.updated_at, u.id, u.identifier, u.display_name
+      FROM friend_requests fr JOIN users u
+      ON u.id = CASE WHEN fr.sender_user_id = ? THEN fr.receiver_user_id ELSE fr.sender_user_id END
+      WHERE (fr.sender_user_id = ? OR fr.receiver_user_id = ?) AND fr.status = 'accepted'
+      ORDER BY fr.updated_at DESC`).all(user.id, user.id, user.id);
+    const pending = ctx.db.prepare(`SELECT fr.id AS request_id, fr.created_at,
+      u.id, u.identifier, u.display_name FROM friend_requests fr
+      JOIN users u ON u.id = fr.sender_user_id
+      WHERE fr.receiver_user_id = ? AND fr.status = 'pending' ORDER BY fr.created_at DESC`).all(user.id);
+    writeJson(res, 200, {
+      friends: friends.map((row) => ({ id: row.id, identifier: row.identifier, displayName: row.display_name, since: row.updated_at })),
+      pending: pending.map((row) => ({ requestId: row.request_id, id: row.id, identifier: row.identifier, displayName: row.display_name, createdAt: row.created_at })),
+    }, req, ctx.cfg); return;
+  }
+  if (req.method === 'POST' && url.pathname === '/v1/friends/requests') {
+    const user = authenticate(req, ctx); const body = await readBody(req, ctx.cfg.maxJsonBytes);
+    const identifier = requireString(body.identifier, 'identifier_required', 256);
+    const target = ctx.db.prepare('SELECT * FROM users WHERE identifier = ?').get(identifier);
+    if (!target) throw httpError(404, 'friend_not_found');
+    if (target.id === user.id) throw httpError(400, 'cannot_friend_self');
+    const pairKey = friendPairKey(user.id, target.id);
+    const existing = ctx.db.prepare('SELECT * FROM friend_requests WHERE pair_key = ?').get(pairKey);
+    if (existing?.status === 'accepted') throw httpError(409, 'already_friends');
+    if (existing?.status === 'pending') throw httpError(409, 'friend_request_pending');
+    const stamp = nowIso(); const id = existing?.id || randomId('frq_');
+    ctx.db.prepare(`INSERT INTO friend_requests
+      (id, pair_key, sender_user_id, receiver_user_id, status, created_at, updated_at)
+      VALUES (?, ?, ?, ?, 'pending', ?, ?)
+      ON CONFLICT(pair_key) DO UPDATE SET sender_user_id=excluded.sender_user_id,
+        receiver_user_id=excluded.receiver_user_id, status='pending', updated_at=excluded.updated_at`)
+      .run(id, pairKey, user.id, target.id, stamp, stamp);
+    writeJson(res, 201, { request: { id, status: 'pending' } }, req, ctx.cfg); return;
+  }
+  const friendAcceptMatch = url.pathname.match(/^\/v1\/friends\/requests\/([^/]+)\/accept$/);
+  if (req.method === 'POST' && friendAcceptMatch) {
+    const user = authenticate(req, ctx);
+    const request = ctx.db.prepare("SELECT * FROM friend_requests WHERE id = ? AND receiver_user_id = ? AND status = 'pending'")
+      .get(friendAcceptMatch[1], user.id);
+    if (!request) throw httpError(404, 'friend_request_not_found');
+    ctx.db.prepare("UPDATE friend_requests SET status = 'accepted', updated_at = ? WHERE id = ?").run(nowIso(), request.id);
+    writeJson(res, 200, { request: { id: request.id, status: 'accepted' } }, req, ctx.cfg); return;
+  }
+  if (req.method === 'GET' && url.pathname === '/v1/friends/feed') {
+    const user = authenticate(req, ctx);
+    const rows = ctx.db.prepare(`SELECT s.*, u.display_name, u.identifier,
+      (SELECT COUNT(*) FROM friend_plan_reactions r WHERE r.share_id=s.id) AS reaction_count,
+      (SELECT emoji FROM friend_plan_reactions r WHERE r.share_id=s.id AND r.user_id=?) AS my_reaction
+      FROM friend_plan_shares s JOIN users u ON u.id=s.owner_user_id
+      WHERE s.owner_user_id=? OR EXISTS (SELECT 1 FROM friend_requests fr
+        WHERE fr.pair_key=CASE WHEN s.owner_user_id < ? THEN s.owner_user_id||':'||? ELSE ?||':'||s.owner_user_id END
+        AND fr.status='accepted') ORDER BY s.updated_at DESC LIMIT 100`)
+      .all(user.id, user.id, user.id, user.id, user.id);
+    writeJson(res, 200, { plans: rows.map((row) => ({ id: row.id, ownerId: row.owner_user_id,
+      ownerName: row.display_name, ownerIdentifier: row.identifier, name: row.name,
+      plan: JSON.parse(row.payload_json), reactionCount: Number(row.reaction_count),
+      myReaction: row.my_reaction, updatedAt: row.updated_at })) }, req, ctx.cfg); return;
+  }
+  if (req.method === 'POST' && url.pathname === '/v1/friends/plans') {
+    const user = authenticate(req, ctx); const body = await readBody(req, ctx.cfg.maxJsonBytes);
+    const sourcePlanId = requireString(body.sourcePlanId, 'source_plan_id_required', 160);
+    const name = requireString(body.name, 'plan_name_required', 120);
+    if (!body.plan || typeof body.plan !== 'object' || Array.isArray(body.plan)) throw httpError(400, 'plan_required');
+    const encoded = JSON.stringify(body.plan); if (Buffer.byteLength(encoded) > 256000) throw httpError(413, 'plan_too_large');
+    const stamp = nowIso(); const existing = ctx.db.prepare('SELECT id FROM friend_plan_shares WHERE owner_user_id=? AND source_plan_id=?').get(user.id, sourcePlanId);
+    const id = existing?.id || randomId('fps_');
+    ctx.db.prepare(`INSERT INTO friend_plan_shares (id,owner_user_id,source_plan_id,name,payload_json,created_at,updated_at)
+      VALUES (?,?,?,?,?,?,?) ON CONFLICT(owner_user_id,source_plan_id)
+      DO UPDATE SET name=excluded.name,payload_json=excluded.payload_json,updated_at=excluded.updated_at`)
+      .run(id, user.id, sourcePlanId, name, encoded, stamp, stamp);
+    writeJson(res, 201, { share: { id, name, updatedAt: stamp } }, req, ctx.cfg); return;
+  }
+  const friendReactionMatch = url.pathname.match(/^\/v1\/friends\/plans\/([^/]+)\/reactions$/);
+  if (req.method === 'POST' && friendReactionMatch) {
+    const user = authenticate(req, ctx); const share = ctx.db.prepare('SELECT * FROM friend_plan_shares WHERE id=?').get(friendReactionMatch[1]);
+    if (!share || (share.owner_user_id !== user.id && !areFriends(ctx.db, user.id, share.owner_user_id))) throw httpError(404, 'shared_plan_not_found');
+    const body = await readBody(req, ctx.cfg.maxJsonBytes); const emoji = requireString(body.emoji, 'reaction_required', 8);
+    if (!['👍','🔥','👏','💪'].includes(emoji)) throw httpError(400, 'invalid_reaction');
+    const stamp = nowIso();
+    ctx.db.prepare(`INSERT INTO friend_plan_reactions (share_id,user_id,emoji,created_at,updated_at)
+      VALUES (?,?,?,?,?) ON CONFLICT(share_id,user_id) DO UPDATE SET emoji=excluded.emoji,updated_at=excluded.updated_at`)
+      .run(share.id, user.id, emoji, stamp, stamp);
+    const count = ctx.db.prepare('SELECT COUNT(*) AS count FROM friend_plan_reactions WHERE share_id=?').get(share.id).count;
+    writeJson(res, 200, { reaction: emoji, reactionCount: Number(count) }, req, ctx.cfg); return;
   }
 
   const entity = parseEntity(url.pathname);

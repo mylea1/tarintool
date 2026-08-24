@@ -113,6 +113,44 @@ CREATE TABLE IF NOT EXISTS sync_entities (
 );
 CREATE INDEX IF NOT EXISTS idx_sync_updated ON sync_entities(user_id, updated_at);
 
+-- Social data is deliberately opt-in. Friends can only see plan snapshots
+-- explicitly shared by their owner; workout notes and private history never
+-- enter these tables.
+CREATE TABLE IF NOT EXISTS friend_requests (
+  id TEXT PRIMARY KEY,
+  pair_key TEXT NOT NULL UNIQUE,
+  sender_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  receiver_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  status TEXT NOT NULL CHECK (status IN ('pending', 'accepted', 'rejected')),
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  CHECK (sender_user_id <> receiver_user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_friend_requests_receiver
+  ON friend_requests(receiver_user_id, status, updated_at DESC);
+
+CREATE TABLE IF NOT EXISTS friend_plan_shares (
+  id TEXT PRIMARY KEY,
+  owner_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  source_plan_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  payload_json TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  UNIQUE(owner_user_id, source_plan_id)
+);
+CREATE INDEX IF NOT EXISTS idx_friend_plan_shares_owner
+  ON friend_plan_shares(owner_user_id, updated_at DESC);
+
+CREATE TABLE IF NOT EXISTS friend_plan_reactions (
+  share_id TEXT NOT NULL REFERENCES friend_plan_shares(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  emoji TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (share_id, user_id)
+);
+
 CREATE TABLE IF NOT EXISTS conversations (
   id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,

@@ -112,7 +112,7 @@ void main() {
     expect(find.byKey(const Key('home-overview-section')), findsOneWidget);
     expect(find.text('训练概览'), findsOneWidget);
     expect(find.text('训练周'), findsOneWidget);
-    expect(find.text('进步摘要'), findsOneWidget);
+    expect(find.text('进步摘要'), findsNothing);
     await tester.scrollUntilVisible(
       find.text('最近记录'),
       260,

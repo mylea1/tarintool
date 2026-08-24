@@ -1013,14 +1013,6 @@ class HomePage extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasHistory = controller.history.isNotEmpty;
     final latest = hasHistory ? controller.history.first : null;
-    final totalVolume = controller.history.fold<double>(
-      0,
-      (sum, record) => sum + record.volume,
-    );
-    final totalEffectiveSets = controller.history.fold<int>(
-      0,
-      (sum, record) => sum + record.effectiveSets,
-    );
     return PageFrame(
       children: [
         SectionTitle('训练概览', subtitle: '今天只做最重要的下一步'),
@@ -1038,19 +1030,6 @@ class HomePage extends StatelessWidget {
             padding: EdgeInsets.only(top: 8),
             child: Text('暂无排程，可在记录日历中安排训练。', style: TextStyle(color: quiet)),
           ),
-        const SizedBox(height: 18),
-        SectionTitle(
-          '进步摘要',
-          subtitle: '只展示真实训练记录',
-          action: '全部趋势',
-          onAction: () => _showProgress(context, controller),
-        ),
-        _HomeProgressPanel(
-          controller: controller,
-          totalVolume: totalVolume,
-          totalEffectiveSets: totalEffectiveSets,
-          onTap: () => _showProgress(context, controller),
-        ),
         const SizedBox(height: 18),
         SectionTitle(
           '最近记录',
@@ -1243,134 +1222,6 @@ class _HomeWorkoutHero extends StatelessWidget {
       ),
     );
   }
-}
-
-class _HomeProgressPanel extends StatelessWidget {
-  const _HomeProgressPanel({
-    required this.controller,
-    required this.totalVolume,
-    required this.totalEffectiveSets,
-    required this.onTap,
-  });
-  final AppController controller;
-  final double totalVolume;
-  final int totalEffectiveSets;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => Card(
-    key: const Key('home-progress-section'),
-    child: InkWell(
-      borderRadius: BorderRadius.circular(18),
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: controller.history.isEmpty
-            ? const Row(
-                children: [
-                  Icon(Icons.query_stats_rounded, color: primary),
-                  SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      '完成一次训练后，这里会显示训练量和有效组变化。',
-                      style: TextStyle(color: quiet),
-                    ),
-                  ),
-                ],
-              )
-            : Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('累计训练量', style: TextStyle(color: quiet)),
-                        Text(
-                          '${totalVolume.toStringAsFixed(0)} kg',
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                        Text(
-                          '$totalEffectiveSets 个有效组',
-                          style: const TextStyle(
-                            color: primary,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  SizedBox(
-                    width: 108,
-                    height: 64,
-                    child: CustomPaint(
-                      painter: _MiniVolumePainter(
-                        controller.history
-                            .take(6)
-                            .map((record) => record.volume)
-                            .toList()
-                            .reversed
-                            .toList(),
-                      ),
-                    ),
-                  ),
-                  const Icon(Icons.chevron_right, color: quiet),
-                ],
-              ),
-      ),
-    ),
-  );
-}
-
-class _MiniVolumePainter extends CustomPainter {
-  const _MiniVolumePainter(this.values);
-  final List<double> values;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (values.isEmpty) return;
-    final maxValue = values.reduce((a, b) => a > b ? a : b);
-    final step = size.width / values.length;
-    final line = Path();
-    for (var i = 0; i < values.length; i++) {
-      final ratio = maxValue == 0
-          ? 0.08
-          : (values[i] / maxValue).clamp(.08, 1.0);
-      final point = Offset(
-        step * i + step / 2,
-        size.height - size.height * ratio,
-      );
-      if (i == 0) {
-        line.moveTo(point.dx, point.dy);
-      } else {
-        line.lineTo(point.dx, point.dy);
-      }
-    }
-    canvas.drawPath(
-      line,
-      Paint()
-        ..color = primary
-        ..strokeWidth = 2.4
-        ..strokeCap = StrokeCap.round
-        ..style = PaintingStyle.stroke,
-    );
-    for (var i = 0; i < values.length; i++) {
-      final ratio = maxValue == 0
-          ? 0.08
-          : (values[i] / maxValue).clamp(.08, 1.0);
-      canvas.drawCircle(
-        Offset(step * i + step / 2, size.height - size.height * ratio),
-        3,
-        Paint()..color = primaryBright,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _MiniVolumePainter oldDelegate) =>
-      oldDelegate.values != values;
 }
 
 class _WeekStrip extends StatelessWidget {
@@ -4459,34 +4310,57 @@ class _TrainingStatisticsView extends StatelessWidget {
             ),
           ],
         ),
+        const SizedBox(height: 10),
+        Align(
+          alignment: Alignment.centerRight,
+          child: OutlinedButton.icon(
+            key: const Key('open-friends'),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => _FriendsPage(controller: controller),
+              ),
+            ),
+            icon: const Icon(Icons.people_alt_outlined, size: 18),
+            label: const Text('好友训练'),
+          ),
+        ),
         const SizedBox(height: 18),
         const Text(
           '训练概况',
           style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
         ),
         const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: _StatisticMetric(
-                label: '训练天数',
-                value: '$trainingDays',
-                unit: '天',
-              ),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _StatisticMetric(
+                    label: '训练天数',
+                    value: '$trainingDays',
+                    unit: '天',
+                  ),
+                ),
+                Expanded(
+                  child: _StatisticMetric(
+                    label: '有效组',
+                    value: '$sets',
+                    unit: '组',
+                  ),
+                ),
+                Expanded(
+                  child: _StatisticMetric(
+                    label: '训练容量',
+                    value: volume >= 1000
+                        ? (volume / 1000).toStringAsFixed(1)
+                        : volume.toStringAsFixed(0),
+                    unit: volume >= 1000 ? '吨' : 'kg',
+                  ),
+                ),
+              ],
             ),
-            Expanded(
-              child: _StatisticMetric(label: '有效组', value: '$sets', unit: '组'),
-            ),
-            Expanded(
-              child: _StatisticMetric(
-                label: '训练容量',
-                value: volume >= 1000
-                    ? (volume / 1000).toStringAsFixed(1)
-                    : volume.toStringAsFixed(0),
-                unit: volume >= 1000 ? '吨' : 'kg',
-              ),
-            ),
-          ],
+          ),
         ),
         const SizedBox(height: 16),
         const Text(
@@ -4494,6 +4368,22 @@ class _TrainingStatisticsView extends StatelessWidget {
           style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
         ),
         const SizedBox(height: 8),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+            child: Column(
+              children: [
+                const Text(
+                  '颜色越深，代表该时段完成的有效训练组越多',
+                  style: TextStyle(color: quiet, fontSize: 12),
+                ),
+                const SizedBox(height: 8),
+                _MuscleBodyMap(muscleSets: muscleSets),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
         if (muscles.isEmpty)
           const Text('该时段还没有可统计的训练组。', style: TextStyle(color: quiet))
         else
@@ -4530,7 +4420,12 @@ class _TrainingStatisticsView extends StatelessWidget {
           style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
         ),
         const SizedBox(height: 8),
-        _StatisticsTrend(records: records),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
+            child: _StatisticsTrend(records: records),
+          ),
+        ),
         const SizedBox(height: 8),
         Text(
           '总训练时间 ${(duration / 3600).toStringAsFixed(1)} 小时 · 平均每次 ${records.isEmpty ? 0 : (duration / records.length / 60).round()} 分钟',
@@ -4614,10 +4509,11 @@ class _StatisticsTrend extends StatelessWidget {
   final List<WorkoutRecord> records;
   @override
   Widget build(BuildContext context) {
-    final values = records.reversed.map((record) => record.volume).toList();
+    final ordered = records.reversed.toList();
+    final values = ordered.map((record) => record.volume).toList();
     return SizedBox(
       key: const Key('statistics-volume-chart'),
-      height: 150,
+      height: 210,
       width: double.infinity,
       child: DecoratedBox(
         decoration: const BoxDecoration(
@@ -4629,12 +4525,646 @@ class _StatisticsTrend extends StatelessWidget {
               ? const Center(
                   child: Text('暂无趋势数据', style: TextStyle(color: quiet)),
                 )
-              : CustomPaint(
-                  painter: _ProgressTrendPainter(values),
-                  child: const SizedBox.expand(),
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '平均容量 ${(values.reduce((a, b) => a + b) / values.length).toStringAsFixed(0)} kg',
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      '橙色：单次容量  紫色：变化均线',
+                      style: TextStyle(color: quiet, fontSize: 11),
+                    ),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: CustomPaint(
+                        painter: _VolumeAndAveragePainter(values),
+                        child: const SizedBox.expand(),
+                      ),
+                    ),
+                  ],
                 ),
         ),
       ),
+    );
+  }
+}
+
+class _VolumeAndAveragePainter extends CustomPainter {
+  const _VolumeAndAveragePainter(this.values);
+  final List<double> values;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (values.isEmpty) return;
+    final maxValue = values
+        .reduce((a, b) => a > b ? a : b)
+        .clamp(1, double.infinity);
+    final grid = Paint()
+      ..color = hairline
+      ..strokeWidth = 1;
+    for (var row = 0; row <= 3; row++) {
+      final y = size.height * row / 3;
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), grid);
+    }
+    final slot = size.width / values.length;
+    final bar = Paint()..color = primary.withValues(alpha: .30);
+    final points = <Offset>[];
+    for (var index = 0; index < values.length; index++) {
+      final height = values[index] / maxValue * (size.height - 12);
+      final left = index * slot + slot * .18;
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(left, size.height - height, slot * .64, height),
+          const Radius.circular(5),
+        ),
+        bar,
+      );
+      final start = (index - 2).clamp(0, index);
+      final sample = values.sublist(start, index + 1);
+      final average = sample.reduce((a, b) => a + b) / sample.length;
+      points.add(
+        Offset(
+          index * slot + slot / 2,
+          size.height - average / maxValue * (size.height - 12),
+        ),
+      );
+    }
+    final curve = Paint()
+      ..color = const Color(0xFF6E36B2)
+      ..strokeWidth = 3
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+    if (points.length == 1) {
+      canvas.drawCircle(points.first, 4, curve..style = PaintingStyle.fill);
+    } else {
+      final path = Path()..moveTo(points.first.dx, points.first.dy);
+      for (final point in points.skip(1)) {
+        path.lineTo(point.dx, point.dy);
+      }
+      canvas.drawPath(path, curve);
+      for (final point in points) {
+        canvas.drawCircle(point, 3.2, Paint()..color = const Color(0xFF6E36B2));
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _VolumeAndAveragePainter oldDelegate) =>
+      oldDelegate.values != values;
+}
+
+class _MuscleBodyMap extends StatelessWidget {
+  const _MuscleBodyMap({required this.muscleSets});
+  final Map<String, int> muscleSets;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    key: const Key('statistics-muscle-map'),
+    height: 250,
+    width: double.infinity,
+    child: CustomPaint(painter: _MuscleBodyPainter(muscleSets)),
+  );
+}
+
+class _MuscleBodyPainter extends CustomPainter {
+  const _MuscleBodyPainter(this.muscleSets);
+  final Map<String, int> muscleSets;
+
+  Color heat(String name) {
+    final maxValue = muscleSets.values.isEmpty
+        ? 1
+        : muscleSets.values.reduce((a, b) => a > b ? a : b);
+    final value = muscleSets[name] ?? 0;
+    return Color.lerp(const Color(0xFFE9ECEF), primary, value / maxValue) ??
+        primary;
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final centerY = size.height * .51;
+    void drawBody(double centerX, bool back) {
+      final outline = Paint()
+        ..color = const Color(0xFFBFC4CC)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.3;
+      final base = Paint()..color = const Color(0xFFF1F2F4);
+      canvas.drawCircle(Offset(centerX, 22), 15, base);
+      canvas.drawCircle(Offset(centerX, 22), 15, outline);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(center: Offset(centerX, 75), width: 62, height: 80),
+          const Radius.circular(24),
+        ),
+        base,
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(center: Offset(centerX, 75), width: 62, height: 80),
+          const Radius.circular(24),
+        ),
+        outline,
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(centerX - 48, 42, 17, 105),
+          const Radius.circular(9),
+        ),
+        base,
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(centerX + 31, 42, 17, 105),
+          const Radius.circular(9),
+        ),
+        base,
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(centerX - 29, 110, 24, 118),
+          const Radius.circular(12),
+        ),
+        base,
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(centerX + 5, 110, 24, 118),
+          const Radius.circular(12),
+        ),
+        base,
+      );
+      final chest = Paint()..color = heat(back ? '背' : '胸');
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(centerX - 28, 45, 56, 35),
+          const Radius.circular(15),
+        ),
+        chest,
+      );
+      final shoulder = Paint()..color = heat('肩');
+      canvas.drawCircle(Offset(centerX - 32, 53), 10, shoulder);
+      canvas.drawCircle(Offset(centerX + 32, 53), 10, shoulder);
+      final arm = Paint()..color = heat('手臂');
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(centerX - 46, 66, 13, 65),
+          const Radius.circular(6),
+        ),
+        arm,
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(centerX + 33, 66, 13, 65),
+          const Radius.circular(6),
+        ),
+        arm,
+      );
+      final core = Paint()..color = heat('核心');
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(centerX - 18, 82, 36, 35),
+          const Radius.circular(9),
+        ),
+        core,
+      );
+      final legs = Paint()..color = heat('腿');
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(centerX - 27, 117, 20, 101),
+          const Radius.circular(8),
+        ),
+        legs,
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(centerX + 7, 117, 20, 101),
+          const Radius.circular(8),
+        ),
+        legs,
+      );
+      final label = TextPainter(
+        text: TextSpan(
+          text: back ? '背面' : '正面',
+          style: const TextStyle(color: quiet, fontSize: 11),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      label.paint(canvas, Offset(centerX - label.width / 2, centerY + 104));
+    }
+
+    drawBody(size.width * .31, false);
+    drawBody(size.width * .69, true);
+  }
+
+  @override
+  bool shouldRepaint(covariant _MuscleBodyPainter oldDelegate) =>
+      oldDelegate.muscleSets != muscleSets;
+}
+
+class _FriendsPage extends StatefulWidget {
+  const _FriendsPage({required this.controller});
+  final AppController controller;
+
+  @override
+  State<_FriendsPage> createState() => _FriendsPageState();
+}
+
+class _FriendsPageState extends State<_FriendsPage> {
+  var tab = 0;
+  var loading = true;
+  String? error;
+  List<Map<String, dynamic>> plans = [];
+  List<Map<String, dynamic>> friends = [];
+  List<Map<String, dynamic>> pending = [];
+  final identifierController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _refresh();
+  }
+
+  @override
+  void dispose() {
+    identifierController.dispose();
+    super.dispose();
+  }
+
+  List<Map<String, dynamic>> _maps(Object? value) => value is List
+      ? value
+            .whereType<Map>()
+            .map((item) => Map<String, dynamic>.from(item))
+            .toList()
+      : <Map<String, dynamic>>[];
+
+  Future<void> _refresh() async {
+    if (!widget.controller.isAuthenticated) {
+      setState(() {
+        loading = false;
+        error = '登录后才能添加好友和分享计划。';
+      });
+      return;
+    }
+    setState(() {
+      loading = true;
+      error = null;
+    });
+    try {
+      final results = await Future.wait([
+        widget.controller.fetchFriendsRemote(),
+        widget.controller.fetchFriendPlanFeedRemote(),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        friends = _maps(results[0]['friends']);
+        pending = _maps(results[0]['pending']);
+        plans = _maps(results[1]['plans']);
+        loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        loading = false;
+        error = '好友服务暂时不可用，请检查网络后重试。';
+      });
+    }
+  }
+
+  Future<void> _sendRequest() async {
+    final value = identifierController.text.trim();
+    if (value.isEmpty) return;
+    try {
+      await widget.controller.sendFriendRequestRemote(value);
+      identifierController.clear();
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('好友申请已发送')));
+      }
+      await _refresh();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('未找到该账号，或申请已经存在')));
+      }
+    }
+  }
+
+  Future<void> _shareRoutine() async {
+    if (widget.controller.routines.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('请先创建一个训练计划')));
+      return;
+    }
+    final routine = await showModalBottomSheet<Routine>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+          children: [
+            const Text(
+              '选择要分享的计划',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 8),
+            for (final item in widget.controller.routines)
+              ListTile(
+                leading: const Icon(Icons.fitness_center),
+                title: Text(item.name),
+                subtitle: Text('${item.exercises.length} 个动作'),
+                onTap: () => Navigator.pop(context, item),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (routine == null) return;
+    try {
+      await widget.controller.shareRoutineWithFriends(routine);
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('计划已分享给好友')));
+      }
+      await _refresh();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('分享失败，请稍后重试')));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(
+      title: const Text('好友训练'),
+      actions: [
+        IconButton(
+          onPressed: _refresh,
+          tooltip: '刷新',
+          icon: const Icon(Icons.refresh),
+        ),
+      ],
+    ),
+    floatingActionButton: tab == 0
+        ? FloatingActionButton.extended(
+            onPressed: _shareRoutine,
+            icon: const Icon(Icons.ios_share),
+            label: const Text('分享计划'),
+          )
+        : null,
+    body: SafeArea(
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: SegmentedButton<int>(
+                segments: const [
+                  ButtonSegment(
+                    value: 0,
+                    icon: Icon(Icons.dynamic_feed_outlined),
+                    label: Text('动态'),
+                  ),
+                  ButtonSegment(
+                    value: 1,
+                    icon: Icon(Icons.people_outline),
+                    label: Text('好友'),
+                  ),
+                  ButtonSegment(
+                    value: 2,
+                    icon: Icon(Icons.person_add_alt_1),
+                    label: Text('添加'),
+                  ),
+                ],
+                selected: {tab},
+                onSelectionChanged: (value) =>
+                    setState(() => tab = value.first),
+              ),
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 18),
+            child: Text(
+              '只有用户主动分享的训练计划会出现在这里，训练备注和私人记录不会公开。',
+              style: TextStyle(color: quiet, fontSize: 12),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Expanded(child: _body()),
+        ],
+      ),
+    ),
+  );
+
+  Widget _body() {
+    if (loading) return const Center(child: CircularProgressIndicator());
+    if (error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(error!, textAlign: TextAlign.center),
+              const SizedBox(height: 12),
+              FilledButton(onPressed: _refresh, child: const Text('重试')),
+            ],
+          ),
+        ),
+      );
+    }
+    if (tab == 2) {
+      return ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          TextField(
+            controller: identifierController,
+            keyboardType: TextInputType.phone,
+            decoration: const InputDecoration(
+              labelText: '手机号或账号',
+              prefixIcon: Icon(Icons.search),
+              hintText: '输入完整账号查找',
+            ),
+            onSubmitted: (_) => _sendRequest(),
+          ),
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            onPressed: _sendRequest,
+            icon: const Icon(Icons.person_add_alt_1),
+            label: const Text('发送好友申请'),
+          ),
+        ],
+      );
+    }
+    if (tab == 1) {
+      return ListView(
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+        children: [
+          if (pending.isNotEmpty)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 8),
+              child: Text(
+                '待处理申请',
+                style: TextStyle(fontWeight: FontWeight.w900),
+              ),
+            ),
+          for (final item in pending)
+            Card(
+              child: ListTile(
+                leading: const CircleAvatar(child: Icon(Icons.person)),
+                title: Text(
+                  (item['displayName'] ?? item['identifier']).toString(),
+                ),
+                subtitle: Text((item['identifier'] ?? '').toString()),
+                trailing: FilledButton(
+                  onPressed: () async {
+                    await widget.controller.acceptFriendRequestRemote(
+                      item['requestId'].toString(),
+                    );
+                    await _refresh();
+                  },
+                  child: const Text('接受'),
+                ),
+              ),
+            ),
+          if (friends.isEmpty && pending.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(30),
+              child: Center(
+                child: Text('还没有好友，可通过账号添加。', style: TextStyle(color: quiet)),
+              ),
+            ),
+          for (final item in friends)
+            Card(
+              child: ListTile(
+                leading: const CircleAvatar(child: Icon(Icons.person)),
+                title: Text(
+                  (item['displayName'] ?? item['identifier']).toString(),
+                ),
+                subtitle: const Text('可以查看对方主动分享的训练计划'),
+                trailing: const Icon(Icons.chevron_right),
+              ),
+            ),
+        ],
+      );
+    }
+    if (plans.isEmpty) {
+      return const Center(
+        child: Text('好友还没有分享训练计划。', style: TextStyle(color: quiet)),
+      );
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 90),
+      itemCount: plans.length,
+      itemBuilder: (context, index) {
+        final item = plans[index];
+        final rawPlan = item['plan'];
+        final exerciseCount = rawPlan is Map && rawPlan['exercises'] is List
+            ? (rawPlan['exercises'] as List).length
+            : 0;
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const CircleAvatar(
+                      radius: 18,
+                      child: Icon(Icons.person, size: 19),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            (item['ownerName'] ?? '好友').toString(),
+                            style: const TextStyle(fontWeight: FontWeight.w900),
+                          ),
+                          Text(
+                            (item['updatedAt'] ?? '')
+                                .toString()
+                                .split('T')
+                                .first,
+                            style: const TextStyle(color: quiet, fontSize: 11),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  (item['name'] ?? '训练计划').toString(),
+                  style: const TextStyle(
+                    fontSize: 19,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '$exerciseCount 个动作 · 点击保存后会创建独立副本',
+                  style: const TextStyle(color: secondaryInk),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    PopupMenuButton<String>(
+                      tooltip: '发表情',
+                      onSelected: (emoji) async {
+                        await widget.controller.reactToFriendPlanRemote(
+                          item['id'].toString(),
+                          emoji,
+                        );
+                        await _refresh();
+                      },
+                      itemBuilder: (_) => [
+                        for (final emoji in const ['👍', '🔥', '👏', '💪'])
+                          PopupMenuItem(
+                            value: emoji,
+                            child: Text(
+                              emoji,
+                              style: const TextStyle(fontSize: 24),
+                            ),
+                          ),
+                      ],
+                      child: OutlinedButton.icon(
+                        onPressed: null,
+                        icon: Text((item['myReaction'] ?? '👍').toString()),
+                        label: Text('${item['reactionCount'] ?? 0}'),
+                      ),
+                    ),
+                    const Spacer(),
+                    FilledButton.icon(
+                      onPressed: () {
+                        widget.controller.saveFriendPlan(item);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('已保存到“好友分享”文件夹')),
+                        );
+                      },
+                      icon: const Icon(Icons.bookmark_add_outlined),
+                      label: const Text('保存计划'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -8990,6 +9520,18 @@ class ProfilePage extends StatelessWidget {
         Card(
           child: Column(
             children: [
+              _ProfileSettingRow(
+                key: const Key('profile-friends-entry'),
+                icon: Icons.people_alt_outlined,
+                title: '好友训练',
+                caption: '查看好友分享的计划与互动',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => _FriendsPage(controller: controller),
+                  ),
+                ),
+              ),
+              const Divider(height: 1),
               _ProfileSettingRow(
                 icon: Icons.lock_clock_outlined,
                 title: '锁屏实时活动',

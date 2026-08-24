@@ -159,6 +159,42 @@ test('admin can create a phone account and optionally grant membership', async (
   assert.equal(login.response.status, 200);
 });
 
+test('friends can accept requests, react and copy only explicitly shared plan snapshots', async () => {
+  const request = await api('/v1/friends/requests', {
+    method: 'POST',
+    headers: { authorization: `Bearer ${userToken}` },
+    body: JSON.stringify({ identifier: 'second-user' }),
+  });
+  assert.equal(request.response.status, 201);
+  const pending = await api('/v1/friends', { headers: { authorization: `Bearer ${user2Token}` } });
+  assert.equal(pending.response.status, 200);
+  assert.equal(pending.body.pending.length, 1);
+  const accepted = await api(`/v1/friends/requests/${request.body.request.id}/accept`, {
+    method: 'POST', headers: { authorization: `Bearer ${user2Token}` },
+  });
+  assert.equal(accepted.response.status, 200);
+  const shared = await api('/v1/friends/plans', {
+    method: 'POST',
+    headers: { authorization: `Bearer ${userToken}` },
+    body: JSON.stringify({
+      sourcePlanId: 'routine-chest-a',
+      name: '胸部力量 A',
+      plan: { exercises: [{ exerciseId: 'bench_press', restSeconds: 120, sets: [{ type: 'work', weight: 80, reps: 8, restSeconds: 120 }] }] },
+    }),
+  });
+  assert.equal(shared.response.status, 201);
+  const feed = await api('/v1/friends/feed', { headers: { authorization: `Bearer ${user2Token}` } });
+  assert.equal(feed.response.status, 200);
+  assert.equal(feed.body.plans.length, 1);
+  assert.equal(feed.body.plans[0].plan.exercises[0].exerciseId, 'bench_press');
+  assert.equal('note' in feed.body.plans[0].plan, false);
+  const reaction = await api(`/v1/friends/plans/${shared.body.share.id}/reactions`, {
+    method: 'POST', headers: { authorization: `Bearer ${user2Token}` }, body: JSON.stringify({ emoji: '🔥' }),
+  });
+  assert.equal(reaction.response.status, 200);
+  assert.equal(reaction.body.reactionCount, 1);
+});
+
 test('knowledge search falls back to Chinese substring matching', async () => {
   const created = await api('/v1/admin/knowledge', {
     method: 'POST',
