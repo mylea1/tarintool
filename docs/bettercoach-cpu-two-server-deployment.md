@@ -28,7 +28,7 @@ sudo systemctl status kilo-api --no-pager
 
 `/etc/kilo/kilo.env` 中的 `KILO_GPU_API_KEY` 是两台服务器共享的内部密钥，名称为历史兼容保留；它同时适用于 CPU Worker。密钥不得提交到 Git。
 
-测试阶段域名尚未备案，App 使用 Cloudflare 临时隧道访问用户 API。计算节点不走该隧道：安装 `aliyun-nginx-internal-worker.conf`，仅允许腾讯云固定公网 IP `115.159.4.223` 访问 `/v1/internal/gpu/`，Worker 的 `KILO_API_BASE` 使用 `http://8.145.57.235`。正式上线时应改为命名隧道、私网互联或带 TLS 的稳定入口。
+域名已经完成备案，App 和普通用户请求直接访问阿里云 HTTPS 入口 `https://api.kilostrength.cn`，不再依赖 Cloudflare 临时隧道。计算节点继续使用受限的内部 Worker 路径：安装 `aliyun-nginx-internal-worker.conf`，仅允许腾讯云固定公网 IP `115.159.4.223` 访问 `/v1/internal/gpu/`，Worker 的 `KILO_API_BASE` 使用 `http://8.145.57.235`。发布 APK 时固定传入 `--dart-define=KILO_API_BASE_URL=https://api.kilostrength.cn`。
 
 建议保持：
 

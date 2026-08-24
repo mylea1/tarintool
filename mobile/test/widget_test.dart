@@ -408,7 +408,12 @@ void main() {
         confidence: .88,
         repetitions: 8,
         summary: '骨骼识别完成',
-        metrics: {'durationSeconds': 18.6, 'detectionRate': .9},
+        metrics: {
+          'durationSeconds': 18.6,
+          'detectionRate': .9,
+          'outputWidth': 720,
+          'outputHeight': 1280,
+        },
         events: [
           RecognitionEvent(
             id: 'event-001',
@@ -420,6 +425,7 @@ void main() {
             displayTime: '00:12.4',
             explanation: '可见侧肘角没有稳定覆盖当前参考范围。',
             confidence: .86,
+            evidenceImageUrl: 'http://127.0.0.1:1/evidence-124.jpg',
           ),
           RecognitionEvent(
             id: 'event-002',
@@ -431,6 +437,7 @@ void main() {
             displayTime: '00:16.8',
             explanation: '肘部向下移动的距离低于当前参考线。',
             confidence: .84,
+            evidenceImageUrl: 'http://127.0.0.1:1/evidence-168.jpg',
           ),
           RecognitionEvent(
             id: 'event-003',
@@ -442,6 +449,7 @@ void main() {
             displayTime: '00:16.8',
             explanation: '最低位置的肘角仍偏大。',
             confidence: .82,
+            evidenceImageUrl: 'http://127.0.0.1:1/evidence-168-b.jpg',
           ),
         ],
         aiReview: RecognitionAiReview(
@@ -472,14 +480,16 @@ void main() {
         find.byKey(const Key('recognition-coach-summary')),
         findsOneWidget,
       );
-      expect(find.text('整体轨迹稳定'), findsOneWidget);
+      expect(find.textContaining('整体轨迹稳定'), findsOneWidget);
       expect(find.textContaining('保持重量并减慢离心'), findsOneWidget);
       expect(find.text('00:12.4'), findsWidgets);
-      expect(find.text('下拉行程没有稳定覆盖完整范围'), findsNWidgets(2));
-      expect(find.text('系统看到了什么'), findsNWidgets(3));
-      expect(find.text('这意味着什么'), findsNWidgets(3));
-      expect(find.text('下一组这样调整'), findsNWidgets(3));
-      expect(find.textContaining('缩短背阔肌参与的有效动作路径'), findsNWidgets(2));
+      expect(find.textContaining('00:12.4、00:16.8 附近'), findsOneWidget);
+      expect(find.textContaining('00:16.8 附近'), findsOneWidget);
+      expect(find.text('系统看到了什么'), findsNothing);
+      expect(find.text('这意味着什么'), findsNothing);
+      expect(find.text('下一组这样调整'), findsNothing);
+      expect(find.text('本组建议'), findsNothing);
+      expect(find.textContaining('缩短背阔肌参与的有效动作路径'), findsOneWidget);
       expect(find.textContaining('完成 8 次'), findsNothing);
       expect(find.textContaining('目标锁定'), findsNothing);
       expect(find.textContaining('骨骼追踪'), findsNothing);
@@ -492,56 +502,75 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(
-        find.byKey(const Key('recognition-event-group-00:16.8')),
+        find.byKey(const Key('recognition-evidence-gallery')),
         findsOneWidget,
       );
-      expect(find.text('肘部下降路径偏短'), findsOneWidget);
+      expect(
+        find.byKey(const Key('recognition-evidence-00:12.4')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('recognition-evidence-00:16.8')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('recognition-evidence-00:16.8-b')),
+        findsNothing,
+      );
+      final evidenceImages = tester.widgetList<Image>(
+        find.descendant(
+          of: find.byKey(const Key('recognition-evidence-gallery')),
+          matching: find.byType(Image),
+        ),
+      );
+      expect(evidenceImages, isNotEmpty);
+      expect(
+        evidenceImages.every((image) => image.fit == BoxFit.contain),
+        isTrue,
+      );
       expect(tester.takeException(), isNull);
     },
   );
 
-  testWidgets(
-    'completed overlay report keeps video behind the evidence surface',
-    (tester) async {
-      final controller = AppController();
-      addTearDown(controller.dispose);
-      controller.selectedMediaPath = 'missing-original.mp4';
-      controller.selectedMediaName = '原视频.mp4';
-      controller.recognitionIncludeOverlay = true;
-      controller.recognitionStatus = RecognitionStatus.complete;
-      controller.recognitionResult = const RecognitionResult(
-        status: RecognitionStatus.complete,
-        confidence: .32,
-        repetitions: 6,
-        summary: '内部结果',
-        overlayUrl: 'http://127.0.0.1:1/overlay.mp4',
-      );
-      await tester.pumpWidget(KiloApp(initialController: controller));
-      await _openRoute(tester, 'AI');
-      await tester.tap(find.byKey(const Key('ai-recognition')));
-      await tester.pump();
-      await tester.ensureVisible(
-        find.byKey(const Key('recognition-open-result')),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('recognition-open-result')));
-      await tester.pumpAndSettle();
+  testWidgets('completed report does not promote the optional skeleton video', (
+    tester,
+  ) async {
+    final controller = AppController();
+    addTearDown(controller.dispose);
+    controller.selectedMediaPath = 'missing-original.mp4';
+    controller.selectedMediaName = '原视频.mp4';
+    controller.recognitionIncludeOverlay = true;
+    controller.recognitionStatus = RecognitionStatus.complete;
+    controller.recognitionResult = const RecognitionResult(
+      status: RecognitionStatus.complete,
+      confidence: .32,
+      repetitions: 6,
+      summary: '内部结果',
+      overlayUrl: 'http://127.0.0.1:1/overlay.mp4',
+    );
+    await tester.pumpWidget(KiloApp(initialController: controller));
+    await _openRoute(tester, 'AI');
+    await tester.tap(find.byKey(const Key('ai-recognition')));
+    await tester.pump();
+    await tester.ensureVisible(
+      find.byKey(const Key('recognition-open-result')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('recognition-open-result')));
+    await tester.pumpAndSettle();
 
-      expect(
-        find.byKey(const Key('recognition-result-original-video')),
-        findsNothing,
-      );
-      expect(
-        find.byKey(const Key('recognition-evidence-hero')),
-        findsOneWidget,
-      );
-      expect(find.byKey(const Key('recognition-overlay-video')), findsNothing);
-      expect(find.textContaining('播放骨骼证据'), findsNothing);
-      expect(find.textContaining('完整骨骼视频'), findsNothing);
-      expect(find.textContaining('置信'), findsNothing);
-      expect(find.textContaining('算法'), findsNothing);
-    },
-  );
+    expect(
+      find.byKey(const Key('recognition-result-original-video')),
+      findsNothing,
+    );
+    expect(find.byKey(const Key('recognition-evidence-hero')), findsNothing);
+    expect(find.byKey(const Key('recognition-coach-summary')), findsOneWidget);
+    expect(find.byKey(const Key('recognition-overlay-video')), findsNothing);
+    expect(find.textContaining('播放骨骼证据'), findsNothing);
+    expect(find.textContaining('完整骨骼视频'), findsNothing);
+    expect(find.textContaining('置信'), findsNothing);
+    expect(find.textContaining('算法'), findsNothing);
+  });
 
   testWidgets(
     'recognition keeps video visible and exposes live processing stages',

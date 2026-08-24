@@ -5,6 +5,10 @@ output/
 design-previews/kilo-themes/generated/*.png
 design-previews/kilo-themes/preview-*.png
 
+# Local UI previews derived from user-provided exercise videos stay on-device.
+design-previews/recognition-coach-summary-assets/
+design-previews/recognition-coach-summary-v2.html
+
 # Local credentials and Apple signing files must stay outside Git.
 .env
 .env.*

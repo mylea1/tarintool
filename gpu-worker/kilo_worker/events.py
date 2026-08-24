@@ -29,6 +29,7 @@ class PoseSample:
     source_frame_index: int
     points: np.ndarray
     scores: np.ndarray
+    inferred: np.ndarray | None = None
 
 
 @dataclass(frozen=True)
@@ -110,14 +111,36 @@ def analyze_pose_events(
         analysis = _hinge_events(normalized, camera, samples, confidence_floor)
     elif normalized == "lat_pulldown":
         analysis = _lat_pulldown_events(camera, samples, confidence_floor)
+    elif normalized == "pull_up":
+        analysis = _pull_up_events(camera, samples, confidence_floor)
     elif normalized in {"bench_press", "dumbbell_press"}:
         analysis = _bench_press_events(camera, samples, confidence_floor)
+    elif normalized == "hip_thrust":
+        analysis = _hip_thrust_events(samples, confidence_floor)
+    elif normalized == "lateral_raise":
+        analysis = _lateral_raise_events(camera, samples, confidence_floor)
+    elif normalized in {
+        "shoulder_press",
+        "push_up",
+        "dip",
+        "row",
+        "face_pull",
+        "biceps_curl",
+        "triceps_extension",
+    }:
+        analysis = _elbow_family_events(
+            normalized, camera, samples, confidence_floor
+        )
     else:
         analysis = _generic_elbow_analysis(samples, confidence_floor)
 
-    events = _merge_nearby_events(analysis.events, samples)
+    events = _select_representative_events(
+        _merge_nearby_events(analysis.events, samples),
+        samples,
+        max_events,
+    )
     return EventAnalysis(
-        events=tuple(events[:max_events]),
+        events=tuple(events),
         primary_angles=analysis.primary_angles,
         complete_motion_cycles=analysis.complete_motion_cycles,
         limitations=analysis.limitations,
@@ -423,11 +446,184 @@ def _lat_pulldown_events(
                 )
             )
 
+    if camera == "rear":
+        events.extend(
+            _bilateral_elbow_asymmetry_events(
+                "lat_pulldown",
+                {
+                    "direction": "below",
+                    "enter": 130.0,
+                    "exit": 135.0,
+                    "target": 90.0,
+                },
+                samples,
+                floor,
+            )
+        )
+
     return EventAnalysis(
         tuple(events),
         tuple(value for value in values if value is not None),
         len(episodes),
         ("handle_position_requires_equipment_detector",),
+    )
+
+
+def _pull_up_events(
+    camera: str,
+    samples: Sequence[PoseSample],
+    floor: float,
+) -> EventAnalysis:
+    left_chain = (LEFT_SHOULDER, LEFT_ELBOW, LEFT_WRIST)
+    right_chain = (RIGHT_SHOULDER, RIGHT_ELBOW, RIGHT_WRIST)
+    left_values = _median_series(_angle_series(samples, left_chain, floor))
+    right_values = _median_series(_angle_series(samples, right_chain, floor))
+    combined = [
+        float(np.mean(visible)) if visible else None
+        for left, right in zip(left_values, right_values)
+        for visible in [[value for value in (left, right) if value is not None]]
+    ]
+    # A cycle is still a pull-up when the top is incomplete; use a permissive
+    # entry threshold, then report the top-angle quality separately.
+    episodes = _episodes_below(samples, combined, enter=130.0, exit=145.0)
+    events: list[MotionEvent] = []
+
+    for episode in episodes:
+        top_angle = combined[episode.key_index]
+        if top_angle is None or top_angle <= 98.0:
+            continue
+        visible = [
+            value
+            for value in (
+                left_values[episode.key_index],
+                right_values[episode.key_index],
+            )
+            if value is not None
+        ]
+        confidence = min(
+            _sample_confidence(samples[episode.key_index], left_chain),
+            _sample_confidence(samples[episode.key_index], right_chain),
+        ) if len(visible) == 2 else 0.52
+        events.append(
+            MotionEvent(
+                code="PULL_UP_RANGE_INCOMPLETE",
+                label="顶端屈肘行程偏短",
+                explanation=(
+                    f"顶端双侧平均肘角约 {top_angle:.1f}°，"
+                    "这组在最上方仍保留了较多伸展。"
+                ),
+                stage="upper_position",
+                start_index=episode.start_index,
+                peak_index=episode.key_index,
+                end_index=episode.end_index,
+                confidence=confidence,
+                measurements={
+                    "topElbowAngleDeg": round(top_angle, 1),
+                    "referenceLimitDeg": 98.0,
+                },
+                highlight_landmarks=tuple(dict.fromkeys((*left_chain, *right_chain))),
+                reference="joint_angles",
+            )
+        )
+
+    if camera in {"front", "rear"}:
+        angle_difference = []
+        for sample, left, right in zip(samples, left_values, right_values):
+            if (
+                left is None
+                or right is None
+                or min(left, right) >= 150.0
+                or _frontal_pose_quality(sample, floor) < 0.45
+            ):
+                angle_difference.append(None)
+            else:
+                angle_difference.append(abs(left - right))
+        for start, peak, end in _continuous_ranges(
+            samples,
+            angle_difference,
+            threshold=14.0,
+            minimum_duration_ms=300,
+        ):
+            left = left_values[peak]
+            right = right_values[peak]
+            difference = angle_difference[peak]
+            if left is None or right is None or difference is None:
+                continue
+            confidence = min(
+                _sample_confidence(samples[peak], left_chain),
+                _sample_confidence(samples[peak], right_chain),
+            )
+            events.append(
+                MotionEvent(
+                    code="PULL_UP_ARM_ASYMMETRY",
+                    label="两侧手臂没有同步屈曲",
+                    explanation=(
+                        f"同一时刻左肘约 {left:.1f}°、右肘约 {right:.1f}°，"
+                        f"相差约 {difference:.1f}°。"
+                    ),
+                    stage="movement",
+                    start_index=start,
+                    peak_index=peak,
+                    end_index=end,
+                    confidence=confidence,
+                    measurements={
+                        "leftElbowAngleDeg": round(left, 1),
+                        "rightElbowAngleDeg": round(right, 1),
+                        "differenceDeg": round(difference, 1),
+                        "referenceLimitDeg": 14.0,
+                    },
+                    highlight_landmarks=tuple(
+                        dict.fromkeys((*left_chain, *right_chain))
+                    ),
+                    reference="bilateral_elbow_angles",
+                )
+            )
+
+        shoulder_offsets = _shoulder_height_difference_series(samples, floor)
+        for start, peak, end in _continuous_ranges(
+            samples,
+            shoulder_offsets,
+            threshold=0.055,
+            minimum_duration_ms=300,
+        ):
+            offset = shoulder_offsets[peak]
+            if offset is None:
+                continue
+            left_y = float(samples[peak].points[LEFT_SHOULDER][1])
+            right_y = float(samples[peak].points[RIGHT_SHOULDER][1])
+            higher_side = "left" if left_y < right_y else "right"
+            events.append(
+                MotionEvent(
+                    code="PULL_UP_SHOULDER_ASYMMETRY",
+                    label="两侧肩膀高度不一致",
+                    explanation=(
+                        f"{_side_label(higher_side)}肩先抬高，肩线高度差约为 "
+                        f"{offset:.3f} 个躯干长度。"
+                    ),
+                    stage="movement",
+                    start_index=start,
+                    peak_index=peak,
+                    end_index=end,
+                    confidence=_sample_confidence(
+                        samples[peak], (LEFT_SHOULDER, RIGHT_SHOULDER)
+                    ),
+                    measurements={
+                        "higherSide": higher_side,
+                        "shoulderHeightDifferenceNormalized": round(offset, 3),
+                        "referenceLimit": 0.055,
+                    },
+                    highlight_landmarks=(LEFT_SHOULDER, RIGHT_SHOULDER),
+                    reference="shoulder_line",
+                )
+            )
+    limitations = ["bar_and_chin_contact_require_equipment_detector"]
+    if camera not in {"front", "rear"}:
+        limitations.append("bilateral_symmetry_requires_front_or_rear_view")
+    return EventAnalysis(
+        tuple(events),
+        tuple(value for value in combined if value is not None),
+        len(episodes),
+        tuple(limitations),
     )
 
 
@@ -504,6 +700,359 @@ def _bench_press_events(
         len(episodes),
         tuple(limitations),
     )
+
+
+def _hip_thrust_events(
+    samples: Sequence[PoseSample],
+    floor: float,
+) -> EventAnalysis:
+    side, chain = _best_side_chain(
+        samples,
+        (LEFT_SHOULDER, LEFT_HIP, LEFT_KNEE),
+        (RIGHT_SHOULDER, RIGHT_HIP, RIGHT_KNEE),
+        floor,
+    )
+    values = _median_series(_angle_series(samples, chain, floor))
+    episodes = _episodes_above(samples, values, enter=145.0, exit=125.0)
+    events: list[MotionEvent] = []
+    for episode in episodes:
+        top_angle = values[episode.key_index]
+        if top_angle is None or top_angle >= 165.0:
+            continue
+        events.append(
+            MotionEvent(
+                code="HIP_THRUST_EXTENSION_LIMITED",
+                label="臀推顶端伸髋不足",
+                explanation=(
+                    f"顶端可见侧肩—髋—膝角约 {top_angle:.1f}°，"
+                    "躯干与大腿还没有接近一条线。"
+                ),
+                stage="upper_position",
+                start_index=episode.start_index,
+                peak_index=episode.key_index,
+                end_index=episode.end_index,
+                confidence=_sample_confidence(samples[episode.key_index], chain),
+                measurements={
+                    "visibleSide": side,
+                    "topHipAngleDeg": round(top_angle, 1),
+                    "referenceLimitDeg": 165.0,
+                },
+                highlight_landmarks=chain,
+                reference="joint_angle",
+            )
+        )
+    return EventAnalysis(
+        tuple(events),
+        tuple(value for value in values if value is not None),
+        len(episodes),
+        ("bench_contact_and_pelvic_tilt_not_measurable",),
+    )
+
+
+def _lateral_raise_events(
+    camera: str,
+    samples: Sequence[PoseSample],
+    floor: float,
+) -> EventAnalysis:
+    left_chain = (LEFT_HIP, LEFT_SHOULDER, LEFT_ELBOW)
+    right_chain = (RIGHT_HIP, RIGHT_SHOULDER, RIGHT_ELBOW)
+    left_values = _median_series(_angle_series(samples, left_chain, floor))
+    right_values = _median_series(_angle_series(samples, right_chain, floor))
+    combined = [
+        float(np.mean(visible)) if visible else None
+        for left, right in zip(left_values, right_values)
+        for visible in [[value for value in (left, right) if value is not None]]
+    ]
+    episodes = _episodes_above(samples, combined, enter=55.0, exit=25.0)
+    events: list[MotionEvent] = []
+    for episode in episodes:
+        top_angle = combined[episode.key_index]
+        if top_angle is None or top_angle >= 75.0:
+            continue
+        events.append(
+            MotionEvent(
+                code="LATERAL_RAISE_HEIGHT_LIMITED",
+                label="侧平举抬起高度偏低",
+                explanation=(
+                    f"最高位置双侧平均抬臂角约 {top_angle:.1f}°，"
+                    "还没有稳定接近肩部高度。"
+                ),
+                stage="upper_position",
+                start_index=episode.start_index,
+                peak_index=episode.key_index,
+                end_index=episode.end_index,
+                confidence=min(
+                    _sample_confidence(samples[episode.key_index], left_chain),
+                    _sample_confidence(samples[episode.key_index], right_chain),
+                ),
+                measurements={
+                    "topArmAngleDeg": round(top_angle, 1),
+                    "referenceLimitDeg": 75.0,
+                },
+                highlight_landmarks=tuple(
+                    dict.fromkeys((*left_chain, *right_chain))
+                ),
+                reference="bilateral_shoulder_angles",
+            )
+        )
+    if camera == "front":
+        differences = [
+            abs(left - right)
+            if left is not None
+            and right is not None
+            and max(left, right) >= 35.0
+            else None
+            for left, right in zip(left_values, right_values)
+        ]
+        for start, peak, end in _continuous_ranges(
+            samples, differences, threshold=12.0, minimum_duration_ms=300
+        ):
+            difference = differences[peak]
+            if difference is None:
+                continue
+            events.append(
+                MotionEvent(
+                    code="LATERAL_RAISE_ARM_ASYMMETRY",
+                    label="两侧手臂抬起不同步",
+                    explanation=(
+                        f"同一时刻左右抬臂角相差约 {difference:.1f}°。"
+                    ),
+                    stage="movement",
+                    start_index=start,
+                    peak_index=peak,
+                    end_index=end,
+                    confidence=min(
+                        _sample_confidence(samples[peak], left_chain),
+                        _sample_confidence(samples[peak], right_chain),
+                    ),
+                    measurements={
+                        "differenceDeg": round(difference, 1),
+                        "referenceLimitDeg": 12.0,
+                    },
+                    highlight_landmarks=tuple(
+                        dict.fromkeys((*left_chain, *right_chain))
+                    ),
+                    reference="bilateral_shoulder_angles",
+                )
+            )
+    return EventAnalysis(
+        tuple(events),
+        tuple(value for value in combined if value is not None),
+        len(episodes),
+        ("scapular_elevation_not_directly_measurable",),
+    )
+
+
+def _elbow_family_events(
+    exercise_id: str,
+    camera: str,
+    samples: Sequence[PoseSample],
+    floor: float,
+) -> EventAnalysis:
+    # Entry thresholds are intentionally permissive. They establish a complete
+    # movement cycle first; the stricter target below decides whether to coach
+    # the range. This prevents a partial repetition from being called "good".
+    configs: dict[str, dict[str, Any]] = {
+        "shoulder_press": {
+            "direction": "above",
+            "enter": 135.0,
+            "exit": 115.0,
+            "target": 155.0,
+            "code": "SHOULDER_PRESS_RANGE_INCOMPLETE",
+            "label": "肩推顶端伸展不足",
+        },
+        "push_up": {
+            "direction": "below",
+            "enter": 130.0,
+            "exit": 150.0,
+            "target": 95.0,
+            "code": "PUSH_UP_DEPTH_LIMITED",
+            "label": "俯卧撑下降幅度不足",
+        },
+        "dip": {
+            "direction": "below",
+            "enter": 135.0,
+            "exit": 150.0,
+            "target": 105.0,
+            "code": "DIP_DEPTH_LIMITED",
+            "label": "双杠臂屈伸下降幅度不足",
+        },
+        "row": {
+            "direction": "below",
+            "enter": 130.0,
+            "exit": 145.0,
+            "target": 90.0,
+            "code": "ROW_RANGE_INCOMPLETE",
+            "label": "划船肘部回拉不足",
+        },
+        "face_pull": {
+            "direction": "below",
+            "enter": 135.0,
+            "exit": 150.0,
+            "target": 100.0,
+            "code": "FACE_PULL_RANGE_INCOMPLETE",
+            "label": "面拉回拉幅度不足",
+        },
+        "biceps_curl": {
+            "direction": "below",
+            "enter": 110.0,
+            "exit": 145.0,
+            "target": 65.0,
+            "code": "BICEPS_CURL_RANGE_INCOMPLETE",
+            "label": "弯举屈肘幅度不足",
+        },
+        "triceps_extension": {
+            "direction": "below",
+            "enter": 115.0,
+            "exit": 145.0,
+            "target": 75.0,
+            "code": "TRICEPS_EXTENSION_RANGE_INCOMPLETE",
+            "label": "三头伸展屈伸幅度不足",
+        },
+    }
+    config = configs[exercise_id]
+    side, chain = _best_side_chain(
+        samples,
+        (LEFT_SHOULDER, LEFT_ELBOW, LEFT_WRIST),
+        (RIGHT_SHOULDER, RIGHT_ELBOW, RIGHT_WRIST),
+        floor,
+    )
+    values = _median_series(_angle_series(samples, chain, floor))
+    if config["direction"] == "above":
+        episodes = _episodes_above(
+            samples, values, enter=config["enter"], exit=config["exit"]
+        )
+    else:
+        episodes = _episodes_below(
+            samples, values, enter=config["enter"], exit=config["exit"]
+        )
+    events: list[MotionEvent] = []
+    for episode in episodes:
+        key_angle = values[episode.key_index]
+        if key_angle is None:
+            continue
+        range_limited = (
+            key_angle < config["target"]
+            if config["direction"] == "above"
+            else key_angle > config["target"]
+        )
+        if not range_limited:
+            continue
+        events.append(
+            MotionEvent(
+                code=config["code"],
+                label=config["label"],
+                explanation=(
+                    f"动作关键位置可见侧肘角约 {key_angle:.1f}°，"
+                    f"没有稳定达到当前 {config['target']:.0f}° 参考范围。"
+                ),
+                stage=(
+                    "upper_position"
+                    if config["direction"] == "above"
+                    else "lower_position"
+                ),
+                start_index=episode.start_index,
+                peak_index=episode.key_index,
+                end_index=episode.end_index,
+                confidence=_sample_confidence(samples[episode.key_index], chain),
+                measurements={
+                    "visibleSide": side,
+                    "keyElbowAngleDeg": round(key_angle, 1),
+                    "referenceLimitDeg": config["target"],
+                },
+                highlight_landmarks=chain,
+                reference="joint_angle",
+            )
+        )
+
+    if camera in {"front", "rear"}:
+        events.extend(
+            _bilateral_elbow_asymmetry_events(
+                exercise_id,
+                config,
+                samples,
+                floor,
+            )
+        )
+    limitations = ["equipment_contact_not_measurable"]
+    if camera not in {"front", "rear"}:
+        limitations.append("bilateral_symmetry_requires_front_or_rear_view")
+    return EventAnalysis(
+        tuple(events),
+        tuple(value for value in values if value is not None),
+        len(episodes),
+        tuple(limitations),
+    )
+
+
+def _bilateral_elbow_asymmetry_events(
+    exercise_id: str,
+    config: dict[str, Any],
+    samples: Sequence[PoseSample],
+    floor: float,
+) -> list[MotionEvent]:
+    left_chain = (LEFT_SHOULDER, LEFT_ELBOW, LEFT_WRIST)
+    right_chain = (RIGHT_SHOULDER, RIGHT_ELBOW, RIGHT_WRIST)
+    left_values = _median_series(_angle_series(samples, left_chain, floor))
+    right_values = _median_series(_angle_series(samples, right_chain, floor))
+    differences: list[float | None] = []
+    for sample, left, right in zip(samples, left_values, right_values):
+        if (
+            left is None
+            or right is None
+            or _frontal_pose_quality(sample, floor) < 0.45
+        ):
+            differences.append(None)
+            continue
+        average = (left + right) / 2
+        at_rest = (
+            average <= config["exit"]
+            if config["direction"] == "above"
+            else average >= config["exit"]
+        )
+        differences.append(None if at_rest else abs(left - right))
+    events: list[MotionEvent] = []
+    for start, peak, end in _continuous_ranges(
+        samples, differences, threshold=14.0, minimum_duration_ms=300
+    ):
+        left = left_values[peak]
+        right = right_values[peak]
+        difference = differences[peak]
+        if left is None or right is None or difference is None:
+            continue
+        confidence = min(
+            _sample_confidence(samples[peak], left_chain),
+            _sample_confidence(samples[peak], right_chain),
+        )
+        if confidence < 0.45:
+            continue
+        prefix = exercise_id.upper()
+        events.append(
+            MotionEvent(
+                code=f"{prefix}_ARM_ASYMMETRY",
+                label="两侧手臂没有同步完成动作",
+                explanation=(
+                    f"同一时刻左肘约 {left:.1f}°、右肘约 {right:.1f}°，"
+                    f"相差约 {difference:.1f}°。"
+                ),
+                stage="movement",
+                start_index=start,
+                peak_index=peak,
+                end_index=end,
+                confidence=confidence,
+                measurements={
+                    "leftElbowAngleDeg": round(left, 1),
+                    "rightElbowAngleDeg": round(right, 1),
+                    "differenceDeg": round(difference, 1),
+                    "referenceLimitDeg": 14.0,
+                },
+                highlight_landmarks=tuple(
+                    dict.fromkeys((*left_chain, *right_chain))
+                ),
+                reference="bilateral_elbow_angles",
+            )
+        )
+    return events
 
 
 def _generic_elbow_analysis(
@@ -626,6 +1175,58 @@ def _episodes_below(
     return episodes
 
 
+def _episodes_above(
+    samples: Sequence[PoseSample],
+    values: Sequence[float | None],
+    *,
+    enter: float,
+    exit: float,
+    minimum_duration_ms: int = 300,
+) -> list[MotionEpisode]:
+    episodes: list[MotionEpisode] = []
+    start: int | None = None
+    key: int | None = None
+    key_value = -math.inf
+    ready_from_start_position = False
+    for index, value in enumerate(values):
+        gap_ms = (
+            samples[index].timestamp_ms - samples[index - 1].timestamp_ms
+            if index > 0
+            else 0
+        )
+        if value is None or gap_ms > 300:
+            start = None
+            key = None
+            key_value = -math.inf
+            ready_from_start_position = False
+            continue
+        if start is None and value <= exit:
+            ready_from_start_position = True
+            continue
+        if start is None and ready_from_start_position and value >= enter:
+            start = index - 1 if index > 0 and gap_ms <= 300 else index
+            key = index
+            key_value = value
+            ready_from_start_position = False
+            continue
+        if start is None:
+            continue
+        if value > key_value:
+            key = index
+            key_value = value
+        if value <= exit and key is not None:
+            if (
+                samples[index].timestamp_ms - samples[start].timestamp_ms
+                >= minimum_duration_ms
+            ):
+                episodes.append(MotionEpisode(start, key, index))
+            start = None
+            key = None
+            key_value = -math.inf
+            ready_from_start_position = True
+    return episodes
+
+
 def _knee_medial_series(
     samples: Sequence[PoseSample],
     floor: float,
@@ -665,6 +1266,58 @@ def _knee_medial_series(
         values.append(float(value))
         sides.append(side)
     return _median_series(values), sides
+
+
+def _shoulder_height_difference_series(
+    samples: Sequence[PoseSample],
+    floor: float,
+) -> list[float | None]:
+    values: list[float | None] = []
+    required = (
+        LEFT_SHOULDER,
+        RIGHT_SHOULDER,
+        LEFT_HIP,
+        RIGHT_HIP,
+    )
+    for sample in samples:
+        if (
+            min(sample.scores[index] for index in required) < floor
+            or _frontal_pose_quality(sample, floor) < 0.45
+        ):
+            values.append(None)
+            continue
+        shoulder_mid = (
+            sample.points[LEFT_SHOULDER] + sample.points[RIGHT_SHOULDER]
+        ) / 2
+        hip_mid = (sample.points[LEFT_HIP] + sample.points[RIGHT_HIP]) / 2
+        torso = max(1.0, float(np.linalg.norm(shoulder_mid - hip_mid)))
+        difference = abs(
+            float(
+                sample.points[LEFT_SHOULDER][1]
+                - sample.points[RIGHT_SHOULDER][1]
+            )
+        ) / torso
+        values.append(difference)
+    return _median_series(values)
+
+
+def _frontal_pose_quality(sample: PoseSample, floor: float) -> float:
+    required = (LEFT_SHOULDER, RIGHT_SHOULDER, LEFT_HIP, RIGHT_HIP)
+    if min(sample.scores[index] for index in required) < floor:
+        return 0.0
+    shoulder_mid = (
+        sample.points[LEFT_SHOULDER] + sample.points[RIGHT_SHOULDER]
+    ) / 2
+    hip_mid = (sample.points[LEFT_HIP] + sample.points[RIGHT_HIP]) / 2
+    torso = float(np.linalg.norm(shoulder_mid - hip_mid))
+    shoulder_span = float(
+        np.linalg.norm(
+            sample.points[LEFT_SHOULDER] - sample.points[RIGHT_SHOULDER]
+        )
+    )
+    if not np.isfinite(torso) or not np.isfinite(shoulder_span) or torso < 6.0:
+        return 0.0
+    return shoulder_span / torso
 
 
 def _continuous_ranges(
@@ -768,7 +1421,10 @@ def _vertical_deviation(first: np.ndarray, second: np.ndarray) -> float:
 
 
 def _sample_confidence(sample: PoseSample, landmarks: Sequence[int]) -> float:
-    return float(min(sample.scores[index] for index in landmarks))
+    score = float(min(sample.scores[index] for index in landmarks))
+    if sample.inferred is not None and any(sample.inferred[index] for index in landmarks):
+        score *= 0.62
+    return score
 
 
 def _side_label(side: str) -> str:
@@ -808,3 +1464,43 @@ def _merge_nearby_events(
         else:
             merged.append(event)
     return merged
+
+
+def _select_representative_events(
+    events: Sequence[MotionEvent],
+    samples: Sequence[PoseSample],
+    maximum: int,
+) -> list[MotionEvent]:
+    """Keep issue diversity while spreading evidence across the full video."""
+    ordered = sorted(events, key=lambda event: samples[event.peak_index].timestamp_ms)
+    if maximum <= 0:
+        return []
+    if len(ordered) <= maximum:
+        return ordered
+
+    selected: list[MotionEvent] = []
+    for code in dict.fromkeys(event.code for event in ordered):
+        candidates = [event for event in ordered if event.code == code]
+        selected.append(max(candidates, key=lambda event: event.confidence))
+        if len(selected) >= maximum:
+            return sorted(
+                selected,
+                key=lambda event: samples[event.peak_index].timestamp_ms,
+            )
+
+    remaining = [event for event in ordered if event not in selected]
+    while remaining and len(selected) < maximum:
+        selected_times = [
+            samples[event.peak_index].timestamp_ms for event in selected
+        ]
+
+        def coverage_score(event: MotionEvent) -> tuple[float, float]:
+            timestamp = samples[event.peak_index].timestamp_ms
+            nearest_gap = min(abs(timestamp - value) for value in selected_times)
+            return (float(nearest_gap), event.confidence)
+
+        chosen = max(remaining, key=coverage_score)
+        selected.append(chosen)
+        remaining.remove(chosen)
+
+    return sorted(selected, key=lambda event: samples[event.peak_index].timestamp_ms)

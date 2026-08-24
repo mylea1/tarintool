@@ -6309,38 +6309,14 @@ class _RecognitionResultPage extends StatelessWidget {
   );
 }
 
-class _RecognitionReport extends StatefulWidget {
+class _RecognitionReport extends StatelessWidget {
   const _RecognitionReport({required this.result, required this.controller});
 
   final RecognitionResult result;
   final AppController controller;
 
   @override
-  State<_RecognitionReport> createState() => _RecognitionReportState();
-}
-
-class _RecognitionReportState extends State<_RecognitionReport> {
-  String? selectedEventId;
-
-  @override
-  void didUpdateWidget(covariant _RecognitionReport oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.result != widget.result &&
-        !widget.result.events.any((event) => event.id == selectedEventId)) {
-      selectedEventId = null;
-    }
-  }
-
-  RecognitionEvent? _selectedEvent() {
-    for (final event in widget.result.events) {
-      if (event.id == selectedEventId) return event;
-    }
-    return widget.result.events.isEmpty ? null : widget.result.events.first;
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final result = widget.result;
     final successful =
         result.status == RecognitionStatus.complete ||
         result.status == RecognitionStatus.lowConfidence;
@@ -6356,54 +6332,38 @@ class _RecognitionReportState extends State<_RecognitionReport> {
       );
     }
 
-    final eventGroups = _groupRecognitionEvents(result.events);
-    final selectedEvent = _selectedEvent();
+    final evidenceEvents = _recognitionEvidenceEvents(result.events);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (selectedEvent != null ||
-            result.previewUrl != null ||
-            result.overlayUrl != null)
-          _RecognitionEvidenceHero(result: result, event: selectedEvent),
-        if (result.events.isNotEmpty) ...[
-          const SizedBox(height: 26),
-          const Text(
-            '需要关注的动作轨迹',
-            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20),
+        _RecognitionCoachSummary(result: result),
+        if (evidenceEvents.isNotEmpty) ...[
+          const SizedBox(height: 22),
+          _RecognitionEvidenceGallery(
+            events: evidenceEvents,
+            metrics: result.metrics,
+            mediaHeaders: result.mediaHeaders,
           ),
-          const SizedBox(height: 7),
-          const Text(
-            '每个时间点都包括系统看到的动作、它可能代表的含义和下一组调整方法。',
-            style: TextStyle(color: secondaryInk, fontSize: 13, height: 1.55),
-          ),
-          const SizedBox(height: 14),
-          for (var index = 0; index < eventGroups.length; index++) ...[
-            _RecognitionEventGroupCard(
-              events: eventGroups[index],
-              mediaHeaders: result.mediaHeaders,
-              onSelect: (event) => setState(() => selectedEventId = event.id),
-            ),
-            if (index != eventGroups.length - 1) const SizedBox(height: 14),
-          ],
-        ] else ...[
-          const SizedBox(height: 18),
-          Text(
-            result.summary,
-            style: const TextStyle(color: secondaryInk, height: 1.55),
+        ] else if (result.previewUrl != null) ...[
+          const SizedBox(height: 22),
+          _RecognitionPreviewImage(
+            imageUrl: result.previewUrl!,
+            metrics: result.metrics,
+            mediaHeaders: result.mediaHeaders,
           ),
         ],
-        _RecognitionCoachSummary(result: result),
+        const SizedBox(height: 14),
         Align(
           alignment: Alignment.centerLeft,
           child: TextButton.icon(
             key: const Key('recognition-save-cue'),
-            onPressed: widget.controller.saveRecognitionCue,
+            onPressed: controller.saveRecognitionCue,
             icon: Icon(
-              widget.controller.savedCue
+              controller.savedCue
                   ? Icons.bookmark_rounded
                   : Icons.bookmark_border_rounded,
             ),
-            label: Text(widget.controller.savedCue ? '已保存到下一组' : '保存到下一组'),
+            label: Text(controller.savedCue ? '已保存到下一组' : '保存到下一组'),
           ),
         ),
       ],
@@ -6411,344 +6371,142 @@ class _RecognitionReportState extends State<_RecognitionReport> {
   }
 }
 
-class _RecognitionEvidenceHero extends StatelessWidget {
-  const _RecognitionEvidenceHero({required this.result, required this.event});
-
-  final RecognitionResult result;
-  final RecognitionEvent? event;
-
-  @override
-  Widget build(BuildContext context) {
-    final imageUrl = event?.evidenceImageUrl ?? result.previewUrl;
-    final durationSeconds = (result.metrics['durationSeconds'] as num?)
-        ?.toDouble();
-    final eventSeconds = (event?.peakMs ?? 0) / 1000;
-    final safeDuration = durationSeconds != null && durationSeconds > 0
-        ? durationSeconds
-        : eventSeconds;
-    final progress = safeDuration > 0
-        ? (eventSeconds / safeDuration).clamp(0.0, 1.0)
-        : 0.0;
-
-    Future<void> openMedia() async {
-      if (result.overlayUrl != null) {
-        await _showRecognitionOverlayDialog(
-          context,
-          url: result.overlayUrl!,
-          headers: result.mediaHeaders,
-        );
-      } else if (imageUrl != null) {
-        await _showRecognitionEvidenceDialog(
-          context,
-          url: imageUrl,
-          headers: result.mediaHeaders,
-          semanticLabel: '${event?.displayTime ?? '当前时间'}的骨骼标注图',
-        );
-      }
-    }
-
-    return Container(
-      key: const Key('recognition-evidence-hero'),
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: surface,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: hairline),
-        boxShadow: const [
-          BoxShadow(color: emberShadow, blurRadius: 28, offset: Offset(0, 12)),
-        ],
-      ),
-      child: Column(
-        children: [
-          Semantics(
-            button: imageUrl != null || result.overlayUrl != null,
-            label: '${event?.displayTime ?? '当前时间'}的骨骼标注图',
-            child: InkWell(
-              onTap: imageUrl == null && result.overlayUrl == null
-                  ? null
-                  : openMedia,
-              child: AspectRatio(
-                aspectRatio: 16 / 10,
-                child: _RecognitionEvidenceImage(
-                  imageUrl: imageUrl,
-                  headers: result.mediaHeaders,
-                  semanticLabel: '${event?.displayTime ?? '当前时间'}的骨骼标注图',
-                ),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(15, 13, 15, 15),
-            child: _RecognitionEvidenceScrubber(
-              currentTime: event?.displayTime ?? '00:00.0',
-              duration: _formatRecognitionDuration(safeDuration),
-              progress: progress,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _RecognitionEvidenceScrubber extends StatelessWidget {
-  const _RecognitionEvidenceScrubber({
-    required this.currentTime,
-    required this.duration,
-    required this.progress,
-  });
-
-  final String currentTime;
-  final String duration;
-  final double progress;
-
-  Widget get _track => ClipRRect(
-    borderRadius: BorderRadius.circular(999),
-    child: LinearProgressIndicator(
-      minHeight: 4,
-      value: progress,
-      color: primary,
-      backgroundColor: hairline,
-    ),
-  );
-
-  @override
-  Widget build(BuildContext context) {
-    final largeText = MediaQuery.textScalerOf(context).scale(1) > 1.4;
-    final current = Text(
-      currentTime,
-      maxLines: 1,
-      style: const TextStyle(
-        color: primary,
-        fontWeight: FontWeight.w900,
-        fontSize: 14,
-        fontFeatures: [FontFeature.tabularFigures()],
-      ),
-    );
-    final total = Text(
-      duration,
-      maxLines: 1,
-      textAlign: TextAlign.end,
-      style: const TextStyle(
-        color: quiet,
-        fontSize: 12,
-        fontFeatures: [FontFeature.tabularFigures()],
-      ),
-    );
-    if (largeText) {
-      return Column(
-        children: [
-          Row(
-            children: [
-              Flexible(child: current),
-              const SizedBox(width: 10),
-              const Spacer(),
-              Flexible(child: total),
-            ],
-          ),
-          const SizedBox(height: 10),
-          _track,
-        ],
-      );
-    }
-    return Row(
-      children: [
-        current,
-        const SizedBox(width: 10),
-        Expanded(child: _track),
-        const SizedBox(width: 10),
-        total,
-      ],
-    );
-  }
-}
-
-class _RecognitionEventGroupCard extends StatelessWidget {
-  const _RecognitionEventGroupCard({
+class _RecognitionEvidenceGallery extends StatelessWidget {
+  const _RecognitionEvidenceGallery({
     required this.events,
+    required this.metrics,
     required this.mediaHeaders,
-    required this.onSelect,
   });
 
   final List<RecognitionEvent> events;
+  final Map<String, dynamic> metrics;
   final Map<String, String> mediaHeaders;
-  final ValueChanged<RecognitionEvent> onSelect;
 
   @override
   Widget build(BuildContext context) {
-    final first = events.first;
-    return Container(
-      key: Key('recognition-event-group-${first.displayTime}'),
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: surface,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: hairline),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x128E3D15),
-            blurRadius: 22,
-            offset: Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          InkWell(
-            onTap: () => onSelect(first),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(17, 17, 17, 2),
-              child: Text(
-                first.displayTime,
-                style: const TextStyle(
-                  color: primary,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                  fontFeatures: [FontFeature.tabularFigures()],
+    final ratio = _recognitionImageAspectRatio(metrics);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = constraints.maxWidth >= 340 ? 2 : 1;
+        final tileWidth = columns == 1
+            ? constraints.maxWidth
+            : (constraints.maxWidth - 12) / 2;
+        return Wrap(
+          key: const Key('recognition-evidence-gallery'),
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            for (final event in events)
+              SizedBox(
+                width: tileWidth,
+                child: _RecognitionEvidenceTile(
+                  event: event,
+                  aspectRatio: ratio,
+                  mediaHeaders: mediaHeaders,
                 ),
               ),
-            ),
-          ),
-          for (var index = 0; index < events.length; index++)
-            _RecognitionEventDetail(
-              event: events[index],
-              mediaHeaders: mediaHeaders,
-              showDivider: index > 0,
-              onSelect: () => onSelect(events[index]),
-            ),
-        ],
-      ),
+          ],
+        );
+      },
     );
   }
 }
 
-class _RecognitionEventDetail extends StatelessWidget {
-  const _RecognitionEventDetail({
+class _RecognitionEvidenceTile extends StatelessWidget {
+  const _RecognitionEvidenceTile({
     required this.event,
+    required this.aspectRatio,
     required this.mediaHeaders,
-    required this.showDivider,
-    required this.onSelect,
   });
 
   final RecognitionEvent event;
+  final double aspectRatio;
   final Map<String, String> mediaHeaders;
-  final bool showDivider;
-  final VoidCallback onSelect;
 
   @override
-  Widget build(BuildContext context) {
-    final insight = _recognitionEventInsight(event);
-    return Padding(
-      key: Key('recognition-event-${event.id}'),
-      padding: const EdgeInsets.fromLTRB(17, 12, 17, 17),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (showDivider) ...[
-            const Divider(height: 4),
-            const SizedBox(height: 14),
-          ],
-          InkWell(
-            onTap: onSelect,
-            child: Text(
-              insight.title,
-              style: const TextStyle(
-                color: ink,
-                fontSize: 18,
-                height: 1.3,
-                fontWeight: FontWeight.w900,
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    label: '${event.displayTime}的骨骼标注图',
+    child: Material(
+      key: Key('recognition-evidence-${event.displayTime}'),
+      color: const Color(0xFF211A17),
+      borderRadius: BorderRadius.circular(18),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => _showRecognitionEvidenceDialog(
+          context,
+          url: event.evidenceImageUrl!,
+          headers: mediaHeaders,
+          semanticLabel: '${event.displayTime}的骨骼标注图',
+        ),
+        child: Stack(
+          children: [
+            AspectRatio(
+              aspectRatio: aspectRatio,
+              child: _RecognitionEvidenceImage(
+                imageUrl: event.evidenceImageUrl,
+                headers: mediaHeaders,
+                semanticLabel: '${event.displayTime}的骨骼标注图',
               ),
             ),
-          ),
-          const SizedBox(height: 14),
-          _RecognitionExplanationBlock(
-            title: '系统看到了什么',
-            text: event.explanation.trim().isEmpty
-                ? '系统在 ${event.displayTime} 附近识别到需要复核的动作轨迹。'
-                : event.explanation,
-          ),
-          const SizedBox(height: 13),
-          _RecognitionExplanationBlock(title: '这意味着什么', text: insight.meaning),
-          const SizedBox(height: 14),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: emberTint,
-              borderRadius: BorderRadius.circular(15),
-            ),
-            child: _RecognitionExplanationBlock(
-              title: '下一组这样调整',
-              text: insight.nextStep,
-              titleColor: primary,
-            ),
-          ),
-          if (event.evidenceImageUrl != null) ...[
-            const SizedBox(height: 15),
-            Semantics(
-              button: true,
-              label: '${event.displayTime}的骨骼标注图',
-              child: InkWell(
-                borderRadius: BorderRadius.circular(16),
-                onTap: () async {
-                  onSelect();
-                  await _showRecognitionEvidenceDialog(
-                    context,
-                    url: event.evidenceImageUrl!,
-                    headers: mediaHeaders,
-                    semanticLabel: '${event.displayTime}的骨骼标注图',
-                  );
-                },
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: AspectRatio(
-                    aspectRatio: 16 / 10,
-                    child: _RecognitionEvidenceImage(
-                      imageUrl: event.evidenceImageUrl,
-                      headers: mediaHeaders,
-                      semanticLabel: '${event.displayTime}的骨骼标注图',
+            Positioned(
+              left: 10,
+              bottom: 10,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: const Color(0xD9211A17),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  child: Text(
+                    event.displayTime,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      fontFeatures: [FontFeature.tabularFigures()],
                     ),
                   ),
                 ),
               ),
             ),
           ],
-        ],
-      ),
-    );
-  }
-}
-
-class _RecognitionExplanationBlock extends StatelessWidget {
-  const _RecognitionExplanationBlock({
-    required this.title,
-    required this.text,
-    this.titleColor = ink,
-  });
-
-  final String title;
-  final String text;
-  final Color titleColor;
-
-  @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text(
-        title,
-        style: TextStyle(
-          color: titleColor,
-          fontSize: 13,
-          fontWeight: FontWeight.w900,
         ),
       ),
-      const SizedBox(height: 5),
-      Text(
-        text,
-        style: const TextStyle(color: secondaryInk, fontSize: 13, height: 1.58),
+    ),
+  );
+}
+
+class _RecognitionPreviewImage extends StatelessWidget {
+  const _RecognitionPreviewImage({
+    required this.imageUrl,
+    required this.metrics,
+    required this.mediaHeaders,
+  });
+
+  final String imageUrl;
+  final Map<String, dynamic> metrics;
+  final Map<String, String> mediaHeaders;
+
+  @override
+  Widget build(BuildContext context) => ClipRRect(
+    key: const Key('recognition-preview-image'),
+    borderRadius: BorderRadius.circular(18),
+    child: ColoredBox(
+      color: const Color(0xFF211A17),
+      child: AspectRatio(
+        aspectRatio: _recognitionImageAspectRatio(metrics),
+        child: _RecognitionEvidenceImage(
+          imageUrl: imageUrl,
+          headers: mediaHeaders,
+          semanticLabel: '骨骼标注图',
+        ),
       ),
-    ],
+    ),
   );
 }
 
@@ -6776,7 +6534,7 @@ class _RecognitionEvidenceImage extends StatelessWidget {
     return Image.network(
       imageUrl!,
       headers: headers,
-      fit: BoxFit.cover,
+      fit: BoxFit.contain,
       semanticLabel: semanticLabel,
       loadingBuilder: (context, child, progress) {
         if (progress == null) return child;
@@ -6821,43 +6579,54 @@ class _RecognitionCoachSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final review = result.aiReview;
-    if (review == null ||
-        (review.headline.trim().isEmpty &&
-            review.strengths.isEmpty &&
-            review.nextSet.trim().isEmpty)) {
-      return const SizedBox(height: 18);
-    }
+    final copy = _recognitionCoachCopy(result);
     return Container(
       key: const Key('recognition-coach-summary'),
-      margin: const EdgeInsets.only(top: 24),
-      padding: const EdgeInsets.only(top: 20, bottom: 4),
-      decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: hairline)),
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: hairline),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x108E3D15),
+            blurRadius: 24,
+            offset: Offset(0, 9),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            '本组建议',
-            style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900),
-          ),
-          if (review.headline.trim().isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Text(
-              review.headline,
-              style: const TextStyle(color: secondaryInk, height: 1.55),
+          Text(
+            copy.body,
+            key: const Key('recognition-coach-copy'),
+            style: const TextStyle(
+              color: ink,
+              fontSize: 15,
+              height: 1.72,
+              fontWeight: FontWeight.w600,
             ),
-          ],
-          for (final item in review.strengths) ...[
-            const SizedBox(height: 7),
-            Text(item, style: const TextStyle(color: success, height: 1.5)),
-          ],
-          if (review.nextSet.trim().isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Text(
-              review.nextSet,
-              style: const TextStyle(color: secondaryInk, height: 1.55),
+          ),
+          if (copy.nextSet.isNotEmpty) ...[
+            const SizedBox(height: 15),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: emberTint,
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: Text(
+                copy.nextSet,
+                key: const Key('recognition-next-set-copy'),
+                style: const TextStyle(
+                  color: secondaryInk,
+                  fontSize: 14,
+                  height: 1.65,
+                ),
+              ),
             ),
           ],
         ],
@@ -6895,6 +6664,16 @@ _RecognitionEventInsight _recognitionEventInsight(RecognitionEvent event) =>
         meaning: '髋部前后移动偏少时，动作可能变成膝盖主导，后侧链的拉伸和控制会减少。',
         nextStep: '保持脊柱自然，先把髋部向后送，再让膝盖自然微屈。负重贴近身体，达到能够控制的位置后返回。',
       ),
+      'RDL_EXCESSIVE_KNEE_BEND' => const _RecognitionEventInsight(
+        title: '罗马尼亚硬拉屈膝偏多',
+        meaning: '屈膝增加但髋部没有同步向后折叠时，动作会逐渐变成下蹲，腿后侧的拉伸也会减少。',
+        nextStep: '下一组减轻重量，保持膝盖轻微弯曲并基本固定，先把髋部向后送，让负重贴着腿下降。',
+      ),
+      'DEADLIFT_KNEE_DOMINANT' => const _RecognitionEventInsight(
+        title: '硬拉更像由膝盖主导',
+        meaning: '最低位置屈膝较多而髋部折叠不足，起拉时更难让髋和肩保持同一节奏。',
+        nextStep: '起始位让杠铃贴近小腿，先收紧躯干，再推地并让髋和肩一起上升。',
+      ),
       'TRUNK_POSTURE_SHIFT' => const _RecognitionEventInsight(
         title: '躯干角度在动作中变化较大',
         meaning: '躯干角度明显变化通常代表核心和骨盆没有保持同一运动策略，也可能来自重量过大或动作节奏失控。',
@@ -6916,33 +6695,144 @@ _RecognitionEventInsight _recognitionEventInsight(RecognitionEvent event) =>
         meaning: '从侧面看，手腕没有稳定处在肘部上方时，推举路径可能不够直接，肩部或手腕会承担更多调整。',
         nextStep: '调整握距和落点，让最低位置的手腕尽量位于肘部上方。先使用能够控制的重量，再保持同一推举路径。',
       ),
+      'HIP_THRUST_EXTENSION_LIMITED' => const _RecognitionEventInsight(
+        title: '臀推顶端伸髋还差一点',
+        meaning: '顶端躯干和大腿没有接近一条线时，臀部还没有完成这一段可控的伸展。',
+        nextStep: '下一组先收紧腹部，脚掌稳住，向上推到肩—髋—膝接近一条线后停一下，不要继续用抬胸或塌腰换高度。',
+      ),
+      'SHOULDER_PRESS_RANGE_INCOMPLETE' => const _RecognitionEventInsight(
+        title: '肩推顶端伸展不完整',
+        meaning: '手臂已经向上推起，但肘部仍保留较多弯曲，顶端行程提前结束。',
+        nextStep: '收紧腹部和臀部，减轻一点重量，让两侧肘部同步向上伸展，不要用身体后仰换取高度。',
+      ),
+      'PUSH_UP_DEPTH_LIMITED' => const _RecognitionEventInsight(
+        title: '俯卧撑下降幅度偏小',
+        meaning: '最低位置肘部仍比较伸直，胸部和肩部没有完成这一组可控的下降范围。',
+        nextStep: '先改用跪姿或抬高手撑点，保持头、躯干和腿连成一线，再逐步把胸口降得更低。',
+      ),
+      'DIP_DEPTH_LIMITED' => const _RecognitionEventInsight(
+        title: '双杠臂屈伸下降幅度偏小',
+        meaning: '肘部刚开始弯曲就返回，胸肩和手臂没有完成稳定的下降阶段。',
+        nextStep: '使用辅助或减少负重，先稳住肩膀和躯干，在没有疼痛和摆动的范围内逐步增加下降幅度。',
+      ),
+      'ROW_RANGE_INCOMPLETE' => const _RecognitionEventInsight(
+        title: '划船肘部回拉不够',
+        meaning: '肘部有弯曲，但回拉阶段提前结束，背部收缩位置没有稳定出现。',
+        nextStep: '下一组轻一点，固定胸廓，让肘部带动把手向身体回拉；到末端停一下，不要靠后仰甩动。',
+      ),
+      'FACE_PULL_RANGE_INCOMPLETE' => const _RecognitionEventInsight(
+        title: '面拉回拉幅度不足',
+        meaning: '肘部和手还没有稳定移动到脸部两侧，动作末端较早结束。',
+        nextStep: '降低重量，保持胸廓稳定，让肘部向两侧展开并把绳端拉向脸旁，不要用后仰完成末端。',
+      ),
+      'LATERAL_RAISE_HEIGHT_LIMITED' => const _RecognitionEventInsight(
+        title: '侧平举抬起高度偏低',
+        meaning: '两侧手臂在接近肩高之前就开始下降，目标肌群的可控行程还可以更完整。',
+        nextStep: '下一组减轻重量，保持轻微屈肘，两侧平稳抬到接近肩高再受控下降，不要耸肩或借摆动。',
+      ),
+      'BICEPS_CURL_RANGE_INCOMPLETE' => const _RecognitionEventInsight(
+        title: '弯举屈肘幅度不足',
+        meaning: '前臂没有充分接近上臂，弯举在收缩位置之前就开始返回。',
+        nextStep: '固定上臂并减轻重量，完整弯曲肘部后再慢慢放下；不要用肩膀前送或身体摆动补行程。',
+      ),
+      'TRICEPS_EXTENSION_RANGE_INCOMPLETE' => const _RecognitionEventInsight(
+        title: '三头伸展的屈伸幅度不足',
+        meaning: '肘部没有稳定覆盖完整的弯曲和伸展阶段，上臂可能在过程中跟着移动。',
+        nextStep: '下一组减轻重量并固定上臂，只让前臂围绕肘部移动，先把每次屈伸做完整再增加负重。',
+      ),
+      'PULL_UP_ARM_ASYMMETRY' => const _RecognitionEventInsight(
+        title: '两侧手臂没有同步发力',
+        meaning: '同一时刻左右肘角差距较大，一侧会先弯曲或先完成上拉，身体容易随之旋转并把更多负荷交给单侧肩背。',
+        nextStep: '下一组先减轻负重，从完全稳定的悬垂开始，同时把两侧肘部向下拉；宁可少做几次，也不要让一侧抢先完成。',
+      ),
+      'PULL_UP_SHOULDER_ASYMMETRY' => const _RecognitionEventInsight(
+        title: '两侧肩膀出现高低差',
+        meaning: '肩线在发力阶段持续倾斜，通常说明两侧肩胛下沉和躯干稳定没有同步。',
+        nextStep: '起拉前先把两侧肩胛同时向下固定，保持胸口朝正前方；如果肩线仍明显倾斜，先减少负重或改用辅助引体。',
+      ),
+      'PULL_UP_RANGE_INCOMPLETE' => const _RecognitionEventInsight(
+        title: '上拉行程提前结束',
+        meaning: '肘部完成了弯曲，但顶部位置仍没有达到这一组可稳定复现的完整范围。',
+        nextStep: '先把每次动作做完整再增加次数：底部保持受控伸展，顶部继续把肘部向身体两侧和后下方拉，不要用摆动换高度。',
+      ),
       _ => _RecognitionEventInsight(
         title: event.label,
-        meaning: '这个时间点的骨骼轨迹偏离当前动作参考范围。请结合标注图查看相关关节的位置和运动方向。',
+        meaning: event.explanation.trim().isEmpty
+            ? '这一段的关节位置没有稳定保持在当前动作的参考范围内。'
+            : event.explanation,
         nextStep: '下一组先降低一点重量并放慢动作，在不代偿的前提下完成稳定、连续的动作路径。',
       ),
     };
 
-List<List<RecognitionEvent>> _groupRecognitionEvents(
-  List<RecognitionEvent> events,
-) {
-  final groups = <List<RecognitionEvent>>[];
-  for (final event in events) {
-    if (groups.isNotEmpty &&
-        groups.last.first.displayTime == event.displayTime) {
-      groups.last.add(event);
-    } else {
-      groups.add(<RecognitionEvent>[event]);
-    }
-  }
-  return groups;
+class _RecognitionCoachCopy {
+  const _RecognitionCoachCopy({required this.body, required this.nextSet});
+
+  final String body;
+  final String nextSet;
 }
 
-String _formatRecognitionDuration(double seconds) {
-  final safe = seconds < 0 ? 0.0 : seconds;
-  final minutes = safe ~/ 60;
-  final remainder = safe - minutes * 60;
-  return '${minutes.toString().padLeft(2, '0')}:${remainder.toStringAsFixed(1).padLeft(4, '0')}';
+_RecognitionCoachCopy _recognitionCoachCopy(RecognitionResult result) {
+  final review = result.aiReview;
+  final eventsByCode = <String, List<RecognitionEvent>>{};
+  for (final event in result.events) {
+    eventsByCode.putIfAbsent(event.code, () => <RecognitionEvent>[]).add(event);
+  }
+  final body = <String>[];
+  if (review != null && review.headline.trim().isNotEmpty) {
+    body.add(_recognitionSentence(review.headline));
+  }
+  if (review != null && review.strengths.isNotEmpty) {
+    body.add('做得比较稳的是${review.strengths.join('、')}。');
+  }
+  for (final group in eventsByCode.values) {
+    final insight = _recognitionEventInsight(group.first);
+    final times = group.map((event) => event.displayTime).toSet().join('、');
+    body.add('$times 附近，${insight.title}。${insight.meaning}');
+  }
+  if (eventsByCode.isEmpty && review != null && review.risks.isNotEmpty) {
+    body.add(review.risks.map(_recognitionSentence).join(''));
+  }
+  if (body.isEmpty) {
+    body.add(result.summary.trim().isEmpty ? '这段动作已经分析完成。' : result.summary);
+  }
+
+  var nextSet = review?.nextSet.trim() ?? '';
+  if (nextSet.isEmpty && eventsByCode.isNotEmpty) {
+    nextSet = eventsByCode.values
+        .map((events) => _recognitionEventInsight(events.first).nextStep)
+        .toSet()
+        .join('\n\n');
+  }
+  return _RecognitionCoachCopy(
+    body: body.join('\n\n'),
+    nextSet: nextSet.isEmpty ? '' : _recognitionSentence(nextSet),
+  );
+}
+
+String _recognitionSentence(String value) {
+  final text = value.trim();
+  if (text.isEmpty || RegExp(r'[。！？!?]$').hasMatch(text)) return text;
+  return '$text。';
+}
+
+List<RecognitionEvent> _recognitionEvidenceEvents(
+  List<RecognitionEvent> events,
+) {
+  final unique = <String, RecognitionEvent>{};
+  for (final event in events) {
+    if (event.evidenceImageUrl == null) continue;
+    unique.putIfAbsent(event.displayTime, () => event);
+  }
+  return unique.values.toList(growable: false);
+}
+
+double _recognitionImageAspectRatio(Map<String, dynamic> metrics) {
+  final width = (metrics['outputWidth'] as num?)?.toDouble();
+  final height = (metrics['outputHeight'] as num?)?.toDouble();
+  if (width == null || height == null || width <= 0 || height <= 0) {
+    return 9 / 16;
+  }
+  return (width / height).clamp(0.5, 1.4).toDouble();
 }
 
 Future<void> _showRecognitionEvidenceDialog(
@@ -6981,184 +6871,6 @@ Future<void> _showRecognitionEvidenceDialog(
       ),
     ),
   );
-}
-
-Future<void> _showRecognitionOverlayDialog(
-  BuildContext context, {
-  required String url,
-  required Map<String, String> headers,
-}) async {
-  await showDialog<void>(
-    context: context,
-    builder: (context) => Dialog(
-      insetPadding: const EdgeInsets.all(16),
-      backgroundColor: const Color(0xFF211A17),
-      child: Stack(
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(top: 48),
-            child: _NetworkRecognitionVideo(url: url, headers: headers),
-          ),
-          Positioned(
-            top: 4,
-            right: 4,
-            child: IconButton.filledTonal(
-              tooltip: '关闭',
-              onPressed: () => Navigator.of(context).pop(),
-              icon: const Icon(Icons.close_rounded),
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
-class _NetworkRecognitionVideo extends StatefulWidget {
-  const _NetworkRecognitionVideo({required this.url, required this.headers});
-  final String url;
-  final Map<String, String> headers;
-
-  @override
-  State<_NetworkRecognitionVideo> createState() =>
-      _NetworkRecognitionVideoState();
-}
-
-class _NetworkRecognitionVideoState extends State<_NetworkRecognitionVideo> {
-  VideoPlayerController? _video;
-  File? _localFile;
-  Object? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    _initialize();
-  }
-
-  Future<void> _initialize() async {
-    try {
-      final client = HttpClient();
-      final request = await client.getUrl(Uri.parse(widget.url));
-      widget.headers.forEach(request.headers.set);
-      final response = await request.close();
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        client.close(force: true);
-        throw HttpException('media_http_${response.statusCode}');
-      }
-      final safeId = widget.url.hashCode.toUnsigned(32).toRadixString(16);
-      final file = File(
-        '${Directory.systemTemp.path}${Platform.pathSeparator}kilo-overlay-$safeId.mp4',
-      );
-      final sink = file.openWrite();
-      await response.pipe(sink);
-      client.close();
-      _localFile = file;
-      final video = VideoPlayerController.file(file);
-      await video.initialize();
-      await video.setLooping(true);
-      if (!mounted) {
-        await video.dispose();
-        return;
-      }
-      setState(() => _video = video);
-    } catch (error) {
-      if (mounted) setState(() => _error = error);
-    }
-  }
-
-  @override
-  void dispose() {
-    _video?.dispose();
-    final localFile = _localFile;
-    if (localFile != null) {
-      localFile.delete().catchError((_) => localFile);
-    }
-    super.dispose();
-  }
-
-  Future<void> _retry() async {
-    await _video?.dispose();
-    setState(() {
-      _video = null;
-      _error = null;
-    });
-    await _initialize();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final video = _video;
-    return Container(
-      key: const Key('recognition-overlay-video'),
-      decoration: BoxDecoration(
-        color: const Color(0xFF211A17),
-        borderRadius: BorderRadius.circular(13),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: AspectRatio(
-        aspectRatio:
-            video?.value.isInitialized == true && video!.value.aspectRatio > 0
-            ? video.value.aspectRatio
-            : 16 / 9,
-        child: InkWell(
-          onTap: video?.value.isInitialized == true
-              ? () => setState(() {
-                  video!.value.isPlaying ? video.pause() : video.play();
-                })
-              : null,
-          child: Stack(
-            fit: StackFit.expand,
-            alignment: Alignment.center,
-            children: [
-              if (video?.value.isInitialized == true)
-                VideoPlayer(video!)
-              else
-                const ColoredBox(color: Color(0xFF211A17)),
-              if (video == null && _error == null)
-                const Center(
-                  child: CircularProgressIndicator(color: Colors.white),
-                ),
-              if (_error != null)
-                Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text(
-                        '标注视频加载失败',
-                        style: TextStyle(color: Colors.white),
-                      ),
-                      const SizedBox(height: 7),
-                      OutlinedButton.icon(
-                        onPressed: _retry,
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.white,
-                          side: const BorderSide(color: Colors.white70),
-                        ),
-                        icon: const Icon(Icons.refresh_rounded, size: 17),
-                        label: const Text('重新加载'),
-                      ),
-                    ],
-                  ),
-                ),
-              if (video?.value.isInitialized == true &&
-                  video?.value.isPlaying != true)
-                const Center(
-                  child: CircleAvatar(
-                    radius: 25,
-                    backgroundColor: Color(0xE6D95718),
-                    child: Icon(
-                      Icons.play_arrow_rounded,
-                      color: Colors.white,
-                      size: 32,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 String _recognitionLabel(RecognitionStatus status) => switch (status) {

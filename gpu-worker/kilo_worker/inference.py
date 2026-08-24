@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import math
 from pathlib import Path
 import subprocess
 from typing import Any, Callable, Sequence
@@ -18,6 +19,7 @@ from .events import (
     event_to_result,
     format_video_time,
 )
+from .pose_recovery import recover_occluded_wrists
 from .subject_tracking import SubjectTracker
 
 
@@ -224,6 +226,12 @@ class PoseAnalyzer:
         detection_rate = detected_frames / inference_frames if inference_frames else 0.0
         pose_confidence = confidence_total / detected_frames if detected_frames else 0.0
         overall_confidence = round(min(1.0, detection_rate * pose_confidence), 4)
+        samples, wrist_recovery = recover_occluded_wrists(
+            samples,
+            confidence_floor=self.confidence,
+            frame_width=output_width,
+            frame_height=output_height,
+        )
         event_analysis = analyze_pose_events(
             exercise_id,
             camera,
@@ -309,6 +317,10 @@ class PoseAnalyzer:
                 "subjectReacquisitions": tracking_metrics.reacquisitions,
                 "assessable": evidence.assessable,
                 "evidenceReason": evidence.reason,
+                "inferredWristSamples": wrist_recovery.inferred_samples,
+                "temporalWristSamples": wrist_recovery.temporal_samples,
+                "directionOnlyWristSamples": wrist_recovery.direction_only_samples,
+                "rejectedWristObservations": wrist_recovery.rejected_observations,
             },
         }
         return AnalysisOutput(
@@ -349,9 +361,14 @@ class PoseAnalyzer:
                         (output_width, output_height),
                         interpolation=cv2.INTER_AREA,
                     )
-                self._draw_pose(frame, sample.points, sample.scores)
+                self._draw_pose(
+                    frame,
+                    sample.points,
+                    sample.scores,
+                    inferred=sample.inferred,
+                )
                 self._draw_event_reference(frame, event, samples)
-                self._draw_evidence_header(frame, event, sample.timestamp_ms)
+                self._draw_evidence_header(frame, sample.timestamp_ms)
                 if frame.shape[1] > 960:
                     ratio = 960 / frame.shape[1]
                     frame = cv2.resize(
@@ -428,7 +445,6 @@ class PoseAnalyzer:
     @staticmethod
     def _draw_evidence_header(
         frame: np.ndarray,
-        event: MotionEvent,
         timestamp_ms: int,
     ) -> None:
         height, width = frame.shape[:2]
@@ -436,10 +452,7 @@ class PoseAnalyzer:
         overlay = frame.copy()
         cv2.rectangle(overlay, (0, 0), (width, bar_height), (18, 20, 23), -1)
         cv2.addWeighted(overlay, 0.82, frame, 0.18, 0, frame)
-        label = (
-            f"{format_video_time(timestamp_ms)}  "
-            f"{PoseAnalyzer._measurement_label(event)}"
-        )
+        label = format_video_time(timestamp_ms)
         cv2.putText(
             frame,
             label,
@@ -450,25 +463,6 @@ class PoseAnalyzer:
             2,
             cv2.LINE_AA,
         )
-
-    @staticmethod
-    def _measurement_label(event: MotionEvent) -> str:
-        values = event.measurements
-        if "forearmVerticalDeviationDeg" in values:
-            return f"Forearm {values['forearmVerticalDeviationDeg']} deg"
-        if "kneeAngleDeg" in values:
-            return f"Knee {values['kneeAngleDeg']} deg"
-        if "hipAngleDeg" in values:
-            return f"Hip {values['hipAngleDeg']} deg"
-        if "bottomElbowAngleDeg" in values:
-            return f"Elbow {values['bottomElbowAngleDeg']} deg"
-        if "medialOffsetNormalized" in values:
-            return f"Knee offset {values['medialOffsetNormalized']}"
-        if "trunkLineShiftDeg" in values:
-            return f"Trunk shift {values['trunkLineShiftDeg']} deg"
-        if "elbowDescentNormalized" in values:
-            return f"Elbow path {values['elbowDescentNormalized']}"
-        return event.code
 
     @staticmethod
     def _encode_compatible_overlay(source: Path, destination: Path) -> None:
@@ -539,24 +533,69 @@ class PoseAnalyzer:
         frame: np.ndarray,
         points: np.ndarray,
         scores: np.ndarray,
+        inferred: np.ndarray | None = None,
     ) -> None:
         for start, end in SKELETON:
             if scores[start] >= self.confidence and scores[end] >= self.confidence:
-                cv2.line(
-                    frame,
-                    tuple(points[start].astype(int)),
-                    tuple(points[end].astype(int)),
-                    (255, 142, 46),
-                    3,
-                    cv2.LINE_AA,
+                start_point = tuple(points[start].astype(int))
+                end_point = tuple(points[end].astype(int))
+                segment_inferred = inferred is not None and (
+                    bool(inferred[start]) or bool(inferred[end])
                 )
-        for point, score in zip(points, scores):
+                if segment_inferred:
+                    self._draw_dashed_line(
+                        frame,
+                        start_point,
+                        end_point,
+                        (70, 225, 255),
+                        3,
+                    )
+                else:
+                    cv2.line(
+                        frame,
+                        start_point,
+                        end_point,
+                        (255, 142, 46),
+                        3,
+                        cv2.LINE_AA,
+                    )
+        for index, (point, score) in enumerate(zip(points, scores)):
             if score >= self.confidence:
                 cv2.circle(
                     frame,
                     tuple(point.astype(int)),
                     4,
-                    (60, 230, 150),
+                    (
+                        (70, 225, 255)
+                        if inferred is not None and bool(inferred[index])
+                        else (60, 230, 150)
+                    ),
                     -1,
                     cv2.LINE_AA,
                 )
+
+    @staticmethod
+    def _draw_dashed_line(
+        frame: np.ndarray,
+        start: tuple[int, int],
+        end: tuple[int, int],
+        color: tuple[int, int, int],
+        width: int,
+    ) -> None:
+        distance = max(1.0, math.hypot(end[0] - start[0], end[1] - start[1]))
+        direction = ((end[0] - start[0]) / distance, (end[1] - start[1]) / distance)
+        dash = 10.0
+        gap = 7.0
+        offset = 0.0
+        while offset < distance:
+            finish = min(distance, offset + dash)
+            first = (
+                round(start[0] + direction[0] * offset),
+                round(start[1] + direction[1] * offset),
+            )
+            second = (
+                round(start[0] + direction[0] * finish),
+                round(start[1] + direction[1] * finish),
+            )
+            cv2.line(frame, first, second, color, width, cv2.LINE_AA)
+            offset += dash + gap
