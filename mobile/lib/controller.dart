@@ -2043,6 +2043,43 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Stops the current session without creating history or changing plans.
+  /// The UI exposes this behind an explicit hold gesture so an accidental tap
+  /// cannot destroy a complete in-progress workout.
+  void abortWorkout() {
+    if (!workoutStarted && !workoutDraft) return;
+    workout.clear();
+    workoutName = '自由训练';
+    workoutNote = '';
+    workoutStarted = false;
+    workoutTimerStarted = false;
+    workoutPaused = false;
+    workoutDraft = false;
+    workoutCompleted = false;
+    liveWorkoutVisible = false;
+    workoutElapsedSeconds = 0;
+    workoutStartedAt = null;
+    freeWorkout = false;
+    defaultRestSeconds = 0;
+    restSetupPending = false;
+    pendingRestSetId = null;
+    restRunning = false;
+    restRemainingSeconds = 0;
+    restExerciseName = null;
+    _restEndsAt = null;
+    _activeSetStartedAt = null;
+    _activeSetElapsedSeconds = 0;
+    selectedSetIds.clear();
+    batchMode = false;
+    trainView = TrainView.plans;
+    _workoutTicker?.cancel();
+    _restTicker?.cancel();
+    PlatformTimerBridge.clearRest();
+    PlatformTimerBridge.finish();
+    persistActiveWorkout();
+    notifyListeners();
+  }
+
   WorkoutRecord? finishWorkout({
     String note = '',
     bool saveAsRoutine = false,
@@ -3098,8 +3135,14 @@ class AppController extends ChangeNotifier {
         'parameters': {
           'type': 'object',
           'properties': {
-            'startDate': {'type': 'string'},
-            'endDate': {'type': 'string'},
+            'startDate': {
+              'type': 'string',
+              'description': 'YYYY-MM-DD；相对日期必须换算为设备当前日期对应的绝对日期',
+            },
+            'endDate': {
+              'type': 'string',
+              'description': 'YYYY-MM-DD；单日查询与 startDate 相同',
+            },
             'query': {'type': 'string'},
             'limit': {'type': 'integer', 'minimum': 1, 'maximum': 20},
           },
@@ -3195,7 +3238,17 @@ class AppController extends ChangeNotifier {
 
   DateTime? _aiDate(Object? value) {
     if (value is! String || value.isEmpty) return null;
-    final parsed = DateTime.tryParse(value);
+    final normalized = value.trim().toLowerCase();
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    if (const {'today', '今天', '今日'}.contains(normalized)) return today;
+    if (const {'yesterday', '昨天', '昨日'}.contains(normalized)) {
+      return today.subtract(const Duration(days: 1));
+    }
+    if (const {'tomorrow', '明天', '明日'}.contains(normalized)) {
+      return today.add(const Duration(days: 1));
+    }
+    final parsed = DateTime.tryParse(normalized);
     return parsed == null
         ? null
         : DateTime(parsed.year, parsed.month, parsed.day);
@@ -3446,6 +3499,7 @@ class AppController extends ChangeNotifier {
         aiUseTrainingData ||
         includeTrainingContext ||
         selectedTrainingContext != null;
+    var streamedOutput = false;
     Future<CoachAnswer> request() async {
       final api = await _activeCoachApi();
       if (includeSummary && api is AgentCoachApi) {
@@ -3455,6 +3509,20 @@ class AppController extends ChangeNotifier {
           includeSummary: includeSummary,
           selectedTrainingContext: selectedTrainingContext,
           onDelta: onDelta,
+        );
+      }
+      if (api is StreamingCoachApi && onDelta != null) {
+        return _consumeCoachStream(
+          api as StreamingCoachApi,
+          prompt: prompt,
+          includeTrainingSummary: includeSummary,
+          trainingSummary: includeSummary
+              ? selectedTrainingContext ?? _buildAiTrainingSummary()
+              : null,
+          onDelta: (delta) {
+            streamedOutput = true;
+            onDelta(delta);
+          },
         );
       }
       return api.answer(
@@ -3483,6 +3551,7 @@ class AppController extends ChangeNotifier {
             error.code == 'coach_timeout' ||
             error.code == 'coach_network';
         if (attempt == 0 &&
+            !streamedOutput &&
             (retryable ||
                 (coachApi == null && error.code == 'coach_http_401'))) {
           await Future<void>.delayed(const Duration(milliseconds: 650));
@@ -3763,40 +3832,17 @@ class AppController extends ChangeNotifier {
           final selected = contexts.isEmpty
               ? null
               : _buildSelectedAiContext(contexts);
-          final api = await _activeCoachApi();
-          final includeSummary =
-              aiUseTrainingData || includeTrainingContext || selected != null;
-          // A consented local-data question must use the tool handshake. Keep
-          // ordinary no-context questions on the existing streaming path.
-          if (api is StreamingCoachApi &&
-              !_isAiPlanRequest(trimmed) &&
-              !aiUseTrainingData &&
-              selected == null) {
-            remoteAnswer = await _consumeCoachStream(
-              api as StreamingCoachApi,
-              prompt: trimmed,
-              includeTrainingSummary: includeSummary,
-              trainingSummary: includeSummary
-                  ? selected ?? _buildAiTrainingSummary()
-                  : null,
-              onDelta: (delta) {
-                answerMessage.body += delta;
-                notifyListeners();
-              },
-            );
-          } else {
-            remoteAnswer = await _requestCoachAnswer(
-              trimmed,
-              includeTrainingContext: includeTrainingContext,
-              selectedTrainingContext: selected,
-              onDelta: _isAiPlanRequest(trimmed)
-                  ? null
-                  : (delta) {
-                      answerMessage.body += delta;
-                      notifyListeners();
-                    },
-            );
-          }
+          remoteAnswer = await _requestCoachAnswer(
+            trimmed,
+            includeTrainingContext: includeTrainingContext,
+            selectedTrainingContext: selected,
+            onDelta: _isAiPlanRequest(trimmed)
+                ? null
+                : (delta) {
+                    answerMessage.body += delta;
+                    notifyListeners();
+                  },
+          );
           answerMessage
             ..body = remoteAnswer.body
             ..citations = remoteAnswer.citations

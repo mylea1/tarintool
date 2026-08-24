@@ -539,6 +539,50 @@ void main() {
     }
   });
 
+  test(
+    'aborting an active workout discards it without creating history',
+    () async {
+      const channel = MethodChannel('kilo.platform.timer');
+      final calls = <String>[];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            calls.add(call.method);
+            return null;
+          });
+      final persistence = InMemoryActiveWorkoutPersistence();
+      final account = AccountService()..loginWithPhone('abort-user');
+      final controller = AppController(
+        accountService: account,
+        activeWorkoutPersistence: persistence,
+      );
+      try {
+        controller.startWorkout(name: '不会保存的训练');
+        controller.addExercise('bench_press');
+        final exercise = controller.workout.single;
+        controller.addSet(exercise);
+        exercise.sets.single
+          ..weight = 60
+          ..reps = 8
+          ..completed = true;
+        controller.persistActiveWorkout();
+        await controller.flushActiveWorkoutPersistence();
+
+        controller.abortWorkout();
+        await controller.flushActiveWorkoutPersistence();
+
+        expect(controller.workoutStarted, isFalse);
+        expect(controller.workout, isEmpty);
+        expect(controller.history, isEmpty);
+        expect(await persistence.read(account.currentUser!.id), isNull);
+        expect(calls, contains('finishTimer'));
+      } finally {
+        controller.dispose();
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, null);
+      }
+    },
+  );
+
   test('routine editor draft commit does not mutate on cancel', () {
     final controller = AppController();
     try {

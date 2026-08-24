@@ -14,6 +14,7 @@ const MAX_TEXT = 4000;
 const MAX_SUMMARY = 6000;
 const MAX_AGENT_TOOL_RESULTS = 3;
 const MAX_AGENT_RESULT_BYTES = 12000;
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/u;
 const AI_TOOL_DEFINITIONS = [
   {
     type: 'function',
@@ -57,6 +58,36 @@ const AI_TOOL_DEFINITIONS = [
   },
 ];
 const AI_TOOL_NAMES = new Set(AI_TOOL_DEFINITIONS.map((item) => item.function.name));
+
+function shiftIsoDay(value, days) {
+  const date = new Date(`${value}T12:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function shanghaiIsoDay() {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+}
+
+function aiClientTimeInstruction(body) {
+  const requestedDate = typeof body?.clientDate === 'string'
+    ? body.clientDate.trim()
+    : '';
+  const today = ISO_DAY.test(requestedDate) ? requestedDate : shanghaiIsoDay();
+  const rawOffset = Number(body?.clientTimezoneOffsetMinutes);
+  const offsetMinutes = Number.isFinite(rawOffset) && Math.abs(rawOffset) <= 14 * 60
+    ? Math.trunc(rawOffset)
+    : 8 * 60;
+  const sign = offsetMinutes < 0 ? '-' : '+';
+  const absolute = Math.abs(offsetMinutes);
+  const offset = `${sign}${String(Math.floor(absolute / 60)).padStart(2, '0')}:${String(absolute % 60).padStart(2, '0')}`;
+  return `用户设备当前本地日期是 ${today}（UTC${offset}）。今天=${today}，昨天=${shiftIsoDay(today, -1)}，明天=${shiftIsoDay(today, 1)}。解析“昨天、今天、明天、本周、上周”等相对日期时必须以这些日期为准；调用 read_workout_history 时必须使用对应的 YYYY-MM-DD，不得依据对话记忆猜测年份或月份。`;
+}
 const ALLOWED_ENTITIES = new Set(['workout', 'plan', 'template', 'settings']);
 const PLANS = new Set(['oneMonth', 'threeMonths', 'forever']);
 // Only the monthly and yearly products are displayed to customers. Legacy
@@ -1456,6 +1487,7 @@ async function handleRequest(req, res, ctx) {
       const knowledge = knowledgeSearch(ctx.db, question, 20);
       const answerLocale = String(body.locale || '').toLowerCase().startsWith('en') ? 'en' : 'zh-CN';
       const messages = [{ role: 'system', content: `你是 KILO Strength 健身训练助手。提供一般训练、恢复和动作记录建议，不进行医疗诊断。证据不足时明确说明。${answerLocale === 'en' ? ' Answer in natural, concise English.' : ' 使用自然、简洁的中文回答。'}回答使用简洁 Markdown。不要在正文中披露内部知识库名称或技能名。` }];
+      messages.push({ role: 'system', content: aiClientTimeInstruction(body) });
       if (conversation.memory_summary) messages.push({ role: 'system', content: `长期记忆摘要：${conversation.memory_summary.slice(0, 3000)}` });
       if (knowledge.length) messages.push({ role: 'system', content: `内部知识库参考：\n${knowledge.map((item) => `${item.title}: ${item.content.slice(0, 1200)}`).join('\n')}` });
       for (const message of recent) messages.push({ role: message.role, content: message.content });
@@ -1536,6 +1568,7 @@ async function handleRequest(req, res, ctx) {
       const messages = [{ role: 'system', content: `你是 KILO Strength 健身训练助手。提供一般训练、恢复和动作记录建议，不进行医疗诊断。证据不足时明确说明。
 ${languageInstruction}
 回答使用简洁 Markdown：用标题、加粗、列表组织内容，但不要堆叠格式。只总结知识库结论，不要大段照搬原文。不要在正文中写文献名称、来源列表、脚注编号或“根据某文献”；客户端会在回答结尾统一展示服务端检索到的来源。凡是建议用户增加或降低重量、次数、组数或休息时间，必须紧接着说明依据（历史表现、完成质量、备注、训练目标或恢复状态）；没有足够数据时必须明确说这是保守起点而非个性化结论。` }];
+      messages.push({ role: 'system', content: aiClientTimeInstruction(body) });
       if (conversation.memory_summary) messages.push({ role: 'system', content: `长期记忆摘要：${conversation.memory_summary.slice(0, 3000)}` });
       if (knowledge.length) messages.push({ role: 'system', content: `内部知识库参考：\n${knowledge.map((item) => `${item.title}: ${item.content.slice(0, 1200)}`).join('\n')}\n这些内容可以帮助推理，但不得在正文中披露内部知识库名称、文件名或技能名。客户端会统一展示检索来源。B站、GitHub、内部文件和仓库来源不作为用户可见引用；论文、标准、公共机构或其他公开网页来源可以展示。` });
       for (const message of recent) messages.push({ role: message.role, content: message.content });

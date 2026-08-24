@@ -183,6 +183,19 @@ class HttpCoachApi implements CoachApi, AgentCoachApi, StreamingCoachApi {
   Uri _endpoint(String path) =>
       Uri.parse('${baseUrl.replaceAll(RegExp(r'/+$'), '')}$path');
 
+  Map<String, Object> get _clientTimeContext {
+    final now = DateTime.now();
+    final localDate =
+        '${now.year.toString().padLeft(4, '0')}-'
+        '${now.month.toString().padLeft(2, '0')}-'
+        '${now.day.toString().padLeft(2, '0')}';
+    return {
+      'clientDate': localDate,
+      'clientTimezoneOffsetMinutes': now.timeZoneOffset.inMinutes,
+      'clientTimezoneName': now.timeZoneName,
+    };
+  }
+
   Future<Map<String, dynamic>> createMembershipOrder({
     required String productId,
     required String plan,
@@ -333,6 +346,7 @@ class HttpCoachApi implements CoachApi, AgentCoachApi, StreamingCoachApi {
               ..body = jsonEncode({
                 'question': prompt,
                 'locale': locale,
+                ..._clientTimeContext,
                 'useTrainingData': includeTrainingSummary,
                 if (includeTrainingSummary &&
                     trainingSummary?.trim().isNotEmpty == true)
@@ -425,6 +439,7 @@ class HttpCoachApi implements CoachApi, AgentCoachApi, StreamingCoachApi {
             },
             body: jsonEncode({
               'question': prompt,
+              ..._clientTimeContext,
               if (requestId?.trim().isNotEmpty == true) 'requestId': requestId,
               'locale': locale,
               'useTrainingData': includeTrainingSummary,

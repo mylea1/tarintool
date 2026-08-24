@@ -1026,6 +1026,57 @@ void main() {
     expect(controller.routines, isEmpty);
   });
 
+  testWidgets('active workout has a separate hold-to-abort path', (
+    tester,
+  ) async {
+    final controller = AppController();
+    controller.startWorkout(name: '可中止训练');
+    controller.addExercise('bench_press');
+    controller.addSet(controller.workout.single);
+    controller.openLiveWorkout();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(KiloApp(initialController: controller));
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('abort-workout-button')),
+      260,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -260));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('abort-workout-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('长按中止，不保存记录'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('hold-to-abort-workout')));
+    await tester.pump();
+    expect(controller.workoutStarted, isTrue);
+    await tester.longPress(find.byKey(const Key('hold-to-abort-workout')));
+    await tester.pumpAndSettle();
+
+    expect(controller.workoutStarted, isFalse);
+    expect(controller.history, isEmpty);
+    expect(controller.workout, isEmpty);
+  });
+
+  testWidgets('sent AI message is selectable and has a copy action', (
+    tester,
+  ) async {
+    final controller = AppController();
+    controller.chat.add(
+      ChatMessage(id: 'copy-me', role: 'user', body: '请评价昨天的胸部训练'),
+    );
+    controller.selectPage(PageId.ai);
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(KiloApp(initialController: controller));
+    await tester.pumpAndSettle();
+
+    expect(find.text('请评价昨天的胸部训练'), findsOneWidget);
+    expect(find.byType(SelectableText), findsWidgets);
+    await tester.tap(find.byKey(const Key('copy-chat-message-copy-me')));
+    await tester.pump();
+    expect(find.text('消息已复制'), findsOneWidget);
+  });
+
   testWidgets(
     'live set rows show previous history, preserve values, and toggle green',
     (tester) async {

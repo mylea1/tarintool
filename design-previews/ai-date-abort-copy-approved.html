@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>形域｜训练中止与消息复制</title>
+<style>
+  :root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#261d19;background:#fff8f2}
+  *{box-sizing:border-box}body{margin:0}.phone{max-width:414px;min-height:100vh;margin:auto;padding:24px 18px 120px}
+  h1{font-size:25px;margin:10px 0 20px}.card,.bubble{border:1px solid #eadbd1;border-radius:20px;background:white;padding:18px;box-shadow:0 8px 24px #7d40100d}
+  .stats{display:flex;justify-content:space-between;color:#74665e}.primary,.danger{width:100%;height:52px;border:0;border-radius:17px;font-weight:800;font-size:16px}
+  .primary{margin-top:18px;background:#e85812;color:white}.quiet{display:block;margin:10px auto;border:0;background:none;color:#a53b31;font-weight:700}
+  .bubble{margin-top:28px;background:#e85812;color:white;border:0;max-width:88%;margin-left:auto;border-radius:20px 20px 5px 20px}
+  .bubble footer{text-align:right;margin-top:10px}.copy{border:0;background:#ffffff20;color:white;border-radius:10px;padding:7px 10px}
+  .scrim{position:fixed;inset:0;background:#24191366;display:none;align-items:end}.sheet{width:min(100%,414px);margin:auto;background:#fffaf6;border-radius:28px 28px 0 0;padding:10px 20px 24px}
+  .handle{width:42px;height:5px;border-radius:9px;background:#cdbdb4;margin:0 auto 20px}.sheet p{color:#74665e;line-height:1.5}.danger{background:#ad352d;color:white}.continue{width:100%;border:0;background:none;padding:14px;font-weight:700}
+  .toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%);background:#261d19;color:white;padding:11px 16px;border-radius:14px;display:none;white-space:nowrap}
+  @media(min-width:768px){body{padding:32px}.phone{min-height:820px;border:1px solid #eadbd1;border-radius:36px}}
+</style>
+<main class="phone">
+  <h1>自由训练</h1>
+  <section class="card"><div class="stats"><b>已完成 8 / 12 组</b><span>48 分钟</span></div><button class="primary">结束并保存</button><button class="quiet" id="abort">中止本次训练</button></section>
+  <section class="bubble">请评价昨天的胸部训练<footer><button class="copy" id="copy">⧉ 复制</button></footer></section>
+</main>
+<div class="scrim" id="scrim"><section class="sheet"><div class="handle"></div><h2>中止本次训练</h2><p>当前已完成 8/12 组，训练 48 分钟。中止后不会生成训练记录，已有计划不会被删除。</p><button class="danger" id="hold">长按中止，不保存记录</button><button class="continue" id="continue">继续训练</button></section></div>
+<div class="toast" id="toast">消息已复制</div>
+<script>
+  const scrim=document.querySelector('#scrim'),toast=document.querySelector('#toast');
+  document.querySelector('#abort').onclick=()=>scrim.style.display='flex';document.querySelector('#continue').onclick=()=>scrim.style.display='none';
+  document.querySelector('#copy').onclick=()=>{toast.style.display='block';setTimeout(()=>toast.style.display='none',1200)};
+  let timer;const hold=document.querySelector('#hold');hold.onpointerdown=()=>timer=setTimeout(()=>{scrim.style.display='none';toast.textContent='本次训练已中止，未保存记录';toast.style.display='block'},900);hold.onpointerup=hold.onpointerleave=()=>clearTimeout(timer);
+</script>
+</html>

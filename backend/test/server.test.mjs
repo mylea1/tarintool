@@ -454,6 +454,8 @@ test('AI agent continuation preserves tool message order, consent and one quota 
       body: JSON.stringify({
         question: '读取我的训练计划',
         requestId: 'agent-order-1',
+        clientDate: '2026-08-24',
+        clientTimezoneOffsetMinutes: 480,
         useTrainingData: true,
         availableTools,
       }),
@@ -461,6 +463,11 @@ test('AI agent continuation preserves tool message order, consent and one quota 
     const firstBody = await first.json();
     assert.equal(first.status, 200);
     assert.equal(firstBody.toolCalls[0].name, 'read_training_plans');
+    assert.ok(upstreamBodies[0].messages.some((item) =>
+      item.role === 'system'
+      && item.content.includes('今天=2026-08-24')
+      && item.content.includes('昨天=2026-08-23')
+      && item.content.includes('UTC+08:00')));
     const afterReserve = (await fetch(`${isolatedBase}/v1/me/entitlements`, { headers: auth })).json();
     assert.equal((await afterReserve).aiRemaining, beforeQuota - 1);
 

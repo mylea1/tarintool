@@ -2167,6 +2167,16 @@ class _WorkoutView extends StatelessWidget {
               ),
             ),
           ),
+          const SizedBox(height: 4),
+          Center(
+            child: TextButton.icon(
+              key: const Key('abort-workout-button'),
+              onPressed: () => _showAbortWorkout(context, controller),
+              style: TextButton.styleFrom(foregroundColor: danger),
+              icon: const Icon(Icons.cancel_outlined, size: 18),
+              label: const Text('中止本次训练'),
+            ),
+          ),
         ],
       ],
     );
@@ -8348,6 +8358,11 @@ class _ChatBubble extends StatelessWidget {
     }
   }
 
+  void _copyMessage(BuildContext context) {
+    Clipboard.setData(ClipboardData(text: message.body));
+    showKiloSnack(context, '消息已复制');
+  }
+
   @override
   Widget build(BuildContext context) => Align(
     alignment: message.role == 'user'
@@ -8365,7 +8380,7 @@ class _ChatBubble extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (message.role == 'user')
-            Text(
+            SelectableText(
               message.body,
               style: const TextStyle(color: Colors.white, height: 1.35),
             )
@@ -8407,6 +8422,23 @@ class _ChatBubble extends StatelessWidget {
             ),
           if (message.plan != null)
             _AiPlanCard(plan: message.plan!, controller: controller),
+          if (message.body.trim().isNotEmpty)
+            Align(
+              alignment: Alignment.centerRight,
+              child: IconButton(
+                key: Key('copy-chat-message-${message.id}'),
+                tooltip: '复制消息',
+                visualDensity: VisualDensity.compact,
+                onPressed: () => _copyMessage(context),
+                icon: Icon(
+                  Icons.copy_outlined,
+                  size: 16,
+                  color: message.role == 'user'
+                      ? Colors.white.withValues(alpha: .82)
+                      : muted,
+                ),
+              ),
+            ),
           if (message.citations.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 10),
@@ -11480,6 +11512,61 @@ void _showFinishWorkout(
     context: context,
     builder: (context) =>
         _FinishWorkoutDialog(controller: controller, past: past),
+  );
+}
+
+void _showAbortWorkout(BuildContext context, AppController controller) {
+  showModalBottomSheet<void>(
+    context: context,
+    useSafeArea: true,
+    showDragHandle: true,
+    builder: (sheetContext) => Padding(
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '中止本次训练',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '当前已完成 ${controller.completedSets}/${controller.totalSets} 组，'
+            '训练 ${controller.currentElapsed ~/ 60} 分钟。中止后不会生成训练记录，已有计划不会被删除。',
+            style: const TextStyle(color: muted, height: 1.45),
+          ),
+          const SizedBox(height: 18),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              key: const Key('hold-to-abort-workout'),
+              onPressed: () => showKiloSnack(sheetContext, '请长按按钮，避免误触中止训练'),
+              onLongPress: () {
+                controller.abortWorkout();
+                Navigator.pop(sheetContext);
+                showKiloSnack(context, '本次训练已中止，未保存记录');
+              },
+              style: FilledButton.styleFrom(
+                backgroundColor: danger,
+                foregroundColor: Colors.white,
+                minimumSize: const Size.fromHeight(52),
+              ),
+              icon: const Icon(Icons.touch_app_outlined),
+              label: const Text('长按中止，不保存记录'),
+            ),
+          ),
+          const SizedBox(height: 6),
+          SizedBox(
+            width: double.infinity,
+            child: TextButton(
+              onPressed: () => Navigator.pop(sheetContext),
+              child: const Text('继续训练'),
+            ),
+          ),
+        ],
+      ),
+    ),
   );
 }
 
