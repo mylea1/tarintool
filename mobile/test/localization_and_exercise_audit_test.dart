@@ -33,6 +33,27 @@ void main() {
     expect(equipmentGroupForLabel('药球'), '药球');
   });
 
+  test('cardio machines share the cardio filter', () {
+    expect(equipmentGroupForLabel('固定自行车'), '有氧');
+    expect(equipmentGroupForLabel('椭圆机'), '有氧');
+    expect(equipmentGroupForLabel('登阶机'), '有氧');
+    expect(equipmentGroupForLabel('stationary bike'), '有氧');
+  });
+
+  test('legacy unsupported equipment is hidden from selectable catalog', () {
+    const forbidden = ['波速球', '滑雪机', '训练锤'];
+    expect(
+      selectableCatalog.where(
+        (item) => forbidden.any(
+          (label) =>
+              '${item.name}${item.equipment}${item.family}'.contains(label),
+        ),
+      ),
+      isEmpty,
+    );
+    expect(catalog.length, greaterThan(selectableCatalog.length));
+  });
+
   test('deltoid labels are included in shoulder filtering', () {
     expect(muscleGroupForLabel('三角肌'), '肩');
     expect(muscleGroupForLabel('三角肌中束'), '肩');
@@ -58,6 +79,7 @@ void main() {
       ),
       isTrue,
     );
+    expect(controller.equipmentFilterOptions, contains('有氧'));
   });
 
   test('custom exercises persist for the signed-in account', () async {

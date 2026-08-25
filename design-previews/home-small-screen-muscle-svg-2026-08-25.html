@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>形域 · 小屏首页与互动肌群图</title>
+  <style>
+    :root{--bg:#fff8f2;--surface:#fff;--ink:#251b17;--muted:#7f7068;--line:#eadbd1;--orange:#e95412;--orange-soft:#ffe2d2;--green:#2e9b66;--shadow:0 8px 24px rgba(92,45,20,.08)}
+    *{box-sizing:border-box}html,body{margin:0;background:#ece8e5;color:var(--ink);font-family:Inter,"PingFang SC","Microsoft YaHei",sans-serif}button{font:inherit}button:focus-visible{outline:3px solid #111;outline-offset:2px}
+    .phone{width:min(100%,390px);min-height:100vh;margin:auto;background:var(--bg);overflow:hidden}.top{height:58px;padding:0 14px;display:flex;align-items:center;border-bottom:1px solid var(--line);background:rgba(255,248,242,.96);position:sticky;top:0;z-index:5}.logo{width:30px;height:30px;border-radius:8px;background:conic-gradient(var(--orange) 0 28%,#201a17 0 78%,#fff 0);box-shadow:inset 0 0 0 6px var(--bg)}h1{font-size:20px;margin:0 0 0 9px}.bell{margin-left:auto;width:48px;height:48px;border:0;background:none;font-size:21px}
+    main{padding:12px 12px 86px}.card{background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow)}.today{padding:14px;display:grid;grid-template-columns:minmax(0,1fr) 112px;gap:8px}.eyebrow{font-size:12px;font-weight:800;color:#6f5d54}.today h2{font-size:24px;line-height:1.15;margin:8px 0}.meta{font-size:13px;color:var(--muted);line-height:1.6}.hero-img{width:112px;height:126px;object-fit:contain;align-self:center}.primary{grid-column:1/-1;height:48px;border:0;border-radius:12px;background:var(--orange);color:#fff;font-weight:900;font-size:16px}.adjust{grid-column:1/-1;border:0;background:none;height:34px;color:#5f514a;font-weight:800}
+    .week{margin-top:10px;padding:11px}.section-head{display:flex;align-items:center;font-size:14px;font-weight:900}.section-head span:last-child{margin-left:auto;color:var(--orange)}.days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;margin-top:9px}.day{min-width:0;border:0;background:none;border-radius:12px;padding:5px 1px;color:var(--muted);display:grid;place-items:center;gap:5px}.day strong{font-size:14px;color:var(--ink)}.dot{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:#fff0e7;color:var(--orange);font-size:11px}.day.active{background:var(--orange);color:#fff}.day.active strong{color:#fff}.day.active .dot{background:#fff;color:var(--orange)}
+    .grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin-top:10px}.mini{min-width:0;padding:11px;min-height:236px;overflow:hidden}.mini-title{display:flex;align-items:center;font-size:14px;font-weight:900}.mini-title button{margin-left:auto;width:44px;height:44px;border:0;background:none;color:var(--muted);font-size:18px}.bodies{height:160px;display:flex;justify-content:center;gap:2px;position:relative}.body{position:relative;width:48%;height:100%}.body img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none}.hot{position:absolute;border:0;background:transparent;z-index:3;min-width:24px;min-height:24px}.hot.chest{left:31%;top:18%;width:38%;height:14%}.hot.legs{left:27%;top:44%;width:46%;height:39%}.hot.back{left:27%;top:16%;width:46%;height:25%}.selected{font-size:11px;color:var(--orange);font-weight:800;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.metric{font-size:26px;font-weight:950;margin-top:18px}.gain{font-size:12px;color:var(--green);font-weight:850;margin-top:3px}.chart{height:90px;margin-top:12px}.chart svg{width:100%;height:100%;overflow:visible}.ai{margin-top:10px;min-height:70px;padding:11px;display:flex;align-items:center}.ai-icon{width:42px;height:42px;border-radius:13px;background:var(--orange-soft);display:grid;place-items:center;color:var(--orange);font-size:21px}.ai-copy{min-width:0;margin-left:11px}.ai-copy b{display:block;font-size:15px}.ai-copy span{display:block;margin-top:3px;color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.chev{margin-left:auto;width:44px;height:44px;border:0;background:none;font-size:22px;color:var(--muted)}
+    nav{position:fixed;left:50%;bottom:0;transform:translateX(-50%);width:min(100%,390px);height:68px;background:#fff;border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(5,1fr);z-index:6}.nav-item{border:0;background:none;display:grid;place-items:center;align-content:center;gap:3px;font-size:11px;font-weight:800}.nav-item i{font-style:normal;font-size:20px}.nav-item.active{color:var(--orange)}
+    @media(max-width:340px){main{padding-inline:10px}.today{grid-template-columns:minmax(0,1fr) 90px}.hero-img{width:90px;height:108px}.today h2{font-size:21px}.grid{grid-template-columns:1fr}.mini{min-height:220px}.bodies{height:145px}}
+    @media(min-width:600px){.phone{width:768px}.grid{grid-template-columns:1fr 1fr}.today{grid-template-columns:minmax(0,1fr) 180px}.hero-img{width:180px}.phone nav{width:768px}}
+  </style>
+</head>
+<body>
+  <div class="phone">
+    <header class="top"><div class="logo" aria-hidden="true"></div><h1>主页</h1><button class="bell" aria-label="通知">♧</button></header>
+    <main>
+      <section class="today card">
+        <div><div class="eyebrow">▣ 今日训练</div><h2>上肢力量 A</h2><div class="meta">胸 · 肩 · 三头<br>◷ 预计 55 分钟</div></div>
+        <img class="hero-img" src="../mobile/assets/exercises/bench_press_0.png" alt="上肢训练动作示意" onerror="this.style.opacity=.15" />
+        <button class="primary">开始今日训练</button><button class="adjust">调整计划 ›</button>
+      </section>
+      <section class="week card"><div class="section-head"><span>本周训练</span><span>3 / 4 次</span></div><div class="days" id="days"></div></section>
+      <div class="grid">
+        <section class="mini card"><div class="mini-title">本周肌群 <button aria-label="切换正背面" id="flip">↔</button></div><div class="bodies" id="bodies"></div><div class="selected" id="selected">点击身体选择肌群</div></section>
+        <section class="mini card"><div class="mini-title">卧推趋势 <button aria-label="选择动作">⌄</button></div><div class="metric">82.5 <small style="font-size:12px">kg</small></div><div class="gain">较上次 +2.5 kg</div><div class="chart"><svg viewBox="0 0 140 80" role="img" aria-label="卧推重量上升趋势"><path d="M4 67 L32 55 L60 48 L88 34 L116 25 L136 12" fill="none" stroke="#e95412" stroke-width="3"/><g fill="#fff" stroke="#e95412" stroke-width="2"><circle cx="4" cy="67" r="3"/><circle cx="32" cy="55" r="3"/><circle cx="60" cy="48" r="3"/><circle cx="88" cy="34" r="3"/><circle cx="116" cy="25" r="3"/><circle cx="136" cy="12" r="4"/></g></svg></div></section>
+      </div>
+      <section class="ai card"><div class="ai-icon">✦</div><div class="ai-copy"><b>AI 定制训练</b><span>按目标、器械和时间生成计划</span></div><button class="chev" aria-label="打开 AI 定制训练">›</button></section>
+    </main>
+    <nav aria-label="主导航"><button class="nav-item active"><i>⌂</i>主页</button><button class="nav-item"><i>↯</i>训练</button><button class="nav-item"><i>▤</i>动作</button><button class="nav-item"><i>◫</i>AI</button><button class="nav-item"><i>♙</i>我的</button></nav>
+  </div>
+  <script>
+    const days=['一','二','三','四','五','六','日'];document.querySelector('#days').innerHTML=days.map((d,i)=>`<button class="day ${i===3?'active':''}" aria-label="周${d} ${12+i}日"><span>${d}</span><span class="dot">${i<3?'✓':'·'}</span><strong>${12+i}</strong></button>`).join('');
+    let side='front', muscle='chest';const names={chest:'胸部',quadriceps:'股四头肌','upper-back':'上背部',gluteal:'臀部'};function draw(){const config=side==='front'?[['front','chest','chest'],['front','quadriceps','legs']]:[['back','upper-back','back'],['back','gluteal','legs']];document.querySelector('#bodies').innerHTML=config.map(([s,m,c])=>`<div class="body"><img src="assets/muscle-selector/male-${s}-base.svg" alt="男性${s==='front'?'正面':'背面'}肌肉图"><img src="assets/muscle-selector/male-${s}-${m}.svg" alt="" style="opacity:${muscle===m?1:.22}"><button class="hot ${c}" aria-label="选择${names[m]}" data-muscle="${m}"></button></div>`).join('');document.querySelectorAll('.hot').forEach(b=>b.onclick=()=>{muscle=b.dataset.muscle;document.querySelector('#selected').textContent=`已选择：${names[muscle]}`;draw()})}document.querySelector('#flip').onclick=()=>{side=side==='front'?'back':'front';muscle=side==='front'?'chest':'upper-back';document.querySelector('#selected').textContent=`已选择：${names[muscle]}`;draw()};draw();
+  </script>
+</body>
+</html>

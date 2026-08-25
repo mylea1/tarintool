@@ -7,6 +7,7 @@ import 'package:kilo_strength/exercise_media.dart';
 import 'package:kilo_strength/main.dart';
 import 'package:kilo_strength/membership_ui.dart';
 import 'package:kilo_strength/models.dart';
+import 'package:kilo_strength/muscle_selector.dart';
 import 'package:kilo_strength/recognition_api.dart';
 
 Future<void> _openRoute(WidgetTester tester, String label) async {
@@ -39,7 +40,16 @@ void main() {
 
   test('all reference exercise media assets load', () async {
     expect(catalog, hasLength(1324));
-    expect(selectableCatalog, hasLength(1324));
+    expect(selectableCatalog.length, lessThan(catalog.length));
+    expect(
+      selectableCatalog.every(
+        (item) => !['波速球', '滑雪机', '训练锤'].any(
+          (label) =>
+              '${item.name}${item.equipment}${item.family}'.contains(label),
+        ),
+      ),
+      isTrue,
+    );
     expect(catalog.map((item) => item.id).toSet(), hasLength(1324));
     expect(allExerciseMedia, hasLength(1324));
     final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
@@ -409,6 +419,63 @@ void main() {
     expect(tester.takeException(), isNull);
     controller.finishWorkout();
     await tester.pump();
+  });
+
+  testWidgets('home muscle map uses source SVG and toggles its side', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 812);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    final controller = AppController();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(KiloApp(initialController: controller));
+    await tester.pump();
+
+    expect(find.byKey(const Key('home-muscle-map')), findsOneWidget);
+    expect(find.byKey(const Key('interactive-muscle-map')), findsOneWidget);
+    expect(find.bySemanticsLabel('正面人体图'), findsOneWidget);
+    await tester.tap(find.bySemanticsLabel('背面人体图'));
+    await tester.pump();
+    expect(find.bySemanticsLabel('背面人体图'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('source alpha mask keeps smallest-overlap priority', (
+    tester,
+  ) async {
+    String? tappedMuscle;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 220,
+              child: InteractiveMuscleMap(
+                muscleSets: const {'胸': 4},
+                height: 320,
+                onMuscleTap: (value) => tappedMuscle = value,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final body = find.byKey(const Key('interactive-muscle-body'));
+    final rect = tester.getRect(body);
+    await tester.tapAt(
+      Offset(
+        rect.left + rect.width * (19.5 / 48),
+        rect.top + rect.height * (16.5 / 88),
+      ),
+    );
+    await tester.pump();
+    expect(tappedMuscle, 'trapezius');
+    expect(find.text('斜方肌'), findsOneWidget);
   });
 
   testWidgets(

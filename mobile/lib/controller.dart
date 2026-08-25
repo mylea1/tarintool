@@ -1532,6 +1532,7 @@ class AppController extends ChangeNotifier {
       '固定器械',
       '哑铃',
       '杠铃',
+      '有氧',
       '史密斯机',
       '绳索',
       '自重',

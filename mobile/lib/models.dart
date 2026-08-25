@@ -1157,11 +1157,38 @@ final List<Exercise> _rawCatalog = <Exercise>[
 /// variants. Media remains keyed by the stable exercise ID.
 final List<Exercise> catalog = _disambiguateExerciseNames(_rawCatalog);
 
-/// Every packaged exercise is available to the library and workout pickers.
-/// Recognition continues to use its separate server-capability allow-list, so
-/// restoring the complete catalog here does not advertise unsupported video
-/// analysis movements.
-final List<Exercise> selectableCatalog = List<Exercise>.unmodifiable(catalog);
+/// The complete catalog remains available for history/import compatibility.
+///
+/// A small number of movements belong to legacy equipment categories that are
+/// intentionally not offered by the current picker.  They must be filtered at
+/// the selectable boundary only: old records still resolve through [catalog]
+/// and can be rendered after an app upgrade.
+bool _isUnsupportedSelectableExercise(Exercise exercise) {
+  final haystack = [
+    exercise.name,
+    exercise.englishName,
+    exercise.equipment,
+    exercise.family,
+  ].join(' ').toLowerCase();
+  const forbidden = <String>[
+    '波速球',
+    '滑雪机',
+    '训练锤',
+    'bosu ball',
+    'bosu',
+    'ski erg',
+    'ski machine',
+    'training hammer',
+    'sledgehammer',
+  ];
+  return forbidden.any(haystack.contains);
+}
+
+/// Picker-visible exercises. The historical catalog above is deliberately not
+/// mutated, so old saved plans and records remain readable.
+final List<Exercise> selectableCatalog = List<Exercise>.unmodifiable(
+  catalog.where((exercise) => !_isUnsupportedSelectableExercise(exercise)),
+);
 
 List<Exercise> _disambiguateExerciseNames(List<Exercise> source) {
   final counts = <String, int>{};
@@ -1233,6 +1260,7 @@ String localizeExerciseMetadata(String value, {required bool english}) {
     '史密斯机': 'Smith machine',
     '药球': 'Medicine ball',
     '健身球': 'Stability ball',
+    '有氧': 'Cardio',
     '辅助器械': 'Assisted',
     '其他': 'Other',
     '无': 'None',
@@ -1267,10 +1295,9 @@ String muscleGroupForLabel(String muscle) {
 
 /// Returns the equipment category used by filters.
 ///
-/// Only barbell variants are intentionally consolidated. Every other catalog
-/// label remains independently selectable so restoring the full exercise
-/// library does not hide equipment such as kettlebells, medicine balls or
-/// cardio machines behind an opaque "other" bucket.
+/// Barbell variants and common cardio machines share a stable Chinese filter
+/// group. Other equipment labels remain available so the full exercise library
+/// is not hidden behind an opaque "other" bucket.
 String equipmentGroupForLabel(String equipment) {
   final normalized = equipment.trim().toLowerCase();
   if (normalized.isEmpty) return '其他';
@@ -1283,6 +1310,16 @@ String equipmentGroupForLabel(String equipment) {
       normalized.contains('奥杆') ||
       normalized.contains('trap bar')) {
     return '杠铃';
+  }
+  if (normalized.contains('固定自行车') ||
+      normalized.contains('椭圆机') ||
+      normalized.contains('登阶机') ||
+      normalized.contains('stationary bike') ||
+      normalized.contains('exercise bike') ||
+      normalized.contains('elliptical') ||
+      normalized.contains('stepper') ||
+      normalized.contains('stair climber')) {
+    return '有氧';
   }
   return equipment.trim();
 }

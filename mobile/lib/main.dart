@@ -17,6 +17,7 @@ import 'exercise_media.dart';
 import 'link_utils.dart';
 import 'membership_ui.dart';
 import 'models.dart';
+import 'muscle_selector.dart';
 import 'recognition_api.dart';
 
 // Warm-orange Material 3 tokens. The older names remain as compatibility
@@ -650,6 +651,7 @@ class KiloShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final compact = MediaQuery.sizeOf(context).width <= 360;
     final body = switch (controller.page) {
       PageId.today => HomePage(controller: controller),
       PageId.train => TrainPage(controller: controller),
@@ -661,7 +663,7 @@ class KiloShell extends StatelessWidget {
     };
     return Scaffold(
       appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(54),
+        preferredSize: Size.fromHeight(compact ? 50 : 54),
         child: SafeArea(
           child: _TopBar(controller: controller, title: pageTitle(context)),
         ),
@@ -687,17 +689,33 @@ class KiloShell extends StatelessWidget {
           ],
         ),
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: navIndex,
-        onDestinationSelected: (index) => controller.selectPage(pages[index]),
-        destinations: [
-          for (var i = 0; i < pages.length; i++)
-            NavigationDestination(
-              icon: Icon(icons[i], size: 22),
-              selectedIcon: Icon(icons[i], color: cobalt, size: 22),
-              label: AppLocalizations.of(context).text(labels[i]),
+      bottomNavigationBar: NavigationBarTheme(
+        data: NavigationBarTheme.of(context).copyWith(
+          height: compact ? 58 : 62,
+          labelTextStyle: WidgetStatePropertyAll(
+            TextStyle(
+              fontSize: compact ? 10 : 11,
+              fontWeight: FontWeight.w700,
+              color: ink,
             ),
-        ],
+          ),
+        ),
+        child: NavigationBar(
+          selectedIndex: navIndex,
+          onDestinationSelected: (index) => controller.selectPage(pages[index]),
+          destinations: [
+            for (var i = 0; i < pages.length; i++)
+              NavigationDestination(
+                icon: Icon(icons[i], size: compact ? 20 : 22),
+                selectedIcon: Icon(
+                  icons[i],
+                  color: cobalt,
+                  size: compact ? 20 : 22,
+                ),
+                label: AppLocalizations.of(context).text(labels[i]),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -710,8 +728,9 @@ class _TopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final compact = MediaQuery.sizeOf(context).width <= 360;
     return Container(
-      height: 54,
+      height: compact ? 50 : 54,
       padding: const EdgeInsets.fromLTRB(14, 0, 8, 0),
       decoration: const BoxDecoration(
         color: paper,
@@ -723,15 +742,15 @@ class _TopBar extends StatelessWidget {
           Expanded(
             child: Row(
               children: [
-                const BrandLogo(size: 30),
-                const SizedBox(width: 8),
+                BrandLogo(size: compact ? 26 : 30),
+                SizedBox(width: compact ? 6 : 8),
                 Expanded(
                   child: Text(
                     AppLocalizations.of(context).text(title),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 19,
+                    style: TextStyle(
+                      fontSize: compact ? 18 : 19,
                       fontWeight: FontWeight.w800,
                       color: ink,
                     ),
@@ -1296,15 +1315,20 @@ class _HomeAccentIcon extends StatelessWidget {
   final IconData icon;
 
   @override
-  Widget build(BuildContext context) => Container(
-    width: 44,
-    height: 44,
-    decoration: BoxDecoration(
-      color: primaryContainer,
-      borderRadius: BorderRadius.circular(14),
-    ),
-    child: Icon(icon, color: primary),
-  );
+  Widget build(BuildContext context) {
+    final compact = MediaQuery.sizeOf(context).width <= 360;
+    return Container(
+      // Keep the tap target at 44dp, but reduce the glyph on narrow Android
+      // screens so the icon does not visually dominate compact cards.
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        color: primaryContainer,
+        borderRadius: BorderRadius.circular(compact ? 12 : 14),
+      ),
+      child: Icon(icon, color: primary, size: compact ? 20 : 22),
+    );
+  }
 }
 
 class _HomeMuscleCard extends StatelessWidget {
@@ -1314,6 +1338,7 @@ class _HomeMuscleCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final compact = MediaQuery.sizeOf(context).width <= 360;
     final ranked = muscleSets.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
     final summary = ranked.isEmpty
@@ -1342,7 +1367,7 @@ class _HomeMuscleCard extends StatelessWidget {
               ),
               _MuscleBodyMap(
                 muscleSets: muscleSets,
-                height: 158,
+                height: compact ? 126 : 158,
                 key: const Key('home-muscle-map'),
               ),
               Center(
@@ -5000,150 +5025,14 @@ class _MuscleBodyMap extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SizedBox(
-    key: key ?? const Key('statistics-muscle-map'),
-    height: height,
+    key: key == null ? const Key('statistics-muscle-map') : null,
     width: double.infinity,
-    child: CustomPaint(painter: _MuscleBodyPainter(muscleSets)),
+    child: InteractiveMuscleMap(
+      key: const Key('interactive-muscle-map'),
+      muscleSets: muscleSets,
+      height: height,
+    ),
   );
-}
-
-class _MuscleBodyPainter extends CustomPainter {
-  const _MuscleBodyPainter(this.muscleSets);
-  final Map<String, int> muscleSets;
-
-  Color heat(String name) {
-    final maxValue = muscleSets.values.isEmpty
-        ? 1
-        : muscleSets.values.reduce((a, b) => a > b ? a : b);
-    final value = muscleSets[name] ?? 0;
-    return Color.lerp(const Color(0xFFE9ECEF), primary, value / maxValue) ??
-        primary;
-  }
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final verticalScale = size.height / 250;
-    canvas.save();
-    canvas.scale(1, verticalScale);
-    final logicalSize = Size(size.width, 250);
-    final centerY = logicalSize.height * .51;
-    void drawBody(double centerX, bool back) {
-      final outline = Paint()
-        ..color = const Color(0xFFBFC4CC)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.3;
-      final base = Paint()..color = const Color(0xFFF1F2F4);
-      canvas.drawCircle(Offset(centerX, 22), 15, base);
-      canvas.drawCircle(Offset(centerX, 22), 15, outline);
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromCenter(center: Offset(centerX, 75), width: 62, height: 80),
-          const Radius.circular(24),
-        ),
-        base,
-      );
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromCenter(center: Offset(centerX, 75), width: 62, height: 80),
-          const Radius.circular(24),
-        ),
-        outline,
-      );
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(centerX - 48, 42, 17, 105),
-          const Radius.circular(9),
-        ),
-        base,
-      );
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(centerX + 31, 42, 17, 105),
-          const Radius.circular(9),
-        ),
-        base,
-      );
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(centerX - 29, 110, 24, 118),
-          const Radius.circular(12),
-        ),
-        base,
-      );
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(centerX + 5, 110, 24, 118),
-          const Radius.circular(12),
-        ),
-        base,
-      );
-      final chest = Paint()..color = heat(back ? '背' : '胸');
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(centerX - 28, 45, 56, 35),
-          const Radius.circular(15),
-        ),
-        chest,
-      );
-      final shoulder = Paint()..color = heat('肩');
-      canvas.drawCircle(Offset(centerX - 32, 53), 10, shoulder);
-      canvas.drawCircle(Offset(centerX + 32, 53), 10, shoulder);
-      final arm = Paint()..color = heat('手臂');
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(centerX - 46, 66, 13, 65),
-          const Radius.circular(6),
-        ),
-        arm,
-      );
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(centerX + 33, 66, 13, 65),
-          const Radius.circular(6),
-        ),
-        arm,
-      );
-      final core = Paint()..color = heat('核心');
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(centerX - 18, 82, 36, 35),
-          const Radius.circular(9),
-        ),
-        core,
-      );
-      final legs = Paint()..color = heat('腿');
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(centerX - 27, 117, 20, 101),
-          const Radius.circular(8),
-        ),
-        legs,
-      );
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(centerX + 7, 117, 20, 101),
-          const Radius.circular(8),
-        ),
-        legs,
-      );
-      final label = TextPainter(
-        text: TextSpan(
-          text: back ? '背面' : '正面',
-          style: const TextStyle(color: quiet, fontSize: 11),
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      label.paint(canvas, Offset(centerX - label.width / 2, centerY + 104));
-    }
-
-    drawBody(logicalSize.width * .31, false);
-    drawBody(logicalSize.width * .69, true);
-    canvas.restore();
-  }
-
-  @override
-  bool shouldRepaint(covariant _MuscleBodyPainter oldDelegate) =>
-      oldDelegate.muscleSets != muscleSets;
 }
 
 class _FriendsPage extends StatefulWidget {
