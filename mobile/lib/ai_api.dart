@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import 'models.dart';
+import 'secure_session_store.dart';
 
 class CoachAnswer {
   const CoachAnswer({
@@ -112,13 +113,36 @@ class HttpCoachApi implements CoachApi, AgentCoachApi, StreamingCoachApi {
     required this.baseUrl,
     http.Client? client,
     this.requestTimeout = const Duration(seconds: 90),
+    this.onSessionInvalidated,
   }) : _client = client ?? http.Client();
   final String baseUrl;
   final http.Client _client;
   final Duration requestTimeout;
+  final void Function()? onSessionInvalidated;
   String? _sessionToken;
+  RemoteSession? _remoteSession;
 
   bool get hasSession => _sessionToken?.isNotEmpty == true;
+  RemoteSession? get session => _remoteSession;
+
+  /// Restores a session previously stored by [SecureSessionStore]. The
+  /// caller supplies the current local account so an old account's token
+  /// cannot be attached after switching users.
+  bool restoreSession(
+    RemoteSession session, {
+    required String accountIdentifier,
+  }) {
+    if (!session.matches(
+      accountIdentifier: accountIdentifier,
+      apiOrigin: baseUrl,
+    )) {
+      clearSession();
+      return false;
+    }
+    _remoteSession = session;
+    _sessionToken = session.token;
+    return true;
+  }
 
   /// Releases a pending AI reservation when a local tool or its follow-up
   /// request fails. The request id makes this operation idempotent server-side.
@@ -164,6 +188,12 @@ class HttpCoachApi implements CoachApi, AgentCoachApi, StreamingCoachApi {
     if (token.isEmpty) {
       throw const CoachApiException('coach_auth_token_missing');
     }
+    _remoteSession = RemoteSession(
+      token: token,
+      accountIdentifier: identifier.trim(),
+      apiOrigin: baseUrl,
+      expiresAt: _sessionExpiry(session),
+    );
     _sessionToken = token;
     return payload;
   }
@@ -273,7 +303,15 @@ class HttpCoachApi implements CoachApi, AgentCoachApi, StreamingCoachApi {
     return _decodeJsonResponse(response, 'friend_plan_reaction');
   }
 
-  void clearSession() => _sessionToken = null;
+  void clearSession() {
+    _sessionToken = null;
+    _remoteSession = null;
+  }
+
+  void _invalidateSession() {
+    clearSession();
+    onSessionInvalidated?.call();
+  }
 
   Map<String, String> get _authHeaders {
     final token = _sessionToken;
@@ -395,12 +433,15 @@ class HttpCoachApi implements CoachApi, AgentCoachApi, StreamingCoachApi {
     String operation,
   ) {
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      if (response.statusCode == 401) clearSession();
-      throw _coachServerException(
+      final error = _coachServerException(
         response.statusCode,
         response.body,
         operation,
       );
+      if (response.statusCode == 401 || error.code == 'session_expired') {
+        _invalidateSession();
+      }
+      throw error;
     }
     final payload = jsonDecode(response.body);
     if (payload is! Map<String, dynamic>) {
@@ -438,11 +479,15 @@ class HttpCoachApi implements CoachApi, AgentCoachApi, StreamingCoachApi {
         )
         .timeout(requestTimeout);
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw _coachServerException(
+      final error = _coachServerException(
         response.statusCode,
         response.body,
         'membership_verify',
       );
+      if (response.statusCode == 401 || error.code == 'session_expired') {
+        _invalidateSession();
+      }
+      throw error;
     }
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
@@ -495,7 +540,15 @@ class HttpCoachApi implements CoachApi, AgentCoachApi, StreamingCoachApi {
         final response = await client.send(request).timeout(requestTimeout);
         if (response.statusCode < 200 || response.statusCode >= 300) {
           final body = await response.stream.bytesToString();
-          throw _coachServerException(response.statusCode, body, 'coach');
+          final error = _coachServerException(
+            response.statusCode,
+            body,
+            'coach',
+          );
+          if (response.statusCode == 401 || error.code == 'session_expired') {
+            _invalidateSession();
+          }
+          throw error;
         }
         var buffer = '';
         await for (final chunk in response.stream.transform(utf8.decoder)) {
@@ -595,8 +648,15 @@ class HttpCoachApi implements CoachApi, AgentCoachApi, StreamingCoachApi {
       throw const CoachApiException('coach_network');
     }
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      if (response.statusCode == 401) clearSession();
-      throw _coachServerException(response.statusCode, response.body, 'coach');
+      final error = _coachServerException(
+        response.statusCode,
+        response.body,
+        'coach',
+      );
+      if (response.statusCode == 401 || error.code == 'session_expired') {
+        _invalidateSession();
+      }
+      throw error;
     }
     final payload = jsonDecode(response.body) as Map<String, dynamic>;
     return _answerFromPayload(payload);
@@ -714,6 +774,11 @@ class HttpCoachApi implements CoachApi, AgentCoachApi, StreamingCoachApi {
       toolCalls: toolCalls,
       toolUses: toolUses,
     );
+  }
+
+  static DateTime? _sessionExpiry(Object? rawSession) {
+    if (rawSession is! Map<String, dynamic>) return null;
+    return DateTime.tryParse((rawSession['expiresAt'] ?? '').toString());
   }
 }
 

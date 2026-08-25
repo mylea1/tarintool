@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 
 import 'models.dart';
+import 'secure_session_store.dart';
 
 /// Stable client boundary for the BetterCoach recognition service.
 abstract interface class RecognitionApi {
@@ -132,6 +133,7 @@ class HttpRecognitionApi implements RecognitionApi {
     this.uploadTimeout = const Duration(minutes: 3),
     this.resultTimeout = const Duration(minutes: 4),
     this.pollInterval = const Duration(seconds: 2),
+    this.onSessionInvalidated,
   }) : _client = client ?? http.Client();
 
   final String baseUrl;
@@ -140,10 +142,31 @@ class HttpRecognitionApi implements RecognitionApi {
   final Duration uploadTimeout;
   final Duration resultTimeout;
   final Duration pollInterval;
+  final void Function()? onSessionInvalidated;
   String? _sessionToken;
+  RemoteSession? _remoteSession;
 
   bool get hasSession => _sessionToken?.isNotEmpty == true;
+  RemoteSession? get session => _remoteSession;
   String get _origin => baseUrl.replaceAll(RegExp(r'/+$'), '');
+
+  /// Restores the coach session for recognition without asking the user for
+  /// the password a second time.
+  bool restoreSession(
+    RemoteSession session, {
+    required String accountIdentifier,
+  }) {
+    if (!session.matches(
+      accountIdentifier: accountIdentifier,
+      apiOrigin: baseUrl,
+    )) {
+      clearSession();
+      return false;
+    }
+    _remoteSession = session;
+    _sessionToken = session.token;
+    return true;
+  }
 
   Future<void> signIn({
     required String identifier,
@@ -164,10 +187,24 @@ class HttpRecognitionApi implements RecognitionApi {
     if (token.isEmpty) {
       throw const RecognitionApiException('recognition_auth_token_missing');
     }
+    _remoteSession = RemoteSession(
+      token: token,
+      accountIdentifier: identifier.trim(),
+      apiOrigin: baseUrl,
+      expiresAt: _sessionExpiry(session),
+    );
     _sessionToken = token;
   }
 
-  void clearSession() => _sessionToken = null;
+  void clearSession() {
+    _sessionToken = null;
+    _remoteSession = null;
+  }
+
+  void _invalidateSession() {
+    clearSession();
+    onSessionInvalidated?.call();
+  }
 
   Future<List<RecognitionCapability>> capabilities() async {
     try {
@@ -451,13 +488,16 @@ class HttpRecognitionApi implements RecognitionApi {
     String operation,
   ) {
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      if (response.statusCode == 401) clearSession();
       try {
         final errorPayload = jsonDecode(response.body);
         if (errorPayload is Map<String, dynamic>) {
           final serverCode = errorPayload['error']?.toString() ?? '';
           if (serverCode.isNotEmpty) {
-            throw RecognitionApiException(serverCode);
+            final error = RecognitionApiException(serverCode);
+            if (response.statusCode == 401 || serverCode == 'session_expired') {
+              _invalidateSession();
+            }
+            throw error;
           }
         }
       } on RecognitionApiException {
@@ -465,6 +505,7 @@ class HttpRecognitionApi implements RecognitionApi {
       } on FormatException {
         // Fall through to the HTTP status based diagnostic below.
       }
+      if (response.statusCode == 401) _invalidateSession();
       throw RecognitionApiException('${operation}_http_${response.statusCode}');
     }
     final decoded = jsonDecode(response.body);
@@ -495,6 +536,11 @@ class HttpRecognitionApi implements RecognitionApi {
     };
   }
 
+  static DateTime? _sessionExpiry(Object? rawSession) {
+    if (rawSession is! Map<String, dynamic>) return null;
+    return DateTime.tryParse((rawSession['expiresAt'] ?? '').toString());
+  }
+
   static String _errorSummary(String error) => recognitionErrorMessage(error);
 }
 
@@ -510,7 +556,9 @@ String recognitionErrorMessage(String error) => switch (error) {
   'recognition_result_timeout' => '服务器分析超时，视频已保留，请稍后直接重试。',
   'recognition_network' => '网络连接中断，视频已保留，请检查网络后重试。',
   'recognition_unauthenticated' ||
-  'recognition_auth_token_missing' => '登录状态已失效，请重新登录后重试。',
+  'recognition_auth_token_missing' ||
+  'recognition_session_expired' ||
+  'session_expired' => '登录已过期，请重新登录后重试。',
   'compute_processing_failed' => '分析服务处理失败，视频已保留，请直接重试。',
   'recognition_exercise_unsupported' ||
   'recognition_camera_unsupported' => '暂不支持当前动作或拍摄角度，请更换后重试。',

@@ -90,6 +90,9 @@ class _KiloAppState extends State<KiloApp> with WidgetsBindingObserver {
       await controller.accountService.hydrateFromSharedPreferences().timeout(
         const Duration(seconds: 3),
       );
+      await controller.restoreRemoteSession().timeout(
+        const Duration(seconds: 3),
+      );
       await controller.hydrateAppLanguage().timeout(const Duration(seconds: 3));
       await controller.hydrateAiSkills().timeout(const Duration(seconds: 3));
       await controller.hydrateWorkoutHistory().timeout(
@@ -451,6 +454,7 @@ class _LoginPageState extends State<LoginPage> {
   Widget build(BuildContext context) {
     final strings = AppLocalizations.of(context);
     final isIos = defaultTargetPlatform == TargetPlatform.iOS;
+    final visibleError = error ?? widget.controller.sessionExpiredMessage;
     return Scaffold(
       key: const Key('login-page'),
       body: SafeArea(
@@ -555,10 +559,10 @@ class _LoginPageState extends State<LoginPage> {
                                 labelText: strings.text('密码'),
                               ),
                             ),
-                            if (error != null) ...[
+                            if (visibleError != null) ...[
                               const SizedBox(height: 8),
                               Text(
-                                error!,
+                                visibleError,
                                 style: const TextStyle(
                                   color: danger,
                                   fontSize: 12,
@@ -5094,6 +5098,19 @@ class _FriendsPageState extends State<_FriendsPage> {
         pending = _maps(results[0]['pending']);
         plans = _maps(results[1]['plans']);
         loading = false;
+      });
+    } on CoachApiException catch (exception) {
+      if (!mounted) return;
+      setState(() {
+        loading = false;
+        error = switch (exception.code) {
+          'session_expired' ||
+          'coach_session_expired' ||
+          'coach_unauthenticated' ||
+          'coach_http_401' => '登录已过期，请重新登录。',
+          'coach_network' => '当前网络无法连接好友服务，请检查网络后重试。',
+          _ => '好友服务暂时不可用，请检查网络后重试。',
+        };
       });
     } catch (_) {
       if (!mounted) return;

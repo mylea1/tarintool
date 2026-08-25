@@ -10,6 +10,7 @@ import 'package:kilo_strength/controller.dart';
 import 'package:kilo_strength/main.dart';
 import 'package:kilo_strength/models.dart';
 import 'package:kilo_strength/recognition_api.dart';
+import 'package:kilo_strength/secure_session_store.dart';
 
 void main() {
   testWidgets('default app starts at login root', (tester) async {
@@ -41,7 +42,11 @@ void main() {
         );
       }),
     );
-    final controller = AppController(accountService: service, coachApi: api);
+    final controller = AppController(
+      accountService: service,
+      coachApi: api,
+      secureSessionStore: InMemorySecureSessionStore(),
+    );
     addTearDown(controller.dispose);
     await tester.pumpWidget(
       MaterialApp(home: LoginPage(controller: controller)),
@@ -87,7 +92,11 @@ void main() {
         ),
       ),
     );
-    final controller = AppController(accountService: service, coachApi: api);
+    final controller = AppController(
+      accountService: service,
+      coachApi: api,
+      secureSessionStore: InMemorySecureSessionStore(),
+    );
     addTearDown(controller.dispose);
 
     await tester.pumpWidget(
@@ -121,7 +130,11 @@ void main() {
               http.Response(jsonEncode({'error': 'invalid_credentials'}), 401),
         ),
       );
-      final controller = AppController(accountService: service, coachApi: api);
+      final controller = AppController(
+        accountService: service,
+        coachApi: api,
+        secureSessionStore: InMemorySecureSessionStore(),
+      );
       addTearDown(controller.dispose);
 
       await tester.pumpWidget(

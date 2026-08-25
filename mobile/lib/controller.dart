@@ -12,6 +12,7 @@ import 'ai_api.dart';
 import 'natural_workout_parser.dart';
 import 'models.dart';
 import 'recognition_api.dart';
+import 'secure_session_store.dart';
 import 'workout_history_persistence.dart';
 
 const String defaultCoachApiBaseUrl = String.fromEnvironment(
@@ -214,6 +215,7 @@ class AppController extends ChangeNotifier {
     WorkoutHistoryPersistence? workoutHistoryPersistence,
     ActiveWorkoutPersistence? activeWorkoutPersistence,
     TrainingLibraryPersistence? trainingLibraryPersistence,
+    SecureSessionStore? secureSessionStore,
   }) : accountService = accountService ?? AccountService(),
        workoutHistoryPersistence =
            workoutHistoryPersistence ??
@@ -223,7 +225,8 @@ class AppController extends ChangeNotifier {
            SharedPreferencesActiveWorkoutPersistence(),
        trainingLibraryPersistence =
            trainingLibraryPersistence ??
-           SharedPreferencesTrainingLibraryPersistence() {
+           SharedPreferencesTrainingLibraryPersistence(),
+       secureSessionStore = secureSessionStore ?? FlutterSecureSessionStore() {
     _seed();
     PlatformTimerBridge.setSystemActionHandlers(
       onRestSkipped: skipRest,
@@ -242,6 +245,7 @@ class AppController extends ChangeNotifier {
   final WorkoutHistoryPersistence workoutHistoryPersistence;
   final ActiveWorkoutPersistence activeWorkoutPersistence;
   final TrainingLibraryPersistence trainingLibraryPersistence;
+  final SecureSessionStore secureSessionStore;
   Future<void> _historyWriteChain = Future<void>.value();
   Future<void> _activeWorkoutWriteChain = Future<void>.value();
   Future<void> _trainingLibraryWriteChain = Future<void>.value();
@@ -260,11 +264,15 @@ class AppController extends ChangeNotifier {
   String? _defaultRecognitionApiBaseUrl;
   String? _remoteIdentifier;
   String? _remotePassword;
+  RemoteSession? _storedRemoteSession;
+  bool _secureSessionLoaded = false;
+  String? _sessionExpiredMessage;
   bool _disposed = false;
 
   AccountUser? get currentUser => accountService.currentUser;
   bool get isAuthenticated => accountService.isAuthenticated;
   bool get isAdmin => accountService.isAdmin;
+  String? get sessionExpiredMessage => _sessionExpiredMessage;
   EntitlementSnapshot? get entitlements => accountService.entitlements;
   int get aiRemaining => accountService.aiRemaining;
   int get recognitionRemaining => accountService.recognitionRemaining;
@@ -438,6 +446,11 @@ class AppController extends ChangeNotifier {
     final userId = currentUser?.id;
     if (_observedAccountUserId != userId) {
       _observedAccountUserId = userId;
+      _remoteIdentifier = currentUser?.identifier;
+      _remotePassword = null;
+      if (userId == null || userId.isEmpty) {
+        unawaited(secureSessionStore.clear());
+      }
       _loadedAiConversationsUserId = null;
       conversations.clear();
       chat.clear();
@@ -454,6 +467,9 @@ class AppController extends ChangeNotifier {
   AuthResult loginWithPhone(String identifier, {String? password}) {
     _defaultCoachApi?.clearSession();
     _defaultRecognitionApi?.clearSession();
+    _storedRemoteSession = null;
+    _secureSessionLoaded = true;
+    unawaited(secureSessionStore.clear());
     final result = accountService.loginWithPhone(
       identifier,
       password: password,
@@ -461,6 +477,7 @@ class AppController extends ChangeNotifier {
     if (result.isSuccess) {
       _remoteIdentifier = identifier.trim();
       _remotePassword = password;
+      _sessionExpiredMessage = null;
       aiSkills.clear();
       unawaited(hydrateWorkoutHistory(force: true));
       unawaited(hydrateActiveWorkout());
@@ -474,7 +491,10 @@ class AppController extends ChangeNotifier {
   Future<Map<String, bool>> androidPaymentCapabilities() async {
     final api = coachApi is HttpCoachApi
         ? coachApi! as HttpCoachApi
-        : (_defaultCoachApi ??= HttpCoachApi(baseUrl: defaultCoachApiBaseUrl));
+        : (_defaultCoachApi ??= HttpCoachApi(
+            baseUrl: defaultCoachApiBaseUrl,
+            onSessionInvalidated: _handleRemoteSessionInvalidated,
+          ));
     final payload = await api.fetchAndroidPaymentCapabilities();
     return {
       'wechatPay': payload['wechatPay'] == true,
@@ -524,9 +544,24 @@ class AppController extends ChangeNotifier {
     if (normalized.isEmpty) {
       return const AuthResult.failure(AccountError.emptyIdentifier);
     }
+    // A new remote login starts a fresh session. This prevents the previous
+    // account's token from being reused while the local account is replaced.
+    _defaultCoachApi?.clearSession();
+    _defaultRecognitionApi?.clearSession();
+    if (coachApi is HttpCoachApi) {
+      (coachApi as HttpCoachApi).clearSession();
+    }
+    if (recognitionApi is HttpRecognitionApi) {
+      (recognitionApi as HttpRecognitionApi).clearSession();
+    }
+    _storedRemoteSession = null;
+    _secureSessionLoaded = true;
     final api = coachApi is HttpCoachApi
         ? coachApi! as HttpCoachApi
-        : (_defaultCoachApi ??= HttpCoachApi(baseUrl: defaultCoachApiBaseUrl));
+        : (_defaultCoachApi ??= HttpCoachApi(
+            baseUrl: defaultCoachApiBaseUrl,
+            onSessionInvalidated: _handleRemoteSessionInvalidated,
+          ));
     _defaultCoachApiBaseUrl = defaultCoachApiBaseUrl;
     try {
       final payload = await api.signIn(
@@ -546,6 +581,11 @@ class AppController extends ChangeNotifier {
       if (result.isSuccess) {
         _remoteIdentifier = normalized;
         _remotePassword = password;
+        _sessionExpiredMessage = null;
+        _storedRemoteSession = api.session;
+        _secureSessionLoaded = true;
+        final session = api.session;
+        if (session != null) await secureSessionStore.write(session);
         aiSkills.clear();
         unawaited(hydrateWorkoutHistory(force: true));
         unawaited(hydrateActiveWorkout());
@@ -739,6 +779,10 @@ class AppController extends ChangeNotifier {
     _remotePassword = null;
     _defaultCoachApi?.clearSession();
     _defaultRecognitionApi?.clearSession();
+    _storedRemoteSession = null;
+    _secureSessionLoaded = true;
+    unawaited(secureSessionStore.clear());
+    _sessionExpiredMessage = null;
     accountService.logout();
     _loadedHistoryUserId = null;
     _loadedTrainingLibraryUserId = null;
@@ -3255,17 +3299,23 @@ class AppController extends ChangeNotifier {
     }
     if (_defaultRecognitionApi == null ||
         _defaultRecognitionApiBaseUrl != baseUrl) {
-      _defaultRecognitionApi = HttpRecognitionApi(baseUrl: baseUrl);
+      _defaultRecognitionApi = HttpRecognitionApi(
+        baseUrl: baseUrl,
+        onSessionInvalidated: _handleRemoteSessionInvalidated,
+      );
       _defaultRecognitionApiBaseUrl = baseUrl;
     }
     final api = _defaultRecognitionApi!;
     if (!api.hasSession) {
+      final restored = await _restoreRecognitionSession(api);
+      if (restored) return api;
       final identifier = _remoteIdentifier ?? currentUser?.identifier;
       final password =
           _remotePassword ??
           ((identifier == '123' || identifier == '1234') ? identifier : null);
       if (identifier == null || identifier.isEmpty || password == null) {
-        throw const RecognitionApiException('recognition_account_not_synced');
+        _handleRemoteSessionInvalidated();
+        throw const RecognitionApiException('recognition_session_expired');
       }
       await api.signIn(identifier: identifier, password: password);
     }
@@ -3281,21 +3331,120 @@ class AppController extends ChangeNotifier {
       throw const CoachApiException('coach_base_url_missing');
     }
     if (_defaultCoachApi == null || _defaultCoachApiBaseUrl != baseUrl) {
-      _defaultCoachApi = HttpCoachApi(baseUrl: baseUrl);
+      _defaultCoachApi = HttpCoachApi(
+        baseUrl: baseUrl,
+        onSessionInvalidated: _handleRemoteSessionInvalidated,
+      );
       _defaultCoachApiBaseUrl = baseUrl;
     }
     final api = _defaultCoachApi!;
     if (!api.hasSession) {
+      final restored = await _restoreCoachSession(api);
+      if (restored) return api;
       final identifier = _remoteIdentifier ?? currentUser?.identifier;
       final password =
           _remotePassword ??
           ((identifier == '123' || identifier == '1234') ? identifier : null);
       if (identifier == null || identifier.isEmpty || password == null) {
-        throw const CoachApiException('coach_account_not_synced');
+        _handleRemoteSessionInvalidated();
+        throw const CoachApiException('coach_session_expired');
       }
       await api.signIn(identifier: identifier, password: password);
     }
     return api;
+  }
+
+  Future<void> restoreRemoteSession() async {
+    final user = currentUser;
+    if (user == null || user.identifier.trim().isEmpty) return;
+    final session = await _readStoredRemoteSession();
+    if (session == null ||
+        !session.matches(
+          accountIdentifier: user.identifier,
+          apiOrigin: aiBaseUrl,
+        )) {
+      if (session != null) await _clearStoredRemoteSession();
+      return;
+    }
+    final coach = coachApi;
+    if (coach is HttpCoachApi) {
+      coach.restoreSession(session, accountIdentifier: user.identifier);
+    } else if (coach == null) {
+      final api = _defaultCoachApi ??= HttpCoachApi(
+        baseUrl: aiBaseUrl,
+        onSessionInvalidated: _handleRemoteSessionInvalidated,
+      );
+      _defaultCoachApiBaseUrl = aiBaseUrl;
+      api.restoreSession(session, accountIdentifier: user.identifier);
+    }
+    final recognition = recognitionApi;
+    if (recognition is HttpRecognitionApi) {
+      recognition.restoreSession(session, accountIdentifier: user.identifier);
+    } else if (recognition == null) {
+      final api = _defaultRecognitionApi ??= HttpRecognitionApi(
+        baseUrl: aiBaseUrl,
+        onSessionInvalidated: _handleRemoteSessionInvalidated,
+      );
+      _defaultRecognitionApiBaseUrl = aiBaseUrl;
+      api.restoreSession(session, accountIdentifier: user.identifier);
+    }
+    _remoteIdentifier = user.identifier;
+    notifyListeners();
+  }
+
+  Future<bool> _restoreCoachSession(HttpCoachApi api) async {
+    final user = currentUser;
+    final session = await _readStoredRemoteSession();
+    if (user == null || session == null) return false;
+    if (!api.restoreSession(session, accountIdentifier: user.identifier)) {
+      await _clearStoredRemoteSession();
+      return false;
+    }
+    _remoteIdentifier = user.identifier;
+    return true;
+  }
+
+  Future<bool> _restoreRecognitionSession(HttpRecognitionApi api) async {
+    final user = currentUser;
+    final session = await _readStoredRemoteSession();
+    if (user == null || session == null) return false;
+    if (!api.restoreSession(session, accountIdentifier: user.identifier)) {
+      await _clearStoredRemoteSession();
+      return false;
+    }
+    _remoteIdentifier = user.identifier;
+    return true;
+  }
+
+  Future<RemoteSession?> _readStoredRemoteSession() async {
+    if (!_secureSessionLoaded) {
+      _storedRemoteSession = await secureSessionStore.read();
+      _secureSessionLoaded = true;
+    }
+    final session = _storedRemoteSession;
+    if (session?.isExpired() == true) {
+      await _clearStoredRemoteSession();
+      return null;
+    }
+    return session;
+  }
+
+  Future<void> _clearStoredRemoteSession() async {
+    _storedRemoteSession = null;
+    _secureSessionLoaded = true;
+    await secureSessionStore.clear();
+  }
+
+  void _handleRemoteSessionInvalidated() {
+    _storedRemoteSession = null;
+    _secureSessionLoaded = true;
+    _remotePassword = null;
+    _sessionExpiredMessage = '登录已过期，请重新登录。';
+    unawaited(secureSessionStore.clear());
+    _defaultCoachApi?.clearSession();
+    _defaultRecognitionApi?.clearSession();
+    accountService.logout();
+    notifyListeners();
   }
 
   String _buildAiTrainingSummary() {
@@ -4187,7 +4336,10 @@ class AppController extends ChangeNotifier {
           serviceError = switch (error.code) {
             'coach_cancelled' =>
               answerMessage.body.trim().isEmpty ? '已停止回答。' : null,
-            'coach_account_not_synced' => '当前账号尚未完成云端登录，请重新登录后再试。',
+            'coach_account_not_synced' ||
+            'coach_session_expired' ||
+            'session_expired' ||
+            'coach_http_401' => '登录已过期，请重新登录后再试。',
             'quota_exhausted' => _aiQuotaExhaustedMessage(),
             'coach_timeout' => 'AI 响应超时，已自动重试一次，请稍后再试。',
             'coach_network' => '当前网络无法连接 AI 服务，请检查网络后重试。',
