@@ -1011,73 +1011,141 @@ class HomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasHistory = controller.history.isNotEmpty;
-    final latest = hasHistory ? controller.history.first : null;
+    final today = DateTime.now();
+    final monday = DateTime(
+      today.year,
+      today.month,
+      today.day,
+    ).subtract(Duration(days: today.weekday - 1));
+    final weekRecords = controller.history
+        .where((record) => !record.date.isBefore(monday))
+        .toList(growable: false);
+    final muscleSets = <String, int>{};
+    for (final record in weekRecords) {
+      for (final workoutExercise in record.exercises) {
+        final muscle = controller.muscleGroupFor(
+          controller.exerciseFor(workoutExercise.exerciseId).muscle,
+        );
+        final completed = workoutExercise.sets
+            .where((set) => set.completed)
+            .length;
+        if (completed > 0) {
+          muscleSets[muscle] = (muscleSets[muscle] ?? 0) + completed;
+        }
+      }
+    }
     return PageFrame(
       children: [
-        SectionTitle('训练概览', subtitle: '今天只做最重要的下一步'),
-        _HomeWorkoutHero(controller: controller, latest: latest),
-        const SizedBox(height: 18),
+        _HomeTodayWorkoutCard(controller: controller),
+        const SizedBox(height: 16),
         SectionTitle(
-          '训练周',
-          subtitle: '点击日期查看或调整安排',
-          action: '完整月历',
-          onAction: () => controller.selectPage(PageId.records),
+          '本周训练',
+          action:
+              '${weekRecords.map((record) => _dateKey(record.date)).toSet().length} / 4 次',
         ),
         _WeekStrip(controller: controller),
-        if (controller.scheduled.isEmpty)
-          const Padding(
-            padding: EdgeInsets.only(top: 8),
-            child: Text('暂无排程，可在记录日历中安排训练。', style: TextStyle(color: quiet)),
-          ),
-        const SizedBox(height: 18),
-        SectionTitle(
-          '最近记录',
-          subtitle: hasHistory ? '已保存的真实训练记录' : '完成训练后会出现在这里',
-          action: hasHistory ? '全部记录' : null,
-          onAction: hasHistory
-              ? () => controller.selectPage(PageId.records)
-              : null,
+        const SizedBox(height: 12),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final cards = <Widget>[
+              _HomeMuscleCard(controller: controller, muscleSets: muscleSets),
+              _HomeExerciseTrendCard(controller: controller),
+            ];
+            if (constraints.maxWidth < 315) {
+              return Column(
+                children: [cards.first, const SizedBox(height: 10), cards.last],
+              );
+            }
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: cards.first),
+                const SizedBox(width: 10),
+                Expanded(child: cards.last),
+              ],
+            );
+          },
         ),
-        if (!hasHistory)
-          const Card(
-            key: Key('home-recent-empty'),
-            child: Padding(
+        const SizedBox(height: 12),
+        Card(
+          child: InkWell(
+            key: const Key('home-ai-workout'),
+            borderRadius: BorderRadius.circular(16),
+            onTap: () => _showAiWorkoutPlanner(context, controller),
+            child: const Padding(
               padding: EdgeInsets.all(14),
-              child: Text('暂无训练记录。', style: TextStyle(color: quiet)),
+              child: Row(
+                children: [
+                  _HomeAccentIcon(icon: Icons.auto_awesome_rounded),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'AI 定制训练',
+                          style: TextStyle(fontWeight: FontWeight.w900),
+                        ),
+                        SizedBox(height: 3),
+                        Text(
+                          '按目标、器械和时间生成计划',
+                          style: TextStyle(color: quiet, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(Icons.chevron_right_rounded, color: quiet),
+                ],
+              ),
             ),
-          )
-        else
-          for (final record in controller.history.take(3))
-            _RecordTile(
-              controller: controller,
-              record: record,
-              onTap: () => _showRecordDetail(context, controller, record),
-            ),
+          ),
+        ),
       ],
     );
   }
 }
 
-class _HomeWorkoutHero extends StatelessWidget {
-  const _HomeWorkoutHero({required this.controller, required this.latest});
+class _HomeTodayWorkoutCard extends StatelessWidget {
+  const _HomeTodayWorkoutCard({required this.controller});
   final AppController controller;
-  final WorkoutRecord? latest;
 
   @override
   Widget build(BuildContext context) {
     final active = controller.workoutStarted;
-    final title = active ? controller.workoutName : latest?.name ?? '自由训练';
-    final exerciseId = active && controller.workout.isNotEmpty
-        ? controller.workout.first.exerciseId
-        : latest != null && latest!.exerciseIds.isNotEmpty
-        ? latest!.exerciseIds.first
-        : null;
-    final meta = active
-        ? '${controller.workout.length} 个动作 · ${controller.currentElapsed ~/ 60} 分钟'
-        : latest == null
-        ? '不需要计划，也可以边练边记录'
-        : '${latest!.exerciseIds.length} 个动作 · ${(latest!.durationSeconds / 60).round()} 分钟';
+    final label = controller.scheduledLabels[_dateKey(DateTime.now())];
+    Routine? routine;
+    if (label != null) {
+      for (final item in controller.routines) {
+        if (item.name == label) {
+          routine = item;
+          break;
+        }
+      }
+    }
+    final plannedRoutine = routine;
+    final source = active
+        ? controller.workout
+        : plannedRoutine?.exercises ?? [];
+    final title = active
+        ? (controller.workoutName == '自由训练' ? '本次训练' : controller.workoutName)
+        : plannedRoutine?.name ?? label ?? '今天尚未安排训练';
+    final muscles = source
+        .map(
+          (item) => controller.muscleGroupFor(
+            controller.exerciseFor(item.exerciseId).muscle,
+          ),
+        )
+        .toSet()
+        .take(3)
+        .join(' · ');
+    final setCount = source.fold<int>(
+      0,
+      (sum, exercise) => sum + exercise.sets.length,
+    );
+    final estimateMinutes = active
+        ? (controller.currentElapsed ~/ 60).clamp(0, 999)
+        : (setCount * 3 + source.length * 2).clamp(20, 90);
+    final exerciseId = source.isEmpty ? null : source.first.exerciseId;
     return Container(
       key: const Key('home-overview-section'),
       decoration: BoxDecoration(
@@ -1116,11 +1184,7 @@ class _HomeWorkoutHero extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            active
-                                ? '实时训练'
-                                : latest == null
-                                ? '今日训练'
-                                : '最近训练',
+                            '今日训练',
                             style: const TextStyle(
                               color: primary,
                               fontSize: 12,
@@ -1136,7 +1200,9 @@ class _HomeWorkoutHero extends StatelessWidget {
                           ),
                           const SizedBox(height: 5),
                           Text(
-                            meta,
+                            source.isEmpty
+                                ? '选择一节训练后即可开始记录'
+                                : '$muscles\n${active ? '已训练' : '预计'} $estimateMinutes 分钟',
                             style: const TextStyle(color: secondaryInk),
                           ),
                         ],
@@ -1176,44 +1242,45 @@ class _HomeWorkoutHero extends StatelessWidget {
                   ),
                 ],
                 const SizedBox(height: 16),
-                if (active)
-                  FilledButton.icon(
-                    key: const Key('home-continue'),
-                    onPressed: () {
+                FilledButton.icon(
+                  key: Key(
+                    active
+                        ? 'home-continue'
+                        : plannedRoutine == null
+                        ? 'home-browse-plans'
+                        : 'home-start-today',
+                  ),
+                  onPressed: () {
+                    if (active) {
                       controller.openLiveWorkout();
-                      showKiloSnack(context, '已返回实时训练');
+                    } else if (plannedRoutine != null) {
+                      controller.startRoutine(plannedRoutine);
+                    } else {
+                      controller.selectPage(PageId.train);
+                      controller.selectTrainView(TrainView.plans);
+                    }
+                  },
+                  icon: Icon(
+                    plannedRoutine == null && !active
+                        ? Icons.menu_book_outlined
+                        : Icons.play_arrow_rounded,
+                  ),
+                  label: Text(
+                    active
+                        ? '继续今日训练'
+                        : plannedRoutine == null
+                        ? '选择训练计划'
+                        : '开始今日训练',
+                  ),
+                ),
+                if (!active && plannedRoutine != null)
+                  TextButton(
+                    key: const Key('home-adjust-plan'),
+                    onPressed: () {
+                      controller.selectPage(PageId.train);
+                      controller.selectTrainView(TrainView.plans);
                     },
-                    icon: const Icon(Icons.play_arrow_rounded),
-                    label: const Text('继续训练'),
-                  )
-                else
-                  Row(
-                    children: [
-                      Expanded(
-                        child: FilledButton.icon(
-                          key: const Key('home-free-workout'),
-                          onPressed: () {
-                            controller.startWorkout(
-                              name: '自由训练',
-                              autoStartTimer: false,
-                            );
-                            controller.openLiveWorkout();
-                          },
-                          icon: const Icon(Icons.play_arrow_rounded),
-                          label: const Text('开始训练'),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      IconButton.outlined(
-                        key: const Key('home-browse-plans'),
-                        tooltip: '浏览计划',
-                        onPressed: () {
-                          controller.selectPage(PageId.train);
-                          controller.selectTrainView(TrainView.plans);
-                        },
-                        icon: const Icon(Icons.menu_book_outlined),
-                      ),
-                    ],
+                    child: const Text('调整计划'),
                   ),
               ],
             ),
@@ -1222,6 +1289,312 @@ class _HomeWorkoutHero extends StatelessWidget {
       ),
     );
   }
+}
+
+class _HomeAccentIcon extends StatelessWidget {
+  const _HomeAccentIcon({required this.icon});
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 44,
+    height: 44,
+    decoration: BoxDecoration(
+      color: primaryContainer,
+      borderRadius: BorderRadius.circular(14),
+    ),
+    child: Icon(icon, color: primary),
+  );
+}
+
+class _HomeMuscleCard extends StatelessWidget {
+  const _HomeMuscleCard({required this.controller, required this.muscleSets});
+  final AppController controller;
+  final Map<String, int> muscleSets;
+
+  @override
+  Widget build(BuildContext context) {
+    final ranked = muscleSets.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final summary = ranked.isEmpty
+        ? '完成训练后显示分布'
+        : ranked.take(3).map((item) => item.key).join(' · ');
+    return Card(
+      child: InkWell(
+        key: const Key('home-muscle-card'),
+        borderRadius: BorderRadius.circular(16),
+        onTap: () => controller.selectPage(PageId.records),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '本周肌群',
+                      style: TextStyle(fontWeight: FontWeight.w900),
+                    ),
+                  ),
+                  Icon(Icons.chevron_right_rounded, size: 19, color: quiet),
+                ],
+              ),
+              _MuscleBodyMap(
+                muscleSets: muscleSets,
+                height: 158,
+                key: const Key('home-muscle-map'),
+              ),
+              Center(
+                child: Text(
+                  summary,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: quiet, fontSize: 11),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ExerciseTrendPoint {
+  const _ExerciseTrendPoint({required this.date, required this.weight});
+  final DateTime date;
+  final double weight;
+}
+
+class _HomeExerciseTrendCard extends StatefulWidget {
+  const _HomeExerciseTrendCard({required this.controller});
+  final AppController controller;
+
+  @override
+  State<_HomeExerciseTrendCard> createState() => _HomeExerciseTrendCardState();
+}
+
+class _HomeExerciseTrendCardState extends State<_HomeExerciseTrendCard> {
+  String? selectedExerciseId;
+
+  Map<String, List<_ExerciseTrendPoint>> _series() {
+    final result = <String, List<_ExerciseTrendPoint>>{};
+    for (final record in widget.controller.history.reversed) {
+      for (final exercise in record.exercises) {
+        final completed = exercise.sets
+            .where((set) => set.completed && set.weight > 0)
+            .toList();
+        if (completed.isEmpty) continue;
+        final best = completed
+            .map((set) => set.weight)
+            .reduce((a, b) => a > b ? a : b);
+        result
+            .putIfAbsent(exercise.exerciseId, () => <_ExerciseTrendPoint>[])
+            .add(_ExerciseTrendPoint(date: record.date, weight: best));
+      }
+    }
+    return result;
+  }
+
+  Future<void> _pickExercise(
+    Map<String, List<_ExerciseTrendPoint>> series,
+  ) async {
+    final choices = series.keys.toList()
+      ..sort(
+        (a, b) => widget.controller
+            .displayExerciseName(widget.controller.exerciseFor(a))
+            .compareTo(
+              widget.controller.displayExerciseName(
+                widget.controller.exerciseFor(b),
+              ),
+            ),
+      );
+    await showModalBottomSheet<void>(
+      context: context,
+      useSafeArea: true,
+      builder: (context) => ListView(
+        shrinkWrap: true,
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 18),
+        children: [
+          const ListTile(
+            title: Text(
+              '选择趋势动作',
+              style: TextStyle(fontWeight: FontWeight.w900),
+            ),
+            subtitle: Text('只比较你自己的同一个动作历史'),
+          ),
+          for (final id in choices)
+            ListTile(
+              key: Key('home-trend-option-$id'),
+              leading: _ExerciseThumb(exerciseId: id, size: 42),
+              title: Text(
+                widget.controller.displayExerciseName(
+                  widget.controller.exerciseFor(id),
+                ),
+              ),
+              trailing: id == selectedExerciseId
+                  ? const Icon(Icons.check_rounded, color: primary)
+                  : null,
+              onTap: () {
+                if (mounted) setState(() => selectedExerciseId = id);
+                Navigator.pop(context);
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final series = _series();
+    if (selectedExerciseId == null || !series.containsKey(selectedExerciseId)) {
+      selectedExerciseId = series.containsKey('bench_press')
+          ? 'bench_press'
+          : series.keys.isEmpty
+          ? null
+          : series.keys.first;
+    }
+    final id = selectedExerciseId;
+    final allPoints = id == null ? const <_ExerciseTrendPoint>[] : series[id]!;
+    final points = allPoints.length > 6
+        ? allPoints.sublist(allPoints.length - 6)
+        : allPoints;
+    final name = id == null
+        ? '动作'
+        : widget.controller.displayExerciseName(
+            widget.controller.exerciseFor(id),
+          );
+    final latest = points.isEmpty ? null : points.last.weight;
+    final delta = points.length < 2
+        ? null
+        : points.last.weight - points[points.length - 2].weight;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextButton.icon(
+              key: const Key('home-trend-picker'),
+              style: TextButton.styleFrom(
+                padding: EdgeInsets.zero,
+                minimumSize: const Size(0, 38),
+              ),
+              onPressed: series.isEmpty ? null : () => _pickExercise(series),
+              iconAlignment: IconAlignment.end,
+              icon: const Icon(Icons.arrow_drop_down_rounded, size: 18),
+              label: Text(
+                '$name趋势',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w900),
+              ),
+            ),
+            Text(
+              latest == null ? '暂无记录' : '${latest.toStringAsFixed(1)} kg',
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
+            ),
+            Text(
+              delta == null
+                  ? (latest == null ? '完成带重量的训练后显示' : '首次记录')
+                  : '较上次 ${delta >= 0 ? '+' : ''}${delta.toStringAsFixed(1)} kg',
+              style: TextStyle(
+                color: delta != null && delta < 0 ? secondaryInk : success,
+                fontWeight: FontWeight.w800,
+                fontSize: 11,
+              ),
+            ),
+            const SizedBox(height: 6),
+            SizedBox(
+              key: const Key('home-exercise-trend-chart'),
+              height: 118,
+              width: double.infinity,
+              child: points.isEmpty
+                  ? const Center(
+                      child: Icon(
+                        Icons.show_chart_rounded,
+                        color: hairline,
+                        size: 38,
+                      ),
+                    )
+                  : CustomPaint(painter: _HomeExerciseTrendPainter(points)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HomeExerciseTrendPainter extends CustomPainter {
+  const _HomeExerciseTrendPainter(this.points);
+  final List<_ExerciseTrendPoint> points;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final chart = Rect.fromLTWH(5, 6, size.width - 10, size.height - 24);
+    final grid = Paint()
+      ..color = hairline.withValues(alpha: .8)
+      ..strokeWidth = 1;
+    for (var row = 0; row < 3; row++) {
+      final y = chart.top + chart.height * row / 2;
+      canvas.drawLine(Offset(chart.left, y), Offset(chart.right, y), grid);
+    }
+    final values = points.map((item) => item.weight).toList();
+    final minValue = values.reduce((a, b) => a < b ? a : b);
+    final maxValue = values.reduce((a, b) => a > b ? a : b);
+    final span = (maxValue - minValue).abs() < .01 ? 1.0 : maxValue - minValue;
+    final offsets = <Offset>[];
+    for (var i = 0; i < points.length; i++) {
+      final x = points.length == 1
+          ? chart.center.dx
+          : chart.left + chart.width * i / (points.length - 1);
+      final y =
+          chart.bottom - (points[i].weight - minValue) / span * chart.height;
+      offsets.add(Offset(x, y));
+    }
+    final line = Paint()
+      ..color = primary
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..style = PaintingStyle.stroke;
+    if (offsets.length > 1) {
+      final path = Path()..moveTo(offsets.first.dx, offsets.first.dy);
+      for (final point in offsets.skip(1)) {
+        path.lineTo(point.dx, point.dy);
+      }
+      canvas.drawPath(path, line);
+    }
+    for (final point in offsets) {
+      canvas.drawCircle(point, 4, Paint()..color = surface);
+      canvas.drawCircle(point, 4, line);
+    }
+    final indices = points.length == 1
+        ? <int>[0]
+        : (<int>{0, points.length ~/ 2, points.length - 1}.toList()..sort());
+    for (final index in indices) {
+      final date = points[index].date;
+      final text = TextPainter(
+        text: TextSpan(
+          text: '${date.month}/${date.day}',
+          style: const TextStyle(color: quiet, fontSize: 9),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      final x = (offsets[index].dx - text.width / 2).clamp(
+        0.0,
+        size.width - text.width,
+      );
+      text.paint(canvas, Offset(x, size.height - text.height));
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _HomeExerciseTrendPainter oldDelegate) =>
+      oldDelegate.points != points;
 }
 
 class _WeekStrip extends StatelessWidget {
@@ -4617,13 +4990,18 @@ class _VolumeAndAveragePainter extends CustomPainter {
 }
 
 class _MuscleBodyMap extends StatelessWidget {
-  const _MuscleBodyMap({required this.muscleSets});
+  const _MuscleBodyMap({
+    super.key,
+    required this.muscleSets,
+    this.height = 250,
+  });
   final Map<String, int> muscleSets;
+  final double height;
 
   @override
   Widget build(BuildContext context) => SizedBox(
-    key: const Key('statistics-muscle-map'),
-    height: 250,
+    key: key ?? const Key('statistics-muscle-map'),
+    height: height,
     width: double.infinity,
     child: CustomPaint(painter: _MuscleBodyPainter(muscleSets)),
   );
@@ -4644,7 +5022,11 @@ class _MuscleBodyPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final centerY = size.height * .51;
+    final verticalScale = size.height / 250;
+    canvas.save();
+    canvas.scale(1, verticalScale);
+    final logicalSize = Size(size.width, 250);
+    final centerY = logicalSize.height * .51;
     void drawBody(double centerX, bool back) {
       final outline = Paint()
         ..color = const Color(0xFFBFC4CC)
@@ -4754,8 +5136,9 @@ class _MuscleBodyPainter extends CustomPainter {
       label.paint(canvas, Offset(centerX - label.width / 2, centerY + 104));
     }
 
-    drawBody(size.width * .31, false);
-    drawBody(size.width * .69, true);
+    drawBody(logicalSize.width * .31, false);
+    drawBody(logicalSize.width * .69, true);
+    canvas.restore();
   }
 
   @override

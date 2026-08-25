@@ -276,22 +276,35 @@ export function publicEntitlement(row) {
 
 export function seedTestAdmin(db, cfg) {
   if (!cfg.enableTestAdmin) return null;
-  const existing = db.prepare('SELECT * FROM users WHERE identifier = ?').get(cfg.testAdminIdentifier);
+  let existing = db.prepare('SELECT * FROM users WHERE identifier = ?').get(cfg.testAdminIdentifier);
+  const legacy = cfg.testAdminIdentifier !== '1234'
+    ? db.prepare("SELECT * FROM users WHERE identifier = '1234' AND role = 'admin'").get()
+    : null;
+  if (!existing && legacy) {
+    db.prepare('UPDATE users SET identifier = ?, display_name = ? WHERE id = ?')
+      .run(cfg.testAdminIdentifier, '形域测试管理员', legacy.id);
+    existing = db.prepare('SELECT * FROM users WHERE id = ?').get(legacy.id);
+  }
   if (existing) {
-    if (existing.role !== 'admin') db.prepare("UPDATE users SET role = 'admin' WHERE id = ?").run(existing.id);
+    const password = hashPassword(cfg.testAdminPassword);
+    db.prepare(`UPDATE users SET role = 'admin', display_name = ?, auth_provider = 'password',
+      password_salt = ?, password_hash = ? WHERE id = ?`)
+      .run('形域测试管理员', password.salt, password.hash, existing.id);
     ensureEntitlement(db, existing.id);
     db.prepare(`UPDATE entitlements SET membership = 'forever', membership_expires_at = NULL,
       ai_remaining = CASE WHEN ai_remaining < 20 THEN 20 ELSE ai_remaining END,
       recognition_remaining = CASE WHEN recognition_remaining < 3 THEN 3 ELSE recognition_remaining END,
       recognition_weekly_grant = CASE WHEN recognition_weekly_grant < 3 THEN 3 ELSE recognition_weekly_grant END,
       updated_at = ? WHERE user_id = ?`).run(nowIso(), existing.id);
-    return db.prepare('SELECT * FROM users WHERE id = ?').get(existing.id);
+    const admin = db.prepare('SELECT * FROM users WHERE id = ?').get(existing.id);
+    seedSocialDemoData(db, admin, cfg.testAdminPassword);
+    return admin;
   }
   const password = hashPassword(cfg.testAdminPassword);
   const user = {
     id: randomId('usr_'),
     identifier: cfg.testAdminIdentifier,
-    display_name: 'KILO Test Admin',
+    display_name: '形域测试管理员',
     role: 'admin',
     auth_provider: 'password',
     created_at: nowIso(),
@@ -305,7 +318,88 @@ export function seedTestAdmin(db, cfg) {
     recognition_remaining = CASE WHEN recognition_remaining < 3 THEN 3 ELSE recognition_remaining END,
     recognition_weekly_grant = CASE WHEN recognition_weekly_grant < 3 THEN 3 ELSE recognition_weekly_grant END,
     updated_at = ? WHERE user_id = ?`).run(nowIso(), user.id);
-  return db.prepare('SELECT * FROM users WHERE id = ?').get(user.id);
+  const admin = db.prepare('SELECT * FROM users WHERE id = ?').get(user.id);
+  seedSocialDemoData(db, admin, cfg.testAdminPassword);
+  return admin;
+}
+
+function seedSocialDemoData(db, admin, rawPassword) {
+  const stamp = nowIso();
+  const demos = [
+    {
+      identifier: '13800001001',
+      name: '晨练小周',
+      sourcePlanId: 'demo-upper-strength',
+      planName: '上肢力量进阶',
+      exercises: [
+        ['bench_press', 82.5, 6, 150],
+        ['chest_supported_row', 60, 10, 120],
+        ['shoulder_press', 22.5, 8, 120],
+      ],
+    },
+    {
+      identifier: '13800001002',
+      name: '背部玩家',
+      sourcePlanId: 'demo-back-volume',
+      planName: '背部容量日',
+      exercises: [
+        ['lat_pulldown', 65, 10, 120],
+        ['chest_supported_row', 55, 12, 120],
+        ['deadlift', 100, 5, 180],
+      ],
+    },
+    {
+      identifier: '13800001003',
+      name: '力量新手阿泽',
+      sourcePlanId: 'demo-lower-foundation',
+      planName: '下肢基础训练',
+      exercises: [
+        ['barbell_squat', 60, 8, 180],
+        ['deadlift', 70, 6, 180],
+      ],
+    },
+  ];
+  for (const demo of demos) {
+    let user = db.prepare('SELECT * FROM users WHERE identifier = ?').get(demo.identifier);
+    if (!user) {
+      const password = hashPassword(rawPassword, undefined, 3);
+      const id = randomId('usr_');
+      db.prepare(`INSERT INTO users (id, identifier, display_name, role, auth_provider,
+        password_salt, password_hash, created_at) VALUES (?, ?, ?, 'user', 'password', ?, ?, ?)`)
+        .run(id, demo.identifier, demo.name, password.salt, password.hash, stamp);
+      user = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+      ensureEntitlement(db, id);
+    }
+    const pair = [admin.id, user.id].sort().join(':');
+    db.prepare(`INSERT INTO friend_requests
+      (id, pair_key, sender_user_id, receiver_user_id, status, created_at, updated_at)
+      VALUES (?, ?, ?, ?, 'accepted', ?, ?)
+      ON CONFLICT(pair_key) DO UPDATE SET status='accepted', updated_at=excluded.updated_at`)
+      .run(`demo-friend-${user.id}`, pair, user.id, admin.id, stamp, stamp);
+    const payload = {
+      exercises: demo.exercises.map(([exerciseId, weight, reps, restSeconds]) => ({
+        exerciseId,
+        restSeconds,
+        sets: Array.from({ length: 3 }, () => ({ type: 'work', weight, reps, restSeconds })),
+      })),
+    };
+    db.prepare(`INSERT INTO friend_plan_shares
+      (id, owner_user_id, source_plan_id, name, payload_json, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(owner_user_id, source_plan_id)
+      DO UPDATE SET name=excluded.name, payload_json=excluded.payload_json, updated_at=excluded.updated_at`)
+      .run(`demo-plan-${user.id}`, user.id, demo.sourcePlanId, demo.planName, JSON.stringify(payload), stamp, stamp);
+  }
+  if (cfgLegacyAdmin(db, admin.id)) {
+    const disabled = hashPassword(randomId('disabled_'), undefined, 3);
+    db.prepare(`UPDATE users SET identifier = ?, role = 'user', password_salt = ?, password_hash = ?
+      WHERE identifier = '1234' AND id <> ?`)
+      .run(`disabled-${randomId('legacy_')}`, disabled.salt, disabled.hash, admin.id);
+  }
+}
+
+function cfgLegacyAdmin(db, adminId) {
+  return db.prepare("SELECT 1 FROM users WHERE identifier = '1234' AND id <> ?").get(adminId);
 }
 
 export function seedTestMember(db, cfg) {
@@ -344,12 +438,6 @@ export function seedTestMember(db, cfg) {
     identifier: cfg.testMemberIdentifier,
     rawPassword: cfg.testMemberPassword,
     displayName: 'EMBER Test Member',
-    forever: true,
-  });
-  upsertMember({
-    identifier: cfg.testAdminIdentifier,
-    rawPassword: cfg.testAdminPassword,
-    displayName: 'EMBER Test Operator',
     forever: true,
   });
   return member;

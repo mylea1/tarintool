@@ -110,19 +110,118 @@ void main() {
     expect(find.byType(NavigationBar), findsOneWidget);
     expect(find.byType(NavigationDestination), findsNWidgets(5));
     expect(find.byKey(const Key('home-overview-section')), findsOneWidget);
-    expect(find.text('训练概览'), findsOneWidget);
-    expect(find.text('训练周'), findsOneWidget);
+    expect(find.text('今日训练'), findsOneWidget);
+    expect(find.text('本周训练'), findsOneWidget);
+    expect(find.text('本周肌群'), findsOneWidget);
     expect(find.text('进步摘要'), findsNothing);
+    expect(find.text('训练概览'), findsNothing);
+    expect(find.text('实时训练'), findsNothing);
+    expect(find.text('自由训练'), findsNothing);
+    expect(find.byKey(const Key('home-trend-picker')), findsOneWidget);
     await tester.scrollUntilVisible(
-      find.text('最近记录'),
-      260,
+      find.byKey(const Key('home-ai-workout')),
+      220,
       scrollable: find.byType(Scrollable).first,
     );
-    expect(find.text('最近记录'), findsOneWidget);
+    expect(find.text('AI 定制训练'), findsOneWidget);
     expect(find.text('上肢力量 A'), findsNothing);
     expect(find.text('重置演示数据'), findsNothing);
     expect(controller.history, isEmpty);
     expect(controller.routines, isEmpty);
+  });
+
+  testWidgets('home exercise trend can switch between recorded exercises', (
+    tester,
+  ) async {
+    final controller = AppController();
+    controller.history.addAll([
+      WorkoutRecord(
+        id: 'recent',
+        name: '上肢',
+        date: DateTime.now(),
+        startTime: '18:00',
+        durationSeconds: 3600,
+        volume: 4000,
+        effectiveSets: 2,
+        exerciseIds: const ['bench_press', 'lat_pulldown'],
+        exercises: [
+          WorkoutExercise(
+            id: 'recent-bench',
+            exerciseId: 'bench_press',
+            sets: [
+              WorkoutSet(
+                id: 'recent-bench-set',
+                weight: 82.5,
+                reps: 6,
+                completed: true,
+              ),
+            ],
+          ),
+          WorkoutExercise(
+            id: 'recent-pulldown',
+            exerciseId: 'lat_pulldown',
+            sets: [
+              WorkoutSet(
+                id: 'recent-pulldown-set',
+                weight: 65,
+                reps: 10,
+                completed: true,
+              ),
+            ],
+          ),
+        ],
+      ),
+      WorkoutRecord(
+        id: 'older',
+        name: '上肢',
+        date: DateTime.now().subtract(const Duration(days: 7)),
+        startTime: '18:00',
+        durationSeconds: 3300,
+        volume: 3600,
+        effectiveSets: 2,
+        exerciseIds: const ['bench_press', 'lat_pulldown'],
+        exercises: [
+          WorkoutExercise(
+            id: 'older-bench',
+            exerciseId: 'bench_press',
+            sets: [
+              WorkoutSet(
+                id: 'older-bench-set',
+                weight: 80,
+                reps: 6,
+                completed: true,
+              ),
+            ],
+          ),
+          WorkoutExercise(
+            id: 'older-pulldown',
+            exerciseId: 'lat_pulldown',
+            sets: [
+              WorkoutSet(
+                id: 'older-pulldown-set',
+                weight: 60,
+                reps: 10,
+                completed: true,
+              ),
+            ],
+          ),
+        ],
+      ),
+    ]);
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(KiloApp(initialController: controller));
+    expect(find.text('杠铃卧推趋势'), findsOneWidget);
+    expect(find.text('82.5 kg'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('home-trend-picker')));
+    await tester.pumpAndSettle();
+    final pulldownOption = find.byKey(
+      const Key('home-trend-option-lat_pulldown'),
+    );
+    await tester.ensureVisible(pulldownOption);
+    await tester.tap(pulldownOption);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('高位下拉'), findsOneWidget);
+    expect(find.text('65.0 kg'), findsOneWidget);
   });
 
   testWidgets('warm orange theme tokens reach shell navigation and inputs', (

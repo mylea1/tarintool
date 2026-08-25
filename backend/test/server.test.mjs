@@ -30,7 +30,7 @@ test.before(async () => {
   const cfg = loadConfig({ ...process.env, NODE_ENV: 'test', KILO_ENABLE_TEST_ADMIN: 'true', KILO_ENABLE_TEST_MEMBER: 'true', KILO_ENABLE_PASSWORD_REGISTRATION: 'true', KILO_GPU_API_KEY: 'gpu-test-key-123456789012345678901234', KILO_SESSION_PEPPER: 'session-test-pepper-12345678901234567890', KILO_DATA_DIR: root, KILO_DATABASE_PATH: path.join(root, 'kilo.sqlite3'), KILO_MEDIA_DIR: path.join(root, 'media'), KILO_ALLOWED_ORIGINS: 'http://allowed.test' });
   server = await startServer({ config: cfg, port: 0 });
   base = `http://127.0.0.1:${server.address().port}`;
-  const admin = await api('/v1/auth/phone/login', { method: 'POST', body: JSON.stringify({ identifier: '1234', password: '1234' }) });
+  const admin = await api('/v1/auth/phone/login', { method: 'POST', body: JSON.stringify({ identifier: '13023097571', password: '1234' }) });
   const member = await api('/v1/auth/phone/login', { method: 'POST', body: JSON.stringify({ identifier: '123', password: '123' }) });
   assert.equal(member.response.status, 200);
   assert.equal(member.body.user.role, 'user');
@@ -115,6 +115,13 @@ test('health, auth and admin role boundaries', async () => {
   assert.equal(forbidden.response.status, 403);
   const code = await api('/v1/admin/redemption-codes', { method: 'POST', headers: { authorization: `Bearer ${adminToken}` }, body: JSON.stringify({ plan: 'oneMonth' }) });
   assert.equal(code.response.status, 201); assert.match(code.body.code, /^KILO-/);
+  const legacyAdmin = await api('/v1/auth/phone/login', { method: 'POST', body: JSON.stringify({ identifier: '1234', password: '1234' }) });
+  assert.equal(legacyAdmin.response.status, 401);
+  const seededFriends = await api('/v1/friends', { headers: { authorization: `Bearer ${adminToken}` } });
+  assert.equal(seededFriends.response.status, 200);
+  assert.ok(seededFriends.body.friends.length >= 3);
+  const seededFeed = await api('/v1/friends/feed', { headers: { authorization: `Bearer ${adminToken}` } });
+  assert.ok(seededFeed.body.plans.some((item) => item.name === '上肢力量进阶'));
 });
 
 test('admin can create a phone account and optionally grant membership', async () => {
@@ -396,7 +403,7 @@ test('daily check-in is once per Shanghai day and rewards after seven distinct d
 });
 
 test('administrator remains quota-exempt when recognition balance is zero', async () => {
-  const admin = server.context.db.prepare("SELECT id FROM users WHERE identifier = '1234'").get();
+  const admin = server.context.db.prepare("SELECT id FROM users WHERE identifier = '13023097571'").get();
   server.context.db.prepare('UPDATE entitlements SET recognition_remaining = 0 WHERE user_id = ?').run(admin.id);
   const created = await api('/v1/analysis/jobs', {
     method: 'POST',
@@ -463,7 +470,7 @@ test('AI streaming uses the configured request timeout instead of aborting immed
     const login = await fetch(`${isolatedBase}/v1/auth/phone/login`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ identifier: '1234', password: '1234' }),
+      body: JSON.stringify({ identifier: '13023097571', password: '1234' }),
     });
     const token = (await login.json()).session.token;
     const response = await fetch(`${isolatedBase}/v1/coach/stream`, {
@@ -1004,7 +1011,7 @@ test('TestFlight operator credentials never gain server admin rights', async () 
     const login = await fetch(`${isolatedBase}/v1/auth/phone/login`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ identifier: '1234', password: '1234' }),
+      body: JSON.stringify({ identifier: '123', password: '123' }),
     });
     const payload = await login.json();
     assert.equal(login.status, 200);

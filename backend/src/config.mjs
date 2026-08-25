@@ -34,7 +34,7 @@ export function loadConfig(env = process.env) {
     gpuApiKey: env.KILO_GPU_API_KEY || '',
     enableTestAdmin: env.KILO_ENABLE_TEST_ADMIN === 'true',
     enablePasswordRegistration: env.KILO_ENABLE_PASSWORD_REGISTRATION === 'true',
-    testAdminIdentifier: env.KILO_TEST_ADMIN_IDENTIFIER || '1234',
+    testAdminIdentifier: env.KILO_TEST_ADMIN_IDENTIFIER || '13023097571',
     testAdminPassword: env.KILO_TEST_ADMIN_PASSWORD || '1234',
     enableTestMember: env.KILO_ENABLE_TEST_MEMBER === 'true',
     testMemberIdentifier: env.KILO_TEST_MEMBER_IDENTIFIER || '123',
