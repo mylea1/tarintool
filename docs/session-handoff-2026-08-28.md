@@ -10,8 +10,8 @@
 | --- | --- |
 | 仓库 | `E:\fitness app\strength-pro` |
 | 当前开发分支 | `master` |
-| 当前提交 | `3bc7c8d283eed4bc022401718ad430656012e7ad`（`fix(mobile): persist authenticated server sessions`） |
-| 远端状态 | 本文生成前 `master` 与 `origin/master` 一致 |
+| 交接前业务代码基线 | `3bc7c8d283eed4bc022401718ad430656012e7ad`（`fix(mobile): persist authenticated server sessions`） |
+| 远端状态 | 交接文档已另行提交并推送；新会话应以 `git rev-parse HEAD` 和 `origin/master` 的实时结果为准 |
 | 未跟踪文件 | `design-previews/screenshots/`；属于现有工作区内容，禁止擅自删除、覆盖或混入提交 |
 | App 公网 API | `https://api.kilostrength.cn` |
 | 移动端版本 | `1.0.16+17` |
