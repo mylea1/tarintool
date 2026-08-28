@@ -358,6 +358,7 @@ void main() {
                   'exercises': [
                     {
                       'exerciseId': 'bench_press',
+                      'note': '肩胛稳定，前臂垂直，控制杠铃触胸。',
                       'sets': [
                         {
                           'type': 'warmup',
@@ -398,6 +399,7 @@ void main() {
     expect(session.effectiveExerciseIds, ['bench_press']);
     expect(session.totalSets, 2);
     expect(session.plannedVolume, 640);
+    expect(session.exercises.single.note, '肩胛稳定，前臂垂直，控制杠铃触胸。');
     expect(session.exercises.single.sets.last.weight, 50);
     expect(session.exercises.single.sets.last.restSeconds, 120);
   });

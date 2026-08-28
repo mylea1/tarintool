@@ -1,7 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kilo_strength/ai_api.dart';
 import 'package:kilo_strength/controller.dart';
 import 'package:kilo_strength/main.dart';
+
+class _CountingCoachApi implements CoachApi {
+  int calls = 0;
+
+  @override
+  Future<CoachAnswer> answer({
+    required String prompt,
+    required bool includeTrainingSummary,
+    String locale = 'zh-CN',
+    String? trainingSummary,
+    List<Map<String, String>> exerciseCatalog = const [],
+    List<Map<String, String>> skills = const [],
+  }) async {
+    calls++;
+    return const CoachAnswer(body: '这段内容不应为非会员生成');
+  }
+}
 
 Future<void> _openCelebration(
   WidgetTester tester,
@@ -49,7 +67,8 @@ void main() {
   testWidgets('celebration renders one-shot particles in normal motion', (
     tester,
   ) async {
-    final controller = AppController();
+    final coachApi = _CountingCoachApi();
+    final controller = AppController(coachApi: coachApi);
     addTearDown(controller.dispose);
     await _openCelebration(tester, controller, reducedMotion: false);
     expect(find.byKey(const Key('workout-celebration')), findsOneWidget);
@@ -61,6 +80,10 @@ void main() {
     );
     expect(find.text('杠铃卧推'), findsWidgets);
     expect(find.textContaining('kg ×'), findsNothing);
+    await tester.ensureVisible(
+      find.byKey(const Key('workout-celebration-exercise-details-0')),
+    );
+    await tester.pumpAndSettle();
     await tester.tap(
       find.byKey(const Key('workout-celebration-exercise-details-0')),
     );
@@ -70,6 +93,11 @@ void main() {
       find.byKey(const Key('workout-completion-ai-review-locked')),
       findsOneWidget,
     );
+    expect(
+      find.byKey(const Key('workout-ai-locked-blurred-preview')),
+      findsOneWidget,
+    );
+    expect(coachApi.calls, 0);
   });
 
   testWidgets('celebration scrolls safely at 320dp and 200% text', (
@@ -86,7 +114,8 @@ void main() {
     );
     expect(find.text('训练时长'), findsOneWidget);
     expect(find.text('训练容量'), findsOneWidget);
-    expect(find.text('本次 PR'), findsOneWidget);
+    expect(find.text('完成组'), findsOneWidget);
+    expect(find.text('本次 PR'), findsNothing);
     expect(
       find.byKey(const Key('workout-celebration-records')),
       findsOneWidget,

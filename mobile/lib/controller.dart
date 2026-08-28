@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart';
@@ -969,6 +970,8 @@ class AppController extends ChangeNotifier {
                 .map(
                   (exercise) => <String, dynamic>{
                     'exerciseId': exercise.exerciseId,
+                    if (exercise.note.trim().isNotEmpty)
+                      'note': exercise.note.trim(),
                     'sets': exercise.sets
                         .map(
                           (set) => <String, dynamic>{
@@ -1015,7 +1018,13 @@ class AppController extends ChangeNotifier {
             ),
           );
         }
-        exercises.add(AiPlanExerciseDraft(exerciseId: exerciseId, sets: sets));
+        exercises.add(
+          AiPlanExerciseDraft(
+            exerciseId: exerciseId,
+            sets: sets,
+            note: exercise['note']?.toString().trim() ?? '',
+          ),
+        );
       }
       sessions.add(
         AiPlanSession(
@@ -3092,6 +3101,20 @@ class AppController extends ChangeNotifier {
     }
   }
 
+  void useEditedRecognitionVideo(String path) {
+    final file = File(path);
+    if (!file.existsSync()) {
+      mediaError = '裁剪后的视频不存在，请重新编辑。';
+      notifyListeners();
+      return;
+    }
+    selectedMediaPath = path;
+    selectedMediaName = '已裁剪_${path.split(RegExp(r'[/\\]')).last}';
+    selectedMediaBytes = file.lengthSync();
+    _invalidateRecognitionAnalysis();
+    notifyListeners();
+  }
+
   void startRecognition() {
     if (recognitionStatus != RecognitionStatus.ready &&
         recognitionStatus != RecognitionStatus.error) {
@@ -3735,6 +3758,7 @@ class AppController extends ChangeNotifier {
     ];
     if (record.note.trim().isNotEmpty) lines.add('训练备注：${record.note.trim()}');
     for (final exercise in record.exercises) {
+      final definition = exerciseFor(exercise.exerciseId);
       final values = exercise.sets
           .where((set) => set.completed)
           .map(
@@ -3744,7 +3768,9 @@ class AppController extends ChangeNotifier {
           )
           .join('；');
       lines.add(
-        '${displayExerciseName(exerciseFor(exercise.exerciseId))}'
+        '${displayExerciseName(definition)}'
+        '（主练：${definition.muscle}'
+        '${definition.secondary.trim().isEmpty || definition.secondary == '无' ? '' : '；辅助：${definition.secondary}'}）'
         '${exercise.note.trim().isEmpty ? '' : '（动作备注：${exercise.note.trim()}）'}：'
         '${values.isEmpty ? '没有完成组' : values}',
       );
@@ -4064,6 +4090,7 @@ class AppController extends ChangeNotifier {
           'name': exercise.name,
           'equipment': exercise.equipment,
           'muscle': exercise.muscle,
+          'cue': exercise.cue,
         },
     ];
   }
@@ -4077,6 +4104,9 @@ class AppController extends ChangeNotifier {
       WorkoutExercise(
         id: id,
         exerciseId: draft.exerciseId,
+        note: draft.note.trim().isNotEmpty
+            ? draft.note.trim()
+            : exerciseFor(draft.exerciseId).cue.trim(),
         restSeconds: draft.sets.isEmpty
             ? defaultRestSeconds
             : draft.sets.first.restSeconds,
@@ -4162,8 +4192,8 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> sendTodayWorkoutForReview() => sendChat(
-    '请评价我今天正在进行或最近完成的训练：总结完成情况、训练容量和主要肌群，'
-    '指出下一次可调整的重量或次数。每条增减重量建议都必须说明依据；如果数据不足，请明确说明。',
+    '请从整节训练而不是逐个动作点评：先判断训练目标，再评价主要肌群与动作模式是否覆盖完整、训练量分配是否合理，'
+    '指出遗漏或重复，并给出下一次最值得执行的一项调整。没有历史数据时直接评价本次训练结构，不要输出“数据不足”等免责声明。',
     includeTrainingContext: true,
   );
 
@@ -4197,7 +4227,7 @@ class AppController extends ChangeNotifier {
     selectAiView(AiView.chat);
     return sendChat(
       baseline == null
-          ? '请总结本次训练的完成情况、训练容量、有效组和主要肌群，并给出下一次可执行的建议。只基于本次训练数据，数据不足时明确说明。'
+          ? '请判断本次整节训练的目标、主要肌群与动作模式覆盖是否完整、训练量分配是否合理，并指出遗漏或重复。没有历史数据时直接评价本次结构，不要输出“数据不足”等免责声明。'
           : '请对比本次训练与上一次可比训练的动作、重量、次数、训练容量、有效组和时长，指出真正的进步或回退，并解释下一次增加或降低重量的依据。不要泛泛而谈。',
       includeTrainingContext: true,
       contexts: selected,
@@ -4210,6 +4240,7 @@ class AppController extends ChangeNotifier {
   Future<String> generateWorkoutCompletionReview(
     WorkoutRecord record, {
     WorkoutRecord? baseline,
+    void Function(String delta)? onDelta,
   }) async {
     if (entitlements?.isMember != true) {
       throw const CoachApiException('membership_required');
@@ -4243,10 +4274,15 @@ class AppController extends ChangeNotifier {
     try {
       final answer = await _requestCoachAnswer(
         baseline == null
-            ? '请只依据本次训练数据，简洁评价完成质量、动作表现和下一次最值得执行的一项调整。数据不足时明确说明，不要泛泛鼓励。'
-            : '请比较本次与上次相同动作的重量、次数和容量，简洁指出真正的进步或回退，并给出下一次最值得执行的一项调整及依据。',
+            ? '请评价整节训练是否合理，而不是逐个动作复述。根据训练名称、动作的主练与辅助肌群、完成组数和容量，判断训练目标、肌群区域与动作模式覆盖、训练量分配和明显遗漏。'
+                  '例如背部训练若只有背阔肌导向动作而缺少中下斜方肌等肩胛控制动作，应明确指出覆盖不完整；但若训练名称或上下文表明是专项或拆分日，不要强迫一节训练覆盖所有部位。'
+                  '没有历史数据时仍要直接评价本次训练结构，跳过趋势比较即可。禁止输出“数据不足”“只能初步判断”“无法判断”等免责声明，禁止凭空推测热身、疲劳或伤病。'
+                  '请用三段简短内容：整体结论、覆盖或分配问题、下一次唯一且具体的调整。'
+            : '请先评价本次整节训练的目标、肌群与动作模式覆盖、训练量分配和明显遗漏，再比较本次与上次相同动作的重量、次数和容量。'
+                  '指出真正的进步或回退，并给出下一次最值得执行的一项调整及依据。禁止输出“数据不足”等免责声明，也不要虚构疲劳、热身或伤病原因。',
         includeTrainingContext: true,
         selectedTrainingContext: _buildSelectedAiContext(contexts),
+        onDelta: onDelta,
       );
       final body = answer.body.trim();
       if (body.isEmpty) throw const CoachApiException('coach_empty');

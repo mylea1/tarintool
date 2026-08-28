@@ -1163,6 +1163,7 @@ void main() {
             exercises: const [
               AiPlanExerciseDraft(
                 exerciseId: 'bench_press',
+                note: '肩胛稳定，杠铃稳定触胸。',
                 sets: [
                   AiPlanSetDraft(
                     type: 'work',
@@ -1185,6 +1186,7 @@ void main() {
 
       expect(controller.routines, hasLength(1));
       final set = controller.routines.single.exercises.single.sets.single;
+      expect(controller.routines.single.exercises.single.note, '肩胛稳定，杠铃稳定触胸。');
       expect(set.plannedWeight, 52.5);
       expect(set.weight, 52.5);
       expect(set.reps, 8);

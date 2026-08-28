@@ -8,6 +8,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
+import 'package:video_trimmer/video_trimmer.dart';
 
 import 'account_membership.dart';
 import 'app_localizations.dart';
@@ -59,6 +60,17 @@ class KiloApp extends StatefulWidget {
   final AppController? initialController;
   @override
   State<KiloApp> createState() => _KiloAppState();
+}
+
+class _AppControllerScope extends InheritedNotifier<AppController> {
+  const _AppControllerScope({
+    required AppController controller,
+    required super.child,
+  }) : super(notifier: controller);
+
+  static AppController? maybeOf(BuildContext context) => context
+      .dependOnInheritedWidgetOfExactType<_AppControllerScope>()
+      ?.notifier;
 }
 
 // Kept as a compatibility alias for the generated Flutter smoke test.
@@ -154,6 +166,10 @@ class _KiloAppState extends State<KiloApp> with WidgetsBindingObserver {
           ...GlobalMaterialLocalizations.delegates,
         ],
         theme: _theme,
+        builder: (context, child) => _AppControllerScope(
+          controller: controller,
+          child: child ?? const SizedBox.shrink(),
+        ),
         home: !durableStateReady || !splashElapsed
             ? const BrandSplashPage()
             : showLogin
@@ -1009,12 +1025,14 @@ class _ExerciseThumb extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isCustom = exerciseId.startsWith('custom-');
-    return ClipRRect(
+    final controller = _AppControllerScope.maybeOf(context);
+    final thumbnail = Material(
+      color: paper,
       borderRadius: BorderRadius.circular(10),
-      child: Container(
+      clipBehavior: Clip.antiAlias,
+      child: SizedBox(
         width: size,
         height: size,
-        color: paper,
         child: isCustom
             ? const Icon(Icons.fitness_center_rounded, color: primary)
             : Image.asset(
@@ -1023,6 +1041,21 @@ class _ExerciseThumb extends StatelessWidget {
                 errorBuilder: (context, error, stack) =>
                     const Icon(Icons.fitness_center, color: cobalt),
               ),
+      ),
+    );
+    if (controller == null) return thumbnail;
+    final exercise = controller.exerciseFor(exerciseId);
+    return Semantics(
+      button: true,
+      label: '查看${controller.displayExerciseName(exercise)}动作详情',
+      child: Material(
+        color: paper,
+        borderRadius: BorderRadius.circular(10),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => _showExerciseDetail(context, controller, exercise),
+          child: thumbnail,
+        ),
       ),
     );
   }
@@ -5928,6 +5961,7 @@ class RecognitionPage extends StatelessWidget {
                       controller.recognitionStatus !=
                       RecognitionStatus.processing,
                   onClear: controller.resetRecognition,
+                  onEdit: () => _editRecognitionVideo(context, controller),
                 ),
               ],
               if (controller.recognitionStatus ==
@@ -6209,6 +6243,7 @@ class _SelectedRecognitionVideo extends StatefulWidget {
     required this.sizeLabel,
     required this.enabled,
     required this.onClear,
+    this.onEdit,
   });
 
   final String path;
@@ -6216,6 +6251,7 @@ class _SelectedRecognitionVideo extends StatefulWidget {
   final String sizeLabel;
   final bool enabled;
   final VoidCallback onClear;
+  final VoidCallback? onEdit;
 
   @override
   State<_SelectedRecognitionVideo> createState() =>
@@ -6294,69 +6330,84 @@ class _SelectedRecognitionVideoState extends State<_SelectedRecognitionVideo> {
       clipBehavior: Clip.antiAlias,
       child: Column(
         children: [
-          AspectRatio(
-            aspectRatio: aspectRatio,
-            child: InkWell(
-              onTap: initialized ? _togglePlayback : null,
-              child: Stack(
-                fit: StackFit.expand,
-                alignment: Alignment.center,
-                children: [
-                  if (readyVideo != null)
-                    VideoPlayer(readyVideo)
-                  else
-                    const ColoredBox(color: Color(0xFF211A17)),
-                  if (!initialized && _error == null)
-                    const Center(
-                      child: CircularProgressIndicator(color: Colors.white),
-                    ),
-                  if (_error != null)
-                    const Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final previewHeight = (constraints.maxWidth / aspectRatio).clamp(
+                176.0,
+                300.0,
+              );
+              return SizedBox(
+                height: previewHeight,
+                child: Center(
+                  child: AspectRatio(
+                    aspectRatio: aspectRatio,
+                    child: InkWell(
+                      onTap: initialized ? _togglePlayback : null,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        alignment: Alignment.center,
                         children: [
-                          Icon(
-                            Icons.video_file_outlined,
-                            color: Colors.white,
-                            size: 34,
-                          ),
-                          SizedBox(height: 6),
-                          Text(
-                            '暂时无法生成本地预览',
-                            style: TextStyle(color: Colors.white),
-                          ),
+                          if (readyVideo != null)
+                            VideoPlayer(readyVideo)
+                          else
+                            const ColoredBox(color: Color(0xFF211A17)),
+                          if (!initialized && _error == null)
+                            const Center(
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                              ),
+                            ),
+                          if (_error != null)
+                            const Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.video_file_outlined,
+                                    color: Colors.white,
+                                    size: 34,
+                                  ),
+                                  SizedBox(height: 6),
+                                  Text(
+                                    '暂时无法生成本地预览',
+                                    style: TextStyle(color: Colors.white),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          if (readyVideo != null && !readyVideo.value.isPlaying)
+                            Center(
+                              child: Container(
+                                width: 54,
+                                height: 54,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xE6D95718),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.play_arrow_rounded,
+                                  color: Colors.white,
+                                  size: 34,
+                                ),
+                              ),
+                            ),
+                          if (readyVideo != null && readyVideo.value.isPlaying)
+                            const Positioned(
+                              right: 10,
+                              bottom: 10,
+                              child: Icon(
+                                Icons.pause_circle_filled_rounded,
+                                color: Colors.white,
+                                size: 28,
+                              ),
+                            ),
                         ],
                       ),
                     ),
-                  if (readyVideo != null && !readyVideo.value.isPlaying)
-                    Center(
-                      child: Container(
-                        width: 54,
-                        height: 54,
-                        decoration: const BoxDecoration(
-                          color: Color(0xE6D95718),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.play_arrow_rounded,
-                          color: Colors.white,
-                          size: 34,
-                        ),
-                      ),
-                    ),
-                  if (readyVideo != null && readyVideo.value.isPlaying)
-                    const Positioned(
-                      right: 10,
-                      bottom: 10,
-                      child: Icon(
-                        Icons.pause_circle_filled_rounded,
-                        color: Colors.white,
-                        size: 28,
-                      ),
-                    ),
-                ],
-              ),
-            ),
+                  ),
+                ),
+              );
+            },
           ),
           Container(
             color: Colors.white,
@@ -6385,6 +6436,13 @@ class _SelectedRecognitionVideoState extends State<_SelectedRecognitionVideo> {
                     ],
                   ),
                 ),
+                if (widget.onEdit != null)
+                  TextButton.icon(
+                    key: const Key('recognition-edit-video'),
+                    onPressed: widget.enabled ? widget.onEdit : null,
+                    icon: const Icon(Icons.content_cut_rounded, size: 17),
+                    label: const Text('编辑'),
+                  ),
                 IconButton(
                   tooltip: '清除视频',
                   onPressed: widget.enabled ? widget.onClear : null,
@@ -7112,23 +7170,70 @@ class _RecognitionReport extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _RecognitionCoachSummary(result: result),
         if (evidenceEvents.isNotEmpty) ...[
-          const SizedBox(height: 22),
           _RecognitionEvidenceGallery(
             events: evidenceEvents,
             metrics: result.metrics,
             mediaHeaders: result.mediaHeaders,
           ),
         ] else if (result.previewUrl != null) ...[
-          const SizedBox(height: 22),
           _RecognitionPreviewImage(
             imageUrl: result.previewUrl!,
             metrics: result.metrics,
             mediaHeaders: result.mediaHeaders,
           ),
         ],
+        if (evidenceEvents.isNotEmpty || result.previewUrl != null)
+          const SizedBox(height: 14),
+        if (controller.recognitionIncludeOverlay && result.overlayUrl != null)
+          _RecognitionRemoteVideo(
+            key: const Key('recognition-overlay-video'),
+            url: result.overlayUrl!,
+            headers: result.mediaHeaders,
+            title: '骨骼标注视频',
+          )
+        else if (controller.recognitionIncludeOverlay)
+          Container(
+            key: const Key('recognition-overlay-unavailable'),
+            width: double.infinity,
+            padding: const EdgeInsets.all(13),
+            decoration: BoxDecoration(
+              color: emberTint,
+              borderRadius: BorderRadius.circular(15),
+              border: Border.all(color: hairline),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.info_outline_rounded, color: primary, size: 20),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '骨骼视频本次未生成，仍可查看上方骨骼标注图和分析结果。',
+                    style: TextStyle(color: secondaryInk, fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+          )
+        else if (controller.selectedMediaPath != null)
+          _SelectedRecognitionVideo(
+            key: const Key('recognition-result-original-video'),
+            path: controller.selectedMediaPath!,
+            name: controller.selectedMediaName ?? '原始视频',
+            sizeLabel: _formatBytes(controller.selectedMediaBytes),
+            enabled: false,
+            onClear: () {},
+          )
+        else if (result.inputUrl != null)
+          _RecognitionRemoteVideo(
+            key: const Key('recognition-result-original-video'),
+            url: result.inputUrl!,
+            headers: result.mediaHeaders,
+            title: '原始视频',
+          ),
         const SizedBox(height: 14),
+        _RecognitionCoachSummary(result: result),
+        const SizedBox(height: 8),
         Align(
           alignment: Alignment.centerLeft,
           child: TextButton.icon(
@@ -7456,8 +7561,8 @@ _RecognitionEventInsight _recognitionEventInsight(RecognitionEvent event) =>
         nextStep: '先降低重量或放慢速度。动作开始前固定胸廓和骨盆，用目标关节完成动作，不要通过突然抬胸或塌腰增加幅度。',
       ),
       'LAT_PULLDOWN_RANGE_INCOMPLETE' => const _RecognitionEventInsight(
-        title: '下拉行程没有稳定覆盖完整范围',
-        meaning: '手臂完成了明显下拉，但顶部可能没有充分伸展，最低位置也可能提前结束。这样会缩短背阔肌参与的有效动作路径。',
+        title: '下拉的起点或终点提前结束',
+        meaning: '手臂已经完成下拉，但顶部肘部没有充分伸展，或最低位置的肘部没有继续向身体两侧下沉，实际移动距离偏短。',
         nextStep:
             '先把重量调到能够稳定控制的范围。顶部让肘部自然伸展，再把肘部向下、略向髋部移动；末端短暂停顿，避免用明显后仰代替下拉距离。',
       ),
@@ -7517,19 +7622,19 @@ _RecognitionEventInsight _recognitionEventInsight(RecognitionEvent event) =>
         nextStep: '下一组减轻重量并固定上臂，只让前臂围绕肘部移动，先把每次屈伸做完整再增加负重。',
       ),
       'PULL_UP_ARM_ASYMMETRY' => const _RecognitionEventInsight(
-        title: '两侧手臂没有同步发力',
-        meaning: '同一时刻左右肘角差距较大，一侧会先弯曲或先完成上拉，身体容易随之旋转并把更多负荷交给单侧肩背。',
-        nextStep: '下一组先减轻负重，从完全稳定的悬垂开始，同时把两侧肘部向下拉；宁可少做几次，也不要让一侧抢先完成。',
+        title: '两侧肘部弯曲不同步',
+        meaning: '同一时刻左右肘角差距较大，一侧肘部先弯曲或先到达最高位置，躯干可能随之旋转并增加单侧肩背负担。',
+        nextStep: '下一组先减少负重或使用辅助，从稳定悬垂开始，让两侧肘部同时向下移动；出现明显不同步时停止该次动作并重新开始。',
       ),
       'PULL_UP_SHOULDER_ASYMMETRY' => const _RecognitionEventInsight(
         title: '两侧肩膀出现高低差',
-        meaning: '肩线在发力阶段持续倾斜，通常说明两侧肩胛下沉和躯干稳定没有同步。',
+        meaning: '肩线在上拉阶段持续倾斜，表示两侧肩胛下沉的时间或幅度不同。',
         nextStep: '起拉前先把两侧肩胛同时向下固定，保持胸口朝正前方；如果肩线仍明显倾斜，先减少负重或改用辅助引体。',
       ),
       'PULL_UP_RANGE_INCOMPLETE' => const _RecognitionEventInsight(
-        title: '上拉行程提前结束',
-        meaning: '肘部完成了弯曲，但顶部位置仍没有达到这一组可稳定复现的完整范围。',
-        nextStep: '先把每次动作做完整再增加次数：底部保持受控伸展，顶部继续把肘部向身体两侧和后下方拉，不要用摆动换高度。',
+        title: '上拉在到达目标高度前结束',
+        meaning: '肘部已经弯曲，但下巴仍未接近或越过横杆，动作在最高位置之前开始下降。',
+        nextStep: '下一组减少负重或使用辅助：底部保持受控伸展，继续把肘部向身体两侧和后下方拉，直到下巴接近横杆；不要用摆动增加高度。',
       ),
       _ => _RecognitionEventInsight(
         title: event.label,
@@ -7554,11 +7659,14 @@ _RecognitionCoachCopy _recognitionCoachCopy(RecognitionResult result) {
     eventsByCode.putIfAbsent(event.code, () => <RecognitionEvent>[]).add(event);
   }
   final body = <String>[];
-  if (review != null && review.headline.trim().isNotEmpty) {
+  if (review != null && _isObjectiveRecognitionCopy(review.headline)) {
     body.add(_recognitionSentence(review.headline));
   }
   if (review != null && review.strengths.isNotEmpty) {
-    body.add('做得比较稳的是${review.strengths.join('、')}。');
+    final strengths = review.strengths
+        .where(_isObjectiveRecognitionCopy)
+        .toList(growable: false);
+    if (strengths.isNotEmpty) body.add('${strengths.join('；')}。');
   }
   for (final group in eventsByCode.values) {
     final insight = _recognitionEventInsight(group.first);
@@ -7572,7 +7680,9 @@ _RecognitionCoachCopy _recognitionCoachCopy(RecognitionResult result) {
     body.add(result.summary.trim().isEmpty ? '这段动作已经分析完成。' : result.summary);
   }
 
-  var nextSet = review?.nextSet.trim() ?? '';
+  var nextSet = review != null && _isObjectiveRecognitionCopy(review.nextSet)
+      ? review.nextSet.trim()
+      : '';
   if (nextSet.isEmpty && eventsByCode.isNotEmpty) {
     nextSet = eventsByCode.values
         .map((events) => _recognitionEventInsight(events.first).nextStep)
@@ -7583,6 +7693,12 @@ _RecognitionCoachCopy _recognitionCoachCopy(RecognitionResult result) {
     body: body.join('\n\n'),
     nextSet: nextSet.isEmpty ? '' : _recognitionSentence(nextSet),
   );
+}
+
+bool _isObjectiveRecognitionCopy(String value) {
+  final text = value.trim();
+  if (text.isEmpty) return false;
+  return !RegExp(r'整体有劲|抢跑|果断|拖泥带水|犹豫|拉满|稳定复现的完整范围').hasMatch(text);
 }
 
 String _recognitionSentence(String value) {
@@ -8846,11 +8962,6 @@ class _ChatBubble extends StatelessWidget {
     }
   }
 
-  void _copyMessage(BuildContext context) {
-    Clipboard.setData(ClipboardData(text: message.body));
-    showKiloSnack(context, '消息已复制');
-  }
-
   @override
   Widget build(BuildContext context) => Align(
     alignment: message.role == 'user'
@@ -8910,23 +9021,6 @@ class _ChatBubble extends StatelessWidget {
             ),
           if (message.plan != null)
             _AiPlanCard(plan: message.plan!, controller: controller),
-          if (message.body.trim().isNotEmpty)
-            Align(
-              alignment: Alignment.centerRight,
-              child: IconButton(
-                key: Key('copy-chat-message-${message.id}'),
-                tooltip: '复制消息',
-                visualDensity: VisualDensity.compact,
-                onPressed: () => _copyMessage(context),
-                icon: Icon(
-                  Icons.copy_outlined,
-                  size: 16,
-                  color: message.role == 'user'
-                      ? Colors.white.withValues(alpha: .82)
-                      : muted,
-                ),
-              ),
-            ),
           if (message.citations.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 10),
@@ -9308,6 +9402,9 @@ class _AiPlanExerciseDetail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final exercise = findExercise(draft.exerciseId);
+    final note = draft.note.trim().isNotEmpty
+        ? draft.note.trim()
+        : exercise.cue.trim();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -9332,6 +9429,40 @@ class _AiPlanExerciseDetail extends StatelessWidget {
             ),
           ],
         ),
+        if (note.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Container(
+            key: Key('ai-plan-exercise-note-${draft.exerciseId}'),
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+            decoration: BoxDecoration(
+              color: emberTint,
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(
+                  Icons.tips_and_updates_outlined,
+                  size: 17,
+                  color: primary,
+                ),
+                const SizedBox(width: 7),
+                Expanded(
+                  child: Text(
+                    '动作提醒 · $note',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      height: 1.4,
+                      color: secondaryInk,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
         const SizedBox(height: 8),
         for (var setIndex = 0; setIndex < draft.sets.length; setIndex++)
           Container(
@@ -12425,29 +12556,27 @@ class _WorkoutCelebration extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final reducedMotion = MediaQuery.disableAnimationsOf(context);
+    final mediaHeight = MediaQuery.sizeOf(context).height;
+    final dialogMaxHeight = mediaHeight > 0 ? mediaHeight * .92 : 880.0;
     final metrics = <(String, String, IconData)>[
       ('训练时长', _duration(), Icons.timer_outlined),
       ('训练容量', _volume(), Icons.fitness_center_outlined),
-      (
-        '本次 PR',
-        '${record.prDetails.isNotEmpty ? record.prDetails.length : record.prs.length}',
-        Icons.emoji_events_outlined,
-      ),
+      ('完成组', '${record.effectiveSets} 组', Icons.task_alt_rounded),
     ];
     final hero = reducedMotion
         ? Container(
             key: const Key('workout-celebration-burst'),
-            width: 88,
-            height: 88,
+            width: 62,
+            height: 62,
             decoration: BoxDecoration(
               color: const Color(0xFFE5F5EB),
               shape: BoxShape.circle,
-              border: Border.all(color: const Color(0xFF6DB787), width: 2),
+              border: Border.all(color: const Color(0xFF6DB787)),
             ),
             child: const Icon(
               Icons.check_circle,
               color: Color(0xFF1E6B45),
-              size: 48,
+              size: 38,
             ),
           )
         : TweenAnimationBuilder<double>(
@@ -12458,23 +12587,23 @@ class _WorkoutCelebration extends StatelessWidget {
             builder: (context, progress, _) => Transform.scale(
               scale: progress,
               child: Container(
-                width: 88,
-                height: 88,
+                width: 62,
+                height: 62,
                 decoration: BoxDecoration(
                   color: const Color(0xFFE5F5EB),
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
                       color: const Color(0xFF1E6B45).withValues(alpha: .24),
-                      blurRadius: 22 * progress,
-                      spreadRadius: 4 * progress,
+                      blurRadius: 16 * progress,
+                      spreadRadius: 2 * progress,
                     ),
                   ],
                 ),
                 child: const Icon(
                   Icons.check_circle,
                   color: Color(0xFF1E6B45),
-                  size: 48,
+                  size: 38,
                 ),
               ),
             ),
@@ -12485,7 +12614,7 @@ class _WorkoutCelebration extends StatelessWidget {
             top: 0,
             left: 0,
             right: 0,
-            height: 180,
+            height: 130,
             child: IgnorePointer(
               child: TweenAnimationBuilder<double>(
                 tween: Tween(begin: 0, end: 1),
@@ -12500,32 +12629,32 @@ class _WorkoutCelebration extends StatelessWidget {
               ),
             ),
           );
-    return Dialog.fullscreen(
+    return Dialog(
       key: const Key('workout-celebration'),
       backgroundColor: paper,
-      child: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) => Stack(
-            children: [
-              SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(18, 28, 18, 22),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minHeight: constraints.maxHeight - 50,
-                  ),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+      clipBehavior: Clip.antiAlias,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: 560, maxHeight: dialogMaxHeight),
+        child: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) => Stack(
+              children: [
+                SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
                   child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Center(child: hero),
-                      const SizedBox(height: 18),
+                      const SizedBox(height: 10),
                       Text(
                         '训练完成',
                         textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.headlineSmall
                             ?.copyWith(fontWeight: FontWeight.w900, color: ink),
                       ),
-                      const SizedBox(height: 5),
+                      const SizedBox(height: 2),
                       Text(
                         record.name,
                         maxLines: 2,
@@ -12533,7 +12662,7 @@ class _WorkoutCelebration extends StatelessWidget {
                         textAlign: TextAlign.center,
                         style: const TextStyle(color: secondaryInk),
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 14),
                       LayoutBuilder(
                         builder: (context, metricConstraints) {
                           final width = (metricConstraints.maxWidth - 20) / 3;
@@ -12551,42 +12680,54 @@ class _WorkoutCelebration extends StatelessWidget {
                                   reducedMotion: reducedMotion,
                                   child: SizedBox(
                                     width: width,
-                                    child: Card(
+                                    child: Container(
                                       margin: EdgeInsets.zero,
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(12),
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Icon(
-                                              metrics[index].$3,
-                                              color: cobalt,
-                                              size: 20,
+                                      padding: const EdgeInsets.all(10),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(15),
+                                        border: Border.all(color: hairline),
+                                      ),
+                                      child: Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.center,
+                                        children: [
+                                          Icon(
+                                            metrics[index].$3,
+                                            color: primary,
+                                            size: 18,
+                                          ),
+                                          const SizedBox(width: 7),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  metrics[index].$1,
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  style: const TextStyle(
+                                                    color: quiet,
+                                                    fontSize: 10,
+                                                  ),
+                                                ),
+                                                Text(
+                                                  metrics[index].$2,
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  style: const TextStyle(
+                                                    color: ink,
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.w900,
+                                                  ),
+                                                ),
+                                              ],
                                             ),
-                                            const SizedBox(height: 6),
-                                            Text(
-                                              metrics[index].$1,
-                                              maxLines: 2,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: const TextStyle(
-                                                color: quiet,
-                                                fontSize: 12,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 2),
-                                            Text(
-                                              metrics[index].$2,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: const TextStyle(
-                                                color: ink,
-                                                fontSize: 17,
-                                                fontWeight: FontWeight.w900,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
+                                          ),
+                                        ],
                                       ),
                                     ),
                                   ),
@@ -12595,44 +12736,31 @@ class _WorkoutCelebration extends StatelessWidget {
                           );
                         },
                       ),
-                      const SizedBox(height: 18),
+                      const SizedBox(height: 14),
                       _CelebrationExerciseSummary(
                         controller: controller,
                         record: record,
                       ),
-                      if (record.prDetails.isNotEmpty) ...[
-                        const SizedBox(height: 12),
-                        _WorkoutPrHistorySummary(
-                          controller: controller,
-                          record: record,
-                        ),
-                      ],
-                      const SizedBox(height: 12),
-                      _WorkoutComparisonSummary(
-                        controller: controller,
-                        record: record,
-                      ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 10),
                       _WorkoutCompletionAiReview(
                         controller: controller,
                         record: record,
                       ),
-                      const SizedBox(height: 22),
-                      if (constraints.maxWidth < 380)
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            OutlinedButton.icon(
-                              key: const Key('workout-celebration-records'),
-                              onPressed: () {
-                                Navigator.pop(context);
-                                controller.selectPage(PageId.records);
-                              },
-                              icon: const Icon(Icons.history),
-                              label: const Text('查看记录'),
-                            ),
-                            const SizedBox(height: 8),
-                            FilledButton.icon(
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          TextButton.icon(
+                            key: const Key('workout-celebration-records'),
+                            onPressed: () {
+                              Navigator.pop(context);
+                              controller.selectPage(PageId.records);
+                            },
+                            icon: const Icon(Icons.history, size: 18),
+                            label: const Text('查看记录'),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: FilledButton.icon(
                               key: const Key('workout-celebration-done'),
                               onPressed: () {
                                 Navigator.pop(context);
@@ -12641,42 +12769,15 @@ class _WorkoutCelebration extends StatelessWidget {
                               icon: const Icon(Icons.check),
                               label: const Text('完成'),
                             ),
-                          ],
-                        )
-                      else
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                key: const Key('workout-celebration-records'),
-                                onPressed: () {
-                                  Navigator.pop(context);
-                                  controller.selectPage(PageId.records);
-                                },
-                                icon: const Icon(Icons.history),
-                                label: const Text('查看记录'),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: FilledButton.icon(
-                                key: const Key('workout-celebration-done'),
-                                onPressed: () {
-                                  Navigator.pop(context);
-                                  controller.selectTrainView(TrainView.plans);
-                                },
-                                icon: const Icon(Icons.check),
-                                label: const Text('完成'),
-                              ),
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
-              ),
-              particleLayer,
-            ],
+                particleLayer,
+              ],
+            ),
           ),
         ),
       ),
@@ -12684,6 +12785,9 @@ class _WorkoutCelebration extends StatelessWidget {
   }
 }
 
+// Kept for the dedicated record-detail view; the compact completion dialog
+// intentionally does not render PR history.
+// ignore: unused_element
 class _WorkoutPrHistorySummary extends StatelessWidget {
   const _WorkoutPrHistorySummary({
     required this.controller,
@@ -12822,6 +12926,9 @@ class _WorkoutPrHistorySummary extends StatelessWidget {
   }
 }
 
+// Kept for reuse in record details; comparisons no longer lengthen the
+// completion dialog.
+// ignore: unused_element
 class _WorkoutComparisonSummary extends StatelessWidget {
   const _WorkoutComparisonSummary({
     required this.controller,
@@ -12959,6 +13066,7 @@ class _WorkoutCompletionAiReviewState
   String? review;
   Object? error;
   bool loading = false;
+  bool expanded = false;
 
   bool get isMember => widget.controller.entitlements?.isMember == true;
 
@@ -12973,11 +13081,17 @@ class _WorkoutCompletionAiReviewState
     setState(() {
       loading = true;
       error = null;
+      review = '';
+      expanded = false;
     });
     try {
       final value = await widget.controller.generateWorkoutCompletionReview(
         widget.record,
         baseline: widget.controller.comparisonBaselineFor(widget.record),
+        onDelta: (delta) {
+          if (!mounted || delta.isEmpty) return;
+          setState(() => review = '${review ?? ''}$delta');
+        },
       );
       if (!mounted) return;
       setState(() => review = value);
@@ -12992,12 +13106,17 @@ class _WorkoutCompletionAiReviewState
   @override
   Widget build(BuildContext context) {
     if (!isMember) return _buildLocked(context);
+    final content = review?.trim() ?? '';
+    final plainPreview = content
+        .replaceAll(RegExp(r'[#*_>`~-]+'), '')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
     return Card(
       key: const Key('workout-completion-ai-review'),
       margin: EdgeInsets.zero,
       color: const Color(0xFFFFF1E5),
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -13014,8 +13133,8 @@ class _WorkoutCompletionAiReviewState
                 MembershipMark(isMember: true, size: 24),
               ],
             ),
-            const SizedBox(height: 9),
-            if (loading)
+            const SizedBox(height: 7),
+            if (loading && content.isEmpty)
               const Row(
                 children: [
                   SizedBox(
@@ -13024,12 +13143,64 @@ class _WorkoutCompletionAiReviewState
                     child: CircularProgressIndicator(strokeWidth: 2),
                   ),
                   SizedBox(width: 10),
-                  Expanded(child: Text('正在结合本次与历史训练生成评价…')),
+                  Expanded(child: Text('正在思考本次训练的整体安排…')),
                 ],
               )
-            else if (review != null)
-              Text(review!, style: const TextStyle(height: 1.55))
-            else if (error != null)
+            else if (content.isNotEmpty) ...[
+              AnimatedCrossFade(
+                duration: const Duration(milliseconds: 220),
+                crossFadeState: expanded
+                    ? CrossFadeState.showSecond
+                    : CrossFadeState.showFirst,
+                firstChild: Text(
+                  plainPreview,
+                  key: const Key('workout-ai-review-preview'),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(height: 1.5, color: secondaryInk),
+                ),
+                secondChild: MarkdownBody(
+                  key: const Key('workout-ai-review-expanded'),
+                  data: content,
+                  selectable: true,
+                  styleSheet: MarkdownStyleSheet(
+                    p: const TextStyle(height: 1.5, color: secondaryInk),
+                    h2: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w900,
+                      color: ink,
+                    ),
+                    h3: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                      color: ink,
+                    ),
+                    blockSpacing: 6,
+                    listIndent: 18,
+                  ),
+                ),
+              ),
+              if (!loading && plainPreview.length > 72)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    key: const Key('workout-ai-review-expand'),
+                    onPressed: () => setState(() => expanded = !expanded),
+                    icon: Icon(
+                      expanded
+                          ? Icons.expand_less_rounded
+                          : Icons.expand_more_rounded,
+                      size: 18,
+                    ),
+                    label: Text(expanded ? '收起' : '展开全文'),
+                  ),
+                )
+              else if (loading)
+                const Padding(
+                  padding: EdgeInsets.only(top: 6),
+                  child: LinearProgressIndicator(minHeight: 2),
+                ),
+            ] else if (error != null)
               Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -13062,15 +13233,16 @@ class _WorkoutCompletionAiReviewState
       clipBehavior: Clip.antiAlias,
       child: SizedBox(
         height:
-            154 +
+            128 +
             (MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 2.0) - 1) *
-                286,
+                210,
         child: Stack(
           fit: StackFit.expand,
           children: [
             ExcludeSemantics(
+              key: const Key('workout-ai-locked-blurred-preview'),
               child: ImageFiltered(
-                imageFilter: ui.ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                imageFilter: ui.ImageFilter.blur(sigmaX: 7, sigmaY: 7),
                 child: const Padding(
                   padding: EdgeInsets.all(15),
                   child: Column(
@@ -13083,17 +13255,19 @@ class _WorkoutCompletionAiReviewState
                           fontWeight: FontWeight.w900,
                         ),
                       ),
-                      SizedBox(height: 10),
-                      Text('本次训练的主要动作保持稳定，力量表现相比上次有所变化。'),
+                      SizedBox(height: 7),
+                      Text('训练结构  ·  主要肌群覆盖与动作模式安排', maxLines: 1),
                       SizedBox(height: 5),
-                      Text('下一次训练建议优先关注重量、次数与动作完成质量。'),
+                      Text('本次表现  ·  训练量分配与组间完成情况', maxLines: 1),
+                      SizedBox(height: 5),
+                      Text('下次调整  ·  一项可以直接执行的建议', maxLines: 1),
                     ],
                   ),
                 ),
               ),
             ),
             ColoredBox(
-              color: Colors.white.withValues(alpha: .68),
+              color: Colors.white.withValues(alpha: .54),
               child: Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -13104,8 +13278,8 @@ class _WorkoutCompletionAiReviewState
                       '解锁训练后的 AI 评价',
                       style: TextStyle(fontWeight: FontWeight.w900),
                     ),
-                    const SizedBox(height: 7),
-                    FilledButton(
+                    const SizedBox(height: 5),
+                    FilledButton.tonal(
                       onPressed: () => showMembershipPaywall(
                         context,
                         controller: widget.controller,
@@ -13153,7 +13327,7 @@ class _ComparisonPill extends StatelessWidget {
   );
 }
 
-class _CelebrationExerciseSummary extends StatelessWidget {
+class _CelebrationExerciseSummary extends StatefulWidget {
   const _CelebrationExerciseSummary({
     required this.controller,
     required this.record,
@@ -13163,8 +13337,18 @@ class _CelebrationExerciseSummary extends StatelessWidget {
   final WorkoutRecord record;
 
   @override
+  State<_CelebrationExerciseSummary> createState() =>
+      _CelebrationExerciseSummaryState();
+}
+
+class _CelebrationExerciseSummaryState
+    extends State<_CelebrationExerciseSummary> {
+  bool expanded = false;
+
+  @override
   Widget build(BuildContext context) {
-    final exercises = record.exercises;
+    final exercises = widget.record.exercises;
+    final visible = expanded ? exercises : exercises.take(4).toList();
     return Semantics(
       container: true,
       label: '本次训练动作与完成组详情',
@@ -13202,37 +13386,43 @@ class _CelebrationExerciseSummary extends StatelessWidget {
               ),
             )
           else
-            for (
-              var exerciseIndex = 0;
-              exerciseIndex < exercises.length;
-              exerciseIndex++
-            )
-              _CelebrationExerciseCard(
-                controller: controller,
-                exercise: exercises[exerciseIndex],
-                index: exerciseIndex,
-              ),
-          if (record.note.trim().isNotEmpty) ...[
-            const SizedBox(height: 2),
-            DecoratedBox(
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFF3E9),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFF4D1B4)),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final columns = constraints.maxWidth >= 260 ? 2 : 1;
+                final width = columns == 2
+                    ? (constraints.maxWidth - 8) / 2
+                    : constraints.maxWidth;
+                return Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
-                    const Icon(Icons.notes_rounded, color: primary, size: 18),
-                    const SizedBox(width: 8),
-                    Expanded(child: Text(record.note)),
+                    for (var index = 0; index < visible.length; index++)
+                      SizedBox(
+                        width: width,
+                        child: _CelebrationExerciseCard(
+                          controller: widget.controller,
+                          exercise: visible[index],
+                          index: index,
+                        ),
+                      ),
                   ],
+                );
+              },
+            ),
+          if (exercises.length > 4)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                key: const Key('workout-celebration-exercises-expand'),
+                onPressed: () => setState(() => expanded = !expanded),
+                icon: Icon(
+                  expanded
+                      ? Icons.expand_less_rounded
+                      : Icons.expand_more_rounded,
                 ),
+                label: Text(expanded ? '收起动作' : '查看全部 ${exercises.length} 个动作'),
               ),
             ),
-          ],
         ],
       ),
     );
@@ -13253,61 +13443,400 @@ class _CelebrationExerciseCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final completedSets = exercise.sets.where((set) => set.completed).toList();
-    final shownSets = completedSets.isEmpty ? exercise.sets : completedSets;
     final volume = completedSets.fold<double>(
       0,
       (sum, set) => sum + set.weight * set.reps,
     );
     return Card(
       key: Key('workout-celebration-exercise-$index'),
-      margin: const EdgeInsets.only(bottom: 9),
+      margin: EdgeInsets.zero,
       color: Colors.white,
       clipBehavior: Clip.antiAlias,
-      child: ExpansionTile(
+      child: InkWell(
         key: Key('workout-celebration-exercise-details-$index'),
-        initiallyExpanded: false,
-        tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
-        childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-        shape: const Border(),
-        collapsedShape: const Border(),
-        leading: _ExerciseThumb(exerciseId: exercise.exerciseId, size: 42),
-        title: Text(
-          controller.displayExerciseName(
-            controller.exerciseFor(exercise.exerciseId),
-          ),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(color: ink, fontWeight: FontWeight.w900),
-        ),
-        subtitle: Text(
-          '${completedSets.length} 组完成 · ${_displayWeight(volume)} kg 容量',
-          style: const TextStyle(color: quiet, fontSize: 12),
-        ),
-        controlAffinity: ListTileControlAffinity.trailing,
-        children: [
-          if (exercise.note.trim().isNotEmpty)
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Text(
-                  '动作备注：${exercise.note}',
-                  style: const TextStyle(color: secondaryInk, fontSize: 12),
+        onTap: () =>
+            _showCelebrationExerciseDetails(context, controller, exercise),
+        child: Padding(
+          padding: const EdgeInsets.all(9),
+          child: Row(
+            children: [
+              _ExerciseThumb(exerciseId: exercise.exerciseId, size: 38),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      controller.displayExerciseName(
+                        controller.exerciseFor(exercise.exerciseId),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: ink,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '${completedSets.length} 组 · ${_displayWeight(volume)} kg',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: quiet, fontSize: 10),
+                    ),
+                  ],
                 ),
               ),
+              const Icon(Icons.chevron_right_rounded, size: 18, color: quiet),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RecognitionRemoteVideo extends StatefulWidget {
+  const _RecognitionRemoteVideo({
+    super.key,
+    required this.url,
+    required this.headers,
+    required this.title,
+  });
+
+  final String url;
+  final Map<String, String> headers;
+  final String title;
+
+  @override
+  State<_RecognitionRemoteVideo> createState() =>
+      _RecognitionRemoteVideoState();
+}
+
+class _RecognitionRemoteVideoState extends State<_RecognitionRemoteVideo> {
+  VideoPlayerController? video;
+  Object? error;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_open());
+  }
+
+  Future<void> _open() async {
+    try {
+      final value = VideoPlayerController.networkUrl(
+        Uri.parse(widget.url),
+        httpHeaders: widget.headers,
+      );
+      await value.initialize();
+      await value.setLooping(true);
+      if (!mounted) {
+        await value.dispose();
+        return;
+      }
+      setState(() => video = value);
+    } catch (caught) {
+      if (mounted) setState(() => error = caught);
+    }
+  }
+
+  void _toggle() {
+    final current = video;
+    if (current == null) return;
+    setState(() {
+      current.value.isPlaying ? current.pause() : current.play();
+    });
+  }
+
+  @override
+  void dispose() {
+    video?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final current = video;
+    final ratio = current?.value.aspectRatio ?? 16 / 9;
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF211A17),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: hairline),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final height = (constraints.maxWidth / ratio).clamp(176.0, 300.0);
+              return SizedBox(
+                height: height,
+                child: Center(
+                  child: AspectRatio(
+                    aspectRatio: ratio,
+                    child: InkWell(
+                      onTap: current == null ? null : _toggle,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          if (current != null)
+                            VideoPlayer(current)
+                          else
+                            const ColoredBox(color: Color(0xFF211A17)),
+                          if (current == null && error == null)
+                            const Center(
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                              ),
+                            ),
+                          if (error != null)
+                            const Center(
+                              child: Text(
+                                '视频暂时无法播放',
+                                style: TextStyle(color: Colors.white),
+                              ),
+                            ),
+                          if (current != null && !current.value.isPlaying)
+                            const Center(
+                              child: CircleAvatar(
+                                radius: 25,
+                                backgroundColor: primary,
+                                child: Icon(
+                                  Icons.play_arrow_rounded,
+                                  color: Colors.white,
+                                  size: 32,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+          Container(
+            width: double.infinity,
+            color: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+            child: Text(
+              widget.title,
+              style: const TextStyle(fontWeight: FontWeight.w800),
             ),
-          for (var setIndex = 0; setIndex < shownSets.length; setIndex++)
-            Padding(
-              padding: EdgeInsets.only(top: setIndex == 0 ? 0 : 6),
-              child: _CelebrationSetRow(
-                set: shownSets[setIndex],
-                originalIndex: exercise.sets.indexOf(shownSets[setIndex]),
-              ),
-            ),
+          ),
         ],
       ),
     );
   }
+}
+
+Future<void> _editRecognitionVideo(
+  BuildContext context,
+  AppController controller,
+) async {
+  final path = controller.selectedMediaPath;
+  if (path == null || path.isEmpty) return;
+  final output = await Navigator.of(context).push<String>(
+    MaterialPageRoute<String>(
+      fullscreenDialog: true,
+      builder: (_) => _RecognitionVideoEditorPage(path: path),
+    ),
+  );
+  if (output == null || output.isEmpty) return;
+  controller.useEditedRecognitionVideo(output);
+  if (context.mounted) showKiloSnack(context, '已使用裁剪后的视频');
+}
+
+class _RecognitionVideoEditorPage extends StatefulWidget {
+  const _RecognitionVideoEditorPage({required this.path});
+
+  final String path;
+
+  @override
+  State<_RecognitionVideoEditorPage> createState() =>
+      _RecognitionVideoEditorPageState();
+}
+
+class _RecognitionVideoEditorPageState
+    extends State<_RecognitionVideoEditorPage> {
+  final Trimmer trimmer = Trimmer();
+  double startValue = 0;
+  double endValue = 0;
+  bool loading = true;
+  bool saving = false;
+  bool playing = false;
+  Object? error;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_load());
+  }
+
+  Future<void> _load() async {
+    try {
+      await trimmer.loadVideo(videoFile: File(widget.path));
+    } catch (caught) {
+      error = caught;
+    }
+    if (mounted) setState(() => loading = false);
+  }
+
+  Future<void> _save() async {
+    if (saving) return;
+    setState(() => saving = true);
+    try {
+      await trimmer.saveTrimmedVideo(
+        startValue: startValue,
+        endValue: endValue,
+        onSave: (output) {
+          if (!mounted) return;
+          if (output == null || output.isEmpty) {
+            setState(() => saving = false);
+            showKiloSnack(context, '视频片段保存失败，请重试');
+            return;
+          }
+          Navigator.pop(context, output);
+        },
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => saving = false);
+      showKiloSnack(context, '视频片段保存失败，请重试');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: paper,
+    appBar: AppBar(
+      backgroundColor: paper,
+      surfaceTintColor: Colors.transparent,
+      title: const Text('裁剪分析片段'),
+      actions: [
+        TextButton(
+          key: const Key('recognition-save-trim'),
+          onPressed: loading || saving || error != null ? null : _save,
+          child: Text(saving ? '保存中…' : '使用片段'),
+        ),
+      ],
+    ),
+    body: SafeArea(
+      child: loading
+          ? const Center(child: CircularProgressIndicator())
+          : error != null
+          ? const Center(child: Text('暂时无法编辑这个视频，请重新选择。'))
+          : Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
+              child: Column(
+                children: [
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxHeight: MediaQuery.sizeOf(context).height * .48,
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(20),
+                      child: ColoredBox(
+                        color: const Color(0xFF211A17),
+                        child: VideoViewer(trimmer: trimmer),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  LayoutBuilder(
+                    builder: (context, constraints) => TrimViewer(
+                      trimmer: trimmer,
+                      viewerHeight: 62,
+                      viewerWidth: constraints.maxWidth,
+                      maxVideoLength: const Duration(minutes: 3),
+                      onChangeStart: (value) => startValue = value,
+                      onChangeEnd: (value) => endValue = value,
+                      onChangePlaybackState: (value) =>
+                          setState(() => playing = value),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  FilledButton.tonalIcon(
+                    onPressed: () async {
+                      final value = await trimmer.videoPlaybackControl(
+                        startValue: startValue,
+                        endValue: endValue,
+                      );
+                      if (mounted) setState(() => playing = value);
+                    },
+                    icon: Icon(
+                      playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                    ),
+                    label: Text(playing ? '暂停预览' : '预览所选片段'),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    '拖动两侧把手，只保留需要分析的动作片段。',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: quiet, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+    ),
+  );
+}
+
+void _showCelebrationExerciseDetails(
+  BuildContext context,
+  AppController controller,
+  WorkoutExercise exercise,
+) {
+  final completed = exercise.sets.where((set) => set.completed).toList();
+  final shown = completed.isEmpty ? exercise.sets : completed;
+  showModalBottomSheet<void>(
+    context: context,
+    useSafeArea: true,
+    showDragHandle: true,
+    builder: (context) => Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 22),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              _ExerciseThumb(exerciseId: exercise.exerciseId, size: 46),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  controller.displayExerciseName(
+                    controller.exerciseFor(exercise.exerciseId),
+                  ),
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (exercise.note.trim().isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(exercise.note, style: const TextStyle(color: secondaryInk)),
+          ],
+          const SizedBox(height: 12),
+          for (var index = 0; index < shown.length; index++)
+            Padding(
+              padding: EdgeInsets.only(top: index == 0 ? 0 : 6),
+              child: _CelebrationSetRow(
+                set: shown[index],
+                originalIndex: exercise.sets.indexOf(shown[index]),
+              ),
+            ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _CelebrationSetRow extends StatelessWidget {

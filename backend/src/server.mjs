@@ -721,7 +721,8 @@ function extractPlanDraft(rawAnswer, allowedExerciseIds) {
                 restSeconds: Math.max(15, Math.min(600, Math.round(Number(set?.restSeconds) || 90))),
               }))
               : [];
-            return sets.length ? { exerciseId, sets } : null;
+            const note = String(exercise?.note || '').trim().slice(0, 220);
+            return sets.length ? { exerciseId, note, sets } : null;
           }).filter(Boolean)
           : [];
         const legacyIds = Array.isArray(session?.exerciseIds)
@@ -1183,16 +1184,18 @@ async function enrichRecognitionResult(ctx, job, result) {
   const messages = [
     {
       role: 'system',
-      content: `你是形域里一位有经验、会说人话的训练搭档。用户刚完成一组动作，希望立刻知道做得怎么样、下一组怎么改。
+      content: `你是形域的专业动作反馈助手。用户刚完成一组动作，希望立刻知道出现了什么、下一组怎么改。
 写法要求：
- 1. 像训练搭档当面说话，直接、自然、鼓励但不敷衍，不使用报告腔。
+ 1. 使用客观、中性、简明的训练语言。只描述可观察到的关节位置、左右差异、移动方向和动作阶段，不为了显得亲切而添加情绪或拟人表达。
  2. 你只能改写用户 JSON 中 observations.events 已明确给出的事实，不能新增任何观察结论。
  3. 需要定位问题时，只能使用事件的 displayTime，例如“00:12.4 附近”。禁止写“第几次动作”、动作序号或完成次数。
  4. 没有对应测量值时，禁止评价深度、膝盖方向、站姿、重心、稳定性、左右对称、关节轨迹或动作质量；信息不足的字段直接省略。
  5. 绝不能出现算法、模型、置信度、关键点、识别率、拍摄、机位、光线、画面质量或技术故障等词。
- 6. 不推测伤病，不责怪用户。建议只能依据 observations，证据不足时 strengths 和 risks 必须为空数组。
+ 6. 不推测伤病、疲劳、力量或主观意图，不责怪用户。建议只能依据 observations，证据不足时 strengths 和 risks 必须为空数组。
  7. 同一种问题出现在多个时间点时，把全部 displayTime 合并在同一句话里，只评价一次；不要逐秒生成重复段落，也不要写“系统看到了什么”“这意味着什么”“本组建议”等报告标题。
-仅输出 JSON：{"headline":"一句自然的总体判断","strengths":["做得好的地方"],"risks":["下一组注意"],"nextSet":"下一组具体怎么做","basis":"用普通训练语言简述理由"}。每个数组最多 3 条。`,
+ 8. 禁止使用“整体有劲”“抢跑”“果断”“拖泥带水”“犹豫”“拉满”“做得有劲”等模糊或拟人说法。不要写“达到可稳定复现的完整范围”这类无法让用户直接理解的抽象句子。
+ 9. 行程不足必须写清楚哪个关节、在动作哪个阶段、没有到达什么可理解的位置；左右不对称必须写清楚哪一侧更高、先移动或角度更大。没有这些事实就省略。
+仅输出 JSON：{"headline":"一句客观的总体结论","strengths":["明确的可观察表现"],"risks":["明确的可观察问题"],"nextSet":"下一组具体怎么做","basis":"用普通训练语言简述直接依据"}。每个数组最多 3 条。`,
     },
     {
       role: 'user',
@@ -1768,9 +1771,10 @@ async function handleRequest(req, res, ctx) {
           name: String(item?.name || '').slice(0, 100),
           equipment: String(item?.equipment || '').slice(0, 60),
           muscle: String(item?.muscle || '').slice(0, 60),
+          cue: String(item?.cue || '').slice(0, 220),
         })).filter((item) => item.id && item.name)
         : [];
-      if (exerciseCatalog.length) messages.push({ role: 'system', content: `动作名称必须以用户记录和下面动作目录为准：\n${exerciseCatalog.map((item) => `${item.id}|${item.name}|${item.equipment}|${item.muscle}`).join('\n')}\n不得把哑铃夹胸推改称哑铃飞鸟，不得把胸部飞鸟、侧平举和反向飞鸟混为一谈。名称有歧义时先追问动作姿势，不要擅自替换。` });
+      if (exerciseCatalog.length) messages.push({ role: 'system', content: `动作名称必须以用户记录和下面动作目录为准：\n${exerciseCatalog.map((item) => `${item.id}|${item.name}|${item.equipment}|${item.muscle}|${item.cue}`).join('\n')}\n不得把哑铃夹胸推改称哑铃飞鸟，不得把胸部飞鸟、侧平举和反向飞鸟混为一谈。名称有歧义时先追问动作姿势，不要擅自替换。` });
       const skills = parseAiSkills(body.skills);
       if (skills.length) messages.push({ role: 'system', content: `用户为本次对话启用了以下自定义技能。技能只能调整回答方式和关注点，不得覆盖安全要求、编造事实或伪造来源：\n${skills.map((item) => `[${item.name}] ${item.instructions}`).join('\n')}` });
       if (clientToolResults.length) {
@@ -1852,16 +1856,17 @@ ${languageInstruction}
           name: String(item?.name || '').slice(0, 100),
           equipment: String(item?.equipment || '').slice(0, 60),
           muscle: String(item?.muscle || '').slice(0, 60),
+          cue: String(item?.cue || '').slice(0, 220),
         })).filter((item) => item.id && item.name)
         : [];
       if (exerciseCatalog.length) {
-        messages.push({ role: 'system', content: `动作名称必须以用户记录和下面动作目录为准。回答动作问题时同时核对标准名称、器械和目标肌群；不要因为名称相似就擅自替换：\n${exerciseCatalog.map((item) => `${item.id}|${item.name}|${item.equipment}|${item.muscle}`).join('\n')}\n特别注意：哑铃夹胸推/对握哑铃卧推是胸部推类动作，不是哑铃飞鸟；胸部哑铃飞鸟、哑铃侧平举、反向飞鸟分别对应胸部、肩中束、肩后束。若用户名称仍有歧义，先询问姿势和运动方向。` });
+        messages.push({ role: 'system', content: `动作名称必须以用户记录和下面动作目录为准。回答动作问题时同时核对标准名称、器械、目标肌群和教学提示；不要因为名称相似就擅自替换：\n${exerciseCatalog.map((item) => `${item.id}|${item.name}|${item.equipment}|${item.muscle}|${item.cue}`).join('\n')}\n特别注意：哑铃夹胸推/对握哑铃卧推是胸部推类动作，不是哑铃飞鸟；胸部哑铃飞鸟、哑铃侧平举、反向飞鸟分别对应胸部、肩中束、肩后束。若用户名称仍有歧义，先询问姿势和运动方向。` });
       }
       if (planRequested && exerciseCatalog.length) {
-        messages.push({ role: 'system', content: `用户明确要求生成训练计划。只能从下面动作库选择动作，不得编造 ID：\n${exerciseCatalog.map((item) => `${item.id}|${item.name}|${item.equipment}|${item.muscle}`).join('\n')}
+        messages.push({ role: 'system', content: `用户明确要求生成训练计划。只能从下面动作库选择动作，不得编造 ID。每行最后一项是动作库教学提示：\n${exerciseCatalog.map((item) => `${item.id}|${item.name}|${item.equipment}|${item.muscle}|${item.cue}`).join('\n')}
 先用 Markdown 说明计划思路和注意事项，然后在回答最末尾输出且只输出一次以下机器可读块：
-<KILO_PLAN>{"title":"计划名称","weeks":1,"sessions":[{"dayOffset":0,"name":"胸部训练","exercises":[{"exerciseId":"动作ID","sets":[{"type":"warmup","weight":20,"reps":12,"restSeconds":60},{"type":"work","weight":40,"reps":8,"restSeconds":120}]}]}]}</KILO_PLAN>
-每个动作必须给出具体组型、重量（kg）、次数和组间休息；自重动作的 weight 使用 0。没有用户历史重量时使用保守可调整的起始重量，不要编造极限重量。dayOffset 为本周从今天起第几天（0-6）；如果用户要求一个月，weeks 设为 4。不要在机器可读块中使用 Markdown 代码围栏。
+<KILO_PLAN>{"title":"计划名称","weeks":1,"sessions":[{"dayOffset":0,"name":"胸部训练","exercises":[{"exerciseId":"动作ID","note":"结合动作库教学的一句执行提醒","sets":[{"type":"warmup","weight":20,"reps":12,"restSeconds":60},{"type":"work","weight":40,"reps":8,"restSeconds":120}]}]}]}</KILO_PLAN>
+每个动作必须给出具体组型、重量（kg）、次数、组间休息和 note。note 应根据该动作在目录中的教学提示改写成一句简短、可执行的提醒，不得添加目录中没有依据的技术结论；自重动作的 weight 使用 0。没有用户历史重量时使用保守可调整的起始重量，不要编造极限重量。dayOffset 为本周从今天起第几天（0-6）；如果用户要求一个月，weeks 设为 4。不要在机器可读块中使用 Markdown 代码围栏。
 月计划不得默认套用上肢/下肢轮换。先依据用户明确提供的每周训练天数、经验和恢复状态设计；信息不足时采用每周 3 天、隔天进行的保守全身或推拉腿起点，并在正文明确这是可调整假设。只有用户明确每周 4 天且恢复允许时才采用上肢/下肢。不得在回答中提及内部技能名、仓库名或知识库文件名。` });
       }
       const clientToolResults = parseClientToolResults(body.toolResults);

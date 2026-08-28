@@ -34,6 +34,7 @@ class _PersistentCoachApi implements CoachApi {
           exercises: [
             AiPlanExerciseDraft(
               exerciseId: 'bench_press',
+              note: '前臂保持垂直，控制杠铃触胸。',
               sets: [
                 AiPlanSetDraft(
                   type: 'work',
@@ -68,7 +69,7 @@ void main() {
       }
       if (request.url.path == '/v1/analysis/jobs' && request.method == 'POST') {
         expect(request.headers['Authorization'], 'Bearer session-token');
-        expect(jsonDecode(request.body)['includeOverlay'], false);
+        expect(jsonDecode(request.body)['includeOverlay'], true);
         return http.Response(
           jsonEncode({
             'id': 'job-1',
@@ -130,6 +131,8 @@ void main() {
               },
             },
             'media': {
+              'input':
+                  'https://blocked.example/v1/analysis/jobs/job-1/media/input',
               'overlay':
                   'https://blocked.example/v1/analysis/jobs/job-1/media/overlay',
               'preview':
@@ -160,7 +163,7 @@ void main() {
       camera: 'front',
       scenario: 'gym',
       mediaPath: video.path,
-      includeOverlay: false,
+      includeOverlay: true,
       onProgress: (update) => progress.add(update.stage),
     );
 
@@ -177,6 +180,7 @@ void main() {
     expect(result.aiReview?.headline, '整体轨迹稳定');
     expect(result.aiReview?.risks, ['末端控制可加强']);
     expect(result.overlayUrl, contains('test-api.example'));
+    expect(result.inputUrl, contains('test-api.example'));
     expect(result.mediaHeaders['Authorization'], 'Bearer session-token');
     expect(
       progress,
@@ -274,6 +278,10 @@ void main() {
       ]);
       expect(second.chat.last.citations, hasLength(1));
       expect(second.chat.last.plan?.title, '测试计划');
+      expect(
+        second.chat.last.plan?.sessions.single.exercises.single.note,
+        '前臂保持垂直，控制杠铃触胸。',
+      );
       expect(
         second
             .chat

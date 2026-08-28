@@ -733,7 +733,11 @@ class HttpCoachApi implements CoachApi, AgentCoachApi, StreamingCoachApi {
                         ),
                       )
                       .toList();
-                  return AiPlanExerciseDraft(exerciseId: id, sets: sets);
+                  return AiPlanExerciseDraft(
+                    exerciseId: id,
+                    sets: sets,
+                    note: (exercise['note'] ?? '').toString().trim(),
+                  );
                 })
                 .where(
                   (exercise) =>

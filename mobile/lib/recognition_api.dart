@@ -26,6 +26,7 @@ class RecognitionResult {
     required this.summary,
     this.repetitions = 0,
     this.error,
+    this.inputUrl,
     this.overlayUrl,
     this.previewUrl,
     this.events = const <RecognitionEvent>[],
@@ -42,6 +43,7 @@ class RecognitionResult {
   final int repetitions;
   final String summary;
   final String? error;
+  final String? inputUrl;
   final String? overlayUrl;
   final String? previewUrl;
   final List<RecognitionEvent> events;
@@ -469,6 +471,7 @@ class HttpRecognitionApi implements RecognitionApi {
       confidence: confidence,
       repetitions: (body['repetitions'] as num?)?.toInt() ?? 0,
       summary: (body['summary'] ?? '动作分析已完成').toString(),
+      inputUrl: _optionalMediaUrl(mediaMap['input']),
       overlayUrl: _optionalMediaUrl(mediaMap['overlay']),
       previewUrl: _optionalMediaUrl(mediaMap['preview']),
       events: List<RecognitionEvent>.unmodifiable(events),

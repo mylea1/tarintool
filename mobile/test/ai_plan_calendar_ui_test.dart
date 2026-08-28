@@ -15,6 +15,7 @@ AiPlanDraft _planFixture() => const AiPlanDraft(
       exercises: [
         AiPlanExerciseDraft(
           exerciseId: 'bench_press',
+          note: '肩胛稳定，前臂保持垂直，控制触胸位置。',
           sets: [
             AiPlanSetDraft(
               type: 'warmup',
@@ -64,6 +65,7 @@ void main() {
     expect(find.text('训练计划详情'), findsOneWidget);
     expect(find.textContaining('50 kg × 8 次'), findsOneWidget);
     expect(find.text('休 120s'), findsOneWidget);
+    expect(find.textContaining('动作提醒 · 肩胛稳定，前臂保持垂直'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
     Navigator.of(tester.element(find.text('训练计划详情'))).pop();

@@ -656,7 +656,11 @@ void main() {
       expect(find.text('这意味着什么'), findsNothing);
       expect(find.text('下一组这样调整'), findsNothing);
       expect(find.text('本组建议'), findsNothing);
-      expect(find.textContaining('缩短背阔肌参与的有效动作路径'), findsOneWidget);
+      expect(find.textContaining('实际移动距离偏短'), findsOneWidget);
+      expect(find.textContaining('整体有劲'), findsNothing);
+      expect(find.textContaining('抢跑'), findsNothing);
+      expect(find.textContaining('拖泥带水'), findsNothing);
+      expect(find.textContaining('稳定复现的完整范围'), findsNothing);
       expect(find.textContaining('完成 8 次'), findsNothing);
       expect(find.textContaining('目标锁定'), findsNothing);
       expect(find.textContaining('骨骼追踪'), findsNothing);
@@ -671,6 +675,16 @@ void main() {
       expect(
         find.byKey(const Key('recognition-evidence-gallery')),
         findsOneWidget,
+      );
+      expect(
+        tester
+            .getTopLeft(find.byKey(const Key('recognition-evidence-gallery')))
+            .dy,
+        lessThan(
+          tester
+              .getTopLeft(find.byKey(const Key('recognition-coach-summary')))
+              .dy,
+        ),
       );
       expect(
         find.byKey(const Key('recognition-evidence-00:12.4')),
@@ -699,7 +713,7 @@ void main() {
     },
   );
 
-  testWidgets('completed report does not promote the optional skeleton video', (
+  testWidgets('completed report shows only the requested skeleton video', (
     tester,
   ) async {
     final controller = AppController();
@@ -732,7 +746,7 @@ void main() {
     );
     expect(find.byKey(const Key('recognition-evidence-hero')), findsNothing);
     expect(find.byKey(const Key('recognition-coach-summary')), findsOneWidget);
-    expect(find.byKey(const Key('recognition-overlay-video')), findsNothing);
+    expect(find.byKey(const Key('recognition-overlay-video')), findsOneWidget);
     expect(find.textContaining('播放骨骼证据'), findsNothing);
     expect(find.textContaining('完整骨骼视频'), findsNothing);
     expect(find.textContaining('置信'), findsNothing);
@@ -759,6 +773,7 @@ void main() {
         find.byKey(const Key('recognition-video-preview')),
         findsOneWidget,
       );
+      expect(find.byKey(const Key('recognition-edit-video')), findsOneWidget);
       expect(
         find.byKey(const Key('recognition-processing-panel')),
         findsOneWidget,
@@ -1254,7 +1269,7 @@ void main() {
     expect(controller.workout, isEmpty);
   });
 
-  testWidgets('sent AI message is selectable and has a copy action', (
+  testWidgets('sent AI message is selectable without a redundant copy action', (
     tester,
   ) async {
     final controller = AppController();
@@ -1268,9 +1283,7 @@ void main() {
 
     expect(find.text('请评价昨天的胸部训练'), findsOneWidget);
     expect(find.byType(SelectableText), findsWidgets);
-    await tester.tap(find.byKey(const Key('copy-chat-message-copy-me')));
-    await tester.pump();
-    expect(find.text('消息已复制'), findsOneWidget);
+    expect(find.byKey(const Key('copy-chat-message-copy-me')), findsNothing);
   });
 
   testWidgets(

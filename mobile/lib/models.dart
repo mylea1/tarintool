@@ -693,10 +693,15 @@ class AiPlanSession {
 }
 
 class AiPlanExerciseDraft {
-  const AiPlanExerciseDraft({required this.exerciseId, required this.sets});
+  const AiPlanExerciseDraft({
+    required this.exerciseId,
+    required this.sets,
+    this.note = '',
+  });
 
   final String exerciseId;
   final List<AiPlanSetDraft> sets;
+  final String note;
 
   double get plannedVolume =>
       sets.fold(0, (total, set) => total + set.weight * set.reps);
