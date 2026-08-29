@@ -74,7 +74,8 @@ import UserNotifications
         case "startTimer", "updateTimer":
           await liveActivity.updateRest(
             exercise: arguments["exercise"] as? String ?? "组间休息",
-            seconds: arguments["seconds"] as? Int ?? 0
+            seconds: arguments["seconds"] as? Int ?? 0,
+            endsAtEpochMs: (arguments["endsAtEpochMs"] as? NSNumber)?.int64Value
           )
         case "clearRest":
           await liveActivity.clearRest()

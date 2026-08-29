@@ -87,7 +87,8 @@ class MainActivity : FlutterActivity() {
                             Intent(this, WorkoutTimerService::class.java)
                                 .setAction(WorkoutTimerService.ACTION_START_REST)
                                 .putExtra(WorkoutTimerService.EXTRA_EXERCISE, exercise)
-                                .putExtra(WorkoutTimerService.EXTRA_SECONDS, seconds),
+                                .putExtra(WorkoutTimerService.EXTRA_SECONDS, seconds)
+                                .putExtra(WorkoutTimerService.EXTRA_REST_END_AT, call.argument<Number>("endsAtEpochMs")?.toLong() ?: 0L),
                         )
                         result.success(null)
                     }
@@ -102,7 +103,8 @@ class MainActivity : FlutterActivity() {
                             Intent(this, WorkoutTimerService::class.java)
                                 .setAction(WorkoutTimerService.ACTION_UPDATE_REST)
                                 .putExtra(WorkoutTimerService.EXTRA_EXERCISE, exercise)
-                                .putExtra(WorkoutTimerService.EXTRA_SECONDS, seconds),
+                                .putExtra(WorkoutTimerService.EXTRA_SECONDS, seconds)
+                                .putExtra(WorkoutTimerService.EXTRA_REST_END_AT, call.argument<Number>("endsAtEpochMs")?.toLong() ?: 0L),
                         )
                         result.success(null)
                     }

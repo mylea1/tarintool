@@ -114,6 +114,43 @@ void main() {
     );
   });
 
+  test('coach client reuses the server conversation id', () async {
+    Map<String, dynamic>? requestBody;
+    final client = MockClient((request) async {
+      if (request.url.path == '/v1/auth/phone/login') {
+        return http.Response(
+          jsonEncode({
+            'session': {'token': 'memory'},
+          }),
+          200,
+        );
+      }
+      requestBody = jsonDecode(request.body) as Map<String, dynamic>;
+      return http.Response.bytes(
+        utf8.encode(
+          jsonEncode({
+            'conversationId': 'conv_memory_1',
+            'answer': '我记得上一轮对话。',
+          }),
+        ),
+        200,
+        headers: {'content-type': 'application/json; charset=utf-8'},
+      );
+    });
+    final api = HttpCoachApi(
+      baseUrl: 'https://api.example.test',
+      client: client,
+    );
+    await api.signIn(identifier: '123', password: '123');
+    final answer = await api.answer(
+      prompt: '继续上一个问题',
+      includeTrainingSummary: false,
+      conversationId: 'conv_memory_1',
+    );
+    expect(requestBody?['conversationId'], 'conv_memory_1');
+    expect(answer.conversationId, 'conv_memory_1');
+  });
+
   test(
     'agent tool handshake keeps request id and sends local read result',
     () async {

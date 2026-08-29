@@ -6,6 +6,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:video_compress/video_compress.dart';
 
 import 'account_membership.dart';
 import 'app_localizations.dart';
@@ -98,11 +99,13 @@ class PlatformTimerBridge {
   static Future<void> start({
     required String exercise,
     required int seconds,
+    DateTime? endsAt,
   }) async {
     try {
       await _channel.invokeMethod<void>('startTimer', {
         'exercise': exercise,
         'seconds': seconds,
+        if (endsAt != null) 'endsAtEpochMs': endsAt.millisecondsSinceEpoch,
       });
     } on MissingPluginException {
       // The Android/iOS bridge is optional in widget tests and desktop previews.
@@ -164,11 +167,13 @@ class PlatformTimerBridge {
   static Future<void> update({
     required String exercise,
     required int seconds,
+    DateTime? endsAt,
   }) async {
     try {
       await _channel.invokeMethod<void>('updateTimer', {
         'exercise': exercise,
         'seconds': seconds,
+        if (endsAt != null) 'endsAtEpochMs': endsAt.millisecondsSinceEpoch,
       });
     } on MissingPluginException {
       // Optional capability.
@@ -455,6 +460,10 @@ class AppController extends ChangeNotifier {
       _loadedAiConversationsUserId = null;
       conversations.clear();
       chat.clear();
+      trainingProfile = const TrainingProfile();
+      nutritionEntries.clear();
+      profileOnboardingCompleted = false;
+      personalAgentDataReady = false;
       activeConversationId = 'conversation-main';
       if (userId != null && userId.isNotEmpty) {
         unawaited(hydrateAiConversations(force: true));
@@ -485,6 +494,8 @@ class AppController extends ChangeNotifier {
       unawaited(hydrateTrainingLibrary(force: true));
       unawaited(hydrateCustomExercises(force: true));
       unawaited(hydrateAiSkills());
+      unawaited(hydrateAiConversations(force: true));
+      unawaited(hydratePersonalAgentData());
     }
     return result;
   }
@@ -588,11 +599,7 @@ class AppController extends ChangeNotifier {
         final session = api.session;
         if (session != null) await secureSessionStore.write(session);
         aiSkills.clear();
-        unawaited(hydrateWorkoutHistory(force: true));
-        unawaited(hydrateActiveWorkout());
-        unawaited(hydrateTrainingLibrary(force: true));
-        unawaited(hydrateCustomExercises(force: true));
-        unawaited(hydrateAiSkills());
+        unawaited(_hydrateUserDataAfterLogin());
       }
       return result;
     } on CoachApiException catch (error) {
@@ -818,6 +825,7 @@ class AppController extends ChangeNotifier {
       ..clear()
       ..addAll(records);
     _loadedHistoryUserId = userId;
+    if (_disposed) return;
     notifyListeners();
   }
 
@@ -830,6 +838,113 @@ class AppController extends ChangeNotifier {
   Future<void> flushCustomExercisePersistence() => _customExerciseWriteChain;
 
   Future<void> flushAiConversationPersistence() => _aiConversationWriteChain;
+
+  static const _cloudBackupEntityId = 'mobile_backup_v1';
+
+  void _scheduleCloudBackup() {
+    if (!isAuthenticated) return;
+    unawaited(backupUserData());
+  }
+
+  Future<void> _hydrateUserDataAfterLogin() async {
+    await restoreCloudBackup();
+    await Future.wait([
+      hydrateWorkoutHistory(force: true),
+      hydrateActiveWorkout(),
+      hydrateTrainingLibrary(force: true),
+      hydrateCustomExercises(force: true),
+      hydrateAiSkills(),
+      hydrateAiConversations(force: true),
+      hydratePersonalAgentData(),
+    ]);
+  }
+
+  Future<void> restoreCloudBackup() async {
+    final userId = currentUser?.id;
+    if (userId == null || userId.isEmpty) return;
+    try {
+      final api = await _activeCoachApi();
+      if (api is! HttpCoachApi) return;
+      final entities = await api.fetchSyncEntities('settings');
+      Map<String, dynamic>? backup;
+      for (final entity in entities) {
+        if (entity['entityId'] == _cloudBackupEntityId &&
+            entity['deleted'] != true &&
+            entity['payload'] is Map) {
+          backup = Map<String, dynamic>.from(entity['payload'] as Map);
+          break;
+        }
+      }
+      if (backup == null || currentUser?.id != userId) return;
+      final localHistory = await workoutHistoryPersistence.read(userId);
+      if (localHistory.isEmpty) {
+        final restored = decodeWorkoutRecords(backup['workoutHistory']);
+        if (restored.isNotEmpty) {
+          await workoutHistoryPersistence.write(userId, restored);
+        }
+      }
+      final preferences = await SharedPreferences.getInstance();
+      final aiKey = 'xingyu.ai-conversations.v1.$userId';
+      if ((preferences.getString(aiKey) ?? '').isEmpty) {
+        final aiPayload = backup['aiConversations'];
+        if (aiPayload is Map) {
+          await preferences.setString(aiKey, jsonEncode(aiPayload));
+        }
+      }
+      for (final item in const [
+        ['trainingProfile', 'kilo.training-profile.v1.'],
+        ['nutrition', 'kilo.nutrition.v1.'],
+      ]) {
+        final key = '${item[1]}$userId';
+        if ((preferences.getString(key) ?? '').isNotEmpty) continue;
+        final value = backup[item[0]];
+        if (value != null) await preferences.setString(key, jsonEncode(value));
+      }
+    } catch (_) {
+      // Cloud recovery is best effort; existing on-device data always wins.
+    }
+  }
+
+  Future<void> backupUserData() async {
+    final userId = currentUser?.id;
+    if (userId == null || userId.isEmpty) return;
+    try {
+      await Future.wait([_historyWriteChain, _aiConversationWriteChain]);
+      final api = await _activeCoachApi();
+      if (api is! HttpCoachApi || currentUser?.id != userId) return;
+      final preferences = await SharedPreferences.getInstance();
+      final rawAi = preferences.getString('xingyu.ai-conversations.v1.$userId');
+      final rawProfile = preferences.getString(
+        'kilo.training-profile.v1.$userId',
+      );
+      final rawNutrition = preferences.getString('kilo.nutrition.v1.$userId');
+      final entities = await api.fetchSyncEntities('settings');
+      var revision = 0;
+      for (final entity in entities) {
+        if (entity['entityId'] == _cloudBackupEntityId) {
+          revision = (entity['revision'] as num?)?.toInt() ?? 0;
+          break;
+        }
+      }
+      await api.upsertSyncEntity(
+        entityType: 'settings',
+        entityId: _cloudBackupEntityId,
+        baseRevision: revision,
+        payload: {
+          'schemaVersion': 1,
+          'updatedAt': DateTime.now().toUtc().toIso8601String(),
+          'workoutHistory': encodeWorkoutRecords(history),
+          if (rawAi?.isNotEmpty == true) 'aiConversations': jsonDecode(rawAi!),
+          if (rawProfile?.isNotEmpty == true)
+            'trainingProfile': jsonDecode(rawProfile!),
+          if (rawNutrition?.isNotEmpty == true)
+            'nutrition': jsonDecode(rawNutrition!),
+        },
+      );
+    } catch (_) {
+      // Sync must never interrupt training or chat. A later write retries it.
+    }
+  }
 
   String get _aiConversationsStorageKey =>
       'xingyu.ai-conversations.v1.${currentUser?.id ?? 'local'}';
@@ -874,6 +989,8 @@ class AppController extends ChangeNotifier {
                   id: id,
                   title: json['title']?.toString() ?? '新对话',
                   messages: messages,
+                  serverConversationId: json['serverConversationId']
+                      ?.toString(),
                 ),
               );
             }
@@ -915,6 +1032,8 @@ class AppController extends ChangeNotifier {
             (conversation) => <String, dynamic>{
               'id': conversation.id,
               'title': conversation.title,
+              if (conversation.serverConversationId?.isNotEmpty == true)
+                'serverConversationId': conversation.serverConversationId,
               'messages': conversation.messages
                   .map(_chatMessageToJson)
                   .toList(growable: false),
@@ -931,6 +1050,7 @@ class AppController extends ChangeNotifier {
         .catchError((Object _) {
           // The current conversation remains usable in memory.
         });
+    _scheduleCloudBackup();
   }
 
   Map<String, dynamic> _chatMessageToJson(ChatMessage message) => {
@@ -1259,6 +1379,7 @@ class AppController extends ChangeNotifier {
         .catchError((Object _) {
           // Training stays usable when platform storage is temporarily absent.
         });
+    _scheduleCloudBackup();
   }
 
   AccountResult<EntitlementSnapshot> grantMembership({
@@ -1298,6 +1419,10 @@ class AppController extends ChangeNotifier {
   final List<Routine> routines = [];
   final List<String> routineFolders = [];
   final List<WorkoutRecord> history = [];
+  final List<NutritionEntry> nutritionEntries = [];
+  TrainingProfile trainingProfile = const TrainingProfile();
+  bool profileOnboardingCompleted = false;
+  bool personalAgentDataReady = false;
   final List<Exercise> customExercises = [];
   final Map<String, Map<String, ExerciseResource>> exerciseResources = {};
   String aiBaseUrl = defaultCoachApiBaseUrl;
@@ -1371,6 +1496,138 @@ class AppController extends ChangeNotifier {
   QuotaReservation? _recognitionReservation;
 
   List<Exercise> get allExercises => [...catalog, ...customExercises];
+
+  String get _profileStorageKey =>
+      'kilo.training-profile.v1.${currentUser?.id ?? 'local'}';
+  String get _nutritionStorageKey =>
+      'kilo.nutrition.v1.${currentUser?.id ?? 'local'}';
+
+  Future<void> hydratePersonalAgentData() async {
+    final preferences = await SharedPreferences.getInstance();
+    try {
+      final rawProfile = preferences.getString(_profileStorageKey);
+      if (rawProfile != null && rawProfile.isNotEmpty) {
+        final value = jsonDecode(rawProfile);
+        if (value is Map) {
+          final map = Map<String, dynamic>.from(value);
+          profileOnboardingCompleted = map['completed'] == true;
+          if (map['profile'] is Map) {
+            trainingProfile = TrainingProfile.fromJson(
+              Map<String, dynamic>.from(map['profile'] as Map),
+            );
+          }
+        }
+      }
+      final rawNutrition = preferences.getString(_nutritionStorageKey);
+      nutritionEntries.clear();
+      if (rawNutrition != null && rawNutrition.isNotEmpty) {
+        final values = jsonDecode(rawNutrition);
+        if (values is List) {
+          nutritionEntries.addAll(
+            values
+                .whereType<Map>()
+                .map(
+                  (item) =>
+                      NutritionEntry.fromJson(Map<String, dynamic>.from(item)),
+                )
+                .where(
+                  (item) => item.id.isNotEmpty && item.foodName.isNotEmpty,
+                ),
+          );
+        }
+      }
+      nutritionEntries.sort((a, b) => b.recordedAt.compareTo(a.recordedAt));
+      personalAgentDataReady = true;
+      notifyListeners();
+    } catch (_) {
+      // Damaged optional profile data must not block the app.
+      personalAgentDataReady = true;
+      notifyListeners();
+    }
+  }
+
+  Future<void> saveTrainingProfile(
+    TrainingProfile profile, {
+    bool completed = true,
+  }) async {
+    trainingProfile = profile;
+    profileOnboardingCompleted = completed;
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString(
+      _profileStorageKey,
+      jsonEncode({'completed': completed, 'profile': profile.toJson()}),
+    );
+    _scheduleCloudBackup();
+    notifyListeners();
+  }
+
+  Future<void> skipTrainingProfile() =>
+      saveTrainingProfile(trainingProfile, completed: true);
+
+  Future<void> addNutritionEntry(NutritionEntry entry) async {
+    nutritionEntries.insert(0, entry);
+    await _persistNutrition();
+    notifyListeners();
+  }
+
+  Future<void> deleteNutritionEntry(String id) async {
+    nutritionEntries.removeWhere((item) => item.id == id);
+    await _persistNutrition();
+    notifyListeners();
+  }
+
+  Future<void> _persistNutrition() async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString(
+      _nutritionStorageKey,
+      jsonEncode(nutritionEntries.map((item) => item.toJson()).toList()),
+    );
+    _scheduleCloudBackup();
+  }
+
+  List<NutritionEntry> nutritionForDay(DateTime day) => nutritionEntries
+      .where(
+        (item) =>
+            item.recordedAt.year == day.year &&
+            item.recordedAt.month == day.month &&
+            item.recordedAt.day == day.day,
+      )
+      .toList(growable: false);
+
+  double get todayCalories => nutritionForDay(
+    DateTime.now(),
+  ).fold(0, (sum, item) => sum + item.calories);
+
+  double get todayProtein => nutritionForDay(
+    DateTime.now(),
+  ).fold(0, (sum, item) => sum + item.proteinGrams);
+
+  double? get estimatedDailyCalories {
+    final profile = trainingProfile;
+    if (profile.weightKg == null ||
+        profile.heightCm == null ||
+        profile.age == null ||
+        !const {'male', 'female'}.contains(profile.gender)) {
+      return null;
+    }
+    final sexOffset = profile.gender == 'male' ? 5 : -161;
+    final bmr =
+        10 * profile.weightKg! +
+        6.25 * profile.heightCm! -
+        5 * profile.age! +
+        sexOffset;
+    final activity = switch (profile.activityLevel) {
+      'low' => 1.2,
+      'high' => 1.725,
+      _ => 1.55,
+    };
+    final goalOffset = switch (profile.goal) {
+      'fat_loss' => -300,
+      'muscle_gain' => 250,
+      _ => 0,
+    };
+    return bmr * activity + goalOffset;
+  }
 
   /// Curated picker data plus user-created exercises. The generated dataset
   /// remains in [allExercises] for history/import compatibility only.
@@ -2004,6 +2261,7 @@ class AppController extends ChangeNotifier {
         PlatformTimerBridge.update(
           exercise: restExerciseName ?? '休息计时',
           seconds: restRemainingSeconds,
+          endsAt: _restEndsAt,
         );
       }
     }
@@ -2048,6 +2306,7 @@ class AppController extends ChangeNotifier {
       PlatformTimerBridge.update(
         exercise: restExerciseName ?? '休息计时',
         seconds: restRemainingSeconds,
+        endsAt: _restEndsAt,
       );
     }
     persistActiveWorkout();
@@ -2258,6 +2517,7 @@ class AppController extends ChangeNotifier {
     PlatformTimerBridge.update(
       exercise: restExerciseName ?? '休息计时',
       seconds: restRemainingSeconds,
+      endsAt: _restEndsAt,
     );
     persistActiveWorkout();
     notifyListeners();
@@ -2278,7 +2538,11 @@ class AppController extends ChangeNotifier {
     restRunning = true;
     restExerciseName = exercise;
     _restEndsAt = DateTime.now().add(Duration(seconds: seconds));
-    PlatformTimerBridge.start(exercise: exercise, seconds: seconds);
+    PlatformTimerBridge.start(
+      exercise: exercise,
+      seconds: seconds,
+      endsAt: _restEndsAt,
+    );
     _scheduleRestTicker();
     persistActiveWorkout();
     notifyListeners();
@@ -3066,6 +3330,13 @@ class AppController extends ChangeNotifier {
     _persistAiConversations();
   }
 
+  AiConversation? _currentAiConversation() {
+    for (final conversation in conversations) {
+      if (conversation.id == activeConversationId) return conversation;
+    }
+    return null;
+  }
+
   Future<void> pickVideo() async {
     mediaPicking = true;
     mediaError = null;
@@ -3195,11 +3466,12 @@ class AppController extends ChangeNotifier {
       if (mediaPath == null || mediaPath.isEmpty) {
         throw const RecognitionApiException('recognition_file_missing');
       }
+      final uploadPath = await _prepareRecognitionUpload(mediaPath);
       final result = await api.analyze(
         exerciseId: recognitionExerciseId,
         camera: recognitionCamera,
         scenario: scenario,
-        mediaPath: mediaPath,
+        mediaPath: uploadPath,
         includeOverlay: recognitionIncludeOverlay,
         onProgress: _updateRecognitionProgress,
       );
@@ -3242,6 +3514,34 @@ class AppController extends ChangeNotifier {
     }
     _recognitionTicker?.cancel();
     notifyListeners();
+  }
+
+  Future<String> _prepareRecognitionUpload(String sourcePath) async {
+    final source = File(sourcePath);
+    if (!source.existsSync() ||
+        source.lengthSync() < 25 * 1024 * 1024 ||
+        !(Platform.isAndroid || Platform.isIOS)) {
+      return sourcePath;
+    }
+    recognitionStage = RecognitionStage.preparing;
+    recognitionProgress = .03;
+    notifyListeners();
+    try {
+      final compressed = await VideoCompress.compressVideo(
+        sourcePath,
+        quality: VideoQuality.MediumQuality,
+        deleteOrigin: false,
+        includeAudio: true,
+      );
+      final output = compressed?.file;
+      if (output != null && output.existsSync() && output.lengthSync() > 0) {
+        return output.path;
+      }
+    } catch (_) {
+      // Fall back to the selected source; the backend still performs its
+      // normal size/type validation and returns a specific error if needed.
+    }
+    return sourcePath;
   }
 
   String _recognitionQuotaExhaustedMessage() => entitlements?.isMember == true
@@ -3472,6 +3772,30 @@ class AppController extends ChangeNotifier {
 
   String _buildAiTrainingSummary() {
     final lines = <String>[];
+    final profile = trainingProfile;
+    final profileParts = <String>[
+      if (profile.gender != null)
+        '性别 ${profile.gender == 'male'
+            ? '男'
+            : profile.gender == 'female'
+            ? '女'
+            : '其他'}',
+      if (profile.age != null) '年龄 ${profile.age}',
+      if (profile.trainingYears != null)
+        '训练 ${profile.trainingYears!.toStringAsFixed(1)} 年',
+      if (profile.goal != null) '目标 ${profile.goal}',
+      if (profile.heightCm != null) '身高 ${profile.heightCm} cm',
+      if (profile.weightKg != null) '体重 ${profile.weightKg} kg',
+    ];
+    if (profileParts.isNotEmpty) lines.add('用户训练资料：${profileParts.join('，')}。');
+    final todayNutrition = nutritionForDay(DateTime.now());
+    if (todayNutrition.isNotEmpty) {
+      lines.add(
+        '今日饮食：${todayCalories.toStringAsFixed(0)} kcal，'
+        '蛋白质 ${todayProtein.toStringAsFixed(1)} g；'
+        '${todayNutrition.take(12).map((item) => '${item.mealType} ${item.foodName} ${item.amount} ${item.calories.toStringAsFixed(0)} kcal').join('；')}。',
+      );
+    }
     if (workoutStarted || workoutDraft) {
       lines.add(
         '当前训练「$workoutName」：训练时长 ${currentElapsed ~/ 60} 分钟，'
@@ -3494,7 +3818,7 @@ class AppController extends ChangeNotifier {
         }
       }
     }
-    if (history.isEmpty && lines.isEmpty) return '用户尚无训练记录。';
+    if (history.isEmpty && lines.isEmpty) return '用户尚无训练或饮食记录。';
     if (history.isNotEmpty) lines.add('最近已完成训练：');
     for (final record in history.take(5)) {
       lines.add(
@@ -3608,6 +3932,22 @@ class AppController extends ChangeNotifier {
         },
       },
     },
+    {
+      'type': 'function',
+      'function': {
+        'name': 'read_nutrition_history',
+        'description': '读取当前用户的饮食、热量和三大营养素记录',
+        'parameters': {
+          'type': 'object',
+          'properties': {
+            'startDate': {'type': 'string'},
+            'endDate': {'type': 'string'},
+            'limit': {'type': 'integer', 'minimum': 1, 'maximum': 50},
+          },
+          'additionalProperties': false,
+        },
+      },
+    },
   ];
 
   Map<String, dynamic> executeAiTool(CoachToolCall call) {
@@ -3678,6 +4018,29 @@ class AppController extends ChangeNotifier {
         'totalSets': totalSets,
         'exercises': workout.take(12).map(_aiWorkoutExercisePayload).toList(),
       };
+    }
+    if (call.name == 'read_nutrition_history') {
+      final start = _aiDate(args['startDate']);
+      final end = _aiDate(args['endDate']);
+      final limit = (((args['limit'] as num?)?.toInt() ?? 30).clamp(
+        1,
+        50,
+      )).toInt();
+      final selected = nutritionEntries
+          .where((entry) {
+            final day = DateTime(
+              entry.recordedAt.year,
+              entry.recordedAt.month,
+              entry.recordedAt.day,
+            );
+            if (start != null && day.isBefore(start)) return false;
+            if (end != null && day.isAfter(end)) return false;
+            return true;
+          })
+          .take(limit)
+          .map((entry) => entry.toJson())
+          .toList();
+      return {'tool': call.name, 'entries': selected, 'count': selected.length};
     }
     throw ArgumentError('unsupported_ai_tool');
   }
@@ -3835,6 +4198,7 @@ class AppController extends ChangeNotifier {
     required bool includeSummary,
     String? selectedTrainingContext,
     void Function(String delta)? onDelta,
+    String? conversationId,
   }) async {
     final requestId = 'ai_${DateTime.now().microsecondsSinceEpoch}';
     aiToolUses = const [];
@@ -3853,6 +4217,7 @@ class AppController extends ChangeNotifier {
       exerciseCatalog: _aiExerciseCatalog(),
       skills: _activeAiSkillPayload(),
       availableTools: aiAvailableTools,
+      conversationId: conversationId,
     );
     if (first.toolCalls.isEmpty) return first;
     if (first.toolCalls.length > 3) {
@@ -3893,6 +4258,7 @@ class AppController extends ChangeNotifier {
               includeTrainingSummary: includeSummary,
               trainingSummary: summary,
               requestId: requestId,
+              conversationId: first.conversationId ?? conversationId,
               toolResults: toolResults,
               onDelta: onDelta,
             )
@@ -3904,6 +4270,7 @@ class AppController extends ChangeNotifier {
               trainingSummary: summary,
               exerciseCatalog: _aiExerciseCatalog(),
               skills: _activeAiSkillPayload(),
+              conversationId: first.conversationId ?? conversationId,
               toolResults: toolResults,
             );
       aiToolUses = answer.toolUses.isEmpty ? aiToolUses : answer.toolUses;
@@ -3943,6 +4310,7 @@ class AppController extends ChangeNotifier {
     bool includeTrainingContext = false,
     String? selectedTrainingContext,
     void Function(String delta)? onDelta,
+    String? conversationId,
   }) async {
     final includeSummary =
         aiUseTrainingData ||
@@ -3958,6 +4326,7 @@ class AppController extends ChangeNotifier {
           includeSummary: includeSummary,
           selectedTrainingContext: selectedTrainingContext,
           onDelta: onDelta,
+          conversationId: conversationId,
         );
       }
       if (api is StreamingCoachApi && onDelta != null) {
@@ -3968,6 +4337,7 @@ class AppController extends ChangeNotifier {
           trainingSummary: includeSummary
               ? selectedTrainingContext ?? _buildAiTrainingSummary()
               : null,
+          conversationId: conversationId,
           onDelta: (delta) {
             streamedOutput = true;
             onDelta(delta);
@@ -3983,6 +4353,7 @@ class AppController extends ChangeNotifier {
             : null,
         exerciseCatalog: _aiExerciseCatalog(),
         skills: _activeAiSkillPayload(),
+        conversationId: conversationId,
       );
     }
 
@@ -4018,6 +4389,7 @@ class AppController extends ChangeNotifier {
     required bool includeTrainingSummary,
     String? trainingSummary,
     String? requestId,
+    String? conversationId,
     List<Map<String, dynamic>> toolResults = const [],
     required void Function(String delta) onDelta,
   }) async {
@@ -4032,6 +4404,7 @@ class AppController extends ChangeNotifier {
           exerciseCatalog: _aiExerciseCatalog(),
           skills: _activeAiSkillPayload(),
           requestId: requestId,
+          conversationId: conversationId,
           toolResults: toolResults,
         )
         .listen(
@@ -4301,6 +4674,7 @@ class AppController extends ChangeNotifier {
   }) async {
     final trimmed = text.trim();
     if (trimmed.isEmpty || aiTyping) return;
+    final serverConversationId = _currentAiConversation()?.serverConversationId;
     chat.add(
       ChatMessage(
         id: 'user-${DateTime.now().microsecondsSinceEpoch}',
@@ -4349,6 +4723,7 @@ class AppController extends ChangeNotifier {
             trimmed,
             includeTrainingContext: includeTrainingContext,
             selectedTrainingContext: selected,
+            conversationId: serverConversationId,
             onDelta: _isAiPlanRequest(trimmed)
                 ? null
                 : (delta) {
@@ -4360,6 +4735,11 @@ class AppController extends ChangeNotifier {
             ..body = remoteAnswer.body
             ..citations = remoteAnswer.citations
             ..plan = remoteAnswer.plan;
+          final returnedConversationId = remoteAnswer.conversationId?.trim();
+          if (returnedConversationId?.isNotEmpty == true) {
+            _currentAiConversation()?.serverConversationId =
+                returnedConversationId;
+          }
           if (remoteAnswer.body.trim().isNotEmpty) {
             aiReservation?.commit();
           } else {

@@ -58,7 +58,7 @@ workflows:
       - name: Build signed IPA (config v3)
         script: |
           echo "Codemagic config v3; source commit: ${CM_COMMIT:-unknown}"
-          flutter build ipa --release --dart-define=KILO_API_BASE_URL=https://api.kilostrength.cn --build-name=1.0.15 --build-number="$BUILD_NUMBER" --export-options-plist="$HOME/export_options.plist"
+          flutter build ipa --release --dart-define=KILO_API_BASE_URL=https://api.kilostrength.cn --build-name=1.0.17 --build-number="$BUILD_NUMBER" --export-options-plist="$HOME/export_options.plist"
       - name: Verify IPA artifact
         script: |
           IPA_PATH=$(find "$CM_BUILD_DIR/mobile/build/ios/ipa" -type f -name "*.ipa" | head -1)
@@ -74,3 +74,30 @@ workflows:
     publishing:
       app_store_connect:
         auth: integration
+
+  android-release-check:
+    name: KILO Android APK and AAB check
+    instance_type: linux_x2
+    max_build_duration: 90
+    working_directory: mobile
+    environment:
+      flutter: stable
+      java: 17
+    cache:
+      cache_paths:
+        - $FLUTTER_ROOT/.pub-cache
+        - $HOME/.gradle/caches
+    scripts:
+      - name: Install Flutter dependencies
+        script: flutter pub get
+      - name: Analyze
+        script: flutter analyze
+      - name: Run tests
+        script: flutter test
+      - name: Build release APK
+        script: flutter build apk --release --dart-define=KILO_API_BASE_URL=https://api.kilostrength.cn
+      - name: Build release AAB
+        script: flutter build appbundle --release --dart-define=KILO_API_BASE_URL=https://api.kilostrength.cn
+    artifacts:
+      - mobile/build/app/outputs/flutter-apk/*.apk
+      - mobile/build/app/outputs/bundle/release/*.aab

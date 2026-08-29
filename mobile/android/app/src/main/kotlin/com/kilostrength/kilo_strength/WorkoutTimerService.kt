@@ -154,6 +154,7 @@ class WorkoutTimerService : Service() {
 
     private fun updateRest(intent: Intent) {
         val seconds = intent.getLongExtra(EXTRA_SECONDS, 0L).coerceAtLeast(0L)
+        val suppliedEndAt = intent.getLongExtra(EXTRA_REST_END_AT, 0L)
         exerciseName = intent.getStringExtra(EXTRA_EXERCISE)?.trim().orEmpty().ifEmpty { "休息" }
         if (seconds <= 0L) {
             clearRestInternal(notify = false)
@@ -166,7 +167,11 @@ class WorkoutTimerService : Service() {
         restActive = true
         restPaused = false
         restRemainingAtPause = seconds
-        restEndAt = System.currentTimeMillis() + seconds * 1000L
+        restEndAt = if (suppliedEndAt > System.currentTimeMillis()) {
+            suppliedEndAt
+        } else {
+            System.currentTimeMillis() + seconds * 1000L
+        }
     }
 
     private fun pauseWorkoutAndRest() {
@@ -415,6 +420,7 @@ class WorkoutTimerService : Service() {
 
         const val EXTRA_EXERCISE = "exercise"
         const val EXTRA_SECONDS = "seconds"
+        const val EXTRA_REST_END_AT = "restEndAtEpochMs"
         const val EXTRA_ELAPSED_SECONDS = "elapsedSeconds"
         const val EXTRA_COMPLETED_SETS = "completedSets"
         const val EXTRA_TOTAL_SETS = "totalSets"

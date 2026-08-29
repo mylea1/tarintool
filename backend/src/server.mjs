@@ -56,6 +56,22 @@ const AI_TOOL_DEFINITIONS = [
       parameters: { type: 'object', properties: {}, additionalProperties: false },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'read_nutrition_history',
+      description: '读取当前用户记录的饮食、热量和三大营养素。只读。',
+      parameters: {
+        type: 'object',
+        properties: {
+          startDate: { type: 'string', description: 'YYYY-MM-DD，可省略。' },
+          endDate: { type: 'string', description: 'YYYY-MM-DD，可省略。' },
+          limit: { type: 'integer', minimum: 1, maximum: 50 },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
 ];
 const AI_TOOL_NAMES = new Set(AI_TOOL_DEFINITIONS.map((item) => item.function.name));
 
@@ -86,7 +102,7 @@ function aiClientTimeInstruction(body) {
   const sign = offsetMinutes < 0 ? '-' : '+';
   const absolute = Math.abs(offsetMinutes);
   const offset = `${sign}${String(Math.floor(absolute / 60)).padStart(2, '0')}:${String(absolute % 60).padStart(2, '0')}`;
-  return `用户设备当前本地日期是 ${today}（UTC${offset}）。今天=${today}，昨天=${shiftIsoDay(today, -1)}，明天=${shiftIsoDay(today, 1)}。解析“昨天、今天、明天、本周、上周”等相对日期时必须以这些日期为准；调用 read_workout_history 时必须使用对应的 YYYY-MM-DD，不得依据对话记忆猜测年份或月份。`;
+  return `用户设备当前本地日期是 ${today}（UTC${offset}）。今天=${today}，昨天=${shiftIsoDay(today, -1)}，明天=${shiftIsoDay(today, 1)}。解析“昨天、今天、明天、本周、上周”等相对日期时必须以这些日期为准；调用 read_workout_history 或 read_nutrition_history 时必须使用对应的 YYYY-MM-DD，不得依据对话记忆猜测年份或月份。`;
 }
 const ALLOWED_ENTITIES = new Set(['workout', 'plan', 'template', 'settings']);
 const PLANS = new Set(['oneMonth', 'yearly', 'threeMonths', 'forever']);

@@ -542,6 +542,7 @@ class _ThrowingCoachApi implements CoachApi {
     String? trainingSummary,
     List<Map<String, String>> exerciseCatalog = const [],
     List<Map<String, String>> skills = const [],
+    String? conversationId,
   }) async {
     throw StateError('upstream');
   }

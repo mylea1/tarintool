@@ -19,6 +19,7 @@ class _CapturingCoachApi implements CoachApi {
     String? trainingSummary,
     List<Map<String, String>> exerciseCatalog = const [],
     List<Map<String, String>> skills = const [],
+    String? conversationId,
   }) async {
     this.includeTrainingSummary = includeTrainingSummary;
     this.trainingSummary = trainingSummary;
@@ -40,6 +41,7 @@ class _StreamingAgentCoachApi
     List<Map<String, String>> exerciseCatalog = const [],
     List<Map<String, String>> skills = const [],
     String? requestId,
+    String? conversationId,
     List<Map<String, dynamic>> availableTools = const [],
     List<Map<String, dynamic>> toolResults = const [],
   }) async {
@@ -67,6 +69,7 @@ class _StreamingAgentCoachApi
     List<Map<String, String>> exerciseCatalog = const [],
     List<Map<String, String>> skills = const [],
     String? requestId,
+    String? conversationId,
     List<Map<String, dynamic>> toolResults = const [],
   }) async* {
     streamedToolContinuation = toolResults.isNotEmpty;
@@ -96,66 +99,64 @@ void main() {
     }
   });
 
-  test(
-    'agent tool registry is read-only and exposes only three approved tools',
-    () {
-      final controller = AppController();
-      try {
-        expect(controller.aiUseTrainingData, isTrue);
-        final names = controller.aiAvailableTools
-            .map((item) => (item['function'] as Map)['name'])
-            .toList();
-        expect(names, [
-          'read_training_plans',
-          'read_workout_history',
-          'read_active_workout',
-        ]);
+  test('agent tool registry exposes approved read-only agent data tools', () {
+    final controller = AppController();
+    try {
+      expect(controller.aiUseTrainingData, isTrue);
+      final names = controller.aiAvailableTools
+          .map((item) => (item['function'] as Map)['name'])
+          .toList();
+      expect(names, [
+        'read_training_plans',
+        'read_workout_history',
+        'read_active_workout',
+        'read_nutrition_history',
+      ]);
 
-        final plansBefore = controller.routines.length;
-        final historyBefore = controller.history.length;
-        final planResult = controller.executeAiTool(
-          const CoachToolCall(
-            id: 'plans',
-            name: 'read_training_plans',
-            arguments: {},
-          ),
-        );
-        final historyResult = controller.executeAiTool(
-          const CoachToolCall(
-            id: 'history',
-            name: 'read_workout_history',
-            arguments: {},
-          ),
-        );
-        final activeResult = controller.executeAiTool(
-          const CoachToolCall(
-            id: 'active',
-            name: 'read_active_workout',
-            arguments: {},
-          ),
-        );
+      final plansBefore = controller.routines.length;
+      final historyBefore = controller.history.length;
+      final planResult = controller.executeAiTool(
+        const CoachToolCall(
+          id: 'plans',
+          name: 'read_training_plans',
+          arguments: {},
+        ),
+      );
+      final historyResult = controller.executeAiTool(
+        const CoachToolCall(
+          id: 'history',
+          name: 'read_workout_history',
+          arguments: {},
+        ),
+      );
+      final activeResult = controller.executeAiTool(
+        const CoachToolCall(
+          id: 'active',
+          name: 'read_active_workout',
+          arguments: {},
+        ),
+      );
 
-        expect(planResult['tool'], 'read_training_plans');
-        expect(historyResult['tool'], 'read_workout_history');
-        expect(activeResult['tool'], 'read_active_workout');
-        expect(activeResult['active'], false);
-        expect(controller.routines.length, plansBefore);
-        expect(controller.history.length, historyBefore);
-        expect(
-          () => controller.executeAiTool(
-            const CoachToolCall(
-              id: 'write',
-              name: 'delete_all_data',
-              arguments: {},
-            ),
+      expect(planResult['tool'], 'read_training_plans');
+      expect(historyResult['tool'], 'read_workout_history');
+      expect(activeResult['tool'], 'read_active_workout');
+      expect(activeResult['active'], false);
+      expect(controller.routines.length, plansBefore);
+      expect(controller.history.length, historyBefore);
+      expect(
+        () => controller.executeAiTool(
+          const CoachToolCall(
+            id: 'write',
+            name: 'delete_all_data',
+            arguments: {},
           ),
-          throwsArgumentError,
-        );
-      } finally {
-        controller.dispose();
-      }
-    },
-  );
+        ),
+        throwsArgumentError,
+      );
+    } finally {
+      controller.dispose();
+    }
+  });
 
   test(
     'AI skills support create update delete and a three-enabled limit',

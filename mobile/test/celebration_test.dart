@@ -15,6 +15,7 @@ class _CountingCoachApi implements CoachApi {
     String? trainingSummary,
     List<Map<String, String>> exerciseCatalog = const [],
     List<Map<String, String>> skills = const [],
+    String? conversationId,
   }) async {
     calls++;
     return const CoachAnswer(body: '这段内容不应为非会员生成');

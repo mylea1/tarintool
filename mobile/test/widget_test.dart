@@ -140,6 +140,43 @@ void main() {
     expect(controller.routines, isEmpty);
   });
 
+  testWidgets('training profile onboarding keeps every field optional', (
+    tester,
+  ) async {
+    final controller = AppController();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      MaterialApp(home: TrainingProfileOnboardingPage(controller: controller)),
+    );
+    expect(find.byKey(const Key('profile-onboarding-skip')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('profile-onboarding-save')));
+    await tester.pump();
+    expect(controller.profileOnboardingCompleted, isTrue);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('home nutrition card records calories and protein', (
+    tester,
+  ) async {
+    final controller = AppController();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(KiloApp(initialController: controller));
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('home-nutrition-card')),
+      220,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byKey(const Key('home-nutrition-card')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, '食物名称 *'), '鸡胸肉');
+    await tester.enterText(find.widgetWithText(TextField, '热量 kcal *'), '220');
+    await tester.enterText(find.widgetWithText(TextField, '蛋白质 g'), '42');
+    await tester.tap(find.byKey(const Key('nutrition-save')));
+    await tester.pumpAndSettle();
+    expect(controller.todayCalories, 220);
+    expect(controller.todayProtein, 42);
+  });
+
   testWidgets('home exercise trend can switch between recorded exercises', (
     tester,
   ) async {
@@ -375,9 +412,13 @@ void main() {
   ) async {
     const channel = MethodChannel('kilo.platform.timer');
     final calls = <String>[];
+    Map<dynamic, dynamic>? startTimerArguments;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
           calls.add(call.method);
+          if (call.method == 'startTimer') {
+            startTimerArguments = call.arguments as Map<dynamic, dynamic>;
+          }
           return null;
         });
     final controller = AppController();
@@ -400,6 +441,8 @@ void main() {
         'finishTimer',
       ]),
     );
+    expect(startTimerArguments?['endsAtEpochMs'], isA<int>());
+    expect(startTimerArguments?['endsAtEpochMs'], greaterThan(0));
   });
 
   testWidgets('shell remains usable at compact width', (tester) async {

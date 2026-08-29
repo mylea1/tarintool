@@ -4,6 +4,17 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'models.dart';
 
+List<Map<String, dynamic>> encodeWorkoutRecords(
+  Iterable<WorkoutRecord> records,
+) => records.map(_recordToMap).toList(growable: false);
+
+List<WorkoutRecord> decodeWorkoutRecords(Object? value) => value is List
+    ? value
+          .whereType<Map>()
+          .map((item) => _recordFromMap(Map<String, dynamic>.from(item)))
+          .toList(growable: false)
+    : const [];
+
 abstract class WorkoutHistoryPersistence {
   Future<List<WorkoutRecord>> read(String userId);
 

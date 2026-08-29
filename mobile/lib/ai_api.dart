@@ -9,12 +9,14 @@ import 'secure_session_store.dart';
 class CoachAnswer {
   const CoachAnswer({
     required this.body,
+    this.conversationId,
     this.citations = const [],
     this.plan,
     this.toolCalls = const [],
     this.toolUses = const [],
   });
   final String body;
+  final String? conversationId;
   final List<String> citations;
   final AiPlanDraft? plan;
   final List<CoachToolCall> toolCalls;
@@ -71,6 +73,7 @@ abstract interface class StreamingCoachApi {
     List<Map<String, String>> exerciseCatalog = const [],
     List<Map<String, String>> skills = const [],
     String? requestId,
+    String? conversationId,
     List<Map<String, dynamic>> toolResults = const [],
   });
 }
@@ -86,6 +89,7 @@ abstract interface class CoachApi {
     String? trainingSummary,
     List<Map<String, String>> exerciseCatalog = const [],
     List<Map<String, String>> skills = const [],
+    String? conversationId,
   });
 }
 
@@ -101,6 +105,7 @@ abstract interface class AgentCoachApi {
     List<Map<String, String>> exerciseCatalog = const [],
     List<Map<String, String>> skills = const [],
     String? requestId,
+    String? conversationId,
     List<Map<String, dynamic>> availableTools = const [],
     List<Map<String, dynamic>> toolResults = const [],
   });
@@ -421,6 +426,62 @@ class HttpCoachApi implements CoachApi, AgentCoachApi, StreamingCoachApi {
     return _decodeJsonResponse(response, 'checkin_status');
   }
 
+  Future<List<Map<String, dynamic>>> fetchSyncEntities(
+    String entityType,
+  ) async {
+    final token = _sessionToken;
+    if (token == null || token.isEmpty) {
+      throw const CoachApiException('coach_unauthenticated');
+    }
+    final response = await _client
+        .get(
+          Uri.parse(
+            '${baseUrl.replaceAll(RegExp(r'/+$'), '')}/v1/sync?entityType=${Uri.encodeQueryComponent(entityType)}',
+          ),
+          headers: {'Authorization': 'Bearer $token'},
+        )
+        .timeout(requestTimeout);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw _coachServerException(response.statusCode, response.body, 'sync');
+    }
+    final payload = jsonDecode(response.body) as Map<String, dynamic>;
+    return (payload['entities'] as List<dynamic>? ?? const [])
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList(growable: false);
+  }
+
+  Future<Map<String, dynamic>> upsertSyncEntity({
+    required String entityType,
+    required String entityId,
+    required Map<String, dynamic> payload,
+    required int baseRevision,
+  }) async {
+    final token = _sessionToken;
+    if (token == null || token.isEmpty) {
+      throw const CoachApiException('coach_unauthenticated');
+    }
+    final response = await _client
+        .post(
+          Uri.parse('${baseUrl.replaceAll(RegExp(r'/+$'), '')}/v1/sync'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+          body: jsonEncode({
+            'entityType': entityType,
+            'entityId': entityId,
+            'baseRevision': baseRevision,
+            'payload': payload,
+          }),
+        )
+        .timeout(requestTimeout);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw _coachServerException(response.statusCode, response.body, 'sync');
+    }
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
   Future<Map<String, dynamic>> checkIn() async {
     final response = await _client
         .post(_endpoint('/v1/checkin'), headers: _authHeaders, body: '{}')
@@ -501,6 +562,7 @@ class HttpCoachApi implements CoachApi, AgentCoachApi, StreamingCoachApi {
     List<Map<String, String>> exerciseCatalog = const [],
     List<Map<String, String>> skills = const [],
     String? requestId,
+    String? conversationId,
     List<Map<String, dynamic>> toolResults = const [],
   }) {
     final controller = StreamController<CoachStreamEvent>();
@@ -535,6 +597,8 @@ class HttpCoachApi implements CoachApi, AgentCoachApi, StreamingCoachApi {
                 if (skills.isNotEmpty) 'skills': skills,
                 if (requestId?.trim().isNotEmpty == true)
                   'requestId': requestId!.trim(),
+                if (conversationId?.trim().isNotEmpty == true)
+                  'conversationId': conversationId!.trim(),
                 if (toolResults.isNotEmpty) 'toolResults': toolResults,
               });
         final response = await client.send(request).timeout(requestTimeout);
@@ -605,6 +669,7 @@ class HttpCoachApi implements CoachApi, AgentCoachApi, StreamingCoachApi {
     List<Map<String, String>> exerciseCatalog = const [],
     List<Map<String, String>> skills = const [],
     String? requestId,
+    String? conversationId,
     List<Map<String, dynamic>> availableTools = const [],
     List<Map<String, dynamic>> toolResults = const [],
   }) async {
@@ -628,6 +693,8 @@ class HttpCoachApi implements CoachApi, AgentCoachApi, StreamingCoachApi {
               'question': prompt,
               ..._clientTimeContext,
               if (requestId?.trim().isNotEmpty == true) 'requestId': requestId,
+              if (conversationId?.trim().isNotEmpty == true)
+                'conversationId': conversationId!.trim(),
               'locale': locale,
               'useTrainingData': includeTrainingSummary,
               if (includeTrainingSummary &&
@@ -773,6 +840,7 @@ class HttpCoachApi implements CoachApi, AgentCoachApi, StreamingCoachApi {
     }
     return CoachAnswer(
       body: (payload['answer'] ?? payload['body'] ?? '').toString(),
+      conversationId: payload['conversationId']?.toString(),
       citations: citations,
       plan: plan,
       toolCalls: toolCalls,
@@ -822,5 +890,6 @@ class UnconfiguredCoachApi implements CoachApi {
     String? trainingSummary,
     List<Map<String, String>> exerciseCatalog = const [],
     List<Map<String, String>> skills = const [],
+    String? conversationId,
   }) async => const CoachAnswer(body: 'AI 服务未配置，请在设置中配置 Coach 服务后重试。');
 }

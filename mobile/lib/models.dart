@@ -726,10 +726,103 @@ class AiConversation {
     required this.id,
     required this.title,
     required this.messages,
+    this.serverConversationId,
   });
   final String id;
   String title;
   List<ChatMessage> messages;
+  String? serverConversationId;
+}
+
+class TrainingProfile {
+  const TrainingProfile({
+    this.gender,
+    this.age,
+    this.trainingYears,
+    this.goal,
+    this.heightCm,
+    this.weightKg,
+    this.activityLevel = 'moderate',
+  });
+
+  final String? gender;
+  final int? age;
+  final double? trainingYears;
+  final String? goal;
+  final double? heightCm;
+  final double? weightKg;
+  final String activityLevel;
+
+  Map<String, dynamic> toJson() => {
+    if (gender != null) 'gender': gender,
+    if (age != null) 'age': age,
+    if (trainingYears != null) 'trainingYears': trainingYears,
+    if (goal != null) 'goal': goal,
+    if (heightCm != null) 'heightCm': heightCm,
+    if (weightKg != null) 'weightKg': weightKg,
+    'activityLevel': activityLevel,
+  };
+
+  factory TrainingProfile.fromJson(Map<String, dynamic> json) =>
+      TrainingProfile(
+        gender: json['gender']?.toString(),
+        age: (json['age'] as num?)?.toInt(),
+        trainingYears: (json['trainingYears'] as num?)?.toDouble(),
+        goal: json['goal']?.toString(),
+        heightCm: (json['heightCm'] as num?)?.toDouble(),
+        weightKg: (json['weightKg'] as num?)?.toDouble(),
+        activityLevel: json['activityLevel']?.toString() ?? 'moderate',
+      );
+}
+
+class NutritionEntry {
+  const NutritionEntry({
+    required this.id,
+    required this.recordedAt,
+    required this.mealType,
+    required this.foodName,
+    required this.calories,
+    this.amount = '',
+    this.proteinGrams = 0,
+    this.carbsGrams = 0,
+    this.fatGrams = 0,
+  });
+
+  final String id;
+  final DateTime recordedAt;
+  final String mealType;
+  final String foodName;
+  final String amount;
+  final double calories;
+  final double proteinGrams;
+  final double carbsGrams;
+  final double fatGrams;
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'recordedAt': recordedAt.toIso8601String(),
+    'mealType': mealType,
+    'foodName': foodName,
+    'amount': amount,
+    'calories': calories,
+    'proteinGrams': proteinGrams,
+    'carbsGrams': carbsGrams,
+    'fatGrams': fatGrams,
+  };
+
+  factory NutritionEntry.fromJson(Map<String, dynamic> json) => NutritionEntry(
+    id: json['id']?.toString() ?? '',
+    recordedAt:
+        DateTime.tryParse(json['recordedAt']?.toString() ?? '') ??
+        DateTime.now(),
+    mealType: json['mealType']?.toString() ?? '其他',
+    foodName: json['foodName']?.toString() ?? '',
+    amount: json['amount']?.toString() ?? '',
+    calories: (json['calories'] as num?)?.toDouble() ?? 0,
+    proteinGrams: (json['proteinGrams'] as num?)?.toDouble() ?? 0,
+    carbsGrams: (json['carbsGrams'] as num?)?.toDouble() ?? 0,
+    fatGrams: (json['fatGrams'] as num?)?.toDouble() ?? 0,
+  );
 }
 
 @immutable

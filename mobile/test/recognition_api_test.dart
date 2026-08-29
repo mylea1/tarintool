@@ -20,6 +20,7 @@ class _PersistentCoachApi implements CoachApi {
     String? trainingSummary,
     List<Map<String, String>> exerciseCatalog = const [],
     List<Map<String, String>> skills = const [],
+    String? conversationId,
   }) async => CoachAnswer(
     body: '已记录：$prompt',
     citations: const ['测试论文｜https://example.test/paper'],

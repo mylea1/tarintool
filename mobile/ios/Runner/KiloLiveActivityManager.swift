@@ -82,7 +82,7 @@ final class KiloLiveActivityManager {
         await activity.update(using: state)
     }
 
-    func updateRest(exercise: String, seconds: Int) async {
+    func updateRest(exercise: String, seconds: Int, endsAtEpochMs: Int64? = nil) async {
         guard let activity = activeActivity, var state = currentState else { return }
         let remaining = max(0, seconds)
         restExpirationTask?.cancel()
@@ -91,8 +91,11 @@ final class KiloLiveActivityManager {
         )
         state.exerciseName = exercise
         state.phaseLabel = remaining > 0 ? "组间休息" : "训练中"
+        let suppliedEnd = endsAtEpochMs.map {
+            Date(timeIntervalSince1970: TimeInterval($0) / 1000)
+        }
         let restEndsAt = remaining > 0
-            ? Date().addingTimeInterval(TimeInterval(remaining))
+            ? (suppliedEnd ?? Date().addingTimeInterval(TimeInterval(remaining)))
             : nil
         state.restEndsAt = restEndsAt
         state.pausedRestSeconds = 0
@@ -100,7 +103,8 @@ final class KiloLiveActivityManager {
         await activity.update(using: state)
         if let restEndsAt {
             scheduleRestExpiration(at: restEndsAt)
-            await scheduleRestFinishedNotification(after: remaining)
+            let notificationDelay = max(1, Int(ceil(restEndsAt.timeIntervalSinceNow)))
+            await scheduleRestFinishedNotification(after: notificationDelay)
         }
     }
 

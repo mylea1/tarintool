@@ -45,10 +45,10 @@ const hairline = Color(0xFFEAD9CD);
 const emberTint = Color(0xFFFFEFE4);
 const emberShadow = Color(0x1F8E3D15);
 const danger = Color(0xFFB3261E);
-const kiloAppVersion = '1.0.15';
-const kiloAppBuild = '13';
+const kiloAppVersion = '1.0.17';
+const kiloAppBuild = '18';
 const kiloAppVersionLabel = '$kiloAppVersion ($kiloAppBuild)';
-const kiloAppNavigationLabel = '优化休息继承与动作卡片密度';
+const kiloAppNavigationLabel = 'AI 记忆、饮食记录与视频优化';
 const brandName = '形域';
 const brandEnglish = 'XINGYU';
 const brandLogoAsset = 'assets/branding/xingyu-mark.png';
@@ -105,6 +105,7 @@ class _KiloAppState extends State<KiloApp> with WidgetsBindingObserver {
       await controller.restoreRemoteSession().timeout(
         const Duration(seconds: 3),
       );
+      await controller.restoreCloudBackup().timeout(const Duration(seconds: 5));
       await controller.hydrateAppLanguage().timeout(const Duration(seconds: 3));
       await controller.hydrateAiSkills().timeout(const Duration(seconds: 3));
       await controller.hydrateWorkoutHistory().timeout(
@@ -119,6 +120,13 @@ class _KiloAppState extends State<KiloApp> with WidgetsBindingObserver {
       await controller.hydrateCustomExercises().timeout(
         const Duration(seconds: 3),
       );
+      await controller.hydrateAiConversations().timeout(
+        const Duration(seconds: 3),
+      );
+      await controller.hydratePersonalAgentData().timeout(
+        const Duration(seconds: 3),
+      );
+      unawaited(controller.backupUserData());
     } catch (_) {
       // Local storage is optional in previews; the in-memory repository stays
       // usable when a platform implementation is unavailable.
@@ -156,6 +164,12 @@ class _KiloAppState extends State<KiloApp> with WidgetsBindingObserver {
           durableStateReady &&
           !injectedTestController &&
           !controller.isAuthenticated;
+      final showProfileOnboarding =
+          durableStateReady &&
+          !injectedTestController &&
+          controller.isAuthenticated &&
+          controller.personalAgentDataReady &&
+          !controller.profileOnboardingCompleted;
       return MaterialApp(
         debugShowCheckedModeBanner: false,
         title: '$brandName $brandEnglish',
@@ -174,9 +188,201 @@ class _KiloAppState extends State<KiloApp> with WidgetsBindingObserver {
             ? const BrandSplashPage()
             : showLogin
             ? LoginPage(controller: controller)
+            : showProfileOnboarding
+            ? TrainingProfileOnboardingPage(controller: controller)
             : KiloShell(controller: controller),
       );
     },
+  );
+}
+
+class TrainingProfileOnboardingPage extends StatefulWidget {
+  const TrainingProfileOnboardingPage({
+    super.key,
+    required this.controller,
+    this.editMode = false,
+  });
+  final AppController controller;
+  final bool editMode;
+
+  @override
+  State<TrainingProfileOnboardingPage> createState() =>
+      _TrainingProfileOnboardingPageState();
+}
+
+class _TrainingProfileOnboardingPageState
+    extends State<TrainingProfileOnboardingPage> {
+  String? gender;
+  String? goal;
+  String activityLevel = 'moderate';
+  final age = TextEditingController();
+  final years = TextEditingController();
+  final height = TextEditingController();
+  final weight = TextEditingController();
+  bool saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (!widget.editMode) return;
+    final profile = widget.controller.trainingProfile;
+    gender = profile.gender;
+    goal = profile.goal;
+    activityLevel = profile.activityLevel;
+    age.text = profile.age?.toString() ?? '';
+    years.text = profile.trainingYears?.toString() ?? '';
+    height.text = profile.heightCm?.toString() ?? '';
+    weight.text = profile.weightKg?.toString() ?? '';
+  }
+
+  @override
+  void dispose() {
+    age.dispose();
+    years.dispose();
+    height.dispose();
+    weight.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (saving) return;
+    setState(() => saving = true);
+    await widget.controller.saveTrainingProfile(
+      TrainingProfile(
+        gender: gender,
+        age: int.tryParse(age.text.trim()),
+        trainingYears: double.tryParse(years.text.trim()),
+        goal: goal,
+        heightCm: double.tryParse(height.text.trim()),
+        weightKg: double.tryParse(weight.text.trim()),
+        activityLevel: activityLevel,
+      ),
+    );
+    if (widget.editMode && mounted) Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: paper,
+    appBar: AppBar(
+      backgroundColor: paper,
+      surfaceTintColor: Colors.transparent,
+      automaticallyImplyLeading: false,
+      actions: [
+        TextButton(
+          key: const Key('profile-onboarding-skip'),
+          onPressed: saving
+              ? null
+              : widget.editMode
+              ? () => Navigator.pop(context)
+              : widget.controller.skipTrainingProfile,
+          child: Text(widget.editMode ? '取消' : '跳过'),
+        ),
+        const SizedBox(width: 8),
+      ],
+    ),
+    body: SafeArea(
+      top: false,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+        children: [
+          const Icon(Icons.tune_rounded, color: primary, size: 46),
+          const SizedBox(height: 14),
+          Text(
+            widget.editMode ? '训练与热量资料' : '让形域更了解你',
+            style: Theme.of(context).textTheme.headlineLarge,
+          ),
+          const SizedBox(height: 8),
+          const Text('这些资料用于训练建议和热量估算。所有项都可留空，之后也能在“我的”中修改。'),
+          const SizedBox(height: 22),
+          DropdownButtonFormField<String>(
+            initialValue: gender,
+            decoration: const InputDecoration(labelText: '性别（可选）'),
+            items: const [
+              DropdownMenuItem(value: 'male', child: Text('男')),
+              DropdownMenuItem(value: 'female', child: Text('女')),
+              DropdownMenuItem(value: 'other', child: Text('其他 / 不便说明')),
+            ],
+            onChanged: (value) => setState(() => gender = value),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: age,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: '年龄'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: TextField(
+                  controller: years,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: const InputDecoration(labelText: '训练年限'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: height,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: const InputDecoration(labelText: '身高 cm'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: TextField(
+                  controller: weight,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: const InputDecoration(labelText: '体重 kg'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            initialValue: goal,
+            decoration: const InputDecoration(labelText: '当前目标（可选）'),
+            items: const [
+              DropdownMenuItem(value: 'muscle_gain', child: Text('增肌')),
+              DropdownMenuItem(value: 'fat_loss', child: Text('减脂')),
+              DropdownMenuItem(value: 'maintain', child: Text('保持体能')),
+            ],
+            onChanged: (value) => setState(() => goal = value),
+          ),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            initialValue: activityLevel,
+            decoration: const InputDecoration(labelText: '日常活动量'),
+            items: const [
+              DropdownMenuItem(value: 'low', child: Text('较低')),
+              DropdownMenuItem(value: 'moderate', child: Text('中等')),
+              DropdownMenuItem(value: 'high', child: Text('较高')),
+            ],
+            onChanged: (value) =>
+                setState(() => activityLevel = value ?? 'moderate'),
+          ),
+          const SizedBox(height: 22),
+          FilledButton(
+            key: const Key('profile-onboarding-save'),
+            onPressed: saving ? null : _save,
+            child: Text(saving ? '保存中…' : '保存并开始'),
+          ),
+        ],
+      ),
+    ),
   );
 }
 
@@ -1125,6 +1331,43 @@ class HomePage extends StatelessWidget {
         const SizedBox(height: 12),
         Card(
           child: InkWell(
+            key: const Key('home-nutrition-card'),
+            borderRadius: BorderRadius.circular(16),
+            onTap: () => _showNutritionSheet(context, controller),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Row(
+                children: [
+                  const _HomeAccentIcon(icon: Icons.restaurant_rounded),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          '饮食与热量',
+                          style: TextStyle(fontWeight: FontWeight.w900),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          '${controller.todayCalories.toStringAsFixed(0)} kcal · 蛋白质 ${controller.todayProtein.toStringAsFixed(0)} g'
+                          '${controller.estimatedDailyCalories == null ? '' : ' / 目标约 ${controller.estimatedDailyCalories!.toStringAsFixed(0)} kcal'}',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: quiet, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.add_circle_outline_rounded, color: primary),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Card(
+          child: InkWell(
             key: const Key('home-ai-workout'),
             borderRadius: BorderRadius.circular(16),
             onTap: () => _showAiWorkoutPlanner(context, controller),
@@ -1159,6 +1402,155 @@ class HomePage extends StatelessWidget {
       ],
     );
   }
+}
+
+Future<void> _showNutritionSheet(
+  BuildContext context,
+  AppController controller,
+) async {
+  final food = TextEditingController();
+  final amount = TextEditingController();
+  final calories = TextEditingController();
+  final protein = TextEditingController();
+  final carbs = TextEditingController();
+  final fat = TextEditingController();
+  var mealType = '正餐';
+  await showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    showDragHandle: true,
+    builder: (sheetContext) => StatefulBuilder(
+      builder: (context, setSheetState) => Padding(
+        padding: EdgeInsets.fromLTRB(
+          18,
+          0,
+          18,
+          18 + MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('记录饮食', style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 6),
+              const Text(
+                '热量与营养数值可查看食品包装或餐厅信息后填写。',
+                style: TextStyle(color: quiet, fontSize: 12),
+              ),
+              const SizedBox(height: 14),
+              SegmentedButton<String>(
+                segments: const [
+                  ButtonSegment(value: '早餐', label: Text('早餐')),
+                  ButtonSegment(value: '正餐', label: Text('正餐')),
+                  ButtonSegment(value: '加餐', label: Text('加餐')),
+                ],
+                selected: {mealType},
+                onSelectionChanged: (value) =>
+                    setSheetState(() => mealType = value.first),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: food,
+                textInputAction: TextInputAction.next,
+                decoration: const InputDecoration(labelText: '食物名称 *'),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: amount,
+                      decoration: const InputDecoration(
+                        labelText: '份量，如 200 g',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: TextField(
+                      controller: calories,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      decoration: const InputDecoration(labelText: '热量 kcal *'),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: protein,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      decoration: const InputDecoration(labelText: '蛋白质 g'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: carbs,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      decoration: const InputDecoration(labelText: '碳水 g'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: fat,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      decoration: const InputDecoration(labelText: '脂肪 g'),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              FilledButton(
+                key: const Key('nutrition-save'),
+                onPressed: () async {
+                  final name = food.text.trim();
+                  final kcal = double.tryParse(calories.text.trim());
+                  if (name.isEmpty || kcal == null || kcal < 0) {
+                    showKiloSnack(context, '请填写食物名称和有效热量');
+                    return;
+                  }
+                  await controller.addNutritionEntry(
+                    NutritionEntry(
+                      id: 'nutrition-${DateTime.now().microsecondsSinceEpoch}',
+                      recordedAt: DateTime.now(),
+                      mealType: mealType,
+                      foodName: name,
+                      amount: amount.text.trim(),
+                      calories: kcal,
+                      proteinGrams: double.tryParse(protein.text.trim()) ?? 0,
+                      carbsGrams: double.tryParse(carbs.text.trim()) ?? 0,
+                      fatGrams: double.tryParse(fat.text.trim()) ?? 0,
+                    ),
+                  );
+                  if (context.mounted) Navigator.pop(context);
+                },
+                child: const Text('保存记录'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+  food.dispose();
+  amount.dispose();
+  calories.dispose();
+  protein.dispose();
+  carbs.dispose();
+  fat.dispose();
 }
 
 class _HomeTodayWorkoutCard extends StatelessWidget {
@@ -9903,6 +10295,20 @@ class ProfilePage extends StatelessWidget {
                       ? '${controller.defaultRestSeconds} 秒'
                       : '完成首组时设置',
                   onTap: () => _showWorkoutSettings(context, controller),
+                ),
+                _ProfileQuickAction(
+                  key: const Key('training-profile-setting'),
+                  icon: Icons.person_search_outlined,
+                  title: '训练资料',
+                  caption: '目标、经验与热量估算',
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => TrainingProfileOnboardingPage(
+                        controller: controller,
+                        editMode: true,
+                      ),
+                    ),
+                  ),
                 ),
                 _ProfileQuickAction(
                   key: const Key('app-language-setting'),
