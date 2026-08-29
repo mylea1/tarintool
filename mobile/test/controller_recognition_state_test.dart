@@ -6,6 +6,28 @@ import 'package:kilo_strength/recognition_api.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test('all configured recognition exercises remain selectable offline', () {
+    final controller = AppController();
+    addTearDown(controller.dispose);
+
+    expect(fallbackRecognitionCapabilities, hasLength(66));
+    expect(controller.recognitionExercises, hasLength(66));
+    expect(
+      controller.recognitionExercises.map((exercise) => exercise.id),
+      containsAll(<String>[
+        'leg_press',
+        'chest_supported_pulldown',
+        'prone_y_raise',
+      ]),
+    );
+    expect(
+      controller.recognitionExercises
+          .firstWhere((exercise) => exercise.id == 'leg_press')
+          .name,
+      '45°腿举',
+    );
+  });
+
   test('changing recognition inputs clears a stale completed report', () {
     final controller = AppController();
     addTearDown(controller.dispose);

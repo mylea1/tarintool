@@ -1735,11 +1735,16 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
-  List<Exercise> get recognitionExercises => recognitionCapabilities
-      .map((item) => allExercises.where((e) => e.id == item.exerciseId))
-      .where((matches) => matches.isNotEmpty)
-      .map((matches) => matches.first)
-      .toList(growable: false);
+  List<Exercise> get recognitionExercises => [
+    for (final capability in recognitionCapabilities)
+      allExercises.firstWhere(
+        (exercise) => exercise.id == capability.exerciseId,
+        orElse: () => recognitionExerciseDefinition(
+          capability.exerciseId,
+          capability.group,
+        ),
+      ),
+  ];
 
   RecognitionCapability get selectedRecognitionCapability =>
       recognitionCapabilities.firstWhere(

@@ -125,7 +125,7 @@ const MEDIA_CONTENT_TYPES = new Map([
   ['.mp4', 'video/mp4'], ['.mov', 'video/quicktime'], ['.webm', 'video/webm'],
   ['.jpg', 'image/jpeg'], ['.jpeg', 'image/jpeg'], ['.png', 'image/png'], ['.webp', 'image/webp'],
 ]);
-const RECOGNITION_CAPABILITIES = [
+const BASE_RECOGNITION_CAPABILITIES = [
   {
     exerciseId: 'barbell_squat',
     group: '腿部',
@@ -207,6 +207,74 @@ const RECOGNITION_CAPABILITIES = [
   { exerciseId: 'triceps_extension', group: '手臂', cameras: [
     { id: 'side', label: '正侧面', hint: '侧面拍到肩、肘、手与器械轨迹。' },
   ] },
+];
+const RECOGNITION_CAMERA_PRESETS = {
+  side: { id: 'side', label: '正侧面', hint: '镜头保持水平，完整拍到动作使用的肩、肘、腕、髋、膝和脚踝。' },
+  side_front: { id: 'side_front', label: '侧前方', hint: '从侧前方约 30° 拍摄，尽量避免器械遮挡四肢。' },
+  side_rear: { id: 'side_rear', label: '侧后方', hint: '从侧后方约 30° 拍摄，完整保留身体和器械轨迹。' },
+  front: { id: 'front', label: '正前方', hint: '镜头正对身体，完整拍到左右两侧关节，用于判断对称与横向偏移。' },
+  rear: { id: 'rear', label: '正后方', hint: '镜头正对身体后方，完整拍到双肩、双臂和下肢。' },
+};
+const SIDE_RECOGNITION_CAMERAS = ['side', 'side_front', 'side_rear'];
+const ALL_RECOGNITION_CAMERAS = [...SIDE_RECOGNITION_CAMERAS, 'front', 'rear'];
+const NEW_RECOGNITION_ACTIONS = [
+  ['leg_press', '腿部', SIDE_RECOGNITION_CAMERAS],
+  ['leg_extension', '腿部', SIDE_RECOGNITION_CAMERAS],
+  ['leg_curl', '腿部', SIDE_RECOGNITION_CAMERAS],
+  ['bulgarian_split_squat', '腿部', ALL_RECOGNITION_CAMERAS],
+  ['barbell_row', '背部', ALL_RECOGNITION_CAMERAS],
+  ['yates_row', '背部', ALL_RECOGNITION_CAMERAS],
+  ['t_bar_row', '背部', ALL_RECOGNITION_CAMERAS],
+  ['chest_supported_row', '背部', ALL_RECOGNITION_CAMERAS],
+  ['landmine_one_arm_row', '背部', ALL_RECOGNITION_CAMERAS],
+  ['half_kneeling_one_arm_row', '背部', ALL_RECOGNITION_CAMERAS],
+  ['standing_one_arm_cable_row', '背部', ALL_RECOGNITION_CAMERAS],
+  ['upright_row', '肩背', ALL_RECOGNITION_CAMERAS],
+  ['one_arm_dumbbell_row', '背部', ALL_RECOGNITION_CAMERAS],
+  ['inverted_row', '背部', ALL_RECOGNITION_CAMERAS],
+  ['single_arm_pulldown', '背部', ALL_RECOGNITION_CAMERAS],
+  ['straight_arm_pulldown', '背部', ALL_RECOGNITION_CAMERAS],
+  ['underhand_pulldown', '背部', ALL_RECOGNITION_CAMERAS],
+  ['chest_supported_pulldown', '背部', ALL_RECOGNITION_CAMERAS],
+  ['incline_bench_press', '胸部', SIDE_RECOGNITION_CAMERAS],
+  ['decline_bench_press', '胸部', SIDE_RECOGNITION_CAMERAS],
+  ['close_grip_bench_press', '胸部', ALL_RECOGNITION_CAMERAS],
+  ['wide_grip_bench_press', '胸部', ALL_RECOGNITION_CAMERAS],
+  ['barbell_floor_press', '胸部', SIDE_RECOGNITION_CAMERAS],
+  ['machine_shoulder_press', '肩部', ALL_RECOGNITION_CAMERAS],
+  ['machine_chest_press', '胸部', ALL_RECOGNITION_CAMERAS],
+  ['single_arm_overhead_press', '肩部', ALL_RECOGNITION_CAMERAS],
+  ['push_press', '肩部', ALL_RECOGNITION_CAMERAS],
+  ['alternate_dumbbell_press', '胸部', SIDE_RECOGNITION_CAMERAS],
+  ['diamond_push_up', '胸部', ALL_RECOGNITION_CAMERAS],
+  ['dumbbell_fly', '胸部', ALL_RECOGNITION_CAMERAS],
+  ['cable_fly', '胸部', ALL_RECOGNITION_CAMERAS],
+  ['low_to_high_cable_fly', '胸部', ALL_RECOGNITION_CAMERAS],
+  ['standing_one_arm_cable_fly', '胸部', ALL_RECOGNITION_CAMERAS],
+  ['pec_deck_fly', '胸部', ALL_RECOGNITION_CAMERAS],
+  ['reverse_fly', '肩背', ALL_RECOGNITION_CAMERAS],
+  ['side_lying_lateral_raise', '肩部', SIDE_RECOGNITION_CAMERAS],
+  ['dumbbell_front_raise', '肩部', SIDE_RECOGNITION_CAMERAS],
+  ['lean_away_lateral_raise', '肩部', ALL_RECOGNITION_CAMERAS],
+  ['bent_over_reverse_fly', '肩背', ALL_RECOGNITION_CAMERAS],
+  ['cable_reverse_fly', '肩背', ALL_RECOGNITION_CAMERAS],
+  ['machine_reverse_fly', '肩背', ALL_RECOGNITION_CAMERAS],
+  ['rear_delt_row', '肩背', ALL_RECOGNITION_CAMERAS],
+  ['prone_y_raise', '肩背', SIDE_RECOGNITION_CAMERAS],
+  ['dumbbell_pullover', '背部', SIDE_RECOGNITION_CAMERAS],
+  ['pike_push_up', '肩部', SIDE_RECOGNITION_CAMERAS],
+  ['back_extension', '臀腿', SIDE_RECOGNITION_CAMERAS],
+  ['landmine_press', '肩部', SIDE_RECOGNITION_CAMERAS],
+  ['incline_dumbbell_press', '胸部', SIDE_RECOGNITION_CAMERAS],
+  ['decline_dumbbell_press', '胸部', SIDE_RECOGNITION_CAMERAS],
+];
+const RECOGNITION_CAPABILITIES = [
+  ...BASE_RECOGNITION_CAPABILITIES,
+  ...NEW_RECOGNITION_ACTIONS.map(([exerciseId, group, cameraIds]) => ({
+    exerciseId,
+    group,
+    cameras: cameraIds.map((cameraId) => RECOGNITION_CAMERA_PRESETS[cameraId]),
+  })),
 ];
 const RECOGNITION_EXERCISE_IDS = new Set(RECOGNITION_CAPABILITIES.map((item) => item.exerciseId));
 const RECOGNITION_CAMERAS = new Map(

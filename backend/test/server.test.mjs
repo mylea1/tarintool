@@ -104,7 +104,9 @@ test('health, auth and admin role boundaries', async () => {
   assert.equal(capabilities.body.exercises.some((item) => item.exerciseId === 'barbell_squat'), true);
   assert.equal(capabilities.body.exercises.some((item) => item.exerciseId === 'lat_pulldown'), true);
   assert.equal(capabilities.body.exercises.some((item) => item.exerciseId === 'bench_press'), true);
-  assert.ok(capabilities.body.exercises.length >= 15);
+  assert.equal(capabilities.body.exercises.some((item) => item.exerciseId === 'leg_press'), true);
+  assert.equal(capabilities.body.exercises.some((item) => item.exerciseId === 'prone_y_raise'), true);
+  assert.equal(capabilities.body.exercises.length, 66);
   assert.equal(capabilities.body.exercises.find((item) => item.exerciseId === 'bench_press').group, '胸部');
   const adminEntitlements = await api('/v1/me/entitlements', { headers: { authorization: `Bearer ${adminToken}` } });
   assert.equal(adminEntitlements.body.membership, 'forever'); assert.equal(adminEntitlements.body.membershipExpiresAt, null); assert.ok(adminEntitlements.body.aiRemaining >= 20); assert.ok(adminEntitlements.body.recognitionRemaining >= 3); assert.ok(adminEntitlements.body.recognitionWeeklyGrant >= 3);

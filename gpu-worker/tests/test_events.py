@@ -17,10 +17,21 @@ from kilo_worker.events import (
     RIGHT_SHOULDER,
     RIGHT_WRIST,
     PoseSample,
+    _body_line_series,
+    _elbow_tuck_series,
+    _hip_height_series,
+    _hip_swing_series,
+    _shoulder_hip_gap_series,
+    _shoulder_span_series,
+    _torso_length,
     analyze_pose_events,
     event_to_result,
 )
-from kilo_worker.pose_recovery import recover_occluded_wrists
+from kilo_worker.exercise_rules import NEW_EXERCISE_RULES
+from kilo_worker.pose_recovery import (
+    recover_occluded_endpoints,
+    recover_occluded_wrists,
+)
 
 
 def _sample_with_joint_angle(
@@ -101,6 +112,34 @@ def _pull_up_sample(
 
 
 class PoseEventTests(unittest.TestCase):
+    def test_all_49_new_exercises_use_specific_dispatch(self) -> None:
+        self.assertEqual(len(NEW_EXERCISE_RULES), 49)
+        sample = _pull_up_sample(0, 150.0, 150.0)
+        sample.points[LEFT_KNEE] = (190.0, 600.0)
+        sample.points[RIGHT_KNEE] = (310.0, 600.0)
+        sample.points[LEFT_ANKLE] = (190.0, 720.0)
+        sample.points[RIGHT_ANKLE] = (310.0, 720.0)
+        for exercise_id, rule in NEW_EXERCISE_RULES.items():
+            with self.subTest(exercise_id=exercise_id):
+                analysis = analyze_pose_events(
+                    exercise_id, rule.cameras[0], [sample]
+                )
+                self.assertNotIn(
+                    "no_exercise_specific_event_rules", analysis.limitations
+                )
+
+        for exercise_id in (
+            "shrug",
+            "hanging_leg_raise",
+            "standing_calf_raise",
+            "walking_lunge",
+            "unknown_exercise",
+        ):
+            analysis = analyze_pose_events(exercise_id, "side", [sample])
+            self.assertIn(
+                "no_exercise_specific_event_rules", analysis.limitations
+            )
+
     def test_occluded_wrist_is_recovered_from_nearby_forearm_direction(self) -> None:
         samples = [
             _sample_with_joint_angle(
@@ -144,6 +183,79 @@ class PoseEventTests(unittest.TestCase):
             )
         )
         self.assertAlmostEqual(angle, 90.0, delta=0.5)
+
+    def test_weak_wrist_direction_supports_elbow_angle_without_exact_wrist(self) -> None:
+        samples = [
+            _sample_with_joint_angle(
+                index * 100,
+                (LEFT_SHOULDER, LEFT_ELBOW, LEFT_WRIST),
+                angle,
+            )
+            for index, angle in enumerate((170, 145, 125, 115, 115, 125, 145, 170))
+        ]
+        for sample in samples:
+            sample.scores[[RIGHT_SHOULDER, RIGHT_ELBOW, RIGHT_WRIST]] = 0.1
+            sample.scores[LEFT_WRIST] = 0.08
+
+        recovered, metrics = recover_occluded_endpoints(
+            samples, confidence_floor=0.35
+        )
+        analysis = analyze_pose_events(
+            "barbell_row", "side", recovered, confidence_floor=0.35
+        )
+
+        self.assertEqual(metrics.direction_only_samples, len(samples))
+        self.assertTrue(all(sample.inferred[LEFT_WRIST] for sample in recovered))
+        self.assertEqual(analysis.complete_motion_cycles, 1)
+        self.assertIn("ROW_ELBOW_PULL_LIMITED", {event.code for event in analysis.events})
+        range_event = next(event for event in analysis.events if event.code == "ROW_ELBOW_PULL_LIMITED")
+        self.assertEqual(range_event.measurements["endpointEvidence"], "inferred_direction")
+
+    def test_occluded_ankle_direction_supports_knee_angle(self) -> None:
+        samples = [
+            _sample_with_joint_angle(
+                index * 100,
+                (LEFT_HIP, LEFT_KNEE, LEFT_ANKLE),
+                angle,
+            )
+            for index, angle in enumerate((170, 155, 140, 110, 110, 140, 155, 170))
+        ]
+        for sample in samples:
+            sample.scores[[RIGHT_HIP, RIGHT_KNEE, RIGHT_ANKLE]] = 0.1
+            sample.scores[LEFT_ANKLE] = 0.08
+
+        recovered, metrics = recover_occluded_endpoints(
+            samples, confidence_floor=0.35
+        )
+        analysis = analyze_pose_events(
+            "leg_press", "side", recovered, confidence_floor=0.35
+        )
+
+        self.assertEqual(metrics.direction_only_ankle_samples, len(samples))
+        self.assertTrue(all(sample.inferred[LEFT_ANKLE] for sample in recovered))
+        self.assertEqual(analysis.complete_motion_cycles, 1)
+        self.assertIn("LEG_PRESS_DEPTH_LIMITED", {event.code for event in analysis.events})
+
+    def test_new_normalized_primitives_degrade_when_required_points_missing(self) -> None:
+        sample = _pull_up_sample(0, 120.0, 120.0)
+        sample.points[LEFT_KNEE] = (190.0, 600.0)
+        sample.points[RIGHT_KNEE] = (310.0, 600.0)
+        sample.points[LEFT_ANKLE] = (190.0, 720.0)
+        sample.points[RIGHT_ANKLE] = (310.0, 720.0)
+
+        self.assertIsNotNone(_torso_length(sample, 0.35))
+        self.assertIsNotNone(_shoulder_hip_gap_series([sample], 0.35)[0])
+        self.assertAlmostEqual(_hip_swing_series([sample], 0.35)[0], 0.0)
+        self.assertIsNotNone(_elbow_tuck_series([sample], 0.35)[0])
+        self.assertIsNotNone(_body_line_series([sample], 0.35)[0])
+        self.assertIsNotNone(_shoulder_span_series([sample], 0.35)[0])
+        self.assertIsNotNone(_hip_height_series([sample], 0.35)[0])
+
+        sample.scores[LEFT_HIP] = 0.1
+        sample.scores[RIGHT_HIP] = 0.1
+        self.assertIsNone(_torso_length(sample, 0.35))
+        self.assertIsNone(_shoulder_hip_gap_series([sample], 0.35)[0])
+        self.assertIsNone(_hip_height_series([sample], 0.35)[0])
 
     def test_pull_up_compares_both_arms_and_shoulder_height_at_same_time(self) -> None:
         left = (160, 145, 112, 82, 108, 145, 160)
@@ -310,8 +422,12 @@ class PoseEventTests(unittest.TestCase):
         analysis = analyze_pose_events("bench_press", "side", samples)
 
         self.assertEqual(analysis.complete_motion_cycles, 1)
-        self.assertEqual(len(analysis.events), 1)
-        event = analysis.events[0]
+        self.assertIn("BENCH_DEPTH_LIMITED", {event.code for event in analysis.events})
+        event = next(
+            event
+            for event in analysis.events
+            if event.code == "BENCH_FOREARM_NOT_VERTICAL"
+        )
         self.assertEqual(event.code, "BENCH_FOREARM_NOT_VERTICAL")
         self.assertAlmostEqual(
             event.measurements["forearmVerticalDeviationDeg"], 30.0, delta=0.2

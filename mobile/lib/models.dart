@@ -126,7 +126,7 @@ class RecognitionCapability {
   final String group;
 }
 
-const fallbackRecognitionCapabilities = <RecognitionCapability>[
+const _baseFallbackRecognitionCapabilities = <RecognitionCapability>[
   RecognitionCapability(
     exerciseId: 'barbell_squat',
     group: '腿部',
@@ -347,6 +347,145 @@ const fallbackRecognitionCapabilities = <RecognitionCapability>[
     ],
   ),
 ];
+
+const recognitionExerciseNames = <String, String>{
+  'leg_press': '45°腿举',
+  'leg_extension': '坐姿腿屈伸',
+  'leg_curl': '腿弯举',
+  'bulgarian_split_squat': '保加利亚分腿蹲',
+  'barbell_row': '杠铃俯身划船',
+  'yates_row': '耶茨划船',
+  't_bar_row': 'T杠划船',
+  'chest_supported_row': '胸支撑划船',
+  'landmine_one_arm_row': '单臂地雷划船',
+  'half_kneeling_one_arm_row': '半跪单臂划船',
+  'standing_one_arm_cable_row': '站姿单臂绳索划船',
+  'upright_row': '直立划船',
+  'one_arm_dumbbell_row': '单臂哑铃划船',
+  'inverted_row': '澳式划船',
+  'single_arm_pulldown': '单臂高位下拉',
+  'straight_arm_pulldown': '直臂下压',
+  'underhand_pulldown': '反手高位下拉',
+  'chest_supported_pulldown': '胸支撑下拉',
+  'incline_bench_press': '上斜杠铃卧推',
+  'decline_bench_press': '下斜杠铃卧推',
+  'close_grip_bench_press': '窄握卧推',
+  'wide_grip_bench_press': '宽握卧推',
+  'barbell_floor_press': '杠铃地板卧推',
+  'machine_shoulder_press': '器械肩推',
+  'machine_chest_press': '器械推胸',
+  'single_arm_overhead_press': '单臂肩上推举',
+  'push_press': '借力推举',
+  'alternate_dumbbell_press': '交替哑铃卧推',
+  'diamond_push_up': '钻石俯卧撑',
+  'dumbbell_fly': '哑铃飞鸟',
+  'cable_fly': '绳索夹胸',
+  'low_to_high_cable_fly': '低位绳索夹胸',
+  'standing_one_arm_cable_fly': '站姿单臂绳索夹胸',
+  'pec_deck_fly': '蝴蝶机夹胸',
+  'reverse_fly': '俯卧反向飞鸟',
+  'side_lying_lateral_raise': '侧卧侧平举',
+  'dumbbell_front_raise': '哑铃前平举',
+  'lean_away_lateral_raise': '倾身绳索侧平举',
+  'bent_over_reverse_fly': '俯身哑铃反向飞鸟',
+  'cable_reverse_fly': '绳索反向飞鸟',
+  'machine_reverse_fly': '器械反向飞鸟',
+  'rear_delt_row': '宽肘后束划船',
+  'prone_y_raise': '俯卧Y字上举',
+  'dumbbell_pullover': '哑铃仰卧上拉',
+  'pike_push_up': '派克俯卧撑',
+  'back_extension': '山羊挺身',
+  'landmine_press': '半跪地雷推举',
+  'incline_dumbbell_press': '上斜哑铃卧推',
+  'decline_dumbbell_press': '下斜哑铃卧推',
+};
+
+const _sideOnlyRecognitionExercises = <String>{
+  'leg_press',
+  'leg_extension',
+  'leg_curl',
+  'incline_bench_press',
+  'decline_bench_press',
+  'barbell_floor_press',
+  'alternate_dumbbell_press',
+  'side_lying_lateral_raise',
+  'dumbbell_front_raise',
+  'prone_y_raise',
+  'dumbbell_pullover',
+  'pike_push_up',
+  'back_extension',
+  'landmine_press',
+  'incline_dumbbell_press',
+  'decline_dumbbell_press',
+};
+
+const _genericSideRecognitionCameras = <RecognitionCameraOption>[
+  RecognitionCameraOption(
+    id: 'side',
+    label: '正侧面',
+    hint: '镜头保持水平，完整拍到动作使用的肩、肘、腕、髋、膝和脚踝。',
+  ),
+  RecognitionCameraOption(
+    id: 'side_front',
+    label: '侧前方',
+    hint: '从侧前方约 30° 拍摄，尽量避免器械遮挡四肢。',
+  ),
+  RecognitionCameraOption(
+    id: 'side_rear',
+    label: '侧后方',
+    hint: '从侧后方约 30° 拍摄，完整保留身体和器械轨迹。',
+  ),
+];
+
+const _genericAllRecognitionCameras = <RecognitionCameraOption>[
+  ..._genericSideRecognitionCameras,
+  RecognitionCameraOption(
+    id: 'front',
+    label: '正前方',
+    hint: '镜头正对身体，完整拍到左右两侧关节。',
+  ),
+  RecognitionCameraOption(
+    id: 'rear',
+    label: '正后方',
+    hint: '镜头正对身体后方，完整拍到双肩、双臂和下肢。',
+  ),
+];
+
+final List<RecognitionCapability> fallbackRecognitionCapabilities =
+    List<RecognitionCapability>.unmodifiable([
+      ..._baseFallbackRecognitionCapabilities,
+      for (final entry in recognitionExerciseNames.entries)
+        RecognitionCapability(
+          exerciseId: entry.key,
+          group: _recognitionGroupForId(entry.key),
+          cameras: _sideOnlyRecognitionExercises.contains(entry.key)
+              ? _genericSideRecognitionCameras
+              : _genericAllRecognitionCameras,
+        ),
+    ]);
+
+String _recognitionGroupForId(String id) {
+  if (id.contains('leg') || id.contains('squat') || id == 'back_extension') {
+    return '腿部';
+  }
+  if (id.contains('press') || id.contains('push_up') || id.contains('fly')) {
+    return id.contains('shoulder') || id == 'push_press' ? '肩部' : '胸部';
+  }
+  if (id.contains('raise') || id == 'upright_row') return '肩部';
+  return '背部';
+}
+
+Exercise recognitionExerciseDefinition(String id, String group) => Exercise(
+  id: id,
+  name: recognitionExerciseNames[id] ?? id.replaceAll('_', ' '),
+  englishName: id.replaceAll('_', ' '),
+  family: group,
+  muscle: group,
+  secondary: '稳定肌群',
+  equipment: '按动作要求',
+  camera: '按识别页机位提示拍摄',
+  cue: '保持主体完整入镜，并用可控节奏完成一次完整动作。',
+);
 
 class WorkoutSet {
   WorkoutSet({

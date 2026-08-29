@@ -7,10 +7,16 @@ from typing import Sequence
 import numpy as np
 
 from .events import (
+    LEFT_ANKLE,
     LEFT_ELBOW,
+    LEFT_HIP,
+    LEFT_KNEE,
     LEFT_SHOULDER,
     LEFT_WRIST,
+    RIGHT_ANKLE,
     RIGHT_ELBOW,
+    RIGHT_HIP,
+    RIGHT_KNEE,
     RIGHT_SHOULDER,
     RIGHT_WRIST,
     PoseSample,
@@ -23,6 +29,128 @@ class WristRecoveryMetrics:
     temporal_samples: int = 0
     direction_only_samples: int = 0
     rejected_observations: int = 0
+
+
+@dataclass(frozen=True)
+class EndpointRecoveryMetrics(WristRecoveryMetrics):
+    inferred_ankle_samples: int = 0
+    temporal_ankle_samples: int = 0
+    direction_only_ankle_samples: int = 0
+    rejected_ankle_observations: int = 0
+
+
+def recover_occluded_endpoints(
+    samples: Sequence[PoseSample],
+    *,
+    confidence_floor: float,
+    weak_direction_floor: float = 0.05,
+    max_neighbor_ms: int = 1200,
+    frame_width: int | None = None,
+    frame_height: int | None = None,
+) -> tuple[list[PoseSample], EndpointRecoveryMetrics]:
+    recovered, wrist_metrics = recover_occluded_wrists(
+        samples,
+        confidence_floor=confidence_floor,
+        weak_direction_floor=weak_direction_floor,
+        max_neighbor_ms=max_neighbor_ms,
+        frame_width=frame_width,
+        frame_height=frame_height,
+    )
+    ankle_temporal = 0
+    ankle_direction = 0
+    ankle_rejected = 0
+    for hip, knee, ankle in (
+        (LEFT_HIP, LEFT_KNEE, LEFT_ANKLE),
+        (RIGHT_HIP, RIGHT_KNEE, RIGHT_ANKLE),
+    ):
+        ankle_rejected += _reject_unreliable_observations(
+            recovered,
+            hip,
+            knee,
+            ankle,
+            confidence_floor,
+            frame_width,
+            frame_height,
+        )
+        ankle_rejected += _reject_temporal_direction_spikes(
+            recovered, hip, knee, ankle, confidence_floor
+        )
+        expected_ratio = _stable_forearm_ratio(
+            recovered, hip, knee, ankle, confidence_floor
+        )
+        observed = [
+            index
+            for index, sample in enumerate(recovered)
+            if _observed_chain(sample, hip, knee, ankle, confidence_floor)
+        ]
+        for index, sample in enumerate(recovered):
+            if sample.scores[ankle] >= confidence_floor:
+                continue
+            if min(sample.scores[hip], sample.scores[knee]) < confidence_floor:
+                continue
+            thigh = sample.points[hip] - sample.points[knee]
+            thigh_length = float(np.linalg.norm(thigh))
+            if not np.isfinite(thigh_length) or thigh_length < 6.0:
+                continue
+
+            relative_angle = _temporal_relative_angle(
+                recovered,
+                observed,
+                index,
+                hip,
+                knee,
+                ankle,
+                max_neighbor_ms,
+            )
+            source_score = 0.0
+            if relative_angle is not None:
+                thigh_angle = math.atan2(float(thigh[1]), float(thigh[0]))
+                direction_angle = thigh_angle + relative_angle
+                direction = np.array(
+                    (math.cos(direction_angle), math.sin(direction_angle)),
+                    dtype=np.float32,
+                )
+                source_score = _nearest_observed_score(
+                    recovered, observed, index, ankle, max_neighbor_ms
+                )
+                ankle_temporal += 1
+            else:
+                raw = sample.points[ankle] - sample.points[knee]
+                raw_length = float(np.linalg.norm(raw))
+                raw_score = float(sample.scores[ankle])
+                if (
+                    raw_score < weak_direction_floor
+                    or not np.isfinite(raw_length)
+                    or raw_length < max(5.0, thigh_length * 0.18)
+                    or raw_length > thigh_length * 3.0
+                ):
+                    continue
+                direction = raw.astype(np.float32) / raw_length
+                source_score = raw_score
+                ankle_direction += 1
+
+            sample.points[ankle] = (
+                sample.points[knee]
+                + direction * thigh_length * expected_ratio
+            )
+            sample.scores[ankle] = max(
+                confidence_floor + 0.01,
+                min(float(sample.scores[knee]), max(source_score, confidence_floor))
+                * 0.72,
+            )
+            if sample.inferred is not None:
+                sample.inferred[ankle] = True
+
+    return recovered, EndpointRecoveryMetrics(
+        inferred_samples=wrist_metrics.inferred_samples,
+        temporal_samples=wrist_metrics.temporal_samples,
+        direction_only_samples=wrist_metrics.direction_only_samples,
+        rejected_observations=wrist_metrics.rejected_observations,
+        inferred_ankle_samples=ankle_temporal + ankle_direction,
+        temporal_ankle_samples=ankle_temporal,
+        direction_only_ankle_samples=ankle_direction,
+        rejected_ankle_observations=ankle_rejected,
+    )
 
 
 def recover_occluded_wrists(
@@ -77,6 +205,9 @@ def recover_occluded_wrists(
             confidence_floor,
             frame_width,
             frame_height,
+        )
+        rejected_count += _reject_temporal_direction_spikes(
+            recovered, shoulder, elbow, wrist, confidence_floor
         )
         expected_ratio = _stable_forearm_ratio(
             recovered, shoulder, elbow, wrist, confidence_floor
@@ -213,6 +344,68 @@ def _inside_frame(
         return True
     x, y = float(point[0]), float(point[1])
     return 0.0 <= x < float(frame_width) and 0.0 <= y < float(frame_height)
+
+
+def _reject_temporal_direction_spikes(
+    samples: Sequence[PoseSample],
+    proximal: int,
+    joint: int,
+    endpoint: int,
+    floor: float,
+    max_neighbor_ms: int = 450,
+) -> int:
+    observed = [
+        index
+        for index, sample in enumerate(samples)
+        if _observed_chain(sample, proximal, joint, endpoint, floor)
+    ]
+    rejected = 0
+    for index in observed:
+        before = [
+            candidate
+            for candidate in observed
+            if 0
+            < samples[index].timestamp_ms - samples[candidate].timestamp_ms
+            <= max_neighbor_ms
+        ]
+        after = [
+            candidate
+            for candidate in observed
+            if 0
+            < samples[candidate].timestamp_ms - samples[index].timestamp_ms
+            <= max_neighbor_ms
+        ]
+        if not before or not after:
+            continue
+        previous = max(before)
+        following = min(after)
+        previous_angle = _relative_forearm_angle(
+            samples[previous], proximal, joint, endpoint
+        )
+        following_angle = _relative_forearm_angle(
+            samples[following], proximal, joint, endpoint
+        )
+        if _circular_distance(previous_angle, following_angle) > math.radians(28.0):
+            continue
+        expected_x = math.cos(previous_angle) + math.cos(following_angle)
+        expected_y = math.sin(previous_angle) + math.sin(following_angle)
+        if math.hypot(expected_x, expected_y) < 1e-6:
+            continue
+        expected = math.atan2(expected_y, expected_x)
+        current = _relative_forearm_angle(
+            samples[index], proximal, joint, endpoint
+        )
+        if _circular_distance(current, expected) <= math.radians(38.0):
+            continue
+        samples[index].scores[endpoint] = min(
+            float(samples[index].scores[endpoint]), max(0.08, floor * 0.5)
+        )
+        rejected += 1
+    return rejected
+
+
+def _circular_distance(first: float, second: float) -> float:
+    return abs(math.atan2(math.sin(first - second), math.cos(first - second)))
 
 
 def _observed_chain(

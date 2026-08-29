@@ -19,7 +19,7 @@ from .events import (
     event_to_result,
     format_video_time,
 )
-from .pose_recovery import recover_occluded_wrists
+from .pose_recovery import recover_occluded_endpoints
 from .subject_tracking import SubjectTracker
 
 
@@ -226,7 +226,7 @@ class PoseAnalyzer:
         detection_rate = detected_frames / inference_frames if inference_frames else 0.0
         pose_confidence = confidence_total / detected_frames if detected_frames else 0.0
         overall_confidence = round(min(1.0, detection_rate * pose_confidence), 4)
-        samples, wrist_recovery = recover_occluded_wrists(
+        samples, endpoint_recovery = recover_occluded_endpoints(
             samples,
             confidence_floor=self.confidence,
             frame_width=output_width,
@@ -317,10 +317,14 @@ class PoseAnalyzer:
                 "subjectReacquisitions": tracking_metrics.reacquisitions,
                 "assessable": evidence.assessable,
                 "evidenceReason": evidence.reason,
-                "inferredWristSamples": wrist_recovery.inferred_samples,
-                "temporalWristSamples": wrist_recovery.temporal_samples,
-                "directionOnlyWristSamples": wrist_recovery.direction_only_samples,
-                "rejectedWristObservations": wrist_recovery.rejected_observations,
+                "inferredWristSamples": endpoint_recovery.inferred_samples,
+                "temporalWristSamples": endpoint_recovery.temporal_samples,
+                "directionOnlyWristSamples": endpoint_recovery.direction_only_samples,
+                "rejectedWristObservations": endpoint_recovery.rejected_observations,
+                "inferredAnkleSamples": endpoint_recovery.inferred_ankle_samples,
+                "temporalAnkleSamples": endpoint_recovery.temporal_ankle_samples,
+                "directionOnlyAnkleSamples": endpoint_recovery.direction_only_ankle_samples,
+                "rejectedAnkleObservations": endpoint_recovery.rejected_ankle_observations,
             },
         }
         return AnalysisOutput(
