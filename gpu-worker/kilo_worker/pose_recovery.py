@@ -47,6 +47,7 @@ def recover_occluded_endpoints(
     max_neighbor_ms: int = 1200,
     frame_width: int | None = None,
     frame_height: int | None = None,
+    exercise_id: str = "",
 ) -> tuple[list[PoseSample], EndpointRecoveryMetrics]:
     recovered, wrist_metrics = recover_occluded_wrists(
         samples,
@@ -55,6 +56,7 @@ def recover_occluded_endpoints(
         max_neighbor_ms=max_neighbor_ms,
         frame_width=frame_width,
         frame_height=frame_height,
+        exercise_id=exercise_id,
     )
     ankle_temporal = 0
     ankle_direction = 0
@@ -76,6 +78,9 @@ def recover_occluded_endpoints(
             recovered, hip, knee, ankle, confidence_floor
         )
         expected_ratio = _stable_forearm_ratio(
+            recovered, hip, knee, ankle, confidence_floor
+        )
+        expected_body_ratio = _stable_endpoint_body_ratio(
             recovered, hip, knee, ankle, confidence_floor
         )
         observed = [
@@ -129,10 +134,24 @@ def recover_occluded_endpoints(
                 source_score = raw_score
                 ankle_direction += 1
 
-            sample.points[ankle] = (
-                sample.points[knee]
-                + direction * thigh_length * expected_ratio
-            )
+            body_scale = _body_scale(sample, confidence_floor)
+            if body_scale is not None and expected_body_ratio is not None:
+                recovered_length = float(
+                    np.clip(
+                        body_scale * expected_body_ratio,
+                        body_scale * 0.12,
+                        body_scale * 1.35,
+                    )
+                )
+            else:
+                recovered_length = float(
+                    np.clip(
+                        thigh_length * expected_ratio,
+                        thigh_length * 0.45,
+                        thigh_length * 3.2,
+                    )
+                )
+            sample.points[ankle] = sample.points[knee] + direction * recovered_length
             sample.scores[ankle] = max(
                 confidence_floor + 0.01,
                 min(float(sample.scores[knee]), max(source_score, confidence_floor))
@@ -161,6 +180,7 @@ def recover_occluded_wrists(
     max_neighbor_ms: int = 1200,
     frame_width: int | None = None,
     frame_height: int | None = None,
+    exercise_id: str = "",
 ) -> tuple[list[PoseSample], WristRecoveryMetrics]:
     """Recover wrist *direction* without treating it as an observation.
 
@@ -197,6 +217,13 @@ def recover_occluded_wrists(
         (LEFT_SHOULDER, LEFT_ELBOW, LEFT_WRIST),
         (RIGHT_SHOULDER, RIGHT_ELBOW, RIGHT_WRIST),
     ):
+        if _is_bench_press(exercise_id):
+            rejected_count += _reject_bench_wrist_direction(
+                recovered,
+                elbow,
+                wrist,
+                confidence_floor,
+            )
         rejected_count += _reject_unreliable_observations(
             recovered,
             shoulder,
@@ -210,6 +237,9 @@ def recover_occluded_wrists(
             recovered, shoulder, elbow, wrist, confidence_floor
         )
         expected_ratio = _stable_forearm_ratio(
+            recovered, shoulder, elbow, wrist, confidence_floor
+        )
+        expected_body_ratio = _stable_endpoint_body_ratio(
             recovered, shoulder, elbow, wrist, confidence_floor
         )
         observed = [
@@ -263,10 +293,37 @@ def recover_occluded_wrists(
                 source_score = raw_score
                 direction_count += 1
 
-            sample.points[wrist] = (
-                sample.points[elbow]
-                + direction * upper_length * expected_ratio
-            )
+            if _is_bench_press(exercise_id) and float(direction[1]) > -0.05:
+                # In an upright side-view bench video the hand remains above
+                # the elbow.  Occlusion proposals pointing into the bench are
+                # reflected upward while preserving their horizontal cue.
+                direction = np.asarray(
+                    (float(direction[0]), -max(0.35, abs(float(direction[1])))),
+                    dtype=np.float32,
+                )
+                direction /= max(1e-6, float(np.linalg.norm(direction)))
+
+            body_scale = _body_scale(sample, confidence_floor)
+            # A foreshortened upper arm must not force the reconstructed
+            # forearm to collapse onto the elbow.  The video-level torso ratio
+            # preserves scale while the raw endpoint contributes direction.
+            if body_scale is not None and expected_body_ratio is not None:
+                recovered_length = float(
+                    np.clip(
+                        body_scale * expected_body_ratio,
+                        body_scale * 0.12,
+                        body_scale * 1.35,
+                    )
+                )
+            else:
+                recovered_length = float(
+                    np.clip(
+                        upper_length * expected_ratio,
+                        upper_length * 0.45,
+                        upper_length * 3.2,
+                    )
+                )
+            sample.points[wrist] = sample.points[elbow] + direction * recovered_length
             # Downstream geometry needs a usable point, while ``inferred``
             # carries the evidence penalty. Never raise it to observed quality.
             sample.scores[wrist] = max(
@@ -331,6 +388,35 @@ def _reject_unreliable_observations(
         sample.scores[wrist] = min(float(sample.scores[wrist]), max(0.08, floor * 0.5))
         rejected += 1
     return rejected
+
+
+def _reject_bench_wrist_direction(
+    samples: Sequence[PoseSample],
+    elbow: int,
+    wrist: int,
+    floor: float,
+) -> int:
+    rejected = 0
+    for sample in samples:
+        if min(sample.scores[elbow], sample.scores[wrist]) < floor:
+            continue
+        if float(sample.points[wrist][1]) <= float(sample.points[elbow][1]) + 3.0:
+            continue
+        sample.scores[wrist] = min(
+            float(sample.scores[wrist]), max(0.08, floor * 0.5)
+        )
+        rejected += 1
+    return rejected
+
+
+def _is_bench_press(exercise_id: str) -> bool:
+    return exercise_id.strip().lower().replace("-", "_").replace(" ", "_") in {
+        "bench_press",
+        "dumbbell_press",
+        "dumbbell_bench_press",
+        "incline_bench_press",
+        "decline_bench_press",
+    }
 
 
 def _inside_frame(
@@ -441,6 +527,44 @@ def _stable_forearm_ratio(
         if 0.45 <= ratio <= 1.55:
             ratios.append(ratio)
     return float(np.clip(np.median(ratios), 0.65, 1.25)) if ratios else 0.9
+
+
+def _stable_endpoint_body_ratio(
+    samples: Sequence[PoseSample],
+    proximal: int,
+    joint: int,
+    endpoint: int,
+    floor: float,
+) -> float | None:
+    ratios: list[float] = []
+    for sample in samples:
+        if not _observed_chain(sample, proximal, joint, endpoint, floor):
+            continue
+        body_scale = _body_scale(sample, floor)
+        if body_scale is None:
+            continue
+        segment = float(np.linalg.norm(sample.points[endpoint] - sample.points[joint]))
+        ratio = segment / body_scale
+        if 0.12 <= ratio <= 1.35:
+            ratios.append(ratio)
+    return float(np.median(ratios)) if ratios else None
+
+
+def _body_scale(sample: PoseSample, floor: float) -> float | None:
+    shoulders = [
+        sample.points[index]
+        for index in (LEFT_SHOULDER, RIGHT_SHOULDER)
+        if sample.scores[index] >= floor
+    ]
+    hips = [
+        sample.points[index]
+        for index in (LEFT_HIP, RIGHT_HIP)
+        if sample.scores[index] >= floor
+    ]
+    if not shoulders or not hips:
+        return None
+    scale = float(np.linalg.norm(np.mean(shoulders, axis=0) - np.mean(hips, axis=0)))
+    return scale if np.isfinite(scale) and scale >= 8.0 else None
 
 
 def _relative_forearm_angle(

@@ -8,6 +8,7 @@ import numpy as np
 
 from .angles import joint_angle
 from .exercise_rules import NEW_EXERCISE_RULES, ExerciseRule
+from .pose_validation import chain_quality
 
 
 LEFT_SHOULDER = 5
@@ -729,6 +730,8 @@ def _bench_press_events(
     events: list[MotionEvent] = []
     elbow = LEFT_ELBOW if side == "left" else RIGHT_ELBOW
     wrist = LEFT_WRIST if side == "left" else RIGHT_WRIST
+    forearm_rule_evaluated = False
+    forearm_rule_unstable = False
     for episode in strict_episodes:
         bottom_angle = values[episode.key_index]
         if bottom_angle is not None and bottom_angle > 105.0:
@@ -759,16 +762,49 @@ def _bench_press_events(
                     reference="joint_angle",
                 )
             )
+        key_sample = samples[episode.key_index]
+        if (
+            min(key_sample.scores[elbow], key_sample.scores[wrist]) < floor
+            or _has_inferred_landmark(key_sample, (wrist,))
+        ):
+            continue
+        stability_deviations = _observed_forearm_deviations(
+            samples,
+            elbow,
+            wrist,
+            episode.key_index,
+            floor,
+            radius=3,
+        )
+        if len(stability_deviations) < 5:
+            continue
+        low, high = np.percentile(stability_deviations, (10, 90))
+        if float(high - low) > 35.0:
+            # A plate-covered elbow often drifts gradually rather than making
+            # one obvious spike. Three central frames can therefore agree on
+            # a completely false angle. Require a wider stable window before
+            # turning an observed wrist into user-facing feedback.
+            forearm_rule_unstable = True
+            continue
         deviations: list[float] = []
         confidences: list[float] = []
-        for index in range(max(episode.start_index, episode.key_index - 1), min(episode.end_index, episode.key_index + 1) + 1):
+        for index in range(
+            max(episode.start_index, episode.key_index - 1),
+            min(episode.end_index, episode.key_index + 1) + 1,
+        ):
             sample = samples[index]
             if min(sample.scores[elbow], sample.scores[wrist]) < floor:
+                continue
+            # A reconstructed wrist is sufficient to keep the elbow-angle
+            # sequence usable, but it is not an observed endpoint from which
+            # an absolute vertical-forearm judgement may be made.
+            if _has_inferred_landmark(sample, (wrist,)):
                 continue
             deviations.append(_vertical_deviation(sample.points[elbow], sample.points[wrist]))
             confidences.append(_sample_confidence(sample, (elbow, wrist)))
         if not deviations:
             continue
+        forearm_rule_evaluated = True
         deviation = float(np.median(deviations))
         confidence = float(np.median(confidences))
         if deviation <= 18.0:
@@ -805,12 +841,21 @@ def _bench_press_events(
         )
     limitations.append("bar_path_requires_equipment_detector")
     if strict_episodes:
-        evaluated_rules = (
+        evaluated = [
             "bench_press_primary_motion",
             "bench_press_depth",
-            "bench_press_forearm_verticality",
-        )
-        skipped_rules: tuple[str, ...] = ()
+        ]
+        skipped: list[str] = []
+        if forearm_rule_evaluated:
+            evaluated.append("bench_press_forearm_verticality")
+        else:
+            skipped.append(
+                "bench_press_forearm_verticality_requires_stable_observed_wrist"
+                if forearm_rule_unstable
+                else "bench_press_forearm_verticality_requires_observed_wrist"
+            )
+        evaluated_rules = tuple(evaluated)
+        skipped_rules = tuple(skipped)
     elif relative_episodes:
         evaluated_rules = ("bench_press_relative_primary_motion",)
         skipped_rules = (
@@ -2046,21 +2091,12 @@ def _best_side_chain(
     right: tuple[int, int, int],
     floor: float,
 ) -> tuple[str, tuple[int, int, int]]:
-    def quality(chain: tuple[int, int, int]) -> tuple[float, float]:
-        confidences: list[float] = []
-        angles: list[float] = []
-        for sample in samples:
-            score = float(min(sample.scores[index] for index in chain))
-            if score < floor:
-                continue
-            confidences.append(score)
-            angles.append(joint_angle(*(sample.points[index] for index in chain)))
-        motion = float(np.percentile(angles, 90) - np.percentile(angles, 10)) if len(angles) >= 3 else 0.0
-        return (float(np.mean(confidences)) if confidences else 0.0, motion)
-
-    left_quality = quality(left)
-    right_quality = quality(right)
-    if right_quality > left_quality:
+    # Neural-network confidence alone is not a side-selection strategy: an
+    # occluded limb can be confidently attached to a plate, face or machine.
+    # Select the chain that is anatomically stable and temporally continuous.
+    left_quality = chain_quality(samples, left, floor, side="left")
+    right_quality = chain_quality(samples, right, floor, side="right")
+    if right_quality.score > left_quality.score:
         return "right", right
     return "left", left
 
@@ -2690,6 +2726,31 @@ def _vertical_deviation(first: np.ndarray, second: np.ndarray) -> float:
     dy = float(second[1] - first[1])
     angle = abs(math.degrees(math.atan2(dx, -dy))) % 180.0
     return min(angle, 180.0 - angle)
+
+
+def _observed_forearm_deviations(
+    samples: Sequence[PoseSample],
+    elbow: int,
+    wrist: int,
+    center_index: int,
+    floor: float,
+    *,
+    radius: int,
+) -> list[float]:
+    deviations: list[float] = []
+    for index in range(
+        max(0, center_index - radius),
+        min(len(samples), center_index + radius + 1),
+    ):
+        sample = samples[index]
+        if min(sample.scores[elbow], sample.scores[wrist]) < floor:
+            continue
+        if _has_inferred_landmark(sample, (wrist,)):
+            continue
+        deviations.append(
+            _vertical_deviation(sample.points[elbow], sample.points[wrist])
+        )
+    return deviations
 
 
 def _sample_confidence(sample: PoseSample, landmarks: Sequence[int]) -> float:

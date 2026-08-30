@@ -51,13 +51,13 @@ def main() -> None:
         required_env("KILO_GPU_API_KEY"),
         int(os.getenv("KILO_HTTP_TIMEOUT_SECONDS", "120")),
     )
-    model_path = os.getenv("KILO_MODEL_PATH", "/opt/kilo/models/yolo11n-pose.pt")
+    model_path = os.getenv("KILO_MODEL_PATH", "/opt/kilo/models/yolo11s-pose.pt")
     device = os.getenv("KILO_INFERENCE_DEVICE", "cpu").strip().lower()
     analyzer = PoseAnalyzer(
         model_path,
         float(os.getenv("KILO_POSE_CONFIDENCE", "0.35")),
         device=device,
-        image_size=int(os.getenv("KILO_INFERENCE_IMAGE_SIZE", "512")),
+        image_size=int(os.getenv("KILO_INFERENCE_IMAGE_SIZE", "960")),
         target_fps=float(os.getenv("KILO_INFERENCE_FPS", "10")),
         max_duration_seconds=float(os.getenv("KILO_MAX_VIDEO_SECONDS", "45")),
         max_dimension=int(os.getenv("KILO_MAX_VIDEO_DIMENSION", "1280")),
@@ -115,7 +115,7 @@ def main() -> None:
                 api.complete(
                     job_id,
                     output.result,
-                    f"kilo-yolo11n-pose-v4-time-evidence-subject-track-{device}",
+                    f"kilo-yolo11s-pose-v5-chain-validation-{device}",
                 )
             LOGGER.info("job_completed id=%s", job_id)
             if once:

@@ -3,10 +3,10 @@ FROM python:3.11-slim-bookworm
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    KILO_MODEL_PATH=/opt/kilo/models/yolo11n-pose.pt \
+    KILO_MODEL_PATH=/opt/kilo/models/yolo11s-pose.pt \
     KILO_INFERENCE_DEVICE=cpu \
     KILO_CPU_THREADS=4 \
-    KILO_INFERENCE_IMAGE_SIZE=512 \
+    KILO_INFERENCE_IMAGE_SIZE=960 \
     KILO_INFERENCE_FPS=10 \
     KILO_MAX_VIDEO_SECONDS=45 \
     KILO_MAX_VIDEO_DIMENSION=1280 \
@@ -53,7 +53,7 @@ RUN pip uninstall -y opencv-python \
 ENV YOLO_CONFIG_DIR=/tmp
 
 RUN mkdir -p /opt/kilo/models
-COPY yolo11n-pose.pt /opt/kilo/models/yolo11n-pose.pt
+COPY yolo11s-pose.pt /opt/kilo/models/yolo11s-pose.pt
 
 COPY . .
 

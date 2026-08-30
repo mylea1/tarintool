@@ -3,7 +3,8 @@ FROM pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    KILO_MODEL_PATH=/opt/kilo/models/yolo11n-pose.pt
+    KILO_MODEL_PATH=/opt/kilo/models/yolo11s-pose.pt \
+    KILO_INFERENCE_IMAGE_SIZE=960
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ffmpeg libglib2.0-0 libgl1 \
@@ -17,8 +18,8 @@ RUN pip install --no-cache-dir \
       -r requirements.txt
 
 RUN mkdir -p /opt/kilo/models \
-    && python -c "from ultralytics import YOLO; YOLO('yolo11n-pose.pt')" \
-    && mv yolo11n-pose.pt /opt/kilo/models/yolo11n-pose.pt
+    && python -c "from ultralytics import YOLO; YOLO('yolo11s-pose.pt')" \
+    && mv yolo11s-pose.pt /opt/kilo/models/yolo11s-pose.pt
 
 COPY . .
 
@@ -28,4 +29,3 @@ RUN useradd --create-home --uid 10001 kilo \
 USER kilo
 
 CMD ["python", "worker.py"]
-

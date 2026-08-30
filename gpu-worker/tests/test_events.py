@@ -530,6 +530,66 @@ class PoseEventTests(unittest.TestCase):
             analysis.skipped_rules,
         )
 
+    def test_bench_press_does_not_score_vertical_forearm_from_inferred_wrist(self) -> None:
+        samples = []
+        for index, angle in enumerate((170, 145, 118, 80, 115, 145, 170)):
+            sample = _sample_with_joint_angle(
+                index * 100,
+                (LEFT_SHOULDER, LEFT_ELBOW, LEFT_WRIST),
+                angle,
+                outgoing_degrees=-45.0,
+            )
+            sample.scores[[RIGHT_SHOULDER, RIGHT_ELBOW, RIGHT_WRIST]] = 0.1
+            inferred = np.zeros(17, dtype=np.bool_)
+            inferred[LEFT_WRIST] = True
+            samples.append(
+                PoseSample(
+                    sample.timestamp_ms,
+                    sample.source_frame_index,
+                    sample.points,
+                    sample.scores,
+                    inferred,
+                )
+            )
+
+        analysis = analyze_pose_events("bench_press", "side", samples)
+
+        self.assertNotIn(
+            "BENCH_FOREARM_NOT_VERTICAL",
+            {event.code for event in analysis.events},
+        )
+        self.assertIn(
+            "bench_press_forearm_verticality_requires_observed_wrist",
+            analysis.skipped_rules,
+        )
+
+    def test_bench_press_skips_forearm_feedback_when_observed_direction_drifts(self) -> None:
+        samples = []
+        elbow_angles = (170, 145, 118, 80, 115, 145, 170)
+        forearm_directions = (-90, -88, -82, -15, -12, -76, -90)
+        for index, (angle, direction) in enumerate(
+            zip(elbow_angles, forearm_directions)
+        ):
+            sample = _sample_with_joint_angle(
+                index * 100,
+                (LEFT_SHOULDER, LEFT_ELBOW, LEFT_WRIST),
+                angle,
+                outgoing_degrees=direction,
+            )
+            sample.scores[[RIGHT_SHOULDER, RIGHT_ELBOW, RIGHT_WRIST]] = 0.1
+            samples.append(sample)
+
+        analysis = analyze_pose_events("bench_press", "side", samples)
+
+        self.assertNotIn(
+            "BENCH_FOREARM_NOT_VERTICAL",
+            {event.code for event in analysis.events},
+        )
+        self.assertIn(
+            "bench_press_forearm_verticality_requires_stable_observed_wrist",
+            analysis.skipped_rules,
+        )
+
     def test_deadlift_knee_dominance_uses_bettercoach_threshold(self) -> None:
         samples = [
             _hinge_sample(index * 100, hip_angle, knee_angle)

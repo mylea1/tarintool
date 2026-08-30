@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import math
+import os
 from pathlib import Path
 import subprocess
 from typing import Any, Callable, Sequence
@@ -21,6 +22,14 @@ from .events import (
     format_video_time,
 )
 from .pose_recovery import recover_occluded_endpoints
+from .pose_validation import (
+    LEFT_ARM,
+    LEFT_LEG,
+    RIGHT_ARM,
+    RIGHT_LEG,
+    chain_quality,
+    validate_pose_sequence,
+)
 from .subject_tracking import SubjectTracker
 
 
@@ -45,7 +54,7 @@ class PoseAnalyzer:
         confidence: float = 0.35,
         *,
         device: str = "cpu",
-        image_size: int = 512,
+        image_size: int = 960,
         target_fps: float = 10.0,
         max_duration_seconds: float = 45.0,
         max_dimension: int = 1280,
@@ -98,6 +107,16 @@ class PoseAnalyzer:
         output_height = max(2, int(height * scale) // 2 * 2)
         inference_stride = max(1, round(fps / self.target_fps))
 
+        orientation_mode, orientation_scores = self._select_orientation_mode(
+            capture,
+            exercise_id=exercise_id,
+            source_frames=source_frames,
+            fps=fps,
+            scale=scale,
+            output_width=output_width,
+            output_height=output_height,
+        )
+
         overlay_path = output_dir / "overlay.mp4"
         raw_overlay_path = output_dir / "overlay-raw.mp4"
         preview_path = output_dir / "preview.jpg"
@@ -128,18 +147,20 @@ class PoseAnalyzer:
                         interpolation=cv2.INTER_AREA,
                     )
                 inference_frames += 1
+                inference_frame = self._rotate_frame(frame, orientation_mode)
                 prediction = self.model.predict(
-                    frame,
+                    inference_frame,
                     conf=self.confidence,
                     device=self.device,
                     imgsz=self.image_size,
                     verbose=False,
                 )[0]
-                points, scores = self._best_pose(
+                points, scores = self._best_pose_oriented(
                     prediction,
                     subject_tracker,
                     output_width,
                     output_height,
+                    orientation_mode,
                 )
                 timestamp_ms = round((frame_count - 1) * 1000.0 / fps)
                 if points is not None and scores is not None:
@@ -167,11 +188,52 @@ class PoseAnalyzer:
         detection_rate = detected_frames / inference_frames if inference_frames else 0.0
         pose_confidence = confidence_total / detected_frames if detected_frames else 0.0
         overall_confidence = round(min(1.0, detection_rate * pose_confidence), 4)
+        raw_samples = samples
+        samples, pose_validation = validate_pose_sequence(
+            samples,
+            confidence_floor=self.confidence,
+            exercise_id=exercise_id,
+            camera=camera,
+            frame_width=output_width,
+            frame_height=output_height,
+        )
+        fallback_metrics = {
+            "attemptedFrames": 0,
+            "replacedFrames": 0,
+            "geometryCandidateFrames": 0,
+            "originalFrames": 0,
+            "clockwiseFrames": 0,
+            "counterclockwiseFrames": 0,
+        }
+        if (
+            pose_validation.selected_arm_side is not None
+            and self._sequence_is_horizontal(raw_samples)
+        ):
+            repaired, fallback_metrics = self._repair_side_chain_with_orientation_fallback(
+                source,
+                raw_samples,
+                pose_validation.selected_arm_side,
+                exercise_id,
+                orientation_mode,
+                scale,
+                output_width,
+                output_height,
+            )
+            if fallback_metrics["replacedFrames"]:
+                samples, pose_validation = validate_pose_sequence(
+                    repaired,
+                    confidence_floor=self.confidence,
+                    exercise_id=exercise_id,
+                    camera=camera,
+                    frame_width=output_width,
+                    frame_height=output_height,
+                )
         samples, endpoint_recovery = recover_occluded_endpoints(
             samples,
             confidence_floor=self.confidence,
             frame_width=output_width,
             frame_height=output_height,
+            exercise_id=exercise_id,
         )
         preview_written = False
         if include_overlay:
@@ -347,6 +409,9 @@ class PoseAnalyzer:
                 "partialMotionCycles": event_analysis.partial_motion_cycles,
                 "eventCount": len(result_events),
                 "subjectSelectionStrategy": "temporal_primary_subject",
+                "inferenceOrientation": orientation_mode,
+                "orientationPreflightScores": orientation_scores,
+                "orientationFallback": fallback_metrics,
                 "multiPersonFrames": tracking_metrics.multi_person_frames,
                 "maxDetectedPeople": tracking_metrics.max_detected_people,
                 "missingTargetFrames": tracking_metrics.missing_target_frames,
@@ -363,6 +428,15 @@ class PoseAnalyzer:
                 "temporalAnkleSamples": endpoint_recovery.temporal_ankle_samples,
                 "directionOnlyAnkleSamples": endpoint_recovery.direction_only_ankle_samples,
                 "rejectedAnkleObservations": endpoint_recovery.rejected_ankle_observations,
+                "invalidPoseCoordinates": pose_validation.invalid_coordinates,
+                "temporalJointSpikes": pose_validation.temporal_joint_spikes,
+                "boneLengthOutliers": pose_validation.bone_length_outliers,
+                "bilateralOcclusionRejects": pose_validation.bilateral_occlusion_rejects,
+                "selectedArmSide": pose_validation.selected_arm_side,
+                "suppressedArmSamples": pose_validation.suppressed_arm_samples,
+                "armChainQuality": [
+                    quality.to_result() for quality in pose_validation.arm_qualities
+                ],
             },
         }
         return AnalysisOutput(
@@ -660,7 +734,8 @@ class PoseAnalyzer:
         try:
             subprocess.run(
                 [
-                    "ffmpeg", "-y", "-loglevel", "error", "-i", str(source),
+                    os.getenv("KILO_FFMPEG_PATH", "ffmpeg"),
+                    "-y", "-loglevel", "error", "-i", str(source),
                     "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "24",
                     "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(destination),
                 ],
@@ -683,6 +758,22 @@ class PoseAnalyzer:
         frame_width: int,
         frame_height: int,
     ) -> tuple[np.ndarray | None, np.ndarray | None]:
+        return PoseAnalyzer._best_pose_oriented(
+            prediction,
+            tracker,
+            frame_width,
+            frame_height,
+            "original",
+        )
+
+    @staticmethod
+    def _best_pose_oriented(
+        prediction: Any,
+        tracker: SubjectTracker,
+        frame_width: int,
+        frame_height: int,
+        orientation: str,
+    ) -> tuple[np.ndarray | None, np.ndarray | None]:
         keypoints = prediction.keypoints
         if keypoints is None or keypoints.xy is None or len(keypoints.xy) == 0:
             tracker.select_index(
@@ -695,6 +786,12 @@ class PoseAnalyzer:
             )
             return None, None
         xy = keypoints.xy.detach().cpu().numpy()
+        xy = PoseAnalyzer._restore_points(
+            xy,
+            orientation,
+            frame_width,
+            frame_height,
+        )
         if keypoints.conf is None:
             confidence = np.ones((xy.shape[0], xy.shape[1]), dtype=np.float32)
         else:
@@ -704,6 +801,12 @@ class PoseAnalyzer:
         if prediction.boxes is not None:
             if prediction.boxes.xyxy is not None:
                 boxes = prediction.boxes.xyxy.detach().cpu().numpy()
+                boxes = PoseAnalyzer._restore_boxes(
+                    boxes,
+                    orientation,
+                    frame_width,
+                    frame_height,
+                )
             if prediction.boxes.conf is not None:
                 detector_confidence = prediction.boxes.conf.detach().cpu().numpy()
         best = tracker.select_index(
@@ -717,6 +820,453 @@ class PoseAnalyzer:
         if best is None:
             return None, None
         return xy[best], confidence[best]
+
+    def _select_orientation_mode(
+        self,
+        capture: cv2.VideoCapture,
+        *,
+        exercise_id: str,
+        source_frames: int,
+        fps: float,
+        scale: float,
+        output_width: int,
+        output_height: int,
+    ) -> tuple[str, dict[str, float]]:
+        """Choose one video-level pose orientation for a horizontal subject.
+
+        Pose estimators are trained mostly on upright people.  A short
+        preflight over the same clip lets a supine athlete be evaluated under
+        three rotation hypotheses without switching orientation frame by
+        frame.  One stable choice avoids both the bench-press arm collapse and
+        the leg-as-arm hallucinations produced by a blind rotation.
+        """
+        if source_frames <= 0:
+            capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            return "original", {"original": 0.0}
+        count = min(8, max(4, round(source_frames / max(1.0, fps * 2.5))))
+        last = max(0, source_frames - 1)
+        frame_indexes = sorted(
+            {int(value) for value in np.linspace(0, last, count)}
+        )
+        frames: list[tuple[int, np.ndarray]] = []
+        for frame_index in frame_indexes:
+            capture.set(cv2.CAP_PROP_POS_FRAMES, frame_index)
+            ok, frame = capture.read()
+            if not ok:
+                continue
+            if scale < 1.0:
+                frame = cv2.resize(
+                    frame,
+                    (output_width, output_height),
+                    interpolation=cv2.INTER_AREA,
+                )
+            frames.append((frame_index, frame))
+        if not frames:
+            capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            return "original", {"original": 0.0}
+
+        samples_by_mode: dict[str, list[PoseSample]] = {}
+        for mode in ("original", "clockwise", "counterclockwise"):
+            tracker = SubjectTracker(self.confidence)
+            samples: list[PoseSample] = []
+            for frame_index, frame in frames:
+                prediction = self.model.predict(
+                    self._rotate_frame(frame, mode),
+                    conf=self.confidence,
+                    device=self.device,
+                    imgsz=self.image_size,
+                    verbose=False,
+                )[0]
+                points, scores = self._best_pose_oriented(
+                    prediction,
+                    tracker,
+                    output_width,
+                    output_height,
+                    mode,
+                )
+                if points is None or scores is None:
+                    continue
+                samples.append(
+                    PoseSample(
+                        timestamp_ms=round(frame_index * 1000.0 / fps),
+                        source_frame_index=frame_index,
+                        points=points.copy(),
+                        scores=scores.copy(),
+                    )
+                )
+            samples_by_mode[mode] = samples
+
+        original = samples_by_mode["original"]
+        if not self._sequence_is_horizontal(original):
+            capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            return "original", {"original": 1.0}
+
+        raw_scores = {
+            mode: self._orientation_sequence_quality(samples, exercise_id)
+            for mode, samples in samples_by_mode.items()
+        }
+        best_mode = max(raw_scores, key=raw_scores.get)
+        # A marginal score win is not enough to rotate a complete video.
+        if raw_scores[best_mode] < raw_scores["original"] + 0.025:
+            best_mode = "original"
+        capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
+        return best_mode, {
+            mode: round(float(score), 4) for mode, score in raw_scores.items()
+        }
+
+    def _orientation_sequence_quality(
+        self,
+        samples: Sequence[PoseSample],
+        exercise_id: str,
+    ) -> float:
+        if not samples:
+            return 0.0
+        arm = max(
+            chain_quality(
+                samples,
+                LEFT_ARM,
+                self.confidence,
+                side="left",
+                exercise_id=exercise_id,
+            ).score,
+            chain_quality(
+                samples,
+                RIGHT_ARM,
+                self.confidence,
+                side="right",
+                exercise_id=exercise_id,
+            ).score,
+        )
+        leg = max(
+            chain_quality(samples, LEFT_LEG, self.confidence, side="left").score,
+            chain_quality(samples, RIGHT_LEG, self.confidence, side="right").score,
+        )
+        torso_coverage = float(
+            np.mean(
+                [
+                    min(sample.scores[5], sample.scores[6], sample.scores[11], sample.scores[12])
+                    >= self.confidence
+                    for sample in samples
+                ]
+            )
+        )
+        return 0.68 * arm + 0.22 * leg + 0.10 * torso_coverage
+
+    def _repair_side_chain_with_orientation_fallback(
+        self,
+        source: Path,
+        samples: Sequence[PoseSample],
+        selected_side: str,
+        exercise_id: str,
+        primary_orientation: str,
+        scale: float,
+        output_width: int,
+        output_height: int,
+    ) -> tuple[list[PoseSample], dict[str, int]]:
+        target_chain = LEFT_ARM if selected_side == "left" else RIGHT_ARM
+        scored = [
+            (
+                self._single_frame_chain_score(sample, target_chain, exercise_id),
+                index,
+            )
+            for index, sample in enumerate(samples)
+        ]
+        regular_suspects = [
+            (score, index)
+            for score, index in scored
+            if score < 0.53
+            or self._chain_endpoint_ratio(samples[index], target_chain) < 0.30
+            or self._chain_endpoint_ratio(samples[index], target_chain) > 2.15
+        ]
+        is_bench = exercise_id.strip().lower().replace("-", "_").replace(" ", "_") in {
+            "bench_press",
+            "incline_bench_press",
+            "decline_bench_press",
+            "dumbbell_bench_press",
+            "close_grip_bench_press",
+            "wide_grip_bench_press",
+        }
+        geometry_suspects = [
+            (score, index)
+            for score, index in scored
+            if is_bench
+            and self._chain_vertical_deviation(samples[index], target_chain) > 35.0
+        ]
+        max_attempts = max(12, round(len(samples) * 0.35))
+        geometry_budget = max(6, round(len(samples) * 0.20))
+        prioritized = sorted(geometry_suspects)[:geometry_budget]
+        included = {index for _, index in prioritized}
+        prioritized.extend(
+            item
+            for item in sorted(regular_suspects)
+            if item[1] not in included
+        )
+        suspects = prioritized[:max_attempts]
+        metrics = {
+            "attemptedFrames": len(suspects),
+            "replacedFrames": 0,
+            "geometryCandidateFrames": len(geometry_suspects),
+            "originalFrames": 0,
+            "clockwiseFrames": 0,
+            "counterclockwiseFrames": 0,
+        }
+        if not suspects:
+            return list(samples), metrics
+        repaired = [
+            PoseSample(
+                sample.timestamp_ms,
+                sample.source_frame_index,
+                sample.points.copy(),
+                sample.scores.copy(),
+                sample.inferred.copy() if sample.inferred is not None else None,
+            )
+            for sample in samples
+        ]
+        capture = cv2.VideoCapture(str(source))
+        if not capture.isOpened():
+            return repaired, metrics
+        alternatives = [
+            mode
+            for mode in ("original", "clockwise", "counterclockwise")
+            if mode != primary_orientation
+        ]
+        try:
+            for current_score, index in suspects:
+                original = samples[index]
+                capture.set(cv2.CAP_PROP_POS_FRAMES, original.source_frame_index)
+                ok, frame = capture.read()
+                if not ok:
+                    continue
+                if scale < 1.0:
+                    frame = cv2.resize(
+                        frame,
+                        (output_width, output_height),
+                        interpolation=cv2.INTER_AREA,
+                    )
+                best: tuple[float, str, np.ndarray, np.ndarray, tuple[int, int, int]] | None = None
+                for mode in alternatives:
+                    prediction = self.model.predict(
+                        self._rotate_frame(frame, mode),
+                        conf=self.confidence,
+                        device=self.device,
+                        imgsz=self.image_size,
+                        verbose=False,
+                    )[0]
+                    for points, scores in self._matching_pose_candidates(
+                        prediction,
+                        mode,
+                        output_width,
+                        output_height,
+                        original,
+                    ):
+                        candidate = PoseSample(
+                            original.timestamp_ms,
+                            original.source_frame_index,
+                            points,
+                            scores,
+                        )
+                        for side, chain in (("left", LEFT_ARM), ("right", RIGHT_ARM)):
+                            score = self._single_frame_chain_score(
+                                candidate,
+                                chain,
+                                exercise_id,
+                            )
+                            candidate_payload = (score, mode, points, scores, chain)
+                            if best is None or candidate_payload[0] > best[0]:
+                                best = candidate_payload
+                if best is None or best[0] < current_score + 0.055:
+                    continue
+                _, mode, points, scores, source_chain = best
+                sample = repaired[index]
+                source_shoulder = source_chain[0]
+                target_shoulder = target_chain[0]
+                source_anchor = points[source_shoulder].copy()
+                target_anchor = sample.points[target_shoulder].copy()
+                # Keep the already tracked shoulder as the chain root.  The
+                # fallback may use the other visible arm, so copying absolute
+                # coordinates would create a side-switch jump.  Transfer the
+                # shoulder-relative arm vectors instead.
+                for source_landmark, target_landmark in zip(
+                    source_chain[1:], target_chain[1:]
+                ):
+                    sample.points[target_landmark] = (
+                        target_anchor + points[source_landmark] - source_anchor
+                    )
+                    sample.scores[target_landmark] = min(
+                        float(sample.scores[target_shoulder]),
+                        float(scores[source_landmark]),
+                    )
+                    if sample.inferred is not None:
+                        sample.inferred[target_landmark] = False
+                metrics["replacedFrames"] += 1
+                metrics[f"{mode}Frames"] += 1
+        finally:
+            capture.release()
+        return repaired, metrics
+
+    def _matching_pose_candidates(
+        self,
+        prediction: Any,
+        orientation: str,
+        frame_width: int,
+        frame_height: int,
+        reference: PoseSample,
+    ) -> list[tuple[np.ndarray, np.ndarray]]:
+        keypoints = prediction.keypoints
+        if keypoints is None or keypoints.xy is None or len(keypoints.xy) == 0:
+            return []
+        xy = self._restore_points(
+            keypoints.xy.detach().cpu().numpy(),
+            orientation,
+            frame_width,
+            frame_height,
+        )
+        confidence = (
+            keypoints.conf.detach().cpu().numpy()
+            if keypoints.conf is not None
+            else np.ones((xy.shape[0], xy.shape[1]), dtype=np.float32)
+        )
+        reference_center, reference_scale = self._pose_torso(reference)
+        candidates: list[tuple[np.ndarray, np.ndarray]] = []
+        for points, scores in zip(xy, confidence):
+            sample = PoseSample(
+                reference.timestamp_ms,
+                reference.source_frame_index,
+                points,
+                scores,
+            )
+            center, scale = self._pose_torso(sample)
+            if reference_center is None or center is None:
+                continue
+            normalizer = max(20.0, reference_scale or scale or 1.0)
+            if float(np.linalg.norm(center - reference_center)) / normalizer > 1.05:
+                continue
+            candidates.append((points.copy(), scores.copy()))
+        return candidates
+
+    def _single_frame_chain_score(
+        self,
+        sample: PoseSample,
+        chain: tuple[int, int, int],
+        exercise_id: str,
+    ) -> float:
+        quality = chain_quality(
+            (sample,),
+            chain,
+            self.confidence,
+            side="candidate",
+            exercise_id=exercise_id,
+        )
+        score = quality.score
+        ratio = self._chain_endpoint_ratio(sample, chain)
+        if ratio < 0.30 or ratio > 2.15:
+            score -= 0.16
+        return score
+
+    def _chain_endpoint_ratio(
+        self,
+        sample: PoseSample,
+        chain: tuple[int, int, int],
+    ) -> float:
+        proximal, joint, endpoint = chain
+        if min(sample.scores[index] for index in chain) < self.confidence:
+            return 0.0
+        upper = float(np.linalg.norm(sample.points[proximal] - sample.points[joint]))
+        distal = float(np.linalg.norm(sample.points[endpoint] - sample.points[joint]))
+        return distal / max(1.0, upper)
+
+    def _chain_vertical_deviation(
+        self,
+        sample: PoseSample,
+        chain: tuple[int, int, int],
+    ) -> float:
+        _, joint, endpoint = chain
+        if min(sample.scores[joint], sample.scores[endpoint]) < self.confidence:
+            return 0.0
+        delta = sample.points[endpoint] - sample.points[joint]
+        return math.degrees(
+            math.atan2(abs(float(delta[0])), max(1e-6, abs(float(delta[1]))))
+        )
+
+    def _pose_torso(
+        self,
+        sample: PoseSample,
+    ) -> tuple[np.ndarray | None, float | None]:
+        if min(sample.scores[5], sample.scores[6], sample.scores[11], sample.scores[12]) < self.confidence:
+            return None, None
+        shoulder = (sample.points[5] + sample.points[6]) * 0.5
+        hip = (sample.points[11] + sample.points[12]) * 0.5
+        center = (shoulder + hip) * 0.5
+        scale = float(np.linalg.norm(hip - shoulder))
+        return center, scale if scale >= 8.0 else None
+
+    def _sequence_is_horizontal(self, samples: Sequence[PoseSample]) -> bool:
+        ratios: list[float] = []
+        for sample in samples:
+            if min(sample.scores[5], sample.scores[6], sample.scores[11], sample.scores[12]) < self.confidence:
+                continue
+            shoulder = (sample.points[5] + sample.points[6]) * 0.5
+            hip = (sample.points[11] + sample.points[12]) * 0.5
+            delta = hip - shoulder
+            ratios.append(abs(float(delta[0])) / max(1.0, abs(float(delta[1]))))
+        return bool(ratios) and float(np.median(ratios)) >= 1.25
+
+    @staticmethod
+    def _rotate_frame(frame: np.ndarray, orientation: str) -> np.ndarray:
+        if orientation == "clockwise":
+            return cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
+        if orientation == "counterclockwise":
+            return cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+        return frame
+
+    @staticmethod
+    def _restore_points(
+        points: np.ndarray,
+        orientation: str,
+        width: int,
+        height: int,
+    ) -> np.ndarray:
+        if orientation == "original":
+            return points
+        restored = points.copy()
+        if orientation == "clockwise":
+            restored[..., 0] = points[..., 1]
+            restored[..., 1] = height - 1 - points[..., 0]
+        else:
+            restored[..., 0] = width - 1 - points[..., 1]
+            restored[..., 1] = points[..., 0]
+        return restored
+
+    @staticmethod
+    def _restore_boxes(
+        boxes: np.ndarray,
+        orientation: str,
+        width: int,
+        height: int,
+    ) -> np.ndarray:
+        if orientation == "original" or not len(boxes):
+            return boxes
+        restored = []
+        for x1, y1, x2, y2 in boxes:
+            corners = np.asarray(
+                ((x1, y1), (x2, y1), (x2, y2), (x1, y2)),
+                dtype=np.float32,
+            )
+            original = PoseAnalyzer._restore_points(
+                corners,
+                orientation,
+                width,
+                height,
+            )
+            restored.append(
+                (
+                    float(np.min(original[:, 0])),
+                    float(np.min(original[:, 1])),
+                    float(np.max(original[:, 0])),
+                    float(np.max(original[:, 1])),
+                )
+            )
+        return np.asarray(restored, dtype=np.float32)
 
     def _draw_pose(
         self,

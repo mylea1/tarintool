@@ -45,9 +45,9 @@ jobs:
         run: |
           curl --fail --location \
             --retry 5 --retry-all-errors \
-            --output yolo11n-pose.pt \
-            https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo11n-pose.pt
-          echo "869e83fcdffdc7371fa4e34cd8e51c838cc729571d1635e5141e3075e9319dc0  yolo11n-pose.pt" | sha256sum --check --strict
+            --output yolo11s-pose.pt \
+            https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo11s-pose.pt
+          echo "1060bda4a27012060eca246f9b2adeea22eabb045a1e58f8d229be29b7ebc2ba  yolo11s-pose.pt" | sha256sum --check --strict
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
