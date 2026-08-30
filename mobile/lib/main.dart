@@ -8045,12 +8045,38 @@ class _RecognitionCoachCopy {
 }
 
 _RecognitionCoachCopy _recognitionCoachCopy(RecognitionResult result) {
+  if (result.evidenceReason == 'selected_exercise_mismatch') {
+    final observed = result.actionCompatibility['observedFamily']?.toString();
+    final suggestion = switch (observed) {
+      'bench_press' => '卧推',
+      'hip_thrust' => '臀推',
+      _ => null,
+    };
+    return _RecognitionCoachCopy(
+      body: suggestion == null
+          ? '视频中的动作过程与所选动作不一致，继续套用当前规则会产生错误评价。'
+          : '视频中的动作过程与所选动作不一致，看起来更接近$suggestion，继续套用当前规则会产生错误评价。',
+      nextSet: '返回后确认动作名称和拍摄机位，再重新提交这段视频。',
+    );
+  }
   final review = result.aiReview;
   final eventsByCode = <String, List<RecognitionEvent>>{};
   for (final event in result.events) {
     eventsByCode.putIfAbsent(event.code, () => <RecognitionEvent>[]).add(event);
   }
   final body = <String>[];
+  if (result.evidence['level'] == 'partial_cycle') {
+    final skippedRules = result.evidence['skippedRules'];
+    final endpointOccluded = skippedRules is List<dynamic> &&
+        skippedRules.contains(
+          'bench_cycle_uses_relative_motion_due_endpoint_occlusion',
+        );
+    body.add(
+      endpointOccluded
+          ? '这次已经看到卧推的下放和推回过程，但手腕等端点被遮挡，绝对角度不足以可靠计次；下面只评价画面中能够确认的部分。'
+          : '这次已经看到主要动作阶段，但没有可靠确认完整周期，因此不计次数；下面只评价画面中能够确认的部分。',
+    );
+  }
   if (review != null && _isObjectiveRecognitionCopy(review.headline)) {
     body.add(_recognitionSentence(review.headline));
   }
@@ -8063,7 +8089,13 @@ _RecognitionCoachCopy _recognitionCoachCopy(RecognitionResult result) {
   for (final group in eventsByCode.values) {
     final insight = _recognitionEventInsight(group.first);
     final times = group.map((event) => event.displayTime).toSet().join('、');
-    body.add('$times 附近，${insight.title}。${insight.meaning}');
+    final inferred = group.any(
+      (event) => event.evidenceQuality == 'inferred_direction',
+    );
+    final evidenceNote = inferred
+        ? '该时间点的手腕或脚踝被遮挡，角度依据可见肢段方向估算。'
+        : '';
+    body.add('$times 附近，${insight.title}。${insight.meaning}$evidenceNote');
   }
   if (eventsByCode.isEmpty && review != null && review.risks.isNotEmpty) {
     body.add(review.risks.map(_recognitionSentence).join(''));

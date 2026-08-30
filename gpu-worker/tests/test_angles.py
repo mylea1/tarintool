@@ -44,6 +44,24 @@ class AngleTests(unittest.TestCase):
 
         self.assertTrue(assessment.assessable)
         self.assertEqual(assessment.reason, "assessable")
+        self.assertEqual(assessment.level, "full_cycle")
+        self.assertTrue(assessment.can_count_repetitions)
+
+    def test_evidence_accepts_visible_partial_cycle_without_counting(self) -> None:
+        assessment = assess_exercise_evidence(
+            complete_cycles=0,
+            partial_cycles=1,
+            visible_phases=("extended", "pulled"),
+            confidence=0.78,
+            detected_frames=140,
+            inference_frames=140,
+            angle_samples=(138.0, 132.0, 120.0, 99.0, 95.0, 98.0),
+        )
+
+        self.assertTrue(assessment.assessable)
+        self.assertEqual(assessment.reason, "partial_cycle")
+        self.assertEqual(assessment.level, "partial_cycle")
+        self.assertFalse(assessment.can_count_repetitions)
 
 
 if __name__ == "__main__":

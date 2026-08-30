@@ -24,6 +24,8 @@ class RecognitionResult {
     required this.status,
     required this.confidence,
     required this.summary,
+    this.assessment = 'assessable',
+    this.evidenceReason = 'assessable',
     this.repetitions = 0,
     this.error,
     this.inputUrl,
@@ -32,12 +34,17 @@ class RecognitionResult {
     this.events = const <RecognitionEvent>[],
     this.mediaHeaders = const <String, String>{},
     this.metrics = const <String, dynamic>{},
+    this.evidence = const <String, dynamic>{},
+    this.actionCompatibility = const <String, dynamic>{},
+    this.ruleCoverage = const <String, dynamic>{},
     this.aiReview,
     this.aiReviewError,
   });
 
   final RecognitionStatus status;
   final double confidence;
+  final String assessment;
+  final String evidenceReason;
 
   /// Legacy API compatibility only. Recognition UI must use [events].
   final int repetitions;
@@ -49,6 +56,9 @@ class RecognitionResult {
   final List<RecognitionEvent> events;
   final Map<String, String> mediaHeaders;
   final Map<String, dynamic> metrics;
+  final Map<String, dynamic> evidence;
+  final Map<String, dynamic> actionCompatibility;
+  final Map<String, dynamic> ruleCoverage;
   final RecognitionAiReview? aiReview;
   final String? aiReviewError;
 }
@@ -65,6 +75,8 @@ class RecognitionEvent {
     required this.explanation,
     required this.confidence,
     this.stage = '',
+    this.category = 'primary_form',
+    this.evidenceQuality = 'observed',
     this.evidenceImageUrl,
     this.measurements = const <String, dynamic>{},
   });
@@ -79,6 +91,8 @@ class RecognitionEvent {
   final String explanation;
   final double confidence;
   final String stage;
+  final String category;
+  final String evidenceQuality;
   final String? evidenceImageUrl;
   final Map<String, dynamic> measurements;
 
@@ -437,6 +451,9 @@ class HttpRecognitionApi implements RecognitionApi {
         ? media
         : const <String, dynamic>{};
     final rawMetrics = body['metrics'];
+    final rawEvidence = body['evidence'];
+    final rawCompatibility = body['actionCompatibility'];
+    final rawRuleCoverage = body['ruleCoverage'];
     final rawReview = body['aiReview'];
     final rawEvents = body['events'];
     final events = <RecognitionEvent>[];
@@ -455,6 +472,8 @@ class HttpRecognitionApi implements RecognitionApi {
             explanation: (item['explanation'] ?? '').toString(),
             confidence: (item['confidence'] as num?)?.toDouble() ?? 0,
             stage: (item['stage'] ?? '').toString(),
+            category: (item['category'] ?? 'primary_form').toString(),
+            evidenceQuality: (item['evidenceQuality'] ?? 'observed').toString(),
             evidenceImageUrl: _optionalMediaUrl(item['evidenceImageUrl']),
             measurements: rawMeasurements is Map<String, dynamic>
                 ? Map<String, dynamic>.unmodifiable(rawMeasurements)
@@ -469,6 +488,8 @@ class HttpRecognitionApi implements RecognitionApi {
       // user-facing failure state.
       status: RecognitionStatus.complete,
       confidence: confidence,
+      assessment: (body['assessment'] ?? 'assessable').toString(),
+      evidenceReason: (body['evidenceReason'] ?? 'assessable').toString(),
       repetitions: (body['repetitions'] as num?)?.toInt() ?? 0,
       summary: (body['summary'] ?? '动作分析已完成').toString(),
       inputUrl: _optionalMediaUrl(mediaMap['input']),
@@ -478,6 +499,15 @@ class HttpRecognitionApi implements RecognitionApi {
       mediaHeaders: {'Authorization': 'Bearer $token'},
       metrics: rawMetrics is Map<String, dynamic>
           ? Map<String, dynamic>.unmodifiable(rawMetrics)
+          : const <String, dynamic>{},
+      evidence: rawEvidence is Map<String, dynamic>
+          ? Map<String, dynamic>.unmodifiable(rawEvidence)
+          : const <String, dynamic>{},
+      actionCompatibility: rawCompatibility is Map<String, dynamic>
+          ? Map<String, dynamic>.unmodifiable(rawCompatibility)
+          : const <String, dynamic>{},
+      ruleCoverage: rawRuleCoverage is Map<String, dynamic>
+          ? Map<String, dynamic>.unmodifiable(rawRuleCoverage)
           : const <String, dynamic>{},
       aiReview: rawReview is Map<String, dynamic>
           ? RecognitionAiReview.fromJson(rawReview)

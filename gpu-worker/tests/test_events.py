@@ -291,10 +291,6 @@ class PoseEventTests(unittest.TestCase):
                 (170, 150, 130, 115, 115, 130, 150, 170),
                 "DIP_DEPTH_LIMITED",
             ),
-            "row": (
-                (170, 150, 125, 105, 105, 125, 150, 170),
-                "ROW_RANGE_INCOMPLETE",
-            ),
             "face_pull": (
                 (170, 150, 130, 110, 110, 130, 150, 170),
                 "FACE_PULL_RANGE_INCOMPLETE",
@@ -315,6 +311,7 @@ class PoseEventTests(unittest.TestCase):
                         index * 100,
                         (LEFT_SHOULDER, LEFT_ELBOW, LEFT_WRIST),
                         angle,
+                        outgoing_degrees=-90.0,
                     )
                     for index, angle in enumerate(angles)
                 ]
@@ -328,6 +325,56 @@ class PoseEventTests(unittest.TestCase):
                 self.assertNotIn(
                     "no_exercise_specific_event_rules", analysis.limitations
                 )
+
+    def test_row_uses_sustained_125_100_125_positions_and_hand_travel(self) -> None:
+        samples = [
+            _sample_with_joint_angle(
+                index * 100,
+                (LEFT_SHOULDER, LEFT_ELBOW, LEFT_WRIST),
+                angle,
+                outgoing_degrees=0.0,
+            )
+            for index, angle in enumerate(
+                (130, 130, 130, 95, 95, 95, 130, 130, 130)
+            )
+        ]
+        for sample in samples:
+            sample.scores[[RIGHT_SHOULDER, RIGHT_ELBOW, RIGHT_WRIST]] = 0.1
+
+        analysis = analyze_pose_events("row", "side", samples)
+
+        self.assertEqual(analysis.complete_motion_cycles, 1)
+        self.assertEqual(analysis.partial_motion_cycles, 0)
+        self.assertEqual(analysis.visible_phases, ("extended", "pulled", "returned"))
+        self.assertNotIn("ROW_RANGE_INCOMPLETE", {event.code for event in analysis.events})
+
+    def test_row_reports_a_returned_attempt_that_never_reaches_100_degrees(self) -> None:
+        samples = [
+            _sample_with_joint_angle(
+                index * 100,
+                (LEFT_SHOULDER, LEFT_ELBOW, LEFT_WRIST),
+                angle,
+                outgoing_degrees=0.0,
+            )
+            for index, angle in enumerate(
+                (130, 130, 130, 110, 110, 110, 130, 130, 130)
+            )
+        ]
+        for sample in samples:
+            sample.scores[[RIGHT_SHOULDER, RIGHT_ELBOW, RIGHT_WRIST]] = 0.1
+
+        analysis = analyze_pose_events("row", "side", samples)
+
+        self.assertEqual(analysis.complete_motion_cycles, 0)
+        self.assertEqual(analysis.partial_motion_cycles, 1)
+        self.assertEqual(
+            analysis.visible_phases,
+            ("extended", "partial_pull", "returned"),
+        )
+        event = next(
+            event for event in analysis.events if event.code == "ROW_RANGE_INCOMPLETE"
+        )
+        self.assertAlmostEqual(event.measurements["keyElbowAngleDeg"], 110.0)
 
     def test_hip_thrust_and_lateral_raise_have_specific_range_rules(self) -> None:
         hip_samples = [
@@ -437,6 +484,50 @@ class PoseEventTests(unittest.TestCase):
         self.assertEqual(oblique.events, ())
         self.assertIn(
             "forearm_verticality_requires_true_side_view", oblique.limitations
+        )
+
+    def test_bench_press_uses_relative_motion_only_when_endpoint_geometry_is_cropped(self) -> None:
+        angles = (
+            105,
+            105,
+            105,
+            105,
+            80,
+            45,
+            45,
+            45,
+            45,
+            80,
+            105,
+            105,
+            105,
+            105,
+        )
+        samples = [
+            _sample_with_joint_angle(
+                index * 100,
+                (LEFT_SHOULDER, LEFT_ELBOW, LEFT_WRIST),
+                angle,
+                outgoing_degrees=-90.0,
+            )
+            for index, angle in enumerate(angles)
+        ]
+        for sample in samples:
+            sample.scores[[RIGHT_SHOULDER, RIGHT_ELBOW, RIGHT_WRIST]] = 0.1
+
+        analysis = analyze_pose_events("bench_press", "side", samples)
+
+        self.assertEqual(analysis.complete_motion_cycles, 0)
+        self.assertEqual(analysis.partial_motion_cycles, 1)
+        self.assertEqual(analysis.events, ())
+        self.assertEqual(analysis.visible_phases, ("lowered", "returned"))
+        self.assertIn(
+            "bench_cycle_uses_relative_motion_due_endpoint_occlusion",
+            analysis.limitations,
+        )
+        self.assertIn(
+            "bench_press_depth_requires_stable_endpoint_geometry",
+            analysis.skipped_rules,
         )
 
     def test_deadlift_knee_dominance_uses_bettercoach_threshold(self) -> None:

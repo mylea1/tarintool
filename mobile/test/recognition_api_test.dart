@@ -99,6 +99,15 @@ void main() {
             'result': {
               'confidence': 0.82,
               'summary': '动作骨骼提取完成',
+              'assessment': 'assessable',
+              'evidenceReason': 'partial_cycle',
+              'evidence': {
+                'level': 'partial_cycle',
+                'canJudgePrimary': true,
+                'canCountRepetitions': false,
+              },
+              'actionCompatibility': {'compatible': true, 'checked': true},
+              'ruleCoverage': {'supported': 4, 'evaluated': 2, 'skipped': 2},
               'metrics': {
                 'durationSeconds': 12.4,
                 'detectionRate': 0.91,
@@ -115,6 +124,8 @@ void main() {
                   'displayTime': '00:12.4',
                   'explanation': '最低位置的膝角高于当前参考线。',
                   'confidence': 0.86,
+                  'category': 'primary_form',
+                  'evidenceQuality': 'inferred_direction',
                   'evidenceImageUrl':
                       'https://blocked.example/v1/analysis/jobs/job-1/media/evidence/event-001',
                   'measurements': {
@@ -172,9 +183,16 @@ void main() {
     expect(statusRequests, 2);
     expect(result.status, RecognitionStatus.complete);
     expect(result.confidence, 0.82);
+    expect(result.assessment, 'assessable');
+    expect(result.evidenceReason, 'partial_cycle');
+    expect(result.evidence['level'], 'partial_cycle');
+    expect(result.actionCompatibility['compatible'], true);
+    expect(result.ruleCoverage['evaluated'], 2);
     expect(result.repetitions, 0);
     expect(result.events, hasLength(1));
     expect(result.events.single.displayTime, '00:12.4');
+    expect(result.events.single.category, 'primary_form');
+    expect(result.events.single.evidenceQuality, 'inferred_direction');
     expect(result.events.single.timeRangeLabel, '00:11.8-00:13.0');
     expect(result.events.single.evidenceImageUrl, contains('test-api.example'));
     expect(result.metrics['detectionRate'], 0.91);

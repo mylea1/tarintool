@@ -5,7 +5,7 @@ import fs from 'node:fs/promises';
 import { createServer as createHttpServer } from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
-import { isAcademicKnowledgeSource, parseAiSkills, startServer } from '../src/server.mjs';
+import { isAcademicKnowledgeSource, parseAiSkills, recognitionEvidenceAssessment, startServer } from '../src/server.mjs';
 import { assertProductionConfiguration } from '../src/config.mjs';
 import { loadConfig } from '../src/config.mjs';
 
@@ -948,7 +948,37 @@ test('recognition refuses to invent coaching feedback without a complete motion 
   assert.deepEqual(done.body.result.aiReview.strengths, []);
   assert.deepEqual(done.body.result.aiReview.risks, []);
   assert.equal(done.body.result.aiReviewError, null);
-  assert.match(done.body.result.summary, /不足以评价/);
+  assert.match(done.body.result.summary, /无法稳定评价/);
+});
+
+test('recognition accepts explicit partial-cycle primary evidence without enabling rep count', () => {
+  const assessment = recognitionEvidenceAssessment({
+    status: 'complete',
+    assessment: 'assessable',
+    evidenceReason: 'partial_cycle',
+    confidence: 0.78,
+    evidence: {
+      level: 'partial_cycle',
+      canJudgePrimary: true,
+      canCountRepetitions: false,
+    },
+    metrics: { completeMotionCycles: 0 },
+  });
+
+  assert.equal(assessment.assessable, true);
+  assert.equal(assessment.level, 'partial_cycle');
+  assert.equal(assessment.canCountRepetitions, false);
+});
+
+test('recognition rejects a selected exercise mismatch before coaching', () => {
+  const assessment = recognitionEvidenceAssessment({
+    assessment: 'insufficient_evidence',
+    evidenceReason: 'selected_exercise_mismatch',
+    evidence: { level: 'mismatch', canJudgePrimary: false },
+  });
+
+  assert.equal(assessment.assessable, false);
+  assert.equal(assessment.reason, 'selected_exercise_mismatch');
 });
 
 test('recognition rejects unsafe or oversized uploads', async () => {

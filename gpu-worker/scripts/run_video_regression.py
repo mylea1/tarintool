@@ -19,6 +19,7 @@ def main() -> None:
     parser.add_argument("--model", default="/opt/kilo/models/yolo11n-pose.pt")
     parser.add_argument("--image-size", type=int, default=512)
     parser.add_argument("--target-fps", type=float, default=10.0)
+    parser.add_argument("--include-overlay", action="store_true")
     args = parser.parse_args()
 
     analyzer = PoseAnalyzer(
@@ -35,13 +36,15 @@ def main() -> None:
         args.output,
         args.exercise_id,
         args.camera,
-        include_overlay=False,
+        include_overlay=args.include_overlay,
     )
     target = args.output / "result.json"
     target.write_text(
         json.dumps(output.result, ensure_ascii=False, indent=2), encoding="utf-8"
     )
     print(target)
+    if output.overlay_path is not None:
+        print(output.overlay_path)
     print(json.dumps(output.result, ensure_ascii=False, indent=2))
 
 

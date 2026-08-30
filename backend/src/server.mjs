@@ -901,8 +901,20 @@ export const isAcademicKnowledgeSource = isVisibleKnowledgeSource;
 
 export function recognitionEvidenceAssessment(result) {
   const metrics = result?.metrics && typeof result.metrics === 'object' ? result.metrics : {};
+  const evidence = result?.evidence && typeof result.evidence === 'object' ? result.evidence : null;
+  if (result?.evidenceReason === 'selected_exercise_mismatch' || evidence?.level === 'mismatch') {
+    return { assessable: false, reason: 'selected_exercise_mismatch', level: 'mismatch', canCountRepetitions: false };
+  }
+  if (evidence?.canJudgePrimary === true) {
+    return {
+      assessable: true,
+      reason: String(result?.evidenceReason || evidence?.level || 'assessable'),
+      level: String(evidence?.level || 'full_cycle'),
+      canCountRepetitions: evidence?.canCountRepetitions === true,
+    };
+  }
   if (result?.assessment === 'insufficient_evidence' || metrics.assessable === false) {
-    return { assessable: false, reason: String(result?.evidenceReason || metrics.evidenceReason || 'insufficient_evidence') };
+    return { assessable: false, reason: String(result?.evidenceReason || metrics.evidenceReason || 'insufficient_evidence'), level: String(evidence?.level || 'none'), canCountRepetitions: false };
   }
   const confidence = Number(result?.confidence || 0);
   const completeMotionCycles = Number(
@@ -910,10 +922,10 @@ export function recognitionEvidenceAssessment(result) {
   );
   const detectedFrames = Number(metrics.detectedFrames || 0);
   const inferenceFrames = Number(metrics.inferenceFrames || 0);
-  if (inferenceFrames > 0 && (detectedFrames < 6 || detectedFrames / inferenceFrames < 0.55)) return { assessable: false, reason: 'insufficient_landmarks' };
-  if (!Number.isFinite(confidence) || confidence < 0.25) return { assessable: false, reason: 'insufficient_pose_quality' };
-  if (!Number.isFinite(completeMotionCycles) || completeMotionCycles < 1) return { assessable: false, reason: 'no_complete_motion_cycle' };
-  return { assessable: true, reason: 'assessable' };
+  if (inferenceFrames > 0 && (detectedFrames < 6 || detectedFrames / inferenceFrames < 0.55)) return { assessable: false, reason: 'insufficient_landmarks', level: 'none', canCountRepetitions: false };
+  if (!Number.isFinite(confidence) || confidence < 0.25) return { assessable: false, reason: 'insufficient_pose_quality', level: 'none', canCountRepetitions: false };
+  if (!Number.isFinite(completeMotionCycles) || completeMotionCycles < 1) return { assessable: false, reason: 'no_complete_motion_cycle', level: 'none', canCountRepetitions: false };
+  return { assessable: true, reason: 'assessable', level: 'full_cycle', canCountRepetitions: true };
 }
 
 async function postAppleReceipt(url, receipt, sharedSecret) {
@@ -1133,17 +1145,48 @@ function recordDailyCheckin(db, userId, at = new Date()) {
 }
 
 function insufficientRecognitionResult(result, reason) {
+  const copy = {
+    selected_exercise_mismatch: {
+      summary: '视频中的动作过程与所选动作不一致，请确认动作类型后重新分析。',
+      headline: '所选动作可能与视频不一致',
+      nextSet: '返回后确认动作名称和拍摄机位，再重新提交这段视频。',
+      basis: '当前只确认动作类型不匹配，不会继续套用错误动作的评价规则。',
+    },
+    no_complete_motion_cycle: {
+      summary: '已经看到动作变化，但没有稳定识别到起始—关键位置—返回的完整过程。',
+      headline: '这段视频没有形成可计次的完整动作周期',
+      nextSet: '下次从起始位多保留一小段画面，完成动作后再回到起始位。',
+      basis: '没有完整周期时不会猜测次数或节奏。',
+    },
+    insufficient_landmarks: {
+      summary: '目标关节在画面中持续不可见，目前无法稳定评价。',
+      headline: '目标部位没有持续出现在画面中',
+      nextSet: '调整机位，让本动作需要的主要关节链保持可见后重新拍摄。',
+      basis: '关键关节覆盖不足时不会使用其他身体部位代替主动作证据。',
+    },
+    insufficient_pose_quality: {
+      summary: '人物过小、模糊或遮挡较多，目前无法稳定评价。',
+      headline: '当前骨骼证据不够稳定',
+      nextSet: '靠近一些拍摄，保持光线充足，并减少器械或他人遮挡。',
+      basis: '低质量关键点可能产生错误角度，因此本次不输出动作结论。',
+    },
+  }[reason] || {
+    summary: '当前画面没有提供足够的目标动作证据，暂不判断动作好坏。',
+    headline: '当前证据不足以完成动作评价',
+    nextSet: '请重新上传目标关节清晰、包含主要动作阶段的视频。',
+    basis: '证据不足时不会猜测动作问题。',
+  };
   return {
     ...result,
     assessment: 'insufficient_evidence',
     evidenceReason: reason,
-    summary: '这段视频不足以评价所选动作，请上传包含完整动作过程的视频。',
+    summary: copy.summary,
     aiReview: {
-      headline: '这段视频还不足以评价所选动作',
+      headline: copy.headline,
       strengths: [],
       risks: [],
-      nextSet: '请重新上传一段完整视频，从起始位开始，完成动作后再回到起始位。',
-      basis: '当前没有足够的动作过程，所以不会猜测哪里需要调整。',
+      nextSet: copy.nextSet,
+      basis: copy.basis,
     },
     aiReviewError: null,
   };

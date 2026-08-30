@@ -21,6 +21,8 @@
       "required": ["status", "confidence", "summary", "events"],
       "properties": {
         "status": {"enum": ["complete", "low-confidence", "offline", "error"]},
+        "assessment": {"enum": ["assessable", "insufficient_evidence"]},
+        "evidenceReason": {"type": "string"},
         "confidence": {"type": "number", "minimum": 0, "maximum": 1},
         "repetitions": {
           "type": "integer",
@@ -44,6 +46,8 @@
               "endMs": {"type": "integer", "minimum": 0},
               "displayTime": {"type": "string", "pattern": "^[0-9]{2,}:[0-9]{2}\\.[0-9]$"},
               "stage": {"type": "string"},
+              "category": {"enum": ["primary_form", "stability_compensation", "evidence_camera", "count_segmentation"]},
+              "evidenceQuality": {"enum": ["observed", "inferred_direction", "mixed"]},
               "confidence": {"type": "number", "minimum": 0, "maximum": 1},
               "measurements": {"type": "object"},
               "explanation": {"type": "string"},
@@ -52,6 +56,24 @@
             "additionalProperties": true
           }
         },
+        "limitations": {"type": "array", "items": {"type": "string"}},
+        "metrics": {"type": "object", "additionalProperties": true},
+        "evidence": {
+          "type": "object",
+          "properties": {
+            "level": {"enum": ["full_cycle", "partial_cycle", "local_segment", "mismatch", "none"]},
+            "canJudgePrimary": {"type": "boolean"},
+            "canCountRepetitions": {"type": "boolean"},
+            "visiblePhases": {"type": "array", "items": {"type": "string"}},
+            "evaluatedRules": {"type": "array", "items": {"type": "string"}},
+            "skippedRules": {"type": "array", "items": {"type": "string"}}
+          },
+          "additionalProperties": true
+        },
+        "actionCompatibility": {"type": "object", "additionalProperties": true},
+        "ruleCoverage": {"type": "object", "additionalProperties": true},
+        "aiReview": {"type": ["object", "null"], "additionalProperties": true},
+        "aiReviewError": {"type": ["string", "null"]},
         "error": {"type": ["string", "null"]}
       },
       "additionalProperties": false

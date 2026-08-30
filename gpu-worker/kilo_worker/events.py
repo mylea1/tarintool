@@ -53,6 +53,8 @@ class MotionEvent:
     measurements: dict[str, Any]
     highlight_landmarks: tuple[int, ...]
     reference: str | None = None
+    category: str | None = None
+    evidence_quality: str | None = None
 
 
 @dataclass(frozen=True)
@@ -61,6 +63,10 @@ class EventAnalysis:
     primary_angles: tuple[float, ...]
     complete_motion_cycles: int
     limitations: tuple[str, ...]
+    partial_motion_cycles: int = 0
+    visible_phases: tuple[str, ...] = ()
+    evaluated_rules: tuple[str, ...] = ()
+    skipped_rules: tuple[str, ...] = ()
 
 
 def format_video_time(timestamp_ms: int) -> str:
@@ -78,6 +84,12 @@ def event_to_result(
     start_ms = samples[event.start_index].timestamp_ms
     peak_ms = samples[event.peak_index].timestamp_ms
     end_ms = samples[event.end_index].timestamp_ms
+    endpoint_evidence = str(event.measurements.get("endpointEvidence") or "")
+    evidence_quality = event.evidence_quality or (
+        "inferred_direction"
+        if endpoint_evidence == "inferred_direction"
+        else "observed"
+    )
     return {
         "id": evidence_id,
         "code": event.code,
@@ -88,11 +100,34 @@ def event_to_result(
         "displayTime": format_video_time(peak_ms),
         "stage": event.stage,
         "severity": "warning",
+        "category": event.category or _event_category(event.code),
+        "evidenceQuality": evidence_quality,
         "confidence": round(max(0.0, min(1.0, event.confidence)), 3),
         "measurements": event.measurements,
         "explanation": event.explanation,
         "evidenceId": evidence_id,
     }
+
+
+def _event_category(code: str) -> str:
+    normalized = code.upper()
+    if any(
+        marker in normalized
+        for marker in (
+            "TRUNK",
+            "ASYMMETRY",
+            "KNEE_MEDIAL",
+            "BODY_LINE",
+            "SHOULDER_HIKE",
+            "SHOULDER_TILT",
+            "HIP_SHIFT",
+            "SWAY",
+        )
+    ):
+        return "stability_compensation"
+    if any(marker in normalized for marker in ("CAMERA", "EVIDENCE", "MISMATCH")):
+        return "evidence_camera"
+    return "primary_form"
 
 
 def analyze_pose_events(
@@ -120,11 +155,12 @@ def analyze_pose_events(
         analysis = _hip_thrust_events(samples, confidence_floor)
     elif normalized == "lateral_raise":
         analysis = _lateral_raise_events(camera, samples, confidence_floor)
+    elif normalized == "row":
+        analysis = _row_events(camera, samples, confidence_floor)
     elif normalized in {
         "shoulder_press",
         "push_up",
         "dip",
-        "row",
         "face_pull",
         "biceps_curl",
         "triceps_extension",
@@ -149,6 +185,10 @@ def analyze_pose_events(
         primary_angles=analysis.primary_angles,
         complete_motion_cycles=analysis.complete_motion_cycles,
         limitations=analysis.limitations,
+        partial_motion_cycles=analysis.partial_motion_cycles,
+        visible_phases=analysis.visible_phases,
+        evaluated_rules=analysis.evaluated_rules,
+        skipped_rules=analysis.skipped_rules,
     )
 
 
@@ -650,22 +690,46 @@ def _bench_press_events(
         (RIGHT_SHOULDER, RIGHT_ELBOW, RIGHT_WRIST),
         floor,
     )
-    values = _median_series(_angle_series(samples, chain, floor))
-    episodes = _episodes_below(samples, values, enter=120.0, exit=140.0)
+    values = _median_series(_angle_series(samples, chain, floor), radius=2)
+    strict_episodes = _episodes_below(
+        samples,
+        values,
+        enter=120.0,
+        exit=140.0,
+    )
+    relative_episodes = (
+        []
+        if strict_episodes
+        else _adaptive_bench_press_episodes(samples, values)
+    )
+    visible_phases = (
+        ("extended", "lowered", "returned")
+        if strict_episodes
+        else ("lowered", "returned")
+        if relative_episodes
+        else ()
+    )
     if camera != "side":
         return EventAnalysis(
             (),
             tuple(value for value in values if value is not None),
-            len(episodes),
+            len(strict_episodes),
             (
                 "forearm_verticality_requires_true_side_view",
                 "bar_path_requires_equipment_detector",
+            ),
+            partial_motion_cycles=len(relative_episodes),
+            visible_phases=visible_phases,
+            evaluated_rules=("bench_press_primary_motion",),
+            skipped_rules=(
+                "bench_press_depth",
+                "bench_press_forearm_verticality",
             ),
         )
     events: list[MotionEvent] = []
     elbow = LEFT_ELBOW if side == "left" else RIGHT_ELBOW
     wrist = LEFT_WRIST if side == "left" else RIGHT_WRIST
-    for episode in episodes:
+    for episode in strict_episodes:
         bottom_angle = values[episode.key_index]
         if bottom_angle is not None and bottom_angle > 105.0:
             events.append(
@@ -726,20 +790,45 @@ def _bench_press_events(
                     "visibleSide": side,
                     "forearmVerticalDeviationDeg": round(deviation, 1),
                     "referenceLimitDeg": 18.0,
+                    "endpointEvidence": _endpoint_evidence(
+                        samples[episode.key_index], ((elbow, wrist),)
+                    ),
                 },
                 highlight_landmarks=(elbow, wrist),
                 reference="vertical_forearm",
             )
         )
     limitations = []
-    if camera not in {"side", "side_front"}:
-        limitations.append("forearm_verticality_requires_side_view")
+    if relative_episodes:
+        limitations.append(
+            "bench_cycle_uses_relative_motion_due_endpoint_occlusion"
+        )
     limitations.append("bar_path_requires_equipment_detector")
+    if strict_episodes:
+        evaluated_rules = (
+            "bench_press_primary_motion",
+            "bench_press_depth",
+            "bench_press_forearm_verticality",
+        )
+        skipped_rules: tuple[str, ...] = ()
+    elif relative_episodes:
+        evaluated_rules = ("bench_press_relative_primary_motion",)
+        skipped_rules = (
+            "bench_press_depth_requires_stable_endpoint_geometry",
+            "bench_press_forearm_verticality_requires_stable_endpoint_geometry",
+        )
+    else:
+        evaluated_rules = ("bench_press_primary_motion",)
+        skipped_rules = ()
     return EventAnalysis(
         tuple(events),
         tuple(value for value in values if value is not None),
-        len(episodes),
+        len(strict_episodes),
         tuple(limitations),
+        partial_motion_cycles=len(relative_episodes),
+        visible_phases=visible_phases,
+        evaluated_rules=evaluated_rules,
+        skipped_rules=skipped_rules,
     )
 
 
@@ -884,6 +973,287 @@ def _lateral_raise_events(
     )
 
 
+def _row_events(
+    camera: str,
+    samples: Sequence[PoseSample],
+    floor: float,
+) -> EventAnalysis:
+    """Evaluate a row from elbow range *and* hand travel.
+
+    A row is ready at a sustained extended position, enters the pull only after
+    the hand has moved toward the torso, and completes only after the hand has
+    returned. This avoids treating a single elbow-angle crossing as a rep.
+    """
+    side, chain = _best_side_chain(
+        samples,
+        (LEFT_SHOULDER, LEFT_ELBOW, LEFT_WRIST),
+        (RIGHT_SHOULDER, RIGHT_ELBOW, RIGHT_WRIST),
+        floor,
+    )
+    values = _median_series(_angle_series(samples, chain, floor))
+    hand_forward = _row_hand_forward_series(samples, chain, floor)
+    episodes, incomplete_episodes, partial_cycles, visible_phases = _row_motion_episodes(
+        samples,
+        values,
+        hand_forward,
+    )
+
+    events: list[MotionEvent] = []
+    for episode in incomplete_episodes:
+        key_angle = values[episode.key_index]
+        if key_angle is not None and key_angle > 100.0:
+            events.append(
+                MotionEvent(
+                    code="ROW_RANGE_INCOMPLETE",
+                    label="划船肘部回拉不足",
+                    explanation=(
+                        f"回拉位置可见侧肘角约 {key_angle:.1f}°，"
+                        "没有稳定达到当前 100° 参考范围。"
+                    ),
+                    stage="lower_position",
+                    start_index=episode.start_index,
+                    peak_index=episode.key_index,
+                    end_index=episode.end_index,
+                    confidence=_sample_confidence(samples[episode.key_index], chain),
+                    measurements={
+                        "visibleSide": side,
+                        "keyElbowAngleDeg": round(key_angle, 1),
+                        "referenceLimitDeg": 100.0,
+                        "endpointEvidence": _endpoint_evidence(
+                            samples[episode.key_index], (chain,)
+                        ),
+                    },
+                    highlight_landmarks=chain,
+                    reference="joint_angle",
+                    category="primary_form",
+                )
+            )
+
+    if camera in {"front", "rear"}:
+        events.extend(
+            _bilateral_elbow_asymmetry_events(
+                "row",
+                {
+                    "direction": "below",
+                    "enter": 100.0,
+                    "exit": 125.0,
+                    "target": 100.0,
+                },
+                samples,
+                floor,
+            )
+        )
+
+    evaluated_rules = ["row_elbow_range", "row_hand_path"]
+    skipped_rules: list[str] = []
+    if camera in {"side", "side_front", "side_rear"}:
+        trunk = _trunk_orientation_series(samples, floor)
+        evaluated_rules.append("row_trunk_stability")
+        for episode in episodes:
+            change, peak = _range_and_peak(trunk, episode)
+            if change is None or peak is None or change <= 12.0:
+                continue
+            events.append(
+                MotionEvent(
+                    code="ROW_TRUNK_SWAY",
+                    label="划船过程中躯干摆动较大",
+                    explanation=(
+                        f"这段回拉中躯干方向变化约 {change:.1f}°，"
+                        "超过当前 12° 稳定性参考线。"
+                    ),
+                    stage="movement",
+                    start_index=episode.start_index,
+                    peak_index=peak,
+                    end_index=episode.end_index,
+                    confidence=_sample_confidence(
+                        samples[peak],
+                        (LEFT_SHOULDER, RIGHT_SHOULDER, LEFT_HIP, RIGHT_HIP),
+                    ),
+                    measurements={
+                        "trunkLineChangeDeg": round(change, 1),
+                        "referenceLimitDeg": 12.0,
+                    },
+                    highlight_landmarks=(
+                        LEFT_SHOULDER,
+                        RIGHT_SHOULDER,
+                        LEFT_HIP,
+                        RIGHT_HIP,
+                    ),
+                    reference="trunk_line",
+                    category="stability_compensation",
+                )
+            )
+    else:
+        skipped_rules.append("row_trunk_stability_requires_side_view")
+
+    if camera in {"front", "rear"}:
+        evaluated_rules.append("row_bilateral_symmetry")
+    else:
+        skipped_rules.append("row_bilateral_symmetry_requires_front_or_rear_view")
+
+    return EventAnalysis(
+        events=tuple(events),
+        primary_angles=tuple(value for value in values if value is not None),
+        complete_motion_cycles=len(episodes),
+        limitations=(
+            "equipment_contact_not_measurable",
+            *(
+                ()
+                if camera in {"front", "rear"}
+                else ("bilateral_symmetry_requires_front_or_rear_view",)
+            ),
+        ),
+        partial_motion_cycles=partial_cycles,
+        visible_phases=visible_phases,
+        evaluated_rules=tuple(evaluated_rules),
+        skipped_rules=tuple(skipped_rules),
+    )
+
+
+def _row_hand_forward_series(
+    samples: Sequence[PoseSample],
+    chain: tuple[int, int, int],
+    floor: float,
+) -> list[float | None]:
+    shoulder, elbow, wrist = chain
+    values: list[float | None] = []
+    for sample in samples:
+        if min(sample.scores[index] for index in chain) < floor:
+            values.append(None)
+            continue
+        upper_arm = float(
+            np.linalg.norm(sample.points[shoulder] - sample.points[elbow])
+        )
+        if not np.isfinite(upper_arm) or upper_arm < 6.0:
+            values.append(None)
+            continue
+        forward = abs(float(sample.points[wrist][0] - sample.points[shoulder][0]))
+        values.append(forward / upper_arm)
+    return _median_series(values)
+
+
+def _row_motion_episodes(
+    samples: Sequence[PoseSample],
+    angles: Sequence[float | None],
+    hand_forward: Sequence[float | None],
+    *,
+    sustained_samples: int = 3,
+) -> tuple[list[MotionEpisode], list[MotionEpisode], int, tuple[str, ...]]:
+    valid_angles = [value for value in angles if value is not None]
+    valid_forward = [value for value in hand_forward if value is not None]
+    if not valid_angles or not valid_forward:
+        return [], [], 0, ()
+    top_twenty_floor = float(np.percentile(valid_angles, 80))
+    maximum_forward = float(max(valid_forward))
+    near_maximum_forward = maximum_forward * 0.85
+
+    episodes: list[MotionEpisode] = []
+    incomplete_episodes: list[MotionEpisode] = []
+    phases: list[str] = []
+    state = "seeking_extended"
+    run: list[int] = []
+    return_run: list[int] = []
+    start_index: int | None = None
+    start_forward: float | None = None
+    key_index: int | None = None
+    key_value = math.inf
+
+    def reset() -> None:
+        nonlocal state, run, return_run, start_index, start_forward, key_index, key_value
+        state = "seeking_extended"
+        run = []
+        return_run = []
+        start_index = None
+        start_forward = None
+        key_index = None
+        key_value = math.inf
+
+    for index, (angle, forward) in enumerate(zip(angles, hand_forward)):
+        gap_ms = (
+            samples[index].timestamp_ms - samples[index - 1].timestamp_ms
+            if index > 0
+            else 0
+        )
+        if angle is None or forward is None or gap_ms > 300:
+            reset()
+            continue
+
+        if state == "seeking_extended":
+            extended = (
+                (angle >= 125.0 or angle >= top_twenty_floor)
+                and forward >= near_maximum_forward
+            )
+            run = [*run, index] if extended else []
+            if len(run) >= sustained_samples:
+                stable = run[-sustained_samples:]
+                start_index = stable[0]
+                start_forward = float(np.median([hand_forward[i] for i in stable]))
+                phases.append("extended")
+                state = "seeking_pull"
+                run = []
+            continue
+
+        if state == "seeking_pull":
+            assert start_forward is not None
+            meaningful_pull = start_forward - forward >= 0.25
+            if meaningful_pull and angle < key_value:
+                key_index = index
+                key_value = angle
+            pulled = angle <= 100.0 and meaningful_pull
+            if pulled:
+                run = [*run, index]
+                return_run = []
+                if len(run) >= sustained_samples:
+                    stable = run[-sustained_samples:]
+                    key_index = min(stable, key=lambda value: float(angles[value]))
+                    key_value = float(angles[key_index])
+                    phases.append("pulled")
+                    state = "seeking_return"
+                    run = []
+                continue
+            returned_without_full_pull = (
+                key_index is not None
+                and angle >= 125.0
+                and forward >= start_forward * 0.70
+            )
+            run = []
+            return_run = (
+                [*return_run, index] if returned_without_full_pull else []
+            )
+            if len(return_run) >= sustained_samples and key_index is not None:
+                assert start_index is not None
+                incomplete_episodes.append(
+                    MotionEpisode(start_index, key_index, return_run[-1])
+                )
+                phases.extend(("partial_pull", "returned"))
+                reset()
+            continue
+
+        assert state == "seeking_return"
+        assert start_forward is not None and start_index is not None
+        if angle < key_value:
+            key_index = index
+            key_value = angle
+        returned = angle >= 125.0 and forward >= start_forward * 0.70
+        run = [*run, index] if returned else []
+        if len(run) < sustained_samples or key_index is None:
+            continue
+        end_index = run[-1]
+        if samples[end_index].timestamp_ms - samples[start_index].timestamp_ms >= 300:
+            episodes.append(MotionEpisode(start_index, key_index, end_index))
+            phases.append("returned")
+        reset()
+
+    unfinished_cycle = 1 if state != "seeking_extended" and key_index is not None else 0
+    partial_cycles = len(incomplete_episodes) + unfinished_cycle
+    return (
+        episodes,
+        incomplete_episodes,
+        partial_cycles,
+        tuple(dict.fromkeys(phases)),
+    )
+
+
 def _elbow_family_events(
     exercise_id: str,
     camera: str,
@@ -917,14 +1287,6 @@ def _elbow_family_events(
             "target": 105.0,
             "code": "DIP_DEPTH_LIMITED",
             "label": "双杠臂屈伸下降幅度不足",
-        },
-        "row": {
-            "direction": "below",
-            "enter": 130.0,
-            "exit": 145.0,
-            "target": 90.0,
-            "code": "ROW_RANGE_INCOMPLETE",
-            "label": "划船肘部回拉不足",
         },
         "face_pull": {
             "direction": "below",
@@ -1727,6 +2089,121 @@ def _median_series(values: Sequence[float | None], radius: int = 1) -> list[floa
         ]
         result.append(float(np.median(window)) if window else None)
     return result
+
+
+def _adaptive_bench_press_episodes(
+    samples: Sequence[PoseSample],
+    values: Sequence[float | None],
+) -> list[MotionEpisode]:
+    """Find visible press phases without treating them as countable repetitions.
+
+    A cropped or foreshortened forearm can preserve its direction while making
+    the absolute elbow angle systematically too small.  In that case we use
+    only the clip-relative low/high states to establish that a lower-and-return
+    motion occurred.  Exact depth and forearm-angle rules remain disabled.
+    """
+    plausible = [
+        value if value is not None and 25.0 <= value <= 175.0 else None
+        for value in values
+    ]
+    usable = [value for value in plausible if value is not None]
+    if len(usable) < 9:
+        return []
+    lower = float(np.percentile(usable, 30))
+    upper = float(np.percentile(usable, 75))
+    if upper - lower < 28.0:
+        return []
+    return _sustained_episodes_below(
+        samples,
+        plausible,
+        enter=lower,
+        exit=upper,
+        sustained_samples=3,
+    )
+
+
+def _sustained_episodes_below(
+    samples: Sequence[PoseSample],
+    values: Sequence[float | None],
+    *,
+    enter: float,
+    exit: float,
+    sustained_samples: int,
+    minimum_duration_ms: int = 300,
+) -> list[MotionEpisode]:
+    episodes: list[MotionEpisode] = []
+    state = "seeking_ready"
+    ready_index: int | None = None
+    key_index: int | None = None
+    key_value = math.inf
+    high_run = 0
+    low_run = 0
+
+    for index, value in enumerate(values):
+        gap_ms = (
+            samples[index].timestamp_ms - samples[index - 1].timestamp_ms
+            if index > 0
+            else 0
+        )
+        if value is None or gap_ms > 300:
+            state = "seeking_ready"
+            ready_index = None
+            key_index = None
+            key_value = math.inf
+            high_run = 0
+            low_run = 0
+            continue
+
+        if state == "seeking_ready":
+            high_run = high_run + 1 if value >= exit else 0
+            if high_run >= sustained_samples:
+                ready_index = index - sustained_samples + 1
+                state = "seeking_bottom"
+                low_run = 0
+            continue
+
+        if state == "seeking_bottom":
+            if value >= exit:
+                high_run += 1
+                if high_run >= sustained_samples:
+                    ready_index = index - sustained_samples + 1
+            else:
+                high_run = 0
+            low_run = low_run + 1 if value <= enter else 0
+            if low_run < sustained_samples:
+                continue
+            start = ready_index if ready_index is not None else index
+            key_index = min(
+                range(start, index + 1),
+                key=lambda candidate: (
+                    values[candidate]
+                    if values[candidate] is not None
+                    else math.inf
+                ),
+            )
+            key_value = float(values[key_index])
+            state = "seeking_return"
+            high_run = 0
+            continue
+
+        if value < key_value:
+            key_index = index
+            key_value = value
+        high_run = high_run + 1 if value >= exit else 0
+        if high_run < sustained_samples or key_index is None:
+            continue
+        end = index
+        start = ready_index if ready_index is not None else key_index
+        if samples[end].timestamp_ms - samples[start].timestamp_ms >= minimum_duration_ms:
+            episodes.append(MotionEpisode(start, key_index, end))
+        state = "seeking_bottom"
+        ready_index = index - sustained_samples + 1
+        key_index = None
+        key_value = math.inf
+        high_run = sustained_samples
+        low_run = 0
+
+    return episodes
 
 
 def _episodes_below(

@@ -11,7 +11,8 @@ import numpy as np
 import torch
 from ultralytics import YOLO
 
-from .angles import assess_exercise_evidence
+from .action_compatibility import assess_action_compatibility
+from .angles import EvidenceAssessment, assess_exercise_evidence
 from .events import (
     MotionEvent,
     PoseSample,
@@ -101,25 +102,10 @@ class PoseAnalyzer:
         raw_overlay_path = output_dir / "overlay-raw.mp4"
         preview_path = output_dir / "preview.jpg"
         output_fps = max(1.0, fps / inference_stride)
-        writer = (
-            cv2.VideoWriter(
-                str(raw_overlay_path),
-                cv2.VideoWriter_fourcc(*"mp4v"),
-                output_fps,
-                (output_width, output_height),
-            )
-            if include_overlay
-            else None
-        )
-        if writer is not None and not writer.isOpened():
-            capture.release()
-            raise RuntimeError("video_writer_unavailable")
-
         confidence_total = 0.0
         detected_frames = 0
         frame_count = 0
         inference_frames = 0
-        preview_written = False
         samples: list[PoseSample] = []
         subject_tracker = SubjectTracker(self.confidence)
 
@@ -171,58 +157,13 @@ class PoseAnalyzer:
                             scores=scores.copy(),
                         )
                     )
-                render_frame = writer is not None or (
-                    not preview_written and points is not None
-                )
-                if render_frame:
-                    if points is not None and scores is not None:
-                        self._draw_pose(frame, points, scores)
-                    cv2.putText(
-                        frame,
-                        format_video_time(timestamp_ms),
-                        (20, 42),
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        0.8,
-                        (48, 210, 122),
-                        2,
-                        cv2.LINE_AA,
-                    )
-                    if writer is not None:
-                        writer.write(frame)
-                    if not preview_written and points is not None:
-                        cv2.imwrite(
-                            str(preview_path),
-                            frame,
-                            [cv2.IMWRITE_JPEG_QUALITY, 88],
-                        )
-                        preview_written = True
                 if progress is not None:
                     progress(frame_count, source_frames)
         finally:
-            if writer is not None:
-                writer.release()
             capture.release()
 
         if not frame_count:
             raise ValueError("empty_video")
-        if not preview_written:
-            fallback = np.zeros((output_height, output_width, 3), dtype=np.uint8)
-            cv2.putText(
-                fallback,
-                "No pose detected",
-                (20, max(50, output_height // 2)),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.8,
-                (230, 230, 230),
-                2,
-            )
-            cv2.imwrite(
-                str(preview_path), fallback, [cv2.IMWRITE_JPEG_QUALITY, 88]
-            )
-
-        if include_overlay:
-            self._encode_compatible_overlay(raw_overlay_path, overlay_path)
-
         detection_rate = detected_frames / inference_frames if inference_frames else 0.0
         pose_confidence = confidence_total / detected_frames if detected_frames else 0.0
         overall_confidence = round(min(1.0, detection_rate * pose_confidence), 4)
@@ -232,6 +173,43 @@ class PoseAnalyzer:
             frame_width=output_width,
             frame_height=output_height,
         )
+        preview_written = False
+        if include_overlay:
+            preview_written = self._render_recovered_overlay(
+                source,
+                raw_overlay_path,
+                overlay_path,
+                preview_path,
+                samples,
+                scale,
+                output_width,
+                output_height,
+                inference_stride,
+                output_fps,
+                fps,
+            )
+        elif samples:
+            preview_written = self._render_recovered_preview(
+                source,
+                preview_path,
+                samples[0],
+                scale,
+                output_width,
+                output_height,
+            )
+        if not preview_written:
+            self._write_missing_pose_preview(
+                preview_path,
+                output_width,
+                output_height,
+            )
+
+        compatibility = assess_action_compatibility(
+            exercise_id,
+            camera,
+            samples,
+            confidence_floor=self.confidence,
+        )
         event_analysis = analyze_pose_events(
             exercise_id,
             camera,
@@ -240,11 +218,22 @@ class PoseAnalyzer:
         )
         evidence = assess_exercise_evidence(
             complete_cycles=event_analysis.complete_motion_cycles,
+            partial_cycles=event_analysis.partial_motion_cycles,
+            visible_phases=event_analysis.visible_phases,
             confidence=overall_confidence,
             detected_frames=detected_frames,
             inference_frames=inference_frames,
             angle_samples=event_analysis.primary_angles,
         )
+        if not compatibility.compatible:
+            evidence = EvidenceAssessment(
+                False,
+                "selected_exercise_mismatch",
+                evidence.angle_range,
+                level="mismatch",
+                can_count_repetitions=False,
+                visible_phases=event_analysis.visible_phases,
+            )
         report_events = event_analysis.events if evidence.assessable else ()
         event_pairs = [
             (f"event-{number:03d}", event)
@@ -268,12 +257,29 @@ class PoseAnalyzer:
             event_to_result(event, samples, evidence_id)
             for evidence_id, event in event_pairs
         ]
-        if not evidence.assessable:
-            summary = "这段视频不足以评价所选动作，请上传包含完整动作过程的视频。"
+        if evidence.reason == "selected_exercise_mismatch":
+            summary = "视频中的动作过程与所选动作不一致，请确认动作类型后重新分析。"
+        elif not evidence.assessable:
+            summary = "当前画面没有提供足够的目标动作证据，暂不判断动作好坏。"
         elif result_events:
-            summary = f"在视频中的 {len(result_events)} 个时间点发现需要注意的动作现象。"
+            prefix = "在可见动作阶段" if evidence.level == "partial_cycle" else "在视频中"
+            summary = f"{prefix}的 {len(result_events)} 个时间点发现需要注意的动作现象。"
+        elif evidence.level == "partial_cycle":
+            if (
+                "bench_cycle_uses_relative_motion_due_endpoint_occlusion"
+                in event_analysis.limitations
+            ):
+                summary = (
+                    "已识别到卧推的下放和推回过程，但端点遮挡使绝对角度不足以可靠计次；"
+                    "本次只评价可见阶段。"
+                )
+            else:
+                summary = (
+                    "已识别到主要动作阶段，但没有可靠确认完整周期；"
+                    "本次只评价可见阶段，不计次数。"
+                )
         else:
-            summary = "分析完成，当前规则没有发现能够确认的问题。"
+            summary = "当前可测的主要动作没有发现明显问题；这不代表所有动作细节都已验证。"
 
         angle_min = (
             round(min(event_analysis.primary_angles), 2)
@@ -286,6 +292,20 @@ class PoseAnalyzer:
             else None
         )
         tracking_metrics = subject_tracker.metrics
+        evaluated_rules = event_analysis.evaluated_rules or (
+            f"{exercise_id.lower()}_primary_motion",
+        )
+        skipped_rules = tuple(
+            dict.fromkeys((*event_analysis.skipped_rules, *event_analysis.limitations))
+        )
+        supported_rule_count = len(evaluated_rules) + len(skipped_rules)
+        primary_coverage = (
+            1.0
+            if evidence.level == "full_cycle"
+            else 0.65
+            if evidence.level == "partial_cycle"
+            else 0.0
+        )
         result = {
             "status": "complete",
             "assessment": "assessable" if evidence.assessable else "insufficient_evidence",
@@ -294,6 +314,21 @@ class PoseAnalyzer:
             "summary": summary,
             "events": result_events,
             "limitations": list(event_analysis.limitations),
+            "actionCompatibility": compatibility.to_result(),
+            "evidence": {
+                "level": evidence.level,
+                "canJudgePrimary": evidence.assessable,
+                "canCountRepetitions": evidence.can_count_repetitions,
+                "visiblePhases": list(evidence.visible_phases),
+                "evaluatedRules": list(evaluated_rules),
+                "skippedRules": list(skipped_rules),
+            },
+            "ruleCoverage": {
+                "supported": supported_rule_count,
+                "evaluated": len(evaluated_rules),
+                "skipped": len(skipped_rules),
+                "primaryCoverage": primary_coverage,
+            },
             "metrics": {
                 "frames": frame_count,
                 "detectedFrames": detected_frames,
@@ -309,6 +344,7 @@ class PoseAnalyzer:
                 "primaryAngleMax": angle_max,
                 "primaryAngleRange": round(evidence.angle_range, 2),
                 "completeMotionCycles": event_analysis.complete_motion_cycles,
+                "partialMotionCycles": event_analysis.partial_motion_cycles,
                 "eventCount": len(result_events),
                 "subjectSelectionStrategy": "temporal_primary_subject",
                 "multiPersonFrames": tracking_metrics.multi_person_frames,
@@ -317,6 +353,8 @@ class PoseAnalyzer:
                 "subjectReacquisitions": tracking_metrics.reacquisitions,
                 "assessable": evidence.assessable,
                 "evidenceReason": evidence.reason,
+                "evidenceLevel": evidence.level,
+                "canCountRepetitions": evidence.can_count_repetitions,
                 "inferredWristSamples": endpoint_recovery.inferred_samples,
                 "temporalWristSamples": endpoint_recovery.temporal_samples,
                 "directionOnlyWristSamples": endpoint_recovery.direction_only_samples,
@@ -332,6 +370,154 @@ class PoseAnalyzer:
             overlay_path=overlay_path if include_overlay else None,
             preview_path=preview_path,
             evidence_paths=rendered,
+        )
+
+    def _render_recovered_overlay(
+        self,
+        source: Path,
+        raw_overlay_path: Path,
+        overlay_path: Path,
+        preview_path: Path,
+        samples: Sequence[PoseSample],
+        scale: float,
+        output_width: int,
+        output_height: int,
+        inference_stride: int,
+        output_fps: float,
+        source_fps: float,
+    ) -> bool:
+        capture = cv2.VideoCapture(str(source))
+        if not capture.isOpened():
+            raise ValueError("invalid_video")
+        writer = cv2.VideoWriter(
+            str(raw_overlay_path),
+            cv2.VideoWriter_fourcc(*"mp4v"),
+            output_fps,
+            (output_width, output_height),
+        )
+        if not writer.isOpened():
+            capture.release()
+            raise RuntimeError("video_writer_unavailable")
+        by_frame = {sample.source_frame_index: sample for sample in samples}
+        preview_written = False
+        frame_index = -1
+        try:
+            while True:
+                ok, frame = capture.read()
+                if not ok:
+                    break
+                frame_index += 1
+                if frame_index % inference_stride != 0:
+                    continue
+                if scale < 1.0:
+                    frame = cv2.resize(
+                        frame,
+                        (output_width, output_height),
+                        interpolation=cv2.INTER_AREA,
+                    )
+                sample = by_frame.get(frame_index)
+                if sample is not None:
+                    self._draw_pose(
+                        frame,
+                        sample.points,
+                        sample.scores,
+                        inferred=sample.inferred,
+                    )
+                timestamp_ms = (
+                    sample.timestamp_ms
+                    if sample is not None
+                    else round(frame_index * 1000.0 / source_fps)
+                )
+                cv2.putText(
+                    frame,
+                    format_video_time(timestamp_ms),
+                    (20, 42),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.8,
+                    (48, 210, 122),
+                    2,
+                    cv2.LINE_AA,
+                )
+                writer.write(frame)
+                if sample is not None and not preview_written:
+                    preview_written = cv2.imwrite(
+                        str(preview_path),
+                        frame,
+                        [cv2.IMWRITE_JPEG_QUALITY, 88],
+                    )
+        finally:
+            writer.release()
+            capture.release()
+        self._encode_compatible_overlay(raw_overlay_path, overlay_path)
+        return preview_written
+
+    def _render_recovered_preview(
+        self,
+        source: Path,
+        preview_path: Path,
+        sample: PoseSample,
+        scale: float,
+        output_width: int,
+        output_height: int,
+    ) -> bool:
+        capture = cv2.VideoCapture(str(source))
+        if not capture.isOpened():
+            return False
+        try:
+            capture.set(cv2.CAP_PROP_POS_FRAMES, sample.source_frame_index)
+            ok, frame = capture.read()
+            if not ok:
+                return False
+            if scale < 1.0:
+                frame = cv2.resize(
+                    frame,
+                    (output_width, output_height),
+                    interpolation=cv2.INTER_AREA,
+                )
+            self._draw_pose(
+                frame,
+                sample.points,
+                sample.scores,
+                inferred=sample.inferred,
+            )
+            cv2.putText(
+                frame,
+                format_video_time(sample.timestamp_ms),
+                (20, 42),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.8,
+                (48, 210, 122),
+                2,
+                cv2.LINE_AA,
+            )
+            return cv2.imwrite(
+                str(preview_path),
+                frame,
+                [cv2.IMWRITE_JPEG_QUALITY, 88],
+            )
+        finally:
+            capture.release()
+
+    @staticmethod
+    def _write_missing_pose_preview(
+        preview_path: Path,
+        output_width: int,
+        output_height: int,
+    ) -> None:
+        fallback = np.zeros((output_height, output_width, 3), dtype=np.uint8)
+        cv2.putText(
+            fallback,
+            "No pose detected",
+            (20, max(50, output_height // 2)),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.8,
+            (230, 230, 230),
+            2,
+        )
+        cv2.imwrite(
+            str(preview_path),
+            fallback,
+            [cv2.IMWRITE_JPEG_QUALITY, 88],
         )
 
     def _render_evidence_images(
@@ -541,6 +727,8 @@ class PoseAnalyzer:
     ) -> None:
         for start, end in SKELETON:
             if scores[start] >= self.confidence and scores[end] >= self.confidence:
+                if not self._segment_geometry_is_plausible(points, start, end):
+                    continue
                 start_point = tuple(points[start].astype(int))
                 end_point = tuple(points[end].astype(int))
                 segment_inferred = inferred is not None and (
@@ -577,6 +765,29 @@ class PoseAnalyzer:
                     -1,
                     cv2.LINE_AA,
                 )
+
+    @staticmethod
+    def _segment_geometry_is_plausible(
+        points: np.ndarray,
+        start: int,
+        end: int,
+    ) -> bool:
+        if not np.all(np.isfinite(points[[start, end]])):
+            return False
+        proximal_for_segment = {
+            (7, 9): 5,
+            (8, 10): 6,
+            (13, 15): 11,
+            (14, 16): 12,
+        }
+        proximal = proximal_for_segment.get((start, end))
+        if proximal is None:
+            return True
+        reference = float(np.linalg.norm(points[start] - points[proximal]))
+        segment = float(np.linalg.norm(points[end] - points[start]))
+        if not np.isfinite(reference) or not np.isfinite(segment) or reference < 6.0:
+            return False
+        return reference * 0.30 <= segment <= reference * 1.75
 
     @staticmethod
     def _draw_dashed_line(

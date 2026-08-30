@@ -37,12 +37,17 @@ class EvidenceAssessment:
     assessable: bool
     reason: str
     angle_range: float
+    level: str = "none"
+    can_count_repetitions: bool = False
+    visible_phases: tuple[str, ...] = ()
 
 
 def assess_exercise_evidence(
     *,
     repetitions: int | None = None,
     complete_cycles: int | None = None,
+    partial_cycles: int = 0,
+    visible_phases: Sequence[str] = (),
     confidence: float,
     detected_frames: int,
     inference_frames: int,
@@ -71,5 +76,29 @@ def assess_exercise_evidence(
         return EvidenceAssessment(False, "insufficient_motion", angle_range)
     cycles = complete_cycles if complete_cycles is not None else int(repetitions or 0)
     if cycles < 1:
-        return EvidenceAssessment(False, "no_complete_motion_cycle", angle_range)
-    return EvidenceAssessment(True, "assessable", angle_range)
+        phases = tuple(dict.fromkeys(str(value) for value in visible_phases if value))
+        if partial_cycles > 0 or {"extended", "pulled"}.issubset(phases):
+            return EvidenceAssessment(
+                True,
+                "partial_cycle",
+                angle_range,
+                level="partial_cycle",
+                can_count_repetitions=False,
+                visible_phases=phases,
+            )
+        return EvidenceAssessment(
+            False,
+            "no_complete_motion_cycle",
+            angle_range,
+            visible_phases=phases,
+        )
+    return EvidenceAssessment(
+        True,
+        "assessable",
+        angle_range,
+        level="full_cycle",
+        can_count_repetitions=True,
+        visible_phases=tuple(
+            dict.fromkeys(str(value) for value in visible_phases if value)
+        ),
+    )
