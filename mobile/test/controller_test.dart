@@ -5,6 +5,7 @@ import 'package:kilo_strength/ai_api.dart';
 import 'package:kilo_strength/controller.dart';
 import 'package:kilo_strength/models.dart';
 import 'package:kilo_strength/workout_history_persistence.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class _CapturingCoachApi implements CoachApi {
   bool? includeTrainingSummary;
@@ -83,6 +84,40 @@ class _StreamingAgentCoachApi
 }
 
 void main() {
+  test(
+    'exercise numbers stay one-based and searchable after soft deletion',
+    () {
+      final controller = AppController();
+      addTearDown(controller.dispose);
+      final first = catalog.first;
+      expect(controller.exerciseNumberFor(first), 1);
+      controller.search = '1';
+      expect(
+        controller.visibleExercises.map((item) => item.id),
+        contains(first.id),
+      );
+      expect(selectableCatalog, hasLength(catalog.length - 300));
+    },
+  );
+
+  test('nutrition entries use sequential meal labels', () async {
+    SharedPreferences.setMockInitialValues({});
+    final controller = AppController();
+    addTearDown(controller.dispose);
+    final now = DateTime.now();
+    expect(controller.nextMealLabelFor(now), '第1餐');
+    await controller.addNutritionEntry(
+      NutritionEntry(
+        id: 'meal-one',
+        recordedAt: now,
+        mealType: controller.nextMealLabelFor(now),
+        foodName: '鸡胸肉',
+        calories: 220,
+      ),
+    );
+    expect(controller.nextMealLabelFor(now), '第2餐');
+  });
+
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test('AI plan-reading advice streams after local tool execution', () async {

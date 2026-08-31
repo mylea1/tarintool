@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Kilo food photo recognition boundary",
+  "description": "Experimental candidate result. The mobile client must require review before saving nutrition data.",
+  "type": "object",
+  "required": ["schemaVersion", "status", "requiresReview", "items"],
+  "properties": {
+    "schemaVersion": { "const": "food-photo-v1" },
+    "status": { "enum": ["completed", "insufficient_image", "failed"] },
+    "requiresReview": { "const": true },
+    "modelVersion": { "type": "string" },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["label", "confidence"],
+        "properties": {
+          "label": { "type": "string", "minLength": 1 },
+          "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+          "estimatedGrams": { "type": ["number", "null"], "minimum": 0 },
+          "estimatedCalories": { "type": ["number", "null"], "minimum": 0 },
+          "calorieRange": {
+            "type": ["array", "null"],
+            "prefixItems": [
+              { "type": "number", "minimum": 0 },
+              { "type": "number", "minimum": 0 }
+            ],
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "nutritionSource": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "warnings": { "type": "array", "items": { "type": "string" } }
+  }
+}

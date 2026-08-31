@@ -135,4 +135,31 @@ void main() {
     expect(find.byKey(const Key('summary-particles')), findsNothing);
     expect(find.byKey(const Key('workout-celebration-burst')), findsOneWidget);
   });
+
+  testWidgets('share card is a separate poster without AI review content', (
+    tester,
+  ) async {
+    final controller = AppController();
+    addTearDown(controller.dispose);
+    await _openCelebration(tester, controller, reducedMotion: true);
+    final shareButton = find.byKey(const Key('workout-celebration-share'));
+    await tester.ensureVisible(shareButton);
+    await tester.tap(shareButton);
+    await tester.pumpAndSettle();
+
+    final card = find.byKey(const Key('workout-share-card'));
+    expect(card, findsOneWidget);
+    expect(
+      find.byKey(const Key('workout-share-system-button')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: card, matching: find.textContaining('AI 训练评价')),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: card, matching: find.textContaining('KILOSTRENGTH')),
+      findsOneWidget,
+    );
+  });
 }

@@ -18,6 +18,8 @@ void main() {
     await tester.pumpAndSettle(const Duration(seconds: 4));
     expect(find.byKey(const Key('login-page')), findsOneWidget);
     expect(find.byType(NavigationBar), findsNothing);
+    expect(find.byIcon(Icons.phone_iphone_rounded), findsOneWidget);
+    expect(find.byKey(const Key('google-login-button')), findsNothing);
   });
 
   testWidgets('formal login authenticates with backend and has no shortcuts', (

@@ -1,6 +1,11 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:kilo_strength/ai_api.dart';
 import 'package:kilo_strength/controller.dart';
 import 'package:kilo_strength/account_membership.dart';
 import 'package:kilo_strength/exercise_media.dart';
@@ -16,6 +21,76 @@ Future<void> _openRoute(WidgetTester tester, String label) async {
 }
 
 void main() {
+  testWidgets('friend search remains usable at 320dp with 200% text', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 720);
+    tester.view.devicePixelRatio = 1;
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    final api = HttpCoachApi(
+      baseUrl: 'https://api.example.test',
+      client: MockClient((request) async {
+        final body = switch (request.url.path) {
+          '/v1/auth/phone/login' => {
+            'session': {'token': 'friend-widget-session'},
+          },
+          '/v1/friends' => {'friends': [], 'pending': []},
+          '/v1/friends/feed' => {'plans': []},
+          '/v1/me/identities' => {
+            'identities': [
+              {'kind': 'username', 'value': 'test_lifter'},
+            ],
+          },
+          '/v1/friends/search' => {
+            'results': [
+              {
+                'id': 'usr_friend',
+                'displayName': '训练伙伴',
+                'username': 'gym_friend',
+                'matchType': 'username',
+                'maskedMatch': '@gym_friend',
+                'relationshipStatus': 'none',
+              },
+            ],
+          },
+          _ => <String, dynamic>{},
+        };
+        return http.Response(
+          jsonEncode(body),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+    await api.signIn(identifier: '13800138000', password: '1234');
+    final controller = AppController(coachApi: api);
+    addTearDown(controller.dispose);
+    expect(controller.loginWithPhone('123', password: '123').isSuccess, isTrue);
+    controller.selectPage(PageId.profile);
+
+    await tester.pumpWidget(KiloApp(initialController: controller));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView).last, const Offset(0, -1400));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('profile-friends-entry')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('添加'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.widgetWithText(TextField, '用户名、手机号或邮箱'),
+      'gym_',
+    );
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    await tester.pumpAndSettle();
+
+    expect(find.text('训练伙伴'), findsOneWidget);
+    expect(find.text('添加好友'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('membership center keeps plans and order entry usable at 320dp', (
     tester,
   ) async {
@@ -40,7 +115,7 @@ void main() {
 
   test('all reference exercise media assets load', () async {
     expect(catalog, hasLength(1324));
-    expect(selectableCatalog.length, lessThan(catalog.length));
+    expect(selectableCatalog, hasLength(catalog.length - 300));
     expect(
       selectableCatalog.every(
         (item) => !['波速球', '滑雪机', '训练锤'].any(
@@ -149,10 +224,41 @@ void main() {
       MaterialApp(home: TrainingProfileOnboardingPage(controller: controller)),
     );
     expect(find.byKey(const Key('profile-onboarding-skip')), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('profile-onboarding-save')),
+      180,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.tap(find.byKey(const Key('profile-onboarding-save')));
     await tester.pump();
     expect(controller.profileOnboardingCompleted, isTrue);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('profile uses direct choices for goal and weekly training days', (
+    tester,
+  ) async {
+    final controller = AppController();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      MaterialApp(home: TrainingProfileOnboardingPage(controller: controller)),
+    );
+    expect(find.text('增肌'), findsOneWidget);
+    expect(find.text('减脂'), findsOneWidget);
+    expect(find.text('塑形'), findsOneWidget);
+    expect(find.text('保持体能'), findsNothing);
+    expect(find.text('一周几练'), findsOneWidget);
+    await tester.tap(find.text('塑形'));
+    await tester.tap(find.text('4'));
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('profile-onboarding-save')),
+      180,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byKey(const Key('profile-onboarding-save')));
+    await tester.pump();
+    expect(controller.trainingProfile.goal, 'body_recomp');
+    expect(controller.trainingProfile.weeklyTrainingDays, 4);
   });
 
   testWidgets('home nutrition card records calories and protein', (
@@ -168,6 +274,9 @@ void main() {
     );
     await tester.tap(find.byKey(const Key('home-nutrition-card')));
     await tester.pumpAndSettle();
+    expect(find.byKey(const Key('nutrition-journal-page')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('nutrition-empty-add')));
+    await tester.pumpAndSettle();
     await tester.enterText(find.widgetWithText(TextField, '食物名称 *'), '鸡胸肉');
     await tester.enterText(find.widgetWithText(TextField, '热量 kcal *'), '220');
     await tester.enterText(find.widgetWithText(TextField, '蛋白质 g'), '42');
@@ -175,6 +284,34 @@ void main() {
     await tester.pumpAndSettle();
     expect(controller.todayCalories, 220);
     expect(controller.todayProtein, 42);
+  });
+
+  testWidgets('new plan composer stays compact at 320dp', (tester) async {
+    tester.view.physicalSize = const Size(320, 812);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    final controller = AppController();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(KiloApp(initialController: controller));
+    await _openRoute(tester, '训练');
+    await tester.tap(find.text('新建计划'));
+    await tester.pumpAndSettle();
+    final nameField = tester.widget<TextField>(
+      find.byKey(const Key('draft-name')),
+    );
+    expect(nameField.style?.fontSize, 20);
+    await tester.tap(find.byKey(const Key('draft-add-exercise')));
+    await tester.pumpAndSettle();
+    final first = selectableCatalog.first;
+    await tester.tap(find.byKey(Key('exercise-picker-add-${first.id}')));
+    await tester.tap(find.byKey(const Key('exercise-picker-add-selected')));
+    await tester.pumpAndSettle();
+    expect(find.text(controller.displayExerciseName(first)), findsWidgets);
+    expect(find.text('保存计划'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('home exercise trend can switch between recorded exercises', (
@@ -1675,7 +1812,7 @@ void main() {
 
     expect(find.byKey(Key('exercise-history-${record.id}')), findsOneWidget);
     expect(find.textContaining('72.5 kg × 8'), findsOneWidget);
-    expect(find.textContaining('备注：肩胛保持稳定'), findsOneWidget);
+    expect(find.textContaining('组备注 · 肩胛保持稳定'), findsOneWidget);
     expect(find.text('训练次数'), findsNothing);
     expect(tester.takeException(), isNull);
   });

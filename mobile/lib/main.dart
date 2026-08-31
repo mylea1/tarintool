@@ -3,14 +3,18 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:video_player/video_player.dart';
 import 'package:video_trimmer/video_trimmer.dart';
 
 import 'account_membership.dart';
+import 'app_distribution.dart';
 import 'app_localizations.dart';
 import 'ai_api.dart';
 import 'controller.dart';
@@ -20,6 +24,7 @@ import 'membership_ui.dart';
 import 'models.dart';
 import 'muscle_selector.dart';
 import 'recognition_api.dart';
+import 'product_features.dart';
 
 // Warm-orange Material 3 tokens. The older names remain as compatibility
 // aliases because the prototype has many focused, purpose-built widgets.
@@ -45,8 +50,14 @@ const hairline = Color(0xFFEAD9CD);
 const emberTint = Color(0xFFFFEFE4);
 const emberShadow = Color(0x1F8E3D15);
 const danger = Color(0xFFB3261E);
-const kiloAppVersion = '1.0.17';
-const kiloAppBuild = '18';
+const exerciseNoteColor = Color(0xFF2459B3);
+const exerciseNoteContainer = Color(0xFFEAF1FF);
+const setNoteColor = Color(0xFF176B4A);
+const setNoteContainer = Color(0xFFE5F5ED);
+const workoutNoteColor = Color(0xFF5F6673);
+const workoutNoteContainer = Color(0xFFF0F2F5);
+const kiloAppVersion = '1.0.22';
+const kiloAppBuild = '23';
 const kiloAppVersionLabel = '$kiloAppVersion ($kiloAppBuild)';
 const kiloAppNavigationLabel = 'AI 记忆、饮食记录与视频优化';
 const brandName = '形域';
@@ -107,6 +118,7 @@ class _KiloAppState extends State<KiloApp> with WidgetsBindingObserver {
       );
       await controller.restoreCloudBackup().timeout(const Duration(seconds: 5));
       await controller.hydrateAppLanguage().timeout(const Duration(seconds: 3));
+      await controller.hydrateTheme().timeout(const Duration(seconds: 3));
       await controller.hydrateAiSkills().timeout(const Duration(seconds: 3));
       await controller.hydrateWorkoutHistory().timeout(
         const Duration(seconds: 3),
@@ -179,7 +191,7 @@ class _KiloAppState extends State<KiloApp> with WidgetsBindingObserver {
           AppLocalizations.delegate,
           ...GlobalMaterialLocalizations.delegates,
         ],
-        theme: _theme,
+        theme: _themeFor(controller.themeChoice),
         builder: (context, child) => _AppControllerScope(
           controller: controller,
           child: child ?? const SizedBox.shrink(),
@@ -214,7 +226,7 @@ class _TrainingProfileOnboardingPageState
     extends State<TrainingProfileOnboardingPage> {
   String? gender;
   String? goal;
-  String activityLevel = 'moderate';
+  int? weeklyTrainingDays;
   final age = TextEditingController();
   final years = TextEditingController();
   final height = TextEditingController();
@@ -228,7 +240,13 @@ class _TrainingProfileOnboardingPageState
     final profile = widget.controller.trainingProfile;
     gender = profile.gender;
     goal = profile.goal;
-    activityLevel = profile.activityLevel;
+    weeklyTrainingDays =
+        profile.weeklyTrainingDays ??
+        switch (profile.activityLevel) {
+          'low' => 1,
+          'high' => 5,
+          _ => 3,
+        };
     age.text = profile.age?.toString() ?? '';
     years.text = profile.trainingYears?.toString() ?? '';
     height.text = profile.heightCm?.toString() ?? '';
@@ -255,7 +273,12 @@ class _TrainingProfileOnboardingPageState
         goal: goal,
         heightCm: double.tryParse(height.text.trim()),
         weightKg: double.tryParse(weight.text.trim()),
-        activityLevel: activityLevel,
+        weeklyTrainingDays: weeklyTrainingDays,
+        activityLevel: switch (weeklyTrainingDays ?? 3) {
+          <= 1 => 'low',
+          >= 5 => 'high',
+          _ => 'moderate',
+        },
       ),
     );
     if (widget.editMode && mounted) Navigator.pop(context);
@@ -295,15 +318,11 @@ class _TrainingProfileOnboardingPageState
           const SizedBox(height: 8),
           const Text('这些资料用于训练建议和热量估算。所有项都可留空，之后也能在“我的”中修改。'),
           const SizedBox(height: 22),
-          DropdownButtonFormField<String>(
-            initialValue: gender,
-            decoration: const InputDecoration(labelText: '性别（可选）'),
-            items: const [
-              DropdownMenuItem(value: 'male', child: Text('男')),
-              DropdownMenuItem(value: 'female', child: Text('女')),
-              DropdownMenuItem(value: 'other', child: Text('其他 / 不便说明')),
-            ],
-            onChanged: (value) => setState(() => gender = value),
+          _profileChoices(
+            title: '性别（可选）',
+            value: gender,
+            choices: const {'male': '男', 'female': '女', 'other': '其他 / 不便说明'},
+            onSelected: (value) => setState(() => gender = value),
           ),
           const SizedBox(height: 12),
           Row(
@@ -352,27 +371,34 @@ class _TrainingProfileOnboardingPageState
             ],
           ),
           const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
-            initialValue: goal,
-            decoration: const InputDecoration(labelText: '当前目标（可选）'),
-            items: const [
-              DropdownMenuItem(value: 'muscle_gain', child: Text('增肌')),
-              DropdownMenuItem(value: 'fat_loss', child: Text('减脂')),
-              DropdownMenuItem(value: 'maintain', child: Text('保持体能')),
-            ],
-            onChanged: (value) => setState(() => goal = value),
+          _profileChoices(
+            title: '当前目标（可选）',
+            value: goal,
+            choices: const {
+              'muscle_gain': '增肌',
+              'fat_loss': '减脂',
+              'body_recomp': '塑形',
+            },
+            onSelected: (value) => setState(() => goal = value),
           ),
           const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
-            initialValue: activityLevel,
-            decoration: const InputDecoration(labelText: '日常活动量'),
-            items: const [
-              DropdownMenuItem(value: 'low', child: Text('较低')),
-              DropdownMenuItem(value: 'moderate', child: Text('中等')),
-              DropdownMenuItem(value: 'high', child: Text('较高')),
-            ],
-            onChanged: (value) =>
-                setState(() => activityLevel = value ?? 'moderate'),
+          _profileChoices(
+            title: '一周几练',
+            value: weeklyTrainingDays?.toString(),
+            choices: const {
+              '0': '0',
+              '1': '1',
+              '2': '2',
+              '3': '3',
+              '4': '4',
+              '5': '5',
+              '6': '6+',
+            },
+            onSelected: (value) => setState(
+              () => weeklyTrainingDays = value == null
+                  ? null
+                  : int.tryParse(value),
+            ),
           ),
           const SizedBox(height: 22),
           FilledButton(
@@ -384,130 +410,217 @@ class _TrainingProfileOnboardingPageState
       ),
     ),
   );
+
+  Widget _profileChoices({
+    required String title,
+    required String? value,
+    required Map<String, String> choices,
+    required ValueChanged<String?> onSelected,
+  }) => Semantics(
+    label: title,
+    child: Container(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+      decoration: BoxDecoration(
+        color: surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: hairline),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: Theme.of(context).textTheme.labelMedium),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final choice in choices.entries)
+                ChoiceChip(
+                  label: Text(choice.value),
+                  selected: value == choice.key,
+                  showCheckmark: false,
+                  visualDensity: VisualDensity.compact,
+                  onSelected: (selected) =>
+                      onSelected(selected ? choice.key : null),
+                ),
+            ],
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
-final _theme = ThemeData(
-  useMaterial3: true,
-  scaffoldBackgroundColor: paper,
-  colorScheme:
-      ColorScheme.fromSeed(
-        seedColor: primary,
-        brightness: Brightness.light,
-      ).copyWith(
-        primary: primary,
-        onPrimary: Colors.white,
-        primaryContainer: primaryContainer,
-        onPrimaryContainer: ink,
-        secondary: primaryBright,
-        onSecondary: Colors.white,
-        secondaryContainer: primaryContainer,
-        onSecondaryContainer: ink,
-        surface: surface,
-        onSurface: ink,
-        outline: hairline,
-        outlineVariant: hairline,
+ThemeData _themeFor(KiloThemeChoice choice) {
+  final palette = switch (choice) {
+    KiloThemeChoice.glacier => const (
+      background: Color(0xFFF4F8FC),
+      surface: Color(0xFFFFFFFF),
+      primary: Color(0xFF2468C9),
+      primaryContainer: Color(0xFFDDEBFF),
+      accent: Color(0xFF3E8AE7),
+      ink: Color(0xFF13263D),
+      muted: Color(0xFF5F7186),
+      hairline: Color(0xFFD2DFEC),
+    ),
+    KiloThemeChoice.forest => const (
+      background: Color(0xFFF3F9F5),
+      surface: Color(0xFFFFFFFF),
+      primary: Color(0xFF21845A),
+      primaryContainer: Color(0xFFDDF3E7),
+      accent: Color(0xFF4AA979),
+      ink: Color(0xFF142A20),
+      muted: Color(0xFF61776C),
+      hairline: Color(0xFFD1E4D8),
+    ),
+    KiloThemeChoice.titanium => const (
+      background: Color(0xFFF6F7F8),
+      surface: Color(0xFFFFFFFF),
+      primary: Color(0xFFC8463C),
+      primaryContainer: Color(0xFFFFE1DE),
+      accent: Color(0xFFE36B5F),
+      ink: Color(0xFF25282D),
+      muted: Color(0xFF697078),
+      hairline: Color(0xFFDDE1E5),
+    ),
+    KiloThemeChoice.warm => const (
+      background: paper,
+      surface: surface,
+      primary: primary,
+      primaryContainer: primaryContainer,
+      accent: primaryBright,
+      ink: ink,
+      muted: muted,
+      hairline: hairline,
+    ),
+  };
+  return ThemeData(
+    useMaterial3: true,
+    scaffoldBackgroundColor: palette.background,
+    colorScheme:
+        ColorScheme.fromSeed(
+          seedColor: palette.primary,
+          brightness: Brightness.light,
+        ).copyWith(
+          primary: palette.primary,
+          onPrimary: Colors.white,
+          primaryContainer: palette.primaryContainer,
+          onPrimaryContainer: palette.ink,
+          secondary: palette.accent,
+          onSecondary: Colors.white,
+          secondaryContainer: palette.primaryContainer,
+          onSecondaryContainer: palette.ink,
+          surface: palette.surface,
+          onSurface: palette.ink,
+          outline: palette.hairline,
+          outlineVariant: palette.hairline,
+        ),
+    textTheme: TextTheme(
+      headlineLarge: TextStyle(
+        fontSize: 30,
+        fontWeight: FontWeight.w800,
+        color: palette.ink,
+        letterSpacing: -1,
       ),
-  textTheme: const TextTheme(
-    headlineLarge: TextStyle(
-      fontSize: 30,
-      fontWeight: FontWeight.w800,
-      color: ink,
-      letterSpacing: -1,
-    ),
-    headlineMedium: TextStyle(
-      fontSize: 23,
-      fontWeight: FontWeight.w800,
-      color: ink,
-    ),
-    titleLarge: TextStyle(
-      fontSize: 19,
-      fontWeight: FontWeight.w800,
-      color: ink,
-    ),
-    titleMedium: TextStyle(
-      fontSize: 16,
-      fontWeight: FontWeight.w700,
-      color: ink,
-    ),
-    bodyLarge: TextStyle(fontSize: 16, color: secondaryInk, height: 1.35),
-    bodyMedium: TextStyle(fontSize: 14, color: secondaryInk, height: 1.35),
-    labelLarge: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-  ),
-  inputDecorationTheme: const InputDecorationTheme(
-    border: OutlineInputBorder(
-      borderRadius: BorderRadius.all(Radius.circular(12)),
-      borderSide: BorderSide(color: hairline),
-    ),
-    enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.all(Radius.circular(12)),
-      borderSide: BorderSide(color: hairline),
-    ),
-    focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.all(Radius.circular(12)),
-      borderSide: BorderSide(color: primary, width: 2),
-    ),
-    errorBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.all(Radius.circular(12)),
-      borderSide: BorderSide(color: danger),
-    ),
-    focusedErrorBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.all(Radius.circular(12)),
-      borderSide: BorderSide(color: danger, width: 2),
-    ),
-    filled: true,
-    fillColor: surface,
-    labelStyle: TextStyle(color: muted),
-    floatingLabelStyle: TextStyle(color: primary),
-  ),
-  cardTheme: const CardThemeData(
-    color: surface,
-    elevation: 0,
-    margin: EdgeInsets.zero,
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.all(Radius.circular(18)),
-      side: BorderSide(color: hairline),
-    ),
-  ),
-  filledButtonTheme: FilledButtonThemeData(
-    style: ButtonStyle(
-      minimumSize: WidgetStatePropertyAll(Size(48, 46)),
-      padding: WidgetStatePropertyAll(
-        EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+      headlineMedium: TextStyle(
+        fontSize: 23,
+        fontWeight: FontWeight.w800,
+        color: palette.ink,
       ),
-      textStyle: WidgetStatePropertyAll(
-        TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+      titleLarge: TextStyle(
+        fontSize: 19,
+        fontWeight: FontWeight.w800,
+        color: palette.ink,
       ),
-      shape: WidgetStatePropertyAll(
-        RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(999)),
+      titleMedium: TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.w700,
+        color: palette.ink,
+      ),
+      bodyLarge: TextStyle(fontSize: 16, color: palette.muted, height: 1.35),
+      bodyMedium: TextStyle(fontSize: 14, color: palette.muted, height: 1.35),
+      labelLarge: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+    ),
+    inputDecorationTheme: InputDecorationTheme(
+      border: OutlineInputBorder(
+        borderRadius: const BorderRadius.all(Radius.circular(12)),
+        borderSide: BorderSide(color: palette.hairline),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: const BorderRadius.all(Radius.circular(12)),
+        borderSide: BorderSide(color: palette.hairline),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: const BorderRadius.all(Radius.circular(12)),
+        borderSide: BorderSide(color: palette.primary, width: 2),
+      ),
+      errorBorder: const OutlineInputBorder(
+        borderRadius: BorderRadius.all(Radius.circular(12)),
+        borderSide: BorderSide(color: danger),
+      ),
+      focusedErrorBorder: const OutlineInputBorder(
+        borderRadius: BorderRadius.all(Radius.circular(12)),
+        borderSide: BorderSide(color: danger, width: 2),
+      ),
+      filled: true,
+      fillColor: palette.surface,
+      labelStyle: TextStyle(color: palette.muted),
+      floatingLabelStyle: TextStyle(color: palette.primary),
+    ),
+    cardTheme: CardThemeData(
+      color: palette.surface,
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: const BorderRadius.all(Radius.circular(18)),
+        side: BorderSide(color: palette.hairline),
+      ),
+    ),
+    filledButtonTheme: FilledButtonThemeData(
+      style: ButtonStyle(
+        minimumSize: WidgetStatePropertyAll(Size(48, 46)),
+        padding: WidgetStatePropertyAll(
+          EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+        ),
+        textStyle: WidgetStatePropertyAll(
+          TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+        ),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(999)),
+          ),
         ),
       ),
     ),
-  ),
-  outlinedButtonTheme: OutlinedButtonThemeData(
-    style: ButtonStyle(
-      minimumSize: WidgetStatePropertyAll(Size(48, 44)),
-      side: WidgetStatePropertyAll(BorderSide(color: hairline)),
-      textStyle: WidgetStatePropertyAll(
-        TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
-      ),
-      shape: WidgetStatePropertyAll(
-        RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(999)),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: ButtonStyle(
+        minimumSize: WidgetStatePropertyAll(Size(48, 44)),
+        side: WidgetStatePropertyAll(BorderSide(color: palette.hairline)),
+        textStyle: WidgetStatePropertyAll(
+          TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
+        ),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(999)),
+          ),
         ),
       ),
     ),
-  ),
-  dividerTheme: const DividerThemeData(color: hairline, thickness: 1),
-  navigationBarTheme: const NavigationBarThemeData(
-    backgroundColor: surface,
-    indicatorColor: primaryContainer,
-    labelTextStyle: WidgetStatePropertyAll(
-      TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: ink),
+    dividerTheme: DividerThemeData(color: palette.hairline, thickness: 1),
+    navigationBarTheme: NavigationBarThemeData(
+      backgroundColor: palette.surface,
+      indicatorColor: palette.primaryContainer,
+      labelTextStyle: WidgetStatePropertyAll(
+        TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: palette.ink,
+        ),
+      ),
+      height: 62,
     ),
-    height: 62,
-  ),
-);
+  );
+}
 
 class AccountLoadingPage extends StatelessWidget {
   const AccountLoadingPage({super.key});
@@ -672,10 +785,29 @@ class _LoginPageState extends State<LoginPage> {
     setState(() => busy = false);
   }
 
+  Future<void> submitApple() async {
+    if (busy) return;
+    setState(() {
+      busy = true;
+      error = null;
+    });
+    final result = await widget.controller.loginWithAppleRemote();
+    if (!mounted) return;
+    setState(() {
+      busy = false;
+      error = result.isSuccess
+          ? null
+          : AppLocalizations.of(
+              context,
+            ).text(result.message ?? 'Apple 登录暂时不可用，请稍后重试。');
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final strings = AppLocalizations.of(context);
-    final isIos = defaultTargetPlatform == TargetPlatform.iOS;
+    final loginMethods = appDistribution.loginMethodsFor(defaultTargetPlatform);
+    final showPhone = loginMethods.contains(LoginMethod.phone);
     final visibleError = error ?? widget.controller.sessionExpiredMessage;
     return Scaffold(
       key: const Key('login-page'),
@@ -748,72 +880,159 @@ class _LoginPageState extends State<LoginPage> {
                       style: const TextStyle(color: muted),
                     ),
                     const SizedBox(height: 16),
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Text(
-                              strings.text('登录账号'),
-                              style: Theme.of(context).textTheme.titleMedium,
-                            ),
-                            const SizedBox(height: 10),
-                            TextField(
-                              key: const Key('login-identifier'),
-                              controller: identifier,
-                              keyboardType: TextInputType.phone,
-                              textInputAction: TextInputAction.next,
-                              autofillHints: const [AutofillHints.username],
-                              decoration: InputDecoration(
-                                labelText: strings.text('手机号或账号'),
+                    if (showPhone)
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Row(
+                                children: [
+                                  const _LoginMethodIcon(
+                                    icon: Icons.phone_iphone_rounded,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    strings.text('登录账号'),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(fontWeight: FontWeight.w900),
+                                  ),
+                                ],
                               ),
-                            ),
-                            const SizedBox(height: 10),
-                            TextField(
-                              key: const Key('login-password'),
-                              controller: password,
-                              obscureText: true,
-                              textInputAction: TextInputAction.done,
-                              autofillHints: const [AutofillHints.password],
-                              onSubmitted: (_) => submit(),
-                              decoration: InputDecoration(
-                                labelText: strings.text('密码'),
+                              const SizedBox(height: 10),
+                              TextField(
+                                key: const Key('login-identifier'),
+                                controller: identifier,
+                                keyboardType: TextInputType.phone,
+                                textInputAction: TextInputAction.next,
+                                autofillHints: const [AutofillHints.username],
+                                decoration: InputDecoration(
+                                  labelText: strings.text('手机号'),
+                                  prefixIcon: const Icon(Icons.phone_outlined),
+                                ),
                               ),
-                            ),
-                            if (visibleError != null) ...[
-                              const SizedBox(height: 8),
-                              Text(
-                                visibleError,
-                                style: const TextStyle(
-                                  color: danger,
-                                  fontSize: 12,
+                              const SizedBox(height: 10),
+                              TextField(
+                                key: const Key('login-password'),
+                                controller: password,
+                                obscureText: true,
+                                textInputAction: TextInputAction.done,
+                                autofillHints: const [AutofillHints.password],
+                                onSubmitted: (_) => submit(),
+                                decoration: InputDecoration(
+                                  labelText: strings.text('密码'),
+                                  prefixIcon: const Icon(
+                                    Icons.lock_outline_rounded,
+                                  ),
+                                ),
+                              ),
+                              if (visibleError != null) ...[
+                                const SizedBox(height: 8),
+                                Text(
+                                  visibleError,
+                                  style: const TextStyle(
+                                    color: danger,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                              const SizedBox(height: 12),
+                              FilledButton(
+                                key: const Key('login-button'),
+                                onPressed: busy ? null : submit,
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    if (!busy) ...[
+                                      const Icon(Icons.login_rounded, size: 19),
+                                      const SizedBox(width: 7),
+                                    ],
+                                    Text(strings.text(busy ? '登录中…' : '手机号登录')),
+                                  ],
                                 ),
                               ),
                             ],
-                            const SizedBox(height: 12),
-                            FilledButton(
-                              key: const Key('login-button'),
-                              onPressed: busy ? null : submit,
-                              child: Text(strings.text(busy ? '登录中…' : '登录')),
-                            ),
-                          ],
+                          ),
                         ),
                       ),
-                    ),
-                    if (isIos) ...[
+                    if (loginMethods.length > (showPhone ? 1 : 0)) ...[
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          const Expanded(child: Divider()),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                            child: Text(
+                              strings.text('其他登录方式'),
+                              style: const TextStyle(
+                                color: quiet,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                          const Expanded(child: Divider()),
+                        ],
+                      ),
+                    ],
+                    if (loginMethods.contains(LoginMethod.apple)) ...[
                       const SizedBox(height: 10),
-                      OutlinedButton.icon(
-                        key: const Key('apple-login-button'),
-                        onPressed: () {
-                          final result = widget.controller.loginWithApple();
-                          setState(
-                            () => error =
-                                result.message ?? strings.text('Apple 登录尚未配置。'),
-                          );
-                        },
-                        icon: const Icon(Icons.apple),
-                        label: Text(strings.text('使用 Apple 登录')),
+                      Align(
+                        child: SizedBox(
+                          width: 205,
+                          height: 48,
+                          child: OutlinedButton.icon(
+                            key: const Key('apple-login-button'),
+                            onPressed: busy ? null : submitApple,
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: ink,
+                              backgroundColor: Colors.white,
+                              side: const BorderSide(color: ink),
+                            ),
+                            icon: const Icon(Icons.apple, size: 22),
+                            label: Text(
+                              strings.text(busy ? '登录中…' : '使用 Apple 登录'),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                    if (loginMethods.contains(LoginMethod.google)) ...[
+                      const SizedBox(height: 10),
+                      Align(
+                        child: Semantics(
+                          button: true,
+                          label: strings.text('使用 Google 登录'),
+                          child: InkWell(
+                            key: const Key('google-login-button'),
+                            borderRadius: BorderRadius.circular(24),
+                            onTap: () {
+                              final result = widget.controller
+                                  .loginWithGoogle();
+                              setState(
+                                () => error =
+                                    result.message ??
+                                    strings.text('Google 登录尚未配置。'),
+                              );
+                            },
+                            child: Image.asset(
+                              'assets/branding/sign_in_with_google_ios_light@3x.png',
+                              width: 205,
+                              height: 48,
+                              fit: BoxFit.contain,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                    if (!showPhone && visibleError != null) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        visibleError,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: danger, fontSize: 12),
                       ),
                     ],
                   ],
@@ -825,6 +1044,23 @@ class _LoginPageState extends State<LoginPage> {
       ),
     );
   }
+}
+
+class _LoginMethodIcon extends StatelessWidget {
+  const _LoginMethodIcon({required this.icon});
+
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 34,
+    height: 34,
+    decoration: BoxDecoration(
+      color: primaryContainer,
+      borderRadius: BorderRadius.circular(11),
+    ),
+    child: Icon(icon, size: 18, color: primary),
+  );
 }
 
 class KiloShell extends StatelessWidget {
@@ -1267,6 +1503,33 @@ class _ExerciseThumb extends StatelessWidget {
   }
 }
 
+class _ExerciseNumberBadge extends StatelessWidget {
+  const _ExerciseNumberBadge({required this.number});
+  final int number;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    label: '动作编号 $number',
+    child: Container(
+      constraints: const BoxConstraints(minWidth: 26, minHeight: 24),
+      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      decoration: BoxDecoration(
+        color: ink.withValues(alpha: .88),
+        borderRadius: BorderRadius.circular(7),
+      ),
+      child: Text(
+        '$number',
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 11,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    ),
+  );
+}
+
 class HomePage extends StatelessWidget {
   const HomePage({super.key, required this.controller});
   final AppController controller;
@@ -1333,7 +1596,11 @@ class HomePage extends StatelessWidget {
           child: InkWell(
             key: const Key('home-nutrition-card'),
             borderRadius: BorderRadius.circular(16),
-            onTap: () => _showNutritionSheet(context, controller),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => _NutritionJournalPage(controller: controller),
+              ),
+            ),
             child: Padding(
               padding: const EdgeInsets.all(14),
               child: Row(
@@ -1359,7 +1626,7 @@ class HomePage extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const Icon(Icons.add_circle_outline_rounded, color: primary),
+                  const Icon(Icons.chevron_right_rounded, color: primary),
                 ],
               ),
             ),
@@ -1414,7 +1681,8 @@ Future<void> _showNutritionSheet(
   final protein = TextEditingController();
   final carbs = TextEditingController();
   final fat = TextEditingController();
-  var mealType = '正餐';
+  final mealLabel = controller.nextMealLabelFor(DateTime.now());
+  String? selectedPhotoName;
   await showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -1422,124 +1690,167 @@ Future<void> _showNutritionSheet(
     showDragHandle: true,
     builder: (sheetContext) => StatefulBuilder(
       builder: (context, setSheetState) => Padding(
-        padding: EdgeInsets.fromLTRB(
-          18,
-          0,
-          18,
-          18 + MediaQuery.viewInsetsOf(context).bottom,
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(context).bottom,
         ),
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text('记录饮食', style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 6),
-              const Text(
-                '热量与营养数值可查看食品包装或餐厅信息后填写。',
-                style: TextStyle(color: quiet, fontSize: 12),
-              ),
-              const SizedBox(height: 14),
-              SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(value: '早餐', label: Text('早餐')),
-                  ButtonSegment(value: '正餐', label: Text('正餐')),
-                  ButtonSegment(value: '加餐', label: Text('加餐')),
-                ],
-                selected: {mealType},
-                onSelectionChanged: (value) =>
-                    setSheetState(() => mealType = value.first),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: food,
-                textInputAction: TextInputAction.next,
-                decoration: const InputDecoration(labelText: '食物名称 *'),
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: amount,
-                      decoration: const InputDecoration(
-                        labelText: '份量，如 200 g',
+        child: SafeArea(
+          top: false,
+          minimum: const EdgeInsets.fromLTRB(18, 0, 18, 16),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '记录$mealLabel',
+                        style: Theme.of(context).textTheme.titleLarge,
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: TextField(
-                      controller: calories,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 9,
+                        vertical: 4,
                       ),
-                      decoration: const InputDecoration(labelText: '热量 kcal *'),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: protein,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
+                      decoration: BoxDecoration(
+                        color: primaryContainer,
+                        borderRadius: BorderRadius.circular(99),
                       ),
-                      decoration: const InputDecoration(labelText: '蛋白质 g'),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextField(
-                      controller: carbs,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
+                      child: const Text(
+                        '按次序记录',
+                        style: TextStyle(
+                          color: primary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
-                      decoration: const InputDecoration(labelText: '碳水 g'),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextField(
-                      controller: fat,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                      decoration: const InputDecoration(labelText: '脂肪 g'),
-                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  '热量与营养数值可查看食品包装或餐厅信息后填写。',
+                  style: TextStyle(color: quiet, fontSize: 12),
+                ),
+                const SizedBox(height: 14),
+                OutlinedButton.icon(
+                  key: const Key('nutrition-photo-picker'),
+                  onPressed: () async {
+                    final result = await FilePicker.platform.pickFiles(
+                      type: FileType.image,
+                      allowMultiple: false,
+                      withData: false,
+                    );
+                    if (result == null || result.files.isEmpty) return;
+                    setSheetState(
+                      () => selectedPhotoName = result.files.single.name,
+                    );
+                  },
+                  icon: const Icon(Icons.add_a_photo_outlined),
+                  label: Text(selectedPhotoName ?? '选择食物照片（实验）'),
+                ),
+                if (selectedPhotoName != null) ...[
+                  const SizedBox(height: 5),
+                  const Text(
+                    '照片已添加。单张图片难以准确判断重量，本次请仍人工确认食物和份量。',
+                    style: TextStyle(color: quiet, fontSize: 11),
                   ),
                 ],
-              ),
-              const SizedBox(height: 16),
-              FilledButton(
-                key: const Key('nutrition-save'),
-                onPressed: () async {
-                  final name = food.text.trim();
-                  final kcal = double.tryParse(calories.text.trim());
-                  if (name.isEmpty || kcal == null || kcal < 0) {
-                    showKiloSnack(context, '请填写食物名称和有效热量');
-                    return;
-                  }
-                  await controller.addNutritionEntry(
-                    NutritionEntry(
-                      id: 'nutrition-${DateTime.now().microsecondsSinceEpoch}',
-                      recordedAt: DateTime.now(),
-                      mealType: mealType,
-                      foodName: name,
-                      amount: amount.text.trim(),
-                      calories: kcal,
-                      proteinGrams: double.tryParse(protein.text.trim()) ?? 0,
-                      carbsGrams: double.tryParse(carbs.text.trim()) ?? 0,
-                      fatGrams: double.tryParse(fat.text.trim()) ?? 0,
+                const SizedBox(height: 12),
+                TextField(
+                  controller: food,
+                  textInputAction: TextInputAction.next,
+                  decoration: const InputDecoration(labelText: '食物名称 *'),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: amount,
+                        decoration: const InputDecoration(
+                          labelText: '份量，如 200 g',
+                        ),
+                      ),
                     ),
-                  );
-                  if (context.mounted) Navigator.pop(context);
-                },
-                child: const Text('保存记录'),
-              ),
-            ],
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: TextField(
+                        controller: calories,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: const InputDecoration(
+                          labelText: '热量 kcal *',
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: protein,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: const InputDecoration(labelText: '蛋白质 g'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: carbs,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: const InputDecoration(labelText: '碳水 g'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: fat,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: const InputDecoration(labelText: '脂肪 g'),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                FilledButton(
+                  key: const Key('nutrition-save'),
+                  onPressed: () async {
+                    final name = food.text.trim();
+                    final kcal = double.tryParse(calories.text.trim());
+                    if (name.isEmpty || kcal == null || kcal < 0) {
+                      showKiloSnack(context, '请填写食物名称和有效热量');
+                      return;
+                    }
+                    await controller.addNutritionEntry(
+                      NutritionEntry(
+                        id: 'nutrition-${DateTime.now().microsecondsSinceEpoch}',
+                        recordedAt: DateTime.now(),
+                        mealType: mealLabel,
+                        foodName: name,
+                        amount: amount.text.trim(),
+                        calories: kcal,
+                        proteinGrams: double.tryParse(protein.text.trim()) ?? 0,
+                        carbsGrams: double.tryParse(carbs.text.trim()) ?? 0,
+                        fatGrams: double.tryParse(fat.text.trim()) ?? 0,
+                      ),
+                    );
+                    if (context.mounted) Navigator.pop(context);
+                  },
+                  child: const Text('保存记录'),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -3047,8 +3358,8 @@ class _WorkoutExerciseCard extends StatelessWidget {
                     style: exercise.note.isEmpty
                         ? null
                         : IconButton.styleFrom(
-                            backgroundColor: emberTint,
-                            foregroundColor: primary,
+                            backgroundColor: exerciseNoteContainer,
+                            foregroundColor: exerciseNoteColor,
                           ),
                     icon: Icon(
                       exercise.note.isEmpty
@@ -3095,10 +3406,10 @@ class _WorkoutExerciseCard extends StatelessWidget {
                         vertical: 9,
                       ),
                       decoration: BoxDecoration(
-                        color: emberTint,
+                        color: exerciseNoteContainer,
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
-                          color: primary.withValues(alpha: .18),
+                          color: exerciseNoteColor.withValues(alpha: .22),
                         ),
                       ),
                       child: Row(
@@ -3106,7 +3417,7 @@ class _WorkoutExerciseCard extends StatelessWidget {
                           const Icon(
                             Icons.sticky_note_2_outlined,
                             size: 17,
-                            color: primary,
+                            color: exerciseNoteColor,
                           ),
                           const SizedBox(width: 7),
                           Expanded(
@@ -3126,12 +3437,17 @@ class _WorkoutExerciseCard extends StatelessWidget {
                           const Icon(
                             Icons.edit_outlined,
                             size: 15,
-                            color: primary,
+                            color: exerciseNoteColor,
                           ),
                         ],
                       ),
                     ),
                   ),
+                  if (exerciseHistory.isNotEmpty)
+                    _PreviousExerciseNotes(
+                      record: exerciseHistory.first,
+                      exerciseId: exercise.exerciseId,
+                    ),
                   LayoutBuilder(
                     builder: (context, constraints) {
                       final columns = _SetColumns.fromWidth(
@@ -3211,6 +3527,143 @@ class _WorkoutExerciseCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _PreviousExerciseNotes extends StatelessWidget {
+  const _PreviousExerciseNotes({
+    required this.record,
+    required this.exerciseId,
+  });
+
+  final WorkoutRecord record;
+  final String exerciseId;
+
+  @override
+  Widget build(BuildContext context) {
+    WorkoutExercise? performed;
+    for (final item in record.exercises) {
+      if (item.exerciseId == exerciseId) {
+        performed = item;
+        break;
+      }
+    }
+    if (performed == null) return const SizedBox.shrink();
+    final setNotes = performed.sets
+        .where((set) => set.completed && set.note.trim().isNotEmpty)
+        .toList(growable: false);
+    final hasExerciseNote = performed.note.trim().isNotEmpty;
+    if (!hasExerciseNote && setNotes.isEmpty) return const SizedBox.shrink();
+    final date = '${record.date.month}月${record.date.day}日';
+    return Container(
+      key: Key('previous-notes-$exerciseId'),
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 9),
+      padding: const EdgeInsets.fromLTRB(10, 9, 10, 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7F8FA),
+        borderRadius: BorderRadius.circular(11),
+        border: Border.all(color: const Color(0xFFDDE1E8)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.history_rounded, size: 16, color: quiet),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  '上次备注 · $date',
+                  style: const TextStyle(
+                    color: secondaryInk,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (hasExerciseNote) ...[
+            const SizedBox(height: 6),
+            _NoteCallout(
+              key: Key('previous-exercise-note-$exerciseId'),
+              label: '动作备注',
+              text: performed.note.trim(),
+              color: exerciseNoteColor,
+              background: exerciseNoteContainer,
+              maxLines: 3,
+            ),
+          ],
+          for (var index = 0; index < setNotes.length; index++) ...[
+            const SizedBox(height: 5),
+            _NoteCallout(
+              key: Key('previous-set-note-$exerciseId-$index'),
+              label: '第 ${performed.sets.indexOf(setNotes[index]) + 1} 组',
+              text: setNotes[index].note.trim(),
+              color: setNoteColor,
+              background: setNoteContainer,
+              maxLines: 2,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _NoteCallout extends StatelessWidget {
+  const _NoteCallout({
+    super.key,
+    required this.label,
+    required this.text,
+    required this.color,
+    required this.background,
+    this.maxLines,
+  });
+
+  final String label;
+  final String text;
+  final Color color;
+  final Color background;
+  final int? maxLines;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+    decoration: BoxDecoration(
+      color: background,
+      borderRadius: BorderRadius.circular(9),
+      border: Border.all(color: color.withValues(alpha: .16)),
+    ),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(Icons.sticky_note_2_outlined, size: 14, color: color),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(
+                  text: '$label · ',
+                  style: TextStyle(color: color, fontWeight: FontWeight.w900),
+                ),
+                TextSpan(text: text),
+              ],
+            ),
+            maxLines: maxLines,
+            overflow: maxLines == null ? null : TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: secondaryInk,
+              fontSize: 11,
+              height: 1.35,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 IconData _setTypeIcon(String type) => switch (type) {
@@ -3856,9 +4309,7 @@ class _SetRow extends StatelessWidget {
                           ? Icons.sticky_note_2_outlined
                           : Icons.sticky_note_2_rounded,
                       size: columns.compact ? 18 : 20,
-                      color: set.note.isEmpty
-                          ? (set.completed ? const Color(0xFF1E6B45) : quiet)
-                          : (set.completed ? const Color(0xFF1E6B45) : primary),
+                      color: set.note.isEmpty ? quiet : setNoteColor,
                     ),
                     visualDensity: VisualDensity.compact,
                     padding: EdgeInsets.zero,
@@ -3934,19 +4385,18 @@ class _SetRow extends StatelessWidget {
                       child: Container(
                         padding: const EdgeInsets.fromLTRB(8, 7, 8, 7),
                         decoration: BoxDecoration(
-                          color: set.completed
-                              ? const Color(0xFFDDF1E4)
-                              : emberTint,
+                          color: setNoteContainer,
                           borderRadius: BorderRadius.circular(7),
+                          border: Border.all(
+                            color: setNoteColor.withValues(alpha: .15),
+                          ),
                         ),
                         child: Row(
                           children: [
                             Icon(
                               Icons.sticky_note_2_outlined,
                               size: 15,
-                              color: set.completed
-                                  ? const Color(0xFF1E6B45)
-                                  : primary,
+                              color: setNoteColor,
                             ),
                             const SizedBox(width: 6),
                             Expanded(
@@ -4660,25 +5110,14 @@ class _RecordSetRow extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                 if (set.note.trim().isNotEmpty) ...[
-                  const SizedBox(height: 3),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(
-                        Icons.sticky_note_2_outlined,
-                        size: 14,
-                        color: statusColor,
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          set.note.trim(),
-                          style: TextStyle(fontSize: 11, color: statusColor),
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
+                  const SizedBox(height: 5),
+                  _NoteCallout(
+                    key: Key('record-set-note-${set.id}'),
+                    label: '组备注',
+                    text: set.note.trim(),
+                    color: setNoteColor,
+                    background: setNoteContainer,
+                    maxLines: 3,
                   ),
                 ],
               ],
@@ -4696,6 +5135,219 @@ class _RecordSetRow extends StatelessWidget {
   }
 }
 
+// Legacy builder retained only for migration tests; no active route renders it.
+// ignore: unused_element
+List<Widget> _nutritionRecordWidgets(
+  BuildContext context,
+  AppController controller, {
+  required VoidCallback onChanged,
+}) {
+  final today = DateTime.now();
+  final entries = [...controller.nutritionForDay(today)]
+    ..sort((a, b) => a.recordedAt.compareTo(b.recordedAt));
+  final calories = entries.fold<double>(0, (sum, item) => sum + item.calories);
+  final protein = entries.fold<double>(
+    0,
+    (sum, item) => sum + item.proteinGrams,
+  );
+  final carbs = entries.fold<double>(0, (sum, item) => sum + item.carbsGrams);
+  final fat = entries.fold<double>(0, (sum, item) => sum + item.fatGrams);
+  final calorieTarget = controller.estimatedDailyCalories;
+  return <Widget>[
+    SectionTitle(
+      '今日饮食',
+      subtitle: '每次进食按第 1 餐、第 2 餐……自动排序',
+      action: controller.nextMealLabelFor(today),
+      onAction: () async {
+        await _showNutritionSheet(context, controller);
+        onChanged();
+      },
+    ),
+    Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.local_fire_department_rounded, color: primary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '${calories.toStringAsFixed(0)} kcal'
+                    '${calorieTarget == null ? '' : ' / 目标约 ${calorieTarget.toStringAsFixed(0)}'}',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 17,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _NutritionMacro(
+                  icon: Icons.fitness_center_rounded,
+                  label: '蛋白质',
+                  value: protein,
+                ),
+                _NutritionMacro(
+                  icon: Icons.grain_rounded,
+                  label: '碳水',
+                  value: carbs,
+                ),
+                _NutritionMacro(
+                  icon: Icons.water_drop_outlined,
+                  label: '脂肪',
+                  value: fat,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    ),
+    const SizedBox(height: 14),
+    if (entries.isEmpty)
+      Card(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            children: [
+              const Icon(Icons.restaurant_menu_rounded, color: quiet, size: 32),
+              const SizedBox(height: 8),
+              const Text('今天还没有饮食记录'),
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                key: const Key('nutrition-empty-add'),
+                onPressed: () async {
+                  await _showNutritionSheet(context, controller);
+                  onChanged();
+                },
+                icon: const Icon(Icons.add_rounded),
+                label: const Text('记录第1餐'),
+              ),
+            ],
+          ),
+        ),
+      )
+    else
+      ...entries.indexed.map((indexed) {
+        final index = indexed.$1;
+        final entry = indexed.$2;
+        final nutrition = <String>[
+          if (entry.amount.trim().isNotEmpty) entry.amount.trim(),
+          '${entry.calories.toStringAsFixed(0)} kcal',
+          if (entry.proteinGrams > 0)
+            '蛋白质 ${entry.proteinGrams.toStringAsFixed(0)} g',
+        ].join(' · ');
+        return Card(
+          key: Key('nutrition-entry-${entry.id}'),
+          child: ListTile(
+            contentPadding: const EdgeInsets.fromLTRB(12, 7, 6, 7),
+            leading: CircleAvatar(
+              radius: 19,
+              backgroundColor: primaryContainer,
+              foregroundColor: primary,
+              child: Text(
+                '${index + 1}',
+                style: const TextStyle(fontWeight: FontWeight.w900),
+              ),
+            ),
+            title: Text(
+              '第${index + 1}餐 · ${entry.foodName}',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+            subtitle: Text(
+              nutrition,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            trailing: IconButton(
+              tooltip: '删除这餐',
+              onPressed: () async {
+                await controller.deleteNutritionEntry(entry.id);
+                onChanged();
+              },
+              icon: const Icon(Icons.delete_outline_rounded, color: danger),
+            ),
+          ),
+        );
+      }),
+    const SizedBox(height: 14),
+    Card(
+      color: primaryContainer.withValues(alpha: 0.45),
+      child: const Padding(
+        padding: EdgeInsets.all(14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.add_a_photo_outlined, color: primary),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                '拍照识别先作为实验入口：识别结果只是候选值，保存前必须确认食物、份量和热量。',
+                style: TextStyle(fontSize: 12, color: secondaryInk),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  ];
+}
+
+class _NutritionJournalPage extends StatelessWidget {
+  const _NutritionJournalPage({required this.controller});
+  final AppController controller;
+
+  @override
+  Widget build(BuildContext context) => KeyedSubtree(
+    key: const Key('nutrition-journal-page'),
+    child: NutritionCenterPage(controller: controller),
+  );
+}
+
+class _NutritionMacro extends StatelessWidget {
+  const _NutritionMacro({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+  final IconData icon;
+  final String label;
+  final double value;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+    decoration: BoxDecoration(
+      color: paper,
+      borderRadius: BorderRadius.circular(9),
+      border: Border.all(color: hairline),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 14, color: primary),
+        const SizedBox(width: 5),
+        Text(
+          '$label ${value.toStringAsFixed(0)} g',
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+        ),
+      ],
+    ),
+  );
+}
+
 class RecordsPage extends StatefulWidget {
   const RecordsPage({
     super.key,
@@ -4710,21 +5362,36 @@ class RecordsPage extends StatefulWidget {
 
 class _RecordsPageState extends State<RecordsPage> {
   DateTime selected = DateTime.now();
-  bool showingStatistics = false;
+  String mode = 'training';
   String statisticsPeriod = 'week';
   DateTimeRange? customStatisticsRange;
   AppController get controller => widget.controller;
 
-  Widget _modeSwitch() => Center(
-    child: SegmentedButton<bool>(
-      key: const Key('records-statistics-tabs'),
-      segments: const [
-        ButtonSegment(value: false, label: Text('记录')),
-        ButtonSegment(value: true, label: Text('统计')),
-      ],
-      selected: {showingStatistics},
-      onSelectionChanged: (value) =>
-          setState(() => showingStatistics = value.first),
+  Widget _modeSwitch() => SingleChildScrollView(
+    scrollDirection: Axis.horizontal,
+    child: Center(
+      child: SegmentedButton<String>(
+        key: const Key('records-statistics-tabs'),
+        segments: const [
+          ButtonSegment(
+            value: 'training',
+            icon: Icon(Icons.calendar_month_outlined),
+            label: Text('训练'),
+          ),
+          ButtonSegment(
+            value: 'nutrition',
+            icon: Icon(Icons.restaurant_outlined),
+            label: Text('饮食'),
+          ),
+          ButtonSegment(
+            value: 'statistics',
+            icon: Icon(Icons.insights_outlined),
+            label: Text('统计'),
+          ),
+        ],
+        selected: {mode},
+        onSelectionChanged: (value) => setState(() => mode = value.first),
+      ),
     ),
   );
 
@@ -4745,7 +5412,7 @@ class _RecordsPageState extends State<RecordsPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (showingStatistics) {
+    if (mode == 'statistics') {
       final content = [
         _modeSwitch(),
         const SizedBox(height: 14),
@@ -4763,6 +5430,18 @@ class _RecordsPageState extends State<RecordsPage> {
               children: content,
             )
           : PageFrame(children: content);
+    }
+    if (mode == 'nutrition') {
+      return Column(
+        key: const Key('records-nutrition-center'),
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+            child: _modeSwitch(),
+          ),
+          Expanded(child: NutritionCenterPage(controller: controller)),
+        ],
+      );
     }
     final monthStart = DateTime(selected.year, selected.month, 1);
     final firstMonday = monthStart.subtract(
@@ -5477,9 +6156,14 @@ class _FriendsPageState extends State<_FriendsPage> {
   var loading = true;
   String? error;
   List<Map<String, dynamic>> plans = [];
+  List<WorkoutActivityPost> activities = [];
   List<Map<String, dynamic>> friends = [];
   List<Map<String, dynamic>> pending = [];
-  final identifierController = TextEditingController();
+  List<Map<String, dynamic>> identities = [];
+  List<Map<String, dynamic>> searchResults = [];
+  var searching = false;
+  var searchAttempted = false;
+  final searchController = TextEditingController();
 
   @override
   void initState() {
@@ -5489,7 +6173,7 @@ class _FriendsPageState extends State<_FriendsPage> {
 
   @override
   void dispose() {
-    identifierController.dispose();
+    searchController.dispose();
     super.dispose();
   }
 
@@ -5499,6 +6183,17 @@ class _FriendsPageState extends State<_FriendsPage> {
             .map((item) => Map<String, dynamic>.from(item))
             .toList()
       : <Map<String, dynamic>>[];
+
+  List<WorkoutActivityPost> _activities(Object? value) => value is List
+      ? value
+            .whereType<Map>()
+            .map(
+              (item) =>
+                  WorkoutActivityPost.fromJson(Map<String, dynamic>.from(item)),
+            )
+            .where((item) => item.id.isNotEmpty)
+            .toList()
+      : <WorkoutActivityPost>[];
 
   Future<void> _refresh() async {
     if (!widget.controller.isAuthenticated) {
@@ -5516,12 +6211,19 @@ class _FriendsPageState extends State<_FriendsPage> {
       final results = await Future.wait([
         widget.controller.fetchFriendsRemote(),
         widget.controller.fetchFriendPlanFeedRemote(),
+        widget.controller.fetchFriendIdentitiesRemote(),
       ]);
       if (!mounted) return;
       setState(() {
         friends = _maps(results[0]['friends']);
         pending = _maps(results[0]['pending']);
         plans = _maps(results[1]['plans']);
+        activities = _activities(
+          results[1]['posts'] ??
+              results[1]['activities'] ??
+              results[1]['workouts'],
+        );
+        identities = _maps(results[2]['identities']);
         loading = false;
       });
     } on CoachApiException catch (exception) {
@@ -5546,24 +6248,111 @@ class _FriendsPageState extends State<_FriendsPage> {
     }
   }
 
-  Future<void> _sendRequest() async {
-    final value = identifierController.text.trim();
-    if (value.isEmpty) return;
+  String? get _username {
+    for (final identity in identities) {
+      if (identity['kind'] == 'username') return identity['value']?.toString();
+    }
+    return null;
+  }
+
+  Future<void> _searchFriends() async {
+    final query = searchController.text.trim();
+    if (query.isEmpty || searching) return;
+    setState(() {
+      searching = true;
+      searchAttempted = true;
+    });
     try {
-      await widget.controller.sendFriendRequestRemote(value);
-      identifierController.clear();
+      final result = await widget.controller.searchFriendsRemote(query);
+      if (!mounted) return;
+      setState(() {
+        searchResults = _maps(result['results']);
+        searching = false;
+      });
+    } on CoachApiException catch (exception) {
+      if (!mounted) return;
+      setState(() => searching = false);
+      final message = switch (exception.code) {
+        'invalid_friend_search' => '请输入有效的用户名、手机号或邮箱',
+        'friend_search_rate_limited' => '搜索太频繁，请稍后再试',
+        _ => '搜索失败，请检查网络后重试',
+      };
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    }
+  }
+
+  Future<void> _sendRequest(Map<String, dynamic> item) async {
+    try {
+      await widget.controller.sendFriendRequestToUserRemote(
+        item['id'].toString(),
+      );
       if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('好友申请已发送')));
+        setState(() => item['relationshipStatus'] = 'outgoing_pending');
       }
+    } on CoachApiException catch (exception) {
+      if (!mounted) return;
+      final message = switch (exception.code) {
+        'incoming_friend_request_pending' => '对方已经申请添加你，请到“好友”页接受',
+        'already_friends' => '你们已经是好友',
+        _ => '申请未发送，请稍后重试',
+      };
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    }
+  }
+
+  Future<void> _editUsername() async {
+    final controller = TextEditingController(text: _username ?? '');
+    final value = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(_username == null ? '设置用户名' : '修改用户名'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          maxLength: 24,
+          decoration: const InputDecoration(
+            labelText: '用户名',
+            hintText: '3–24 位字母、数字、中文或下划线',
+            prefixIcon: Icon(Icons.alternate_email_rounded),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('保存'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (value == null || value.isEmpty) return;
+    try {
+      await widget.controller.updateFriendUsernameRemote(value);
       await _refresh();
-    } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('未找到该账号，或申请已经存在')));
+        ).showSnackBar(const SnackBar(content: Text('用户名已保存')));
       }
+    } on CoachApiException catch (exception) {
+      if (!mounted) return;
+      final message = exception.code == 'username_taken'
+          ? '这个用户名已被使用'
+          : '用户名格式不正确或保存失败';
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
     }
   }
 
@@ -5619,7 +6408,14 @@ class _FriendsPageState extends State<_FriendsPage> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: const Text('好友训练'),
+      title: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.people_alt_rounded, color: primary, size: 21),
+          SizedBox(width: 8),
+          Text('好友训练'),
+        ],
+      ),
       actions: [
         IconButton(
           onPressed: _refresh,
@@ -5669,7 +6465,7 @@ class _FriendsPageState extends State<_FriendsPage> {
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 18),
             child: Text(
-              '只有用户主动分享的训练计划会出现在这里，训练备注和私人记录不会公开。',
+              '只有主动分享的训练内容会出现在这里，训练备注和私人资料不会公开。',
               style: TextStyle(color: quiet, fontSize: 12),
             ),
           ),
@@ -5679,6 +6475,84 @@ class _FriendsPageState extends State<_FriendsPage> {
       ),
     ),
   );
+
+  Widget _friendSearchResult(Map<String, dynamic> item) {
+    final status = item['relationshipStatus']?.toString() ?? 'none';
+    final username = item['username']?.toString();
+    final masked = item['maskedMatch']?.toString() ?? '';
+    final statusLabel = switch (status) {
+      'friends' => '已是好友',
+      'outgoing_pending' => '已申请',
+      'incoming_pending' => '待你接受',
+      _ => '添加好友',
+    };
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const CircleAvatar(child: Icon(Icons.person_outline_rounded)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        (item['displayName'] ?? username ?? '形域用户').toString(),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                      if (username != null || masked.isNotEmpty)
+                        Text(
+                          [
+                            if (username != null) '@$username',
+                            if (masked.isNotEmpty && masked != '@$username')
+                              masked,
+                          ].join(' · '),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: quiet, fontSize: 12),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerRight,
+              child: status == 'none'
+                  ? FilledButton.icon(
+                      onPressed: () => _sendRequest(item),
+                      icon: const Icon(
+                        Icons.person_add_alt_1_rounded,
+                        size: 18,
+                      ),
+                      label: Text(statusLabel),
+                    )
+                  : OutlinedButton.icon(
+                      onPressed: status == 'incoming_pending'
+                          ? () => setState(() => tab = 1)
+                          : null,
+                      icon: Icon(
+                        status == 'friends'
+                            ? Icons.people_alt_outlined
+                            : Icons.schedule_rounded,
+                        size: 18,
+                      ),
+                      label: Text(statusLabel),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _body() {
     if (loading) return const Center(child: CircularProgressIndicator());
@@ -5699,24 +6573,93 @@ class _FriendsPageState extends State<_FriendsPage> {
     }
     if (tab == 2) {
       return ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
         children: [
-          TextField(
-            controller: identifierController,
-            keyboardType: TextInputType.phone,
-            decoration: const InputDecoration(
-              labelText: '手机号或账号',
-              prefixIcon: Icon(Icons.search),
-              hintText: '输入完整账号查找',
+          Card(
+            margin: const EdgeInsets.only(bottom: 14),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 13, 10, 13),
+              child: Row(
+                children: [
+                  const CircleAvatar(
+                    child: Icon(Icons.alternate_email_rounded),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          '我的用户名',
+                          style: TextStyle(color: quiet, fontSize: 12),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          _username == null ? '还未设置' : '@$_username',
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: _editUsername,
+                    tooltip: _username == null ? '设置用户名' : '修改用户名',
+                    icon: Icon(
+                      _username == null
+                          ? Icons.add_circle_outline_rounded
+                          : Icons.edit_outlined,
+                    ),
+                  ),
+                ],
+              ),
             ),
-            onSubmitted: (_) => _sendRequest(),
           ),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            onPressed: _sendRequest,
-            icon: const Icon(Icons.person_add_alt_1),
-            label: const Text('发送好友申请'),
+          TextField(
+            controller: searchController,
+            keyboardType: TextInputType.text,
+            textInputAction: TextInputAction.search,
+            decoration: InputDecoration(
+              labelText: '用户名、手机号或邮箱',
+              prefixIcon: const Icon(Icons.search_rounded),
+              hintText: '输入后搜索',
+              suffixIcon: searching
+                  ? const Padding(
+                      padding: EdgeInsets.all(13),
+                      child: SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    )
+                  : IconButton(
+                      onPressed: _searchFriends,
+                      tooltip: '搜索',
+                      icon: const Icon(Icons.arrow_forward_rounded),
+                    ),
+            ),
+            onSubmitted: (_) => _searchFriends(),
           ),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(4, 7, 4, 12),
+            child: Text(
+              '手机号和邮箱需完整输入；用户名支持前缀搜索。联系方式只会脱敏显示。',
+              style: TextStyle(color: quiet, fontSize: 12),
+            ),
+          ),
+          if (searchAttempted && !searching && searchResults.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 28),
+              child: Column(
+                children: [
+                  Icon(Icons.person_search_outlined, color: quiet, size: 34),
+                  SizedBox(height: 8),
+                  Text('没有找到用户', style: TextStyle(fontWeight: FontWeight.w800)),
+                  SizedBox(height: 3),
+                  Text('检查输入是否完整，或请对方设置用户名', style: TextStyle(color: quiet)),
+                ],
+              ),
+            ),
+          for (final item in searchResults) _friendSearchResult(item),
         ],
       );
     }
@@ -5739,7 +6682,9 @@ class _FriendsPageState extends State<_FriendsPage> {
                 title: Text(
                   (item['displayName'] ?? item['identifier']).toString(),
                 ),
-                subtitle: Text((item['identifier'] ?? '').toString()),
+                subtitle: item['username'] == null
+                    ? null
+                    : Text('@${item['username']}'),
                 trailing: FilledButton(
                   onPressed: () async {
                     await widget.controller.acceptFriendRequestRemote(
@@ -5754,8 +6699,14 @@ class _FriendsPageState extends State<_FriendsPage> {
           if (friends.isEmpty && pending.isEmpty)
             const Padding(
               padding: EdgeInsets.all(30),
-              child: Center(
-                child: Text('还没有好友，可通过账号添加。', style: TextStyle(color: quiet)),
+              child: Column(
+                children: [
+                  Icon(Icons.group_add_outlined, color: quiet, size: 34),
+                  SizedBox(height: 8),
+                  Text('还没有好友', style: TextStyle(fontWeight: FontWeight.w800)),
+                  SizedBox(height: 3),
+                  Text('可通过账号添加', style: TextStyle(color: quiet)),
+                ],
               ),
             ),
           for (final item in friends)
@@ -5765,120 +6716,135 @@ class _FriendsPageState extends State<_FriendsPage> {
                 title: Text(
                   (item['displayName'] ?? item['identifier']).toString(),
                 ),
-                subtitle: const Text('可以查看对方主动分享的训练计划'),
+                subtitle: Text(
+                  item['username'] == null
+                      ? '可以查看对方主动分享的训练计划'
+                      : '@${item['username']} · 可查看主动分享的计划',
+                ),
                 trailing: const Icon(Icons.chevron_right),
               ),
             ),
         ],
       );
     }
-    if (plans.isEmpty) {
+    if (plans.isEmpty && activities.isEmpty) {
       return const Center(
-        child: Text('好友还没有分享训练计划。', style: TextStyle(color: quiet)),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.dynamic_feed_outlined, color: quiet, size: 36),
+            SizedBox(height: 8),
+            Text('暂无好友动态', style: TextStyle(fontWeight: FontWeight.w800)),
+            SizedBox(height: 3),
+            Text('训练完成后发布动态，好友会在这里看到', style: TextStyle(color: quiet)),
+          ],
+        ),
       );
     }
-    return ListView.builder(
+    return ListView(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 90),
-      itemCount: plans.length,
-      itemBuilder: (context, index) {
-        final item = plans[index];
-        final rawPlan = item['plan'];
-        final exerciseCount = rawPlan is Map && rawPlan['exercises'] is List
-            ? (rawPlan['exercises'] as List).length
-            : 0;
-        return Card(
-          margin: const EdgeInsets.only(bottom: 12),
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final activity in activities)
+          WorkoutActivityCard(
+            controller: widget.controller,
+            post: activity,
+            onChanged: _refresh,
+          ),
+        for (final item in plans) _friendPlanCard(context, item),
+      ],
+    );
+  }
+
+  Widget _friendPlanCard(BuildContext context, Map<String, dynamic> item) {
+    final rawPlan = item['plan'];
+    final exerciseCount = rawPlan is Map && rawPlan['exercises'] is List
+        ? (rawPlan['exercises'] as List).length
+        : 0;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
-                Row(
-                  children: [
-                    const CircleAvatar(
-                      radius: 18,
-                      child: Icon(Icons.person, size: 19),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            (item['ownerName'] ?? '好友').toString(),
-                            style: const TextStyle(fontWeight: FontWeight.w900),
-                          ),
-                          Text(
-                            (item['updatedAt'] ?? '')
-                                .toString()
-                                .split('T')
-                                .first,
-                            style: const TextStyle(color: quiet, fontSize: 11),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                const CircleAvatar(
+                  radius: 18,
+                  child: Icon(Icons.person, size: 19),
                 ),
-                const SizedBox(height: 12),
-                Text(
-                  (item['name'] ?? '训练计划').toString(),
-                  style: const TextStyle(
-                    fontSize: 19,
-                    fontWeight: FontWeight.w900,
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        (item['ownerName'] ?? '好友').toString(),
+                        style: const TextStyle(fontWeight: FontWeight.w900),
+                      ),
+                      Text(
+                        (item['updatedAt'] ?? '').toString().split('T').first,
+                        style: const TextStyle(color: quiet, fontSize: 11),
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '$exerciseCount 个动作 · 点击保存后会创建独立副本',
-                  style: const TextStyle(color: secondaryInk),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    PopupMenuButton<String>(
-                      tooltip: '发表情',
-                      onSelected: (emoji) async {
-                        await widget.controller.reactToFriendPlanRemote(
-                          item['id'].toString(),
-                          emoji,
-                        );
-                        await _refresh();
-                      },
-                      itemBuilder: (_) => [
-                        for (final emoji in const ['👍', '🔥', '👏', '💪'])
-                          PopupMenuItem(
-                            value: emoji,
-                            child: Text(
-                              emoji,
-                              style: const TextStyle(fontSize: 24),
-                            ),
-                          ),
-                      ],
-                      child: OutlinedButton.icon(
-                        onPressed: null,
-                        icon: Text((item['myReaction'] ?? '👍').toString()),
-                        label: Text('${item['reactionCount'] ?? 0}'),
-                      ),
-                    ),
-                    const Spacer(),
-                    FilledButton.icon(
-                      onPressed: () {
-                        widget.controller.saveFriendPlan(item);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('已保存到“好友分享”文件夹')),
-                        );
-                      },
-                      icon: const Icon(Icons.bookmark_add_outlined),
-                      label: const Text('保存计划'),
-                    ),
-                  ],
                 ),
               ],
             ),
-          ),
-        );
-      },
+            const SizedBox(height: 12),
+            Text(
+              (item['name'] ?? '训练计划').toString(),
+              style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '$exerciseCount 个动作 · 点击保存后会创建独立副本',
+              style: const TextStyle(color: secondaryInk),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                PopupMenuButton<String>(
+                  tooltip: '发表情',
+                  onSelected: (emoji) async {
+                    await widget.controller.reactToFriendPlanRemote(
+                      item['id'].toString(),
+                      emoji,
+                    );
+                    await _refresh();
+                  },
+                  itemBuilder: (_) => [
+                    for (final emoji in const ['👍', '🔥', '👏', '💪'])
+                      PopupMenuItem(
+                        value: emoji,
+                        child: Text(
+                          emoji,
+                          style: const TextStyle(fontSize: 24),
+                        ),
+                      ),
+                  ],
+                  child: OutlinedButton.icon(
+                    onPressed: null,
+                    icon: Text((item['myReaction'] ?? '👍').toString()),
+                    label: Text('${item['reactionCount'] ?? 0}'),
+                  ),
+                ),
+                const Spacer(),
+                FilledButton.icon(
+                  onPressed: () {
+                    widget.controller.saveFriendPlan(item);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('已保存到“好友分享”文件夹')),
+                    );
+                  },
+                  icon: const Icon(Icons.bookmark_add_outlined),
+                  label: const Text('保存计划'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -6119,6 +7085,15 @@ class _ExerciseLibraryPageState extends State<ExerciseLibraryPage> {
                                                 fontWeight: FontWeight.w800,
                                               ),
                                             ),
+                                          ),
+                                        ),
+                                      ),
+                                      Positioned(
+                                        right: 7,
+                                        top: 7,
+                                        child: _ExerciseNumberBadge(
+                                          number: controller.exerciseNumberFor(
+                                            exercise,
                                           ),
                                         ),
                                       ),
@@ -8067,7 +9042,8 @@ _RecognitionCoachCopy _recognitionCoachCopy(RecognitionResult result) {
   final body = <String>[];
   if (result.evidence['level'] == 'partial_cycle') {
     final skippedRules = result.evidence['skippedRules'];
-    final endpointOccluded = skippedRules is List<dynamic> &&
+    final endpointOccluded =
+        skippedRules is List<dynamic> &&
         skippedRules.contains(
           'bench_cycle_uses_relative_motion_due_endpoint_occlusion',
         );
@@ -8092,9 +9068,7 @@ _RecognitionCoachCopy _recognitionCoachCopy(RecognitionResult result) {
     final inferred = group.any(
       (event) => event.evidenceQuality == 'inferred_direction',
     );
-    final evidenceNote = inferred
-        ? '该时间点的手腕或脚踝被遮挡，角度依据可见肢段方向估算。'
-        : '';
+    final evidenceNote = inferred ? '该时间点的手腕或脚踝被遮挡，角度依据可见肢段方向估算。' : '';
     body.add('$times 附近，${insight.title}。${insight.meaning}$evidenceNote');
   }
   if (eventsByCode.isEmpty && review != null && review.risks.isNotEmpty) {
@@ -10391,6 +11365,47 @@ class ProfilePage extends StatelessWidget {
               ),
               const Divider(height: 1),
               _ProfileSettingRow(
+                key: const Key('profile-guide-entry'),
+                icon: Icons.menu_book_outlined,
+                title: '使用指南',
+                caption: '图文了解主要功能',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => GuidePage(controller: controller),
+                  ),
+                ),
+              ),
+              const Divider(height: 1),
+              _ProfileSettingRow(
+                key: const Key('profile-unified-calendar-entry'),
+                icon: Icons.calendar_month_outlined,
+                title: '训练与饮食',
+                caption: '按日期查看完整时间轴',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => UnifiedCalendarPage(controller: controller),
+                  ),
+                ),
+              ),
+              const Divider(height: 1),
+              _ProfileSettingRow(
+                key: const Key('profile-theme-entry'),
+                icon: Icons.palette_outlined,
+                title: '主题颜色',
+                caption: switch (controller.themeChoice) {
+                  KiloThemeChoice.warm => '暖橙',
+                  KiloThemeChoice.glacier => '冰川蓝',
+                  KiloThemeChoice.forest => '森氧绿',
+                  KiloThemeChoice.titanium => '钛银红',
+                },
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => ThemeChoicePage(controller: controller),
+                  ),
+                ),
+              ),
+              const Divider(height: 1),
+              _ProfileSettingRow(
                 icon: Icons.lock_clock_outlined,
                 title: '锁屏实时活动',
                 caption: '训练总时长与组间休息',
@@ -11164,6 +12179,13 @@ class _ExerciseDetailSheetState extends State<_ExerciseDetailSheet> {
         .toList();
   }
 
+  WorkoutExercise? exerciseForRecord(WorkoutRecord record) {
+    for (final item in record.exercises) {
+      if (item.exerciseId == exercise.id) return item;
+    }
+    return null;
+  }
+
   List<WorkoutSet> get completedSets => matchingRecords
       .expand(setsFor)
       .where((set) => set.completed && set.reps > 0)
@@ -11501,20 +12523,42 @@ class _ExerciseDetailSheetState extends State<_ExerciseDetailSheet> {
                       ],
                     ),
                     const SizedBox(height: 6),
+                    if (exerciseForRecord(record)?.note.trim().isNotEmpty ==
+                        true) ...[
+                      _NoteCallout(
+                        key: Key('exercise-detail-note-${record.id}'),
+                        label: '动作备注',
+                        text: exerciseForRecord(record)!.note.trim(),
+                        color: exerciseNoteColor,
+                        background: exerciseNoteContainer,
+                      ),
+                      const SizedBox(height: 6),
+                    ],
                     if (setsFor(record).isEmpty)
                       const Text(
                         '这条旧记录未保存该动作的组明细，仅保留训练日期。',
                         style: TextStyle(color: quiet, fontSize: 12),
                       )
                     else
-                      for (final set in setsFor(record))
+                      for (final set in setsFor(record)) ...[
                         Padding(
                           padding: const EdgeInsets.only(bottom: 3),
-                          child: Text(
-                            '${_weight(set.weight)} × ${set.reps}'
-                            '${set.note.trim().isEmpty ? '' : '\n备注：${set.note.trim()}'}',
-                          ),
+                          child: Text('${_weight(set.weight)} × ${set.reps}'),
                         ),
+                        if (set.note.trim().isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 6),
+                            child: _NoteCallout(
+                              key: Key(
+                                'exercise-detail-set-note-${record.id}-${set.id}',
+                              ),
+                              label: '组备注',
+                              text: set.note.trim(),
+                              color: setNoteColor,
+                              background: setNoteContainer,
+                            ),
+                          ),
+                      ],
                   ],
                 ),
               ),
@@ -12348,8 +13392,10 @@ class _ExercisePickerSheetState extends State<_ExercisePickerSheet> {
   List<Exercise> get filtered {
     final needle = query.text.trim().toLowerCase();
     return widget.controller.selectableExercises.where((item) {
+      final number = widget.controller.exerciseNumberFor(item).toString();
       final queryMatch =
           needle.isEmpty ||
+          number == needle ||
           item.name.toLowerCase().contains(needle) ||
           item.englishName.toLowerCase().contains(needle) ||
           item.muscle.toLowerCase().contains(needle) ||
@@ -12550,15 +13596,27 @@ class _ExercisePickerSheetState extends State<_ExercisePickerSheet> {
                                         exerciseId: exercise.id,
                                         size: 40,
                                       ),
-                                      title: Text(
-                                        widget.controller.displayExerciseName(
-                                          exercise,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w700,
-                                        ),
+                                      title: Row(
+                                        children: [
+                                          _ExerciseNumberBadge(
+                                            number: widget.controller
+                                                .exerciseNumberFor(exercise),
+                                          ),
+                                          const SizedBox(width: 7),
+                                          Expanded(
+                                            child: Text(
+                                              widget.controller
+                                                  .displayExerciseName(
+                                                    exercise,
+                                                  ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                       subtitle: Text(
                                         '${exercise.muscle} · ${exercise.equipment}',
@@ -13185,20 +14243,53 @@ class _WorkoutCelebration extends StatelessWidget {
                         record: record,
                       ),
                       const SizedBox(height: 14),
-                      Row(
-                        children: [
-                          TextButton.icon(
-                            key: const Key('workout-celebration-records'),
-                            onPressed: () {
-                              Navigator.pop(context);
-                              controller.selectPage(PageId.records);
-                            },
-                            icon: const Icon(Icons.history, size: 18),
-                            label: const Text('查看记录'),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: FilledButton.icon(
+                      LayoutBuilder(
+                        builder: (context, constraints) => Wrap(
+                          alignment: WrapAlignment.end,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: [
+                            TextButton.icon(
+                              key: const Key('workout-celebration-records'),
+                              onPressed: () {
+                                Navigator.pop(context);
+                                controller.selectPage(PageId.records);
+                              },
+                              icon: const Icon(Icons.history, size: 18),
+                              label: const Text('查看记录'),
+                            ),
+                            OutlinedButton.icon(
+                              key: const Key('workout-celebration-publish'),
+                              onPressed: record.effectiveSets == 0
+                                  ? null
+                                  : () => showModalBottomSheet<bool>(
+                                      context: context,
+                                      isScrollControlled: true,
+                                      useSafeArea: true,
+                                      showDragHandle: true,
+                                      builder: (_) => PublishWorkoutSheet(
+                                        controller: controller,
+                                        record: record,
+                                      ),
+                                    ),
+                              icon: const Icon(Icons.public_rounded, size: 18),
+                              label: const Text('发布动态'),
+                            ),
+                            OutlinedButton.icon(
+                              key: const Key('workout-celebration-share'),
+                              onPressed: () => _showWorkoutShareSheet(
+                                context,
+                                controller,
+                                record,
+                              ),
+                              icon: const Icon(
+                                Icons.ios_share_rounded,
+                                size: 18,
+                              ),
+                              label: const Text('分享卡片'),
+                            ),
+                            FilledButton.icon(
                               key: const Key('workout-celebration-done'),
                               onPressed: () {
                                 Navigator.pop(context);
@@ -13207,8 +14298,8 @@ class _WorkoutCelebration extends StatelessWidget {
                               icon: const Icon(Icons.check),
                               label: const Text('完成'),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -13221,6 +14312,459 @@ class _WorkoutCelebration extends StatelessWidget {
       ),
     );
   }
+}
+
+Future<void> _showWorkoutShareSheet(
+  BuildContext context,
+  AppController controller,
+  WorkoutRecord record,
+) => showModalBottomSheet<void>(
+  context: context,
+  isScrollControlled: true,
+  useSafeArea: true,
+  showDragHandle: true,
+  backgroundColor: const Color(0xFFF4F6FA),
+  builder: (_) => _WorkoutShareSheet(controller: controller, record: record),
+);
+
+class _WorkoutShareSheet extends StatefulWidget {
+  const _WorkoutShareSheet({required this.controller, required this.record});
+
+  final AppController controller;
+  final WorkoutRecord record;
+
+  @override
+  State<_WorkoutShareSheet> createState() => _WorkoutShareSheetState();
+}
+
+class _WorkoutShareSheetState extends State<_WorkoutShareSheet> {
+  final boundaryKey = GlobalKey();
+  bool sharing = false;
+
+  Future<void> _share(BuildContext actionContext) async {
+    if (sharing) return;
+    final box = actionContext.findRenderObject() as RenderBox?;
+    setState(() => sharing = true);
+    try {
+      await WidgetsBinding.instance.endOfFrame;
+      final boundary =
+          boundaryKey.currentContext?.findRenderObject()
+              as RenderRepaintBoundary?;
+      if (boundary == null) throw StateError('分享卡片尚未生成');
+      final image = await boundary.toImage(pixelRatio: 3);
+      final data = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (data == null) throw StateError('分享图片生成失败');
+      final bytes = data.buffer.asUint8List();
+      await SharePlus.instance.share(
+        ShareParams(
+          title: '${widget.record.name} · 训练完成',
+          text: '今天的训练，已经完成。#形域 #KILOSTRENGTH',
+          files: [XFile.fromData(bytes, mimeType: 'image/png')],
+          fileNameOverrides: [
+            'kilostrength-${widget.record.date.year}${widget.record.date.month.toString().padLeft(2, '0')}${widget.record.date.day.toString().padLeft(2, '0')}.png',
+          ],
+          sharePositionOrigin: box == null
+              ? null
+              : box.localToGlobal(Offset.zero) & box.size,
+        ),
+      );
+    } catch (error) {
+      if (mounted) {
+        showKiloSnack(context, '分享图片生成失败，请稍后重试', error: true);
+      }
+    } finally {
+      if (mounted) setState(() => sharing = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final viewport = MediaQuery.sizeOf(context);
+    final maxPreviewWidth = (viewport.width - 32).clamp(260.0, 400.0);
+    return SizedBox(
+      key: const Key('workout-share-sheet'),
+      height: viewport.height * .92,
+      child: Column(
+        children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(20, 2, 20, 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '分享训练',
+                    style: TextStyle(fontSize: 21, fontWeight: FontWeight.w900),
+                  ),
+                ),
+                Text('4:5 海报', style: TextStyle(color: quiet, fontSize: 12)),
+              ],
+            ),
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Center(
+                child: SizedBox(
+                  width: maxPreviewWidth,
+                  child: AspectRatio(
+                    aspectRatio: 4 / 5,
+                    child: FittedBox(
+                      fit: BoxFit.contain,
+                      child: RepaintBoundary(
+                        key: boundaryKey,
+                        child: SizedBox(
+                          width: 400,
+                          height: 500,
+                          child: _WorkoutShareCard(
+                            controller: widget.controller,
+                            record: widget.record,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+            child: SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                key: const Key('workout-share-system-button'),
+                onPressed: sharing ? null : () => _share(context),
+                icon: sharing
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.ios_share_rounded),
+                label: Text(sharing ? '正在生成…' : '生成图片并分享'),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WorkoutShareCard extends StatelessWidget {
+  const _WorkoutShareCard({required this.controller, required this.record});
+
+  final AppController controller;
+  final WorkoutRecord record;
+
+  String get duration {
+    final minutes = (record.durationSeconds / 60).round();
+    return '$minutes MIN';
+  }
+
+  String get volume {
+    if (record.volume >= 1000) {
+      return '${(record.volume / 1000).toStringAsFixed(1)}T';
+    }
+    return '${record.volume.toStringAsFixed(0)}KG';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final exercises = record.exercises.take(4).toList(growable: false);
+    final date =
+        '${record.date.year}.${record.date.month.toString().padLeft(2, '0')}.${record.date.day.toString().padLeft(2, '0')}';
+    return Container(
+      key: const Key('workout-share-card'),
+      clipBehavior: Clip.antiAlias,
+      decoration: const BoxDecoration(
+        color: Color(0xFF0D1017),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF171B26), Color(0xFF0A0D13)],
+        ),
+      ),
+      child: Stack(
+        children: [
+          const Positioned(
+            right: -88,
+            top: -100,
+            child: _ShareGlow(color: Color(0xFF6480FF), size: 270),
+          ),
+          const Positioned(
+            left: -90,
+            bottom: -120,
+            child: _ShareGlow(color: Color(0xFF44D7C8), size: 260),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(28, 26, 28, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 30,
+                      height: 30,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(9),
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF8FA4FF), Color(0xFF52E3D2)],
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.bolt_rounded,
+                        color: Color(0xFF0B1018),
+                        size: 19,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Text(
+                        'KILOSTRENGTH',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1.8,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      date,
+                      style: const TextStyle(
+                        color: Color(0xFFAEB5C5),
+                        fontSize: 11,
+                        letterSpacing: .8,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 31),
+                const Text(
+                  'TRAINING / COMPLETE',
+                  style: TextStyle(
+                    color: Color(0xFF7FE4D8),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 2.2,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  record.name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 30,
+                    height: 1.08,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -.8,
+                  ),
+                ),
+                const SizedBox(height: 22),
+                Row(
+                  children: [
+                    _ShareMetric(label: 'DURATION', value: duration),
+                    _ShareMetric(label: 'VOLUME', value: volume),
+                    _ShareMetric(
+                      label: 'SETS',
+                      value: '${record.effectiveSets}',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                Container(height: 1, color: const Color(0xFF303746)),
+                const SizedBox(height: 16),
+                const Text(
+                  'SESSION',
+                  style: TextStyle(
+                    color: Color(0xFF8E97A9),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.8,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Expanded(
+                  child: Column(
+                    children: [
+                      for (var index = 0; index < exercises.length; index++)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: _ShareExerciseRow(
+                            index: index,
+                            name: controller.displayExerciseName(
+                              controller.exerciseFor(
+                                exercises[index].exerciseId,
+                              ),
+                            ),
+                            sets: exercises[index].sets
+                                .where((set) => set.completed)
+                                .length,
+                          ),
+                        ),
+                      if (exercises.isEmpty)
+                        const Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            '完成一次自由训练',
+                            style: TextStyle(
+                              color: Color(0xFFD8DCE5),
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        '把自律，练成日常。',
+                        style: TextStyle(
+                          color: Color(0xFFE9ECF2),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: .08),
+                        borderRadius: BorderRadius.circular(99),
+                        border: Border.all(color: const Color(0xFF3D4658)),
+                      ),
+                      child: const Text(
+                        '形域',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ShareGlow extends StatelessWidget {
+  const _ShareGlow({required this.color, required this.size});
+  final Color color;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: size,
+    height: size,
+    decoration: BoxDecoration(
+      shape: BoxShape.circle,
+      gradient: RadialGradient(
+        colors: [color.withValues(alpha: .36), color.withValues(alpha: 0)],
+      ),
+    ),
+  );
+}
+
+class _ShareMetric extends StatelessWidget {
+  const _ShareMetric({required this.label, required this.value});
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => Expanded(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            color: Color(0xFF858EA0),
+            fontSize: 9,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.3,
+          ),
+        ),
+        const SizedBox(height: 3),
+        Text(
+          value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _ShareExerciseRow extends StatelessWidget {
+  const _ShareExerciseRow({
+    required this.index,
+    required this.name,
+    required this.sets,
+  });
+  final int index;
+  final String name;
+  final int sets;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      SizedBox(
+        width: 27,
+        child: Text(
+          '${index + 1}'.padLeft(2, '0'),
+          style: const TextStyle(
+            color: Color(0xFF7188F8),
+            fontSize: 11,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ),
+      Expanded(
+        child: Text(
+          name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: Color(0xFFE5E8EF),
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+      const SizedBox(width: 8),
+      Text(
+        '$sets SETS',
+        style: const TextStyle(
+          color: Color(0xFF8C95A7),
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    ],
+  );
 }
 
 // Kept for the dedicated record-detail view; the compact completion dialog
@@ -15072,12 +16616,21 @@ class _RoutineExerciseEditor extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 9),
       child: ExpansionTile(
         initiallyExpanded: index == 0,
-        leading: _ExerciseThumb(exerciseId: exercise.exerciseId, size: 38),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
+        dense: true,
+        visualDensity: VisualDensity.compact,
+        tilePadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 1),
+        leading: _ExerciseThumb(exerciseId: exercise.exerciseId, size: 34),
+        title: Text(
+          '${controller.exerciseNumberFor(controller.exerciseFor(exercise.exerciseId))}  $title',
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+        ),
         subtitle: Text(
           '${exercise.sets.length} 组 · 休息 ${exercise.restSeconds}s${exercise.supersetId == null ? '' : ' · 超级组'}',
+          style: const TextStyle(fontSize: 12),
         ),
-        childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        childrenPadding: const EdgeInsets.fromLTRB(10, 0, 10, 9),
         children: [
           Wrap(
             spacing: 4,
@@ -15150,7 +16703,11 @@ class _RoutineExerciseEditor extends StatelessWidget {
             initialValue: _editableCount(exercise.restSeconds),
             keyboardType: TextInputType.number,
             onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
-            decoration: const InputDecoration(labelText: '动作休息（秒）'),
+            decoration: const InputDecoration(
+              labelText: '动作休息（秒）',
+              isDense: true,
+              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+            ),
             onChanged: (value) {
               exercise.restSeconds = int.tryParse(value) ?? 0;
             },
@@ -15309,109 +16866,119 @@ class _RoutineSetEditor extends _RoutineSetEditorBase {
   final AppController controller;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 4),
-    child: Column(
-      children: [
-        Row(
-          children: [
-            SizedBox(
-              width: 28,
-              child: Text(
-                '${index + 1}',
-                style: const TextStyle(
-                  color: quiet,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-            SizedBox(
-              width: 74,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: primaryContainer.withValues(alpha: .46),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: hairline),
-                ),
-                child: _SetTypeButton(
-                  controller: controller,
-                  set: set,
-                  index: index,
-                  compact: false,
-                  persistWorkout: false,
-                  onChanged: controller.refresh,
-                ),
-              ),
-            ),
-            const Spacer(),
-            const SizedBox(width: 4),
-            IconButton(
-              tooltip: '\u5220\u9664\u8FD9\u4E00\u7EC4',
-              onPressed: onRemove,
-              icon: const Icon(Icons.delete_outline, color: Color(0xFFB83A3A)),
-            ),
-          ],
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final textScale = MediaQuery.textScalerOf(context).scale(1);
+      final compact = constraints.maxWidth >= 300 && textScale < 1.4;
+      final type = DecoratedBox(
+        decoration: BoxDecoration(
+          color: primaryContainer.withValues(alpha: .46),
+          borderRadius: BorderRadius.circular(9),
+          border: Border.all(color: hairline),
         ),
-        Padding(
-          padding: const EdgeInsets.only(left: 28, top: 6),
-          child: Row(
-            children: [
-              Expanded(
-                child: TextFormField(
-                  initialValue: set.plannedWeight == null
-                      ? _editableWeight(set.weight)
-                      : _editableWeight(set.plannedWeight!),
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  onTapOutside: (_) =>
-                      FocusManager.instance.primaryFocus?.unfocus(),
-                  decoration: const InputDecoration(
-                    labelText: '\u8BA1\u5212\u91CD\u91CF',
-                    suffixText: 'kg',
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 9,
-                      vertical: 8,
+        child: _SetTypeButton(
+          controller: controller,
+          set: set,
+          index: index,
+          compact: true,
+          persistWorkout: false,
+          onChanged: controller.refresh,
+        ),
+      );
+      final weight = TextFormField(
+        initialValue: set.plannedWeight == null
+            ? _editableWeight(set.weight)
+            : _editableWeight(set.plannedWeight!),
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
+        decoration: const InputDecoration(
+          labelText: '重量',
+          suffixText: 'kg',
+          isDense: true,
+          contentPadding: EdgeInsets.symmetric(horizontal: 7, vertical: 8),
+        ),
+        onChanged: (value) {
+          final parsed = double.tryParse(value);
+          if (parsed == null) {
+            set.plannedWeight = null;
+            set.weight = 0;
+            controller.refresh();
+          } else {
+            controller.updatePlannedWeight(set, parsed);
+          }
+        },
+      );
+      final reps = TextFormField(
+        initialValue: _editableCount(set.reps),
+        keyboardType: TextInputType.number,
+        onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
+        decoration: const InputDecoration(
+          labelText: '次数',
+          isDense: true,
+          contentPadding: EdgeInsets.symmetric(horizontal: 7, vertical: 8),
+        ),
+        onChanged: (value) {
+          set.reps = int.tryParse(value) ?? 0;
+          controller.refresh();
+        },
+      );
+      final remove = IconButton(
+        tooltip: '删除这一组',
+        visualDensity: VisualDensity.compact,
+        constraints: const BoxConstraints.tightFor(width: 38, height: 38),
+        onPressed: onRemove,
+        icon: const Icon(
+          Icons.delete_outline,
+          size: 20,
+          color: Color(0xFFB83A3A),
+        ),
+      );
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 3),
+        child: compact
+            ? Row(
+                children: [
+                  SizedBox(
+                    width: 22,
+                    child: Text(
+                      '${index + 1}',
+                      style: const TextStyle(
+                        color: quiet,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ),
-                  onChanged: (value) {
-                    final weight = double.tryParse(value);
-                    if (weight == null) {
-                      set.plannedWeight = null;
-                      set.weight = 0;
-                      controller.refresh();
-                    } else {
-                      controller.updatePlannedWeight(set, weight);
-                    }
-                  },
-                ),
-              ),
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 84,
-                child: TextFormField(
-                  initialValue: _editableCount(set.reps),
-                  keyboardType: TextInputType.number,
-                  onTapOutside: (_) =>
-                      FocusManager.instance.primaryFocus?.unfocus(),
-                  decoration: const InputDecoration(
-                    labelText: '\u6B21\u6570',
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 9,
-                      vertical: 8,
-                    ),
+                  SizedBox(width: 64, child: type),
+                  const SizedBox(width: 6),
+                  Expanded(child: weight),
+                  const SizedBox(width: 6),
+                  SizedBox(width: 58, child: reps),
+                  remove,
+                ],
+              )
+            : Column(
+                children: [
+                  Row(
+                    children: [
+                      SizedBox(width: 24, child: Text('${index + 1}')),
+                      SizedBox(width: 84, child: type),
+                      const Spacer(),
+                      remove,
+                    ],
                   ),
-                  onChanged: (value) {
-                    set.reps = int.tryParse(value) ?? 0;
-                    controller.refresh();
-                  },
-                ),
+                  const SizedBox(height: 5),
+                  Row(
+                    children: [
+                      Expanded(child: weight),
+                      const SizedBox(width: 7),
+                      SizedBox(width: 92, child: reps),
+                    ],
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
-      ],
-    ),
+      );
+    },
   );
 }
 
@@ -15439,7 +17006,8 @@ void _showRoutineReplacePicker(
             ),
             for (final item in controller.selectableExercises)
               ListTile(
-                title: Text(controller.displayExerciseName(item)),
+                dense: true,
+                title: Text(controller.numberedExerciseName(item)),
                 subtitle: Text('${item.muscle} · ${item.equipment}'),
                 onTap: () {
                   target.exerciseId = item.id;
@@ -15459,6 +17027,7 @@ void _showPlanBuilder(BuildContext context, AppController controller) {
   showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
+    useSafeArea: true,
     builder: (context) => _DraftPlanComposer(controller: controller),
   );
 }
@@ -15519,9 +17088,9 @@ class _DraftPlanComposerState extends State<_DraftPlanComposer> {
   @override
   Widget build(BuildContext context) => SafeArea(
     child: SizedBox(
-      height: MediaQuery.sizeOf(context).height * .92,
+      height: MediaQuery.sizeOf(context).height * .94,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+        padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -15534,10 +17103,16 @@ class _DraftPlanComposerState extends State<_DraftPlanComposer> {
                     onChanged: (value) => draft.name = value,
                     decoration: const InputDecoration(
                       labelText: '\u8BAD\u7EC3\u540D\u79F0',
-                      border: InputBorder.none,
-                      filled: false,
+                      isDense: true,
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
                     ),
-                    style: Theme.of(context).textTheme.headlineMedium,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
                 IconButton(
@@ -15549,7 +17124,7 @@ class _DraftPlanComposerState extends State<_DraftPlanComposer> {
             ),
             Text(
               '${draft.exercises.length} \u4E2A\u52A8\u4F5C',
-              style: const TextStyle(color: quiet),
+              style: const TextStyle(color: quiet, fontSize: 12),
             ),
             if (error != null)
               Padding(
@@ -15603,7 +17178,7 @@ class _DraftPlanComposerState extends State<_DraftPlanComposer> {
                     child: FilledButton(
                       key: const Key('template-save-button'),
                       onPressed: draft.exercises.isEmpty ? null : save,
-                      child: const Text('\u4FDD\u5B58\u8BAD\u7EC3\u8BA1\u5212'),
+                      child: const Text('保存计划'),
                     ),
                   ),
                 ),
@@ -15685,18 +17260,14 @@ void _showExerciseHistory(
                           final bE1rm = b.weight * (1 + b.reps / 30);
                           return bE1rm > aE1rm ? b : a;
                         });
-                  final setNotes = completed
+                  final notedSets = completed
                       .where((set) => set.note.trim().isNotEmpty)
-                      .map((set) => set.note.trim())
                       .take(2)
-                      .join('；');
-                  final noteLines = <String>[
-                    if (performed.note.trim().isNotEmpty)
-                      '动作：${performed.note.trim()}',
-                    if (setNotes.isNotEmpty) '组：$setNotes',
-                    if (record.note.trim().isNotEmpty)
-                      '训练：${record.note.trim()}',
-                  ];
+                      .toList(growable: false);
+                  final hasNotes =
+                      performed.note.trim().isNotEmpty ||
+                      notedSets.isNotEmpty ||
+                      record.note.trim().isNotEmpty;
                   return Card(
                     margin: const EdgeInsets.only(bottom: 9),
                     color: Colors.white,
@@ -15745,28 +17316,48 @@ void _showExerciseHistory(
                                 fontSize: 12,
                               ),
                             ),
-                            if (noteLines.isNotEmpty) ...[
+                            if (hasNotes) ...[
                               const SizedBox(height: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 8,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: emberTint,
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Text(
-                                  noteLines.join('\n'),
-                                  maxLines: 4,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: secondaryInk,
-                                    fontSize: 11,
-                                    height: 1.35,
+                              if (performed.note.trim().isNotEmpty)
+                                _NoteCallout(
+                                  key: Key(
+                                    'history-exercise-note-${record.id}',
                                   ),
+                                  label: '动作备注',
+                                  text: performed.note.trim(),
+                                  color: exerciseNoteColor,
+                                  background: exerciseNoteContainer,
+                                  maxLines: 3,
                                 ),
-                              ),
+                              for (
+                                var noteIndex = 0;
+                                noteIndex < notedSets.length;
+                                noteIndex++
+                              ) ...[
+                                const SizedBox(height: 5),
+                                _NoteCallout(
+                                  key: Key(
+                                    'history-set-note-${record.id}-$noteIndex',
+                                  ),
+                                  label:
+                                      '第 ${performed.sets.indexOf(notedSets[noteIndex]) + 1} 组',
+                                  text: notedSets[noteIndex].note.trim(),
+                                  color: setNoteColor,
+                                  background: setNoteContainer,
+                                  maxLines: 2,
+                                ),
+                              ],
+                              if (record.note.trim().isNotEmpty) ...[
+                                const SizedBox(height: 5),
+                                _NoteCallout(
+                                  key: Key('history-workout-note-${record.id}'),
+                                  label: '训练备注',
+                                  text: record.note.trim(),
+                                  color: workoutNoteColor,
+                                  background: workoutNoteContainer,
+                                  maxLines: 2,
+                                ),
+                              ],
                             ],
                           ],
                         ),
@@ -15911,24 +17502,16 @@ void _showRecordDetail(
                           ),
                           const SizedBox(height: 5),
                           if (exercise.note.trim().isNotEmpty)
-                            Container(
-                              width: double.infinity,
-                              margin: const EdgeInsets.only(bottom: 5),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 9,
-                                vertical: 7,
-                              ),
-                              decoration: BoxDecoration(
-                                color: emberTint,
-                                borderRadius: BorderRadius.circular(9),
-                              ),
-                              child: Text(
-                                '动作备注 · ${exercise.note.trim()}',
-                                style: const TextStyle(
-                                  color: secondaryInk,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 5),
+                              child: _NoteCallout(
+                                key: Key(
+                                  'record-exercise-note-${record.id}-${exercise.id}',
                                 ),
+                                label: '动作备注',
+                                text: exercise.note.trim(),
+                                color: exerciseNoteColor,
+                                background: exerciseNoteContainer,
                               ),
                             ),
                           if (exercise.sets.isEmpty)
@@ -15949,10 +17532,16 @@ void _showRecordDetail(
                       ),
                     ),
                   ),
-              if (record.note.isNotEmpty)
+              if (record.note.trim().isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
-                  child: Text(record.note),
+                  child: _NoteCallout(
+                    key: Key('record-workout-note-${record.id}'),
+                    label: '训练备注',
+                    text: record.note.trim(),
+                    color: workoutNoteColor,
+                    background: workoutNoteContainer,
+                  ),
                 ),
               const SizedBox(height: 14),
               Row(

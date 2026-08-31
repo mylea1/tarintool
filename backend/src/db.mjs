@@ -6,6 +6,91 @@ import { nowIso, hashPassword, randomId } from './security.mjs';
 
 const migrationPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'migrations', '001_init.sql');
 
+export function normalizeUsername(value) {
+  const normalized = String(value || '').normalize('NFKC').trim().toLowerCase();
+  return /^[\p{L}\p{N}_]{3,24}$/u.test(normalized) ? normalized : null;
+}
+
+export function normalizePhone(value) {
+  const compact = String(value || '').normalize('NFKC').trim().replace(/[\s()-]/g, '');
+  if (/^1[3-9]\d{9}$/.test(compact)) return `+86${compact}`;
+  if (/^861[3-9]\d{9}$/.test(compact)) return `+${compact}`;
+  if (!/^\+[1-9]\d{7,14}$/.test(compact)) return null;
+  return compact;
+}
+
+export function normalizeEmail(value) {
+  const normalized = String(value || '').normalize('NFKC').trim().toLowerCase();
+  if (normalized.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(normalized)) return null;
+  return normalized;
+}
+
+export function maskUserIdentity(kind, value) {
+  const text = String(value || '');
+  if (kind === 'username') return text ? `@${text}` : '';
+  if (kind === 'email') {
+    const [local = '', domain = ''] = text.split('@');
+    return domain ? `${local.slice(0, 1) || '*'}***@${domain}` : '';
+  }
+  if (kind === 'phone') {
+    const digits = text.replace(/\D/g, '');
+    if (digits.length < 7) return '';
+    const china = text.startsWith('+86') && digits.length === 13;
+    const nationalLength = china ? 11 : Math.min(10, digits.length);
+    const countryDigits = digits.slice(0, -nationalLength);
+    const country = text.startsWith('+') && countryDigits ? `+${countryDigits} ` : '';
+    const national = digits.slice(-nationalLength);
+    return `${country}${national.slice(0, 3)}****${national.slice(-4)}`.trim();
+  }
+  return '';
+}
+
+export function putUserIdentity(db, {
+  userId,
+  kind,
+  normalizedValue,
+  displayValue,
+  source,
+  verifiedAt = null,
+  searchable = true,
+  replaceForUser = false,
+}) {
+  const occupied = db.prepare('SELECT * FROM user_identities WHERE kind = ? AND normalized_value = ?')
+    .get(kind, normalizedValue);
+  if (occupied && occupied.user_id !== userId) return { status: 'conflict', identity: occupied };
+  const current = db.prepare('SELECT * FROM user_identities WHERE user_id = ? AND kind = ?').get(userId, kind);
+  const stamp = nowIso();
+  if (current) {
+    if (current.normalized_value !== normalizedValue && !replaceForUser) {
+      return { status: 'user_kind_exists', identity: current };
+    }
+    db.prepare(`UPDATE user_identities SET normalized_value = ?, display_value = ?, source = ?,
+      verified_at = COALESCE(?, verified_at), searchable = ?, updated_at = ? WHERE id = ?`)
+      .run(normalizedValue, displayValue, source, verifiedAt, searchable ? 1 : 0, stamp, current.id);
+    return { status: 'updated', identity: db.prepare('SELECT * FROM user_identities WHERE id = ?').get(current.id) };
+  }
+  const id = randomId('uid_');
+  db.prepare(`INSERT INTO user_identities
+    (id, user_id, kind, normalized_value, display_value, source, verified_at, searchable, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    .run(id, userId, kind, normalizedValue, displayValue, source, verifiedAt, searchable ? 1 : 0, stamp, stamp);
+  return { status: 'created', identity: db.prepare('SELECT * FROM user_identities WHERE id = ?').get(id) };
+}
+
+export function syncAccountPhoneIdentity(db, user) {
+  if (!user || user.auth_provider !== 'password') return null;
+  const normalized = normalizePhone(user.identifier);
+  if (!normalized) return null;
+  return putUserIdentity(db, {
+    userId: user.id,
+    kind: 'phone',
+    normalizedValue: normalized,
+    displayValue: normalized,
+    source: 'account',
+    searchable: true,
+  });
+}
+
 export function openDatabase(databasePath) {
   fs.mkdirSync(path.dirname(databasePath), { recursive: true });
   const db = new Database(databasePath);
@@ -137,6 +222,11 @@ export function openDatabase(databasePath) {
       'ALTER TABLE recognition_jobs ADD COLUMN include_overlay INTEGER NOT NULL DEFAULT 1',
     );
   }
+  transaction(db, () => {
+    for (const user of db.prepare("SELECT * FROM users WHERE auth_provider = 'password'").all()) {
+      syncAccountPhoneIdentity(db, user);
+    }
+  });
   return db;
 }
 
@@ -297,6 +387,7 @@ export function seedTestAdmin(db, cfg) {
       recognition_weekly_grant = CASE WHEN recognition_weekly_grant < 3 THEN 3 ELSE recognition_weekly_grant END,
       updated_at = ? WHERE user_id = ?`).run(nowIso(), existing.id);
     const admin = db.prepare('SELECT * FROM users WHERE id = ?').get(existing.id);
+    syncAccountPhoneIdentity(db, admin);
     seedSocialDemoData(db, admin, cfg.testAdminPassword);
     return admin;
   }
@@ -319,6 +410,7 @@ export function seedTestAdmin(db, cfg) {
     recognition_weekly_grant = CASE WHEN recognition_weekly_grant < 3 THEN 3 ELSE recognition_weekly_grant END,
     updated_at = ? WHERE user_id = ?`).run(nowIso(), user.id);
   const admin = db.prepare('SELECT * FROM users WHERE id = ?').get(user.id);
+  syncAccountPhoneIdentity(db, admin);
   seedSocialDemoData(db, admin, cfg.testAdminPassword);
   return admin;
 }
@@ -370,6 +462,7 @@ function seedSocialDemoData(db, admin, rawPassword) {
       user = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
       ensureEntitlement(db, id);
     }
+    syncAccountPhoneIdentity(db, user);
     const pair = [admin.id, user.id].sort().join(':');
     db.prepare(`INSERT INTO friend_requests
       (id, pair_key, sender_user_id, receiver_user_id, status, created_at, updated_at)
@@ -425,6 +518,7 @@ export function seedTestMember(db, cfg) {
       user = db.prepare('SELECT * FROM users WHERE id = ?').get(user.id);
     }
     ensureEntitlement(db, user.id);
+    syncAccountPhoneIdentity(db, user);
     if (forever) {
       db.prepare(`UPDATE entitlements SET membership = 'forever', membership_expires_at = NULL,
         ai_remaining = CASE WHEN ai_remaining < 20 THEN 20 ELSE ai_remaining END,

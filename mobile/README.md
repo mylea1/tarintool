@@ -30,6 +30,29 @@ AI 问答支持每个账号保存最多 3 个自定义 Skill。用户可在 AI �
 - 默认动作名称为简体中文；“我的 → 动作名称语言”可切换英文名称，覆盖动作库、选择器、详情和训练摘要，不改变其他界面文案。
 - 完成组使用整行绿色反馈与约 800–1200ms 一次性庆祝动效；保存真实训练记录后显示训练完成总结（时长、容量、有效组、动作数、完成率），可查看记录或完成返回计划。
 
+## B 方案产品能力
+
+- 训练完成总结提供“发布训练动态”入口。发布前可写一条可选说明；服务端只接收训练快照（时长、容量、有效组、动作摘要和完成率），训练备注、体重等私密信息不会进入动态。好友动态支持点赞和限定表情评论，不提供自由文本评论。
+- 饮食页改为按日期的周导航、时间轴和日历入口。同一天可以连续记录“第 1 餐 / 第 2 餐”等，不再强制早餐/正餐/加餐；食物名称可留空。一次最多选择 8 张图片，保存前展示本地预览和服务端候选值，热量、蛋白质、碳水和脂肪只作为可复核估算，不在客户端伪造识别结果。
+- 饮食照片识别客户端请求 `POST /v1/food/recognition`，字段为 multipart `images`；响应遵循 `food-photo-v1`（`status`、`requiresReview`、`items`、`warnings`）。识别失败、图片不足和低确定性都保留可见提示，用户仍可手动保存。
+- 训练与饮食共享 `UnifiedCalendarPage`，日历圆点分别代表训练和饮食，点击日期后按时间查看合并时间轴。我的页面还提供图文“使用指南”，图片来自本地品牌和动作素材，离线可打开。
+- 主题迁移为语义 Material token，默认保留旧版暖橙兼容色，并新增浅色冰川蓝、森氧绿和钛银红。入口为“我的 → 服务与安全 → 主题颜色”，选择会保存到本机下次启动继续使用。
+
+### B 方案服务端接口约定
+
+好友动态客户端预期以下接口：
+
+```text
+POST   /v1/friends/workouts
+GET    /v1/friends/feed       # 返回 posts（旧 plans 仍兼容）
+POST   /v1/friends/workouts/:postId/like
+POST   /v1/friends/workouts/:postId/comments  # JSON: {"emoji":"🔥"}
+DELETE /v1/friends/workouts/:postId
+POST   /v1/food/recognition   # multipart images（最多 8 个）
+```
+
+如果服务端尚未实现识别接口，客户端会明确显示“识别服务未配置/识别失败”，不会把图片名称或本地随机数当作营养结果。服务端和移动端的详细字段以 `docs/contracts/mobile-food-photo-recognition.json` 为准。
+
 ## 目录
 
 ```text
@@ -65,11 +88,19 @@ flutter build apk --debug
 
 ## 安装与版本核验
 
-当前移动端发布标识为 `1.0.15 (16)`，包名仍为 `com.kilostrength.kilo_strength`。安装新版 APK 前，若设备上仍有旧版同包名应用，请先卸载旧版，或确认安装器明确显示“覆盖更新”并完成升级；不要只依赖桌面图标判断是否已打开新包。启动后进入“我的 → 个性化 → 应用语言”，可以在简体中文和 English 之间切换。完整数据集仍用于恢复旧记录与稳定 ID；动作库和选择器默认展示人工核对的精简动作目录，以减少重复、无效或媒体不匹配的动作。
+当前移动端发布标识为 `1.0.21 (22)`，国区包名仍为 `com.kilostrength.kilo_strength`。安装新版 APK 前，若设备上仍有旧版同包名应用，请先卸载旧版，或确认安装器明确显示“覆盖更新”并完成升级；不要只依赖桌面图标判断是否已打开新包。启动后进入“我的 → 个性化 → 应用语言”，可以在简体中文和 English 之间切换。完整数据集仍用于恢复旧记录与稳定 ID；动作库和选择器默认展示人工核对的精简动作目录，以减少重复、无效或媒体不匹配的动作。
 
 上一轮完整动作数据集版本为 `1.0.10+11`；本轮国际化与动作媒体审计版本为 `1.0.11+12`。
 
 当前 `1.0.15+16` 调整自由训练主流程：准备阶段可让 AI 生成本次训练计划；训练动作缩略图可直达动作详情；首次完成组且未设置休息时只询问一次，并把所选时间应用到本次训练后续动作。实时训练顶部暂时只保留“组间休息”辅助入口；完成总结优先对比同名计划或动作重合度最高的上次训练，并可把本次与基线一起交给 AI 总结。动作库和选择器使用人工校验的精简目录与六类器械筛选，旧记录仍可通过完整数据集 ID 恢复。
+
+`1.0.18+19` 增加 `cn/global` 构建渠道：Android 使用手机号入口，国区 iOS 使用手机号与 Apple，海外 iOS 使用 Apple/Google 组合。渠道只控制可见登录方式，未配置 OAuth 或短信供应商时不会模拟成功。饮食、记录与好友页面使用统一 Material 图标和更短的空状态文案。
+
+`1.0.19+20` 接通 iOS 原生 Apple 登录：客户端通过系统 Apple 授权取得 identity token，提交 `/v1/auth/apple` 由服务端使用 Apple JWKS 校验，再保存服务端 session；项目已加入 `Sign in with Apple` entitlement，并绑定 Team ID `Y726TUG6G3`。生产服务器必须设置 `APPLE_CLIENT_ID=com.kilostrength.kiloStrength`，不得把 `.p8`、App Store Connect API 密钥或其他长期密钥写入 Flutter、APK 或 Git。
+
+`1.0.20+21` 完善跨端好友发现：Android 与 iOS 共用服务端稳定用户 ID，可设置唯一用户名，并通过用户名、账号手机号或 Apple 已验证邮箱搜索。手机号和邮箱只支持完整匹配，搜索结果仅显示脱敏联系方式；Apple 不提供“绑定手机号”，因此 Apple 用户如需手机号搜索能力，后续必须通过独立短信验证流程绑定。
+
+国区 Android 构建命令：`flutter build apk --release --flavor cn --dart-define=APP_MARKET=cn`。海外 Android 构建命令：`flutter build apk --release --flavor global --dart-define=APP_MARKET=global`。
 
 也可以使用 `android/gradlew.bat assembleDebug --offline`。仓库配置优先使用中科大 Maven 代理，其次阿里云 HTTPS 镜像，最后回退 Google/Maven Central；Gradle wrapper 保持官方 HTTPS URL，不使用 `file:///E:` 本地仓库。首次构建如果本机没有 Gradle、AndroidX 或 Flutter Maven 缓存，需要联网下载，网络失败时请保留官方 wrapper URL 并稍后重试。
 

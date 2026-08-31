@@ -174,7 +174,7 @@ void main() {
     );
     await tester.pump();
     expect(find.text('Sign in'), findsWidgets);
-    expect(find.text('Phone or account'), findsOneWidget);
+    expect(find.text('Phone number'), findsOneWidget);
     controller.dispose();
   });
 }

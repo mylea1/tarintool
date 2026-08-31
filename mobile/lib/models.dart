@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 
 import 'exercise_dataset.generated.dart';
+import 'exercise_retirement_candidates.generated.dart';
+import 'exercise_retirement_overrides.dart';
 import 'exercise_name_zh.dart';
 import 'exercise_media.dart';
 
@@ -9,6 +11,11 @@ enum PageId { today, train, records, exercises, recognition, ai, profile }
 enum TrainView { workout, plans, history }
 
 enum AiView { chat, recognition }
+
+/// User-selectable light palettes. `warm` remains the compatibility default
+/// for existing installs; new surfaces read semantic Material color tokens so
+/// switching to glacier, forest or titanium updates them consistently.
+enum KiloThemeChoice { warm, glacier, forest, titanium }
 
 @immutable
 class AiSkill {
@@ -881,6 +888,7 @@ class TrainingProfile {
     this.goal,
     this.heightCm,
     this.weightKg,
+    this.weeklyTrainingDays,
     this.activityLevel = 'moderate',
   });
 
@@ -890,6 +898,10 @@ class TrainingProfile {
   final String? goal;
   final double? heightCm;
   final double? weightKg;
+  final int? weeklyTrainingDays;
+
+  /// Kept for backward compatibility with profiles saved before weekly
+  /// training frequency replaced the vague daily-activity selector.
   final String activityLevel;
 
   Map<String, dynamic> toJson() => {
@@ -899,6 +911,7 @@ class TrainingProfile {
     if (goal != null) 'goal': goal,
     if (heightCm != null) 'heightCm': heightCm,
     if (weightKg != null) 'weightKg': weightKg,
+    if (weeklyTrainingDays != null) 'weeklyTrainingDays': weeklyTrainingDays,
     'activityLevel': activityLevel,
   };
 
@@ -910,6 +923,7 @@ class TrainingProfile {
         goal: json['goal']?.toString(),
         heightCm: (json['heightCm'] as num?)?.toDouble(),
         weightKg: (json['weightKg'] as num?)?.toDouble(),
+        weeklyTrainingDays: (json['weeklyTrainingDays'] as num?)?.toInt(),
         activityLevel: json['activityLevel']?.toString() ?? 'moderate',
       );
 }
@@ -925,6 +939,9 @@ class NutritionEntry {
     this.proteinGrams = 0,
     this.carbsGrams = 0,
     this.fatGrams = 0,
+    this.photoPaths = const [],
+    this.recognitionWarnings = const [],
+    this.recognitionReviewed = false,
   });
 
   final String id;
@@ -936,6 +953,9 @@ class NutritionEntry {
   final double proteinGrams;
   final double carbsGrams;
   final double fatGrams;
+  final List<String> photoPaths;
+  final List<String> recognitionWarnings;
+  final bool recognitionReviewed;
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -947,6 +967,10 @@ class NutritionEntry {
     'proteinGrams': proteinGrams,
     'carbsGrams': carbsGrams,
     'fatGrams': fatGrams,
+    if (photoPaths.isNotEmpty) 'photoPaths': photoPaths,
+    if (recognitionWarnings.isNotEmpty)
+      'recognitionWarnings': recognitionWarnings,
+    'recognitionReviewed': recognitionReviewed,
   };
 
   factory NutritionEntry.fromJson(Map<String, dynamic> json) => NutritionEntry(
@@ -961,7 +985,294 @@ class NutritionEntry {
     proteinGrams: (json['proteinGrams'] as num?)?.toDouble() ?? 0,
     carbsGrams: (json['carbsGrams'] as num?)?.toDouble() ?? 0,
     fatGrams: (json['fatGrams'] as num?)?.toDouble() ?? 0,
+    photoPaths:
+        (json['photoPaths'] as List?)
+            ?.map((item) => item.toString())
+            .where((item) => item.isNotEmpty)
+            .toList(growable: false) ??
+        const [],
+    recognitionWarnings:
+        (json['recognitionWarnings'] as List?)
+            ?.map((item) => item.toString())
+            .where((item) => item.isNotEmpty)
+            .toList(growable: false) ??
+        const [],
+    recognitionReviewed: json['recognitionReviewed'] == true,
   );
+}
+
+/// A compact, immutable snapshot shown in the friends feed after a user
+/// explicitly publishes a completed workout. Private notes and body metrics
+/// never belong to this model.
+@immutable
+class WorkoutActivityPost {
+  const WorkoutActivityPost({
+    required this.id,
+    required this.ownerId,
+    required this.ownerName,
+    required this.workoutName,
+    required this.completedAt,
+    required this.durationSeconds,
+    required this.volume,
+    required this.effectiveSets,
+    required this.completionPercent,
+    this.exerciseSummary = const [],
+    this.caption = '',
+    this.createdAt,
+    this.likeCount = 0,
+    this.liked = false,
+    this.emojiCounts = const {},
+  });
+
+  final String id;
+  final String ownerId;
+  final String ownerName;
+  final String workoutName;
+  final DateTime completedAt;
+  final int durationSeconds;
+  final double volume;
+  final int effectiveSets;
+  final int completionPercent;
+  final List<WorkoutActivityExercise> exerciseSummary;
+  final String caption;
+  final DateTime? createdAt;
+  final int likeCount;
+  final bool liked;
+  final Map<String, int> emojiCounts;
+
+  factory WorkoutActivityPost.fromJson(Map<String, dynamic> json) {
+    final rawExercises = json['exerciseSummary'] ?? json['exercises'];
+    final exercises = rawExercises is List
+        ? rawExercises
+              .whereType<Map>()
+              .map(
+                (item) => WorkoutActivityExercise.fromJson(
+                  Map<String, dynamic>.from(item),
+                ),
+              )
+              .toList(growable: false)
+        : const <WorkoutActivityExercise>[];
+    final rawEmojiCounts = json['emojiCounts'] ?? json['commentCounts'];
+    final emojiCounts = <String, int>{};
+    if (rawEmojiCounts is Map) {
+      rawEmojiCounts.forEach((key, value) {
+        final count = value is num ? value.toInt() : int.tryParse('$value');
+        if (count != null && count > 0) emojiCounts[key.toString()] = count;
+      });
+    }
+    final completedAt =
+        DateTime.tryParse(
+          (json['completedAt'] ?? json['finishedAt'] ?? json['createdAt'] ?? '')
+              .toString(),
+        ) ??
+        DateTime.now();
+    final createdAt = DateTime.tryParse((json['createdAt'] ?? '').toString());
+    final rawCompletion = json['completionPercent'] ?? json['completionRate'];
+    final completion = rawCompletion is num
+        ? (rawCompletion > 1 ? rawCompletion : rawCompletion * 100).round()
+        : 100;
+    return WorkoutActivityPost(
+      id: (json['id'] ?? json['postId'] ?? '').toString(),
+      ownerId: (json['ownerId'] ?? json['userId'] ?? '').toString(),
+      ownerName: (json['ownerName'] ?? json['displayName'] ?? '好友').toString(),
+      workoutName: (json['workoutName'] ?? json['name'] ?? '训练').toString(),
+      completedAt: completedAt,
+      durationSeconds:
+          (json['durationSeconds'] ?? json['duration'] as num?)?.toInt() ?? 0,
+      volume:
+          (json['volume'] ?? json['trainingVolume'] as num?)?.toDouble() ?? 0,
+      effectiveSets:
+          (json['effectiveSets'] ?? json['completedSets'] as num?)?.toInt() ??
+          0,
+      completionPercent: completion.clamp(0, 100),
+      exerciseSummary: exercises,
+      caption: (json['caption'] ?? json['note'] ?? '').toString(),
+      createdAt: createdAt,
+      likeCount: (json['likeCount'] ?? json['likes'] as num?)?.toInt() ?? 0,
+      liked: json['liked'] == true || json['myLike'] == true,
+      emojiCounts: Map<String, int>.unmodifiable(emojiCounts),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'ownerId': ownerId,
+    'ownerName': ownerName,
+    'workoutName': workoutName,
+    'completedAt': completedAt.toIso8601String(),
+    'durationSeconds': durationSeconds,
+    'volume': volume,
+    'effectiveSets': effectiveSets,
+    'completionPercent': completionPercent,
+    'exerciseSummary': exerciseSummary.map((item) => item.toJson()).toList(),
+    if (caption.trim().isNotEmpty) 'caption': caption.trim(),
+    if (createdAt != null) 'createdAt': createdAt!.toIso8601String(),
+    'likeCount': likeCount,
+    'liked': liked,
+    'emojiCounts': emojiCounts,
+  };
+
+  WorkoutActivityPost copyWith({
+    int? likeCount,
+    bool? liked,
+    Map<String, int>? emojiCounts,
+  }) => WorkoutActivityPost(
+    id: id,
+    ownerId: ownerId,
+    ownerName: ownerName,
+    workoutName: workoutName,
+    completedAt: completedAt,
+    durationSeconds: durationSeconds,
+    volume: volume,
+    effectiveSets: effectiveSets,
+    completionPercent: completionPercent,
+    exerciseSummary: exerciseSummary,
+    caption: caption,
+    createdAt: createdAt,
+    likeCount: likeCount ?? this.likeCount,
+    liked: liked ?? this.liked,
+    emojiCounts: emojiCounts ?? this.emojiCounts,
+  );
+}
+
+@immutable
+class WorkoutActivityExercise {
+  const WorkoutActivityExercise({
+    required this.exerciseId,
+    required this.name,
+    this.sets = 0,
+    this.topWeight,
+    this.topReps,
+  });
+
+  final String exerciseId;
+  final String name;
+  final int sets;
+  final double? topWeight;
+  final int? topReps;
+
+  factory WorkoutActivityExercise.fromJson(Map<String, dynamic> json) =>
+      WorkoutActivityExercise(
+        exerciseId: (json['exerciseId'] ?? json['id'] ?? '').toString(),
+        name: (json['name'] ?? json['exerciseName'] ?? '').toString(),
+        sets: (json['sets'] ?? json['setCount'] as num?)?.toInt() ?? 0,
+        topWeight: (json['topWeight'] ?? json['weight'] as num?)?.toDouble(),
+        topReps: (json['topReps'] ?? json['reps'] as num?)?.toInt(),
+      );
+
+  Map<String, dynamic> toJson() => {
+    'exerciseId': exerciseId,
+    'name': name,
+    'sets': sets,
+    if (topWeight != null) 'topWeight': topWeight,
+    if (topReps != null) 'topReps': topReps,
+  };
+}
+
+enum FoodRecognitionStatus { completed, insufficientImage, failed }
+
+@immutable
+class FoodNutritionCandidate {
+  const FoodNutritionCandidate({
+    required this.label,
+    required this.confidence,
+    this.estimatedGrams,
+    this.calories,
+    this.calorieRange,
+    this.proteinGrams,
+    this.carbsGrams,
+    this.fatGrams,
+    this.nutritionSource,
+  });
+
+  final String label;
+  final double confidence;
+  final double? estimatedGrams;
+  final double? calories;
+  final (double, double)? calorieRange;
+  final double? proteinGrams;
+  final double? carbsGrams;
+  final double? fatGrams;
+  final String? nutritionSource;
+
+  factory FoodNutritionCandidate.fromJson(Map<String, dynamic> json) {
+    final rawRange = json['calorieRange'];
+    (double, double)? range;
+    if (rawRange is List && rawRange.length >= 2) {
+      final low = (rawRange[0] as num?)?.toDouble();
+      final high = (rawRange[1] as num?)?.toDouble();
+      if (low != null && high != null) range = (low, high);
+    }
+    double? number(Object? value) =>
+        value is num ? value.toDouble() : double.tryParse('$value');
+    return FoodNutritionCandidate(
+      label: (json['label'] ?? json['name'] ?? '待确认食物').toString(),
+      confidence: (number(json['confidence']) ?? 0).clamp(0, 1),
+      estimatedGrams: number(json['estimatedGrams'] ?? json['grams']),
+      calories: number(json['estimatedCalories'] ?? json['calories']),
+      calorieRange: range,
+      proteinGrams: number(json['proteinGrams'] ?? json['protein']),
+      carbsGrams: number(
+        json['carbsGrams'] ?? json['carbs'] ?? json['carbohydrates'],
+      ),
+      fatGrams: number(json['fatGrams'] ?? json['fat']),
+      nutritionSource: json['nutritionSource']?.toString(),
+    );
+  }
+}
+
+@immutable
+class FoodPhotoRecognitionResult {
+  const FoodPhotoRecognitionResult({
+    required this.status,
+    required this.requiresReview,
+    this.items = const [],
+    this.warnings = const [],
+    this.modelVersion,
+    this.error,
+  });
+
+  final FoodRecognitionStatus status;
+  final bool requiresReview;
+  final List<FoodNutritionCandidate> items;
+  final List<String> warnings;
+  final String? modelVersion;
+  final String? error;
+
+  bool get hasNutrition =>
+      items.any((item) => item.calories != null || item.proteinGrams != null);
+
+  factory FoodPhotoRecognitionResult.fromJson(Map<String, dynamic> json) {
+    final rawItems = json['items'];
+    final items = rawItems is List
+        ? rawItems
+              .whereType<Map>()
+              .map(
+                (item) => FoodNutritionCandidate.fromJson(
+                  Map<String, dynamic>.from(item),
+                ),
+              )
+              .toList(growable: false)
+        : const <FoodNutritionCandidate>[];
+    final status = switch ((json['status'] ?? 'failed').toString()) {
+      'completed' => FoodRecognitionStatus.completed,
+      'insufficient_image' => FoodRecognitionStatus.insufficientImage,
+      _ => FoodRecognitionStatus.failed,
+    };
+    return FoodPhotoRecognitionResult(
+      status: status,
+      requiresReview: json['requiresReview'] != false,
+      items: items,
+      warnings:
+          (json['warnings'] as List?)
+              ?.map((item) => item.toString())
+              .where((item) => item.isNotEmpty)
+              .toList(growable: false) ??
+          const [],
+      modelVersion: json['modelVersion']?.toString(),
+      error: json['error']?.toString(),
+    );
+  }
 }
 
 @immutable
@@ -1401,24 +1712,8 @@ final List<Exercise> catalog = _disambiguateExerciseNames(_rawCatalog);
 /// the selectable boundary only: old records still resolve through [catalog]
 /// and can be rendered after an app upgrade.
 bool _isUnsupportedSelectableExercise(Exercise exercise) {
-  final haystack = [
-    exercise.name,
-    exercise.englishName,
-    exercise.equipment,
-    exercise.family,
-  ].join(' ').toLowerCase();
-  const forbidden = <String>[
-    '波速球',
-    '滑雪机',
-    '训练锤',
-    'bosu ball',
-    'bosu',
-    'ski erg',
-    'ski machine',
-    'training hammer',
-    'sledgehammer',
-  ];
-  return forbidden.any(haystack.contains);
+  return retiredExerciseIds.contains(exercise.id) ||
+      manuallyRetiredExerciseIds.contains(exercise.id);
 }
 
 /// Picker-visible exercises. The historical catalog above is deliberately not

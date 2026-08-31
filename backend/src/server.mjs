@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { config as defaultConfig, assertProductionConfiguration, loadConfig } from './config.mjs';
-import { openDatabase, closeDatabase, transaction, ensureEntitlement, refreshEntitlement, publicUser, publicEntitlement, seedTestAdmin, seedTestMember, isoWeekKey, membershipActive, publicCheckinState, ensureCheckinState, shanghaiDayKey } from './db.mjs';
+import { openDatabase, closeDatabase, transaction, ensureEntitlement, refreshEntitlement, publicUser, publicEntitlement, seedTestAdmin, seedTestMember, isoWeekKey, membershipActive, publicCheckinState, ensureCheckinState, shanghaiDayKey, normalizeUsername, normalizePhone, normalizeEmail, maskUserIdentity, putUserIdentity, syncAccountPhoneIdentity } from './db.mjs';
 import { hashPassword, verifyPassword, sha256, safeEqualText, nowIso, randomId, randomToken } from './security.mjs';
 import { LocalStorage, extensionForType } from './storage.mjs';
 import { ConcurrencyGate, QueueCapacityError } from './concurrency.mjs';
@@ -125,6 +125,9 @@ const MEDIA_CONTENT_TYPES = new Map([
   ['.mp4', 'video/mp4'], ['.mov', 'video/quicktime'], ['.webm', 'video/webm'],
   ['.jpg', 'image/jpeg'], ['.jpeg', 'image/jpeg'], ['.png', 'image/png'], ['.webp', 'image/webp'],
 ]);
+const FOOD_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const FRIEND_WORKOUT_EMOJIS = new Set(['👍', '🔥', '👏', '💪', '❤️', '😂', '😮', '🎉', '🙌', '🥳']);
+const FOOD_RECOGNITION_STATUSES = new Set(['created', 'uploading', 'ready', 'processing', 'completed', 'insufficient_image', 'failed', 'cancelled']);
 const BASE_RECOGNITION_CAPABILITIES = [
   {
     exerciseId: 'barbell_squat',
@@ -485,9 +488,556 @@ function friendPairKey(firstUserId, secondUserId) {
   return [firstUserId, secondUserId].sort().join(':');
 }
 
+function publicIdentity(row) {
+  return {
+    kind: row.kind,
+    value: row.kind === 'username' ? row.display_value : undefined,
+    maskedValue: maskUserIdentity(row.kind, row.display_value),
+    source: row.source,
+    verified: Boolean(row.verified_at),
+    searchable: Boolean(row.searchable),
+  };
+}
+
+function friendRelationship(db, firstUserId, secondUserId) {
+  const request = db.prepare('SELECT * FROM friend_requests WHERE pair_key = ?')
+    .get(friendPairKey(firstUserId, secondUserId));
+  if (!request || (request.status !== 'pending' && request.status !== 'accepted')) return 'none';
+  if (request.status === 'accepted') return 'friends';
+  return request.sender_user_id === firstUserId ? 'outgoing_pending' : 'incoming_pending';
+}
+
+function friendSearchKind(query) {
+  if (query.includes('@')) {
+    const normalized = normalizeEmail(query);
+    if (!normalized) throw httpError(400, 'invalid_friend_search');
+    return { kind: 'email', normalized, prefix: false };
+  }
+  const phone = normalizePhone(query);
+  if (phone) return { kind: 'phone', normalized: phone, prefix: false };
+  const username = normalizeUsername(query);
+  if (!username || username.length < 2) throw httpError(400, 'invalid_friend_search');
+  return { kind: 'username', normalized: username, prefix: true };
+}
+
+function enforceFriendSearchRateLimit(ctx, user, req) {
+  const now = Date.now();
+  const key = `${user.id}:${req.socket.remoteAddress || 'unknown'}`;
+  const recent = (ctx.friendSearchWindows.get(key) || []).filter((stamp) => now - stamp < 60_000);
+  if (recent.length >= 30) throw httpError(429, 'friend_search_rate_limited', { retryAfterSeconds: 60 });
+  recent.push(now);
+  ctx.friendSearchWindows.set(key, recent);
+}
+
 function areFriends(db, firstUserId, secondUserId) {
   return Boolean(db.prepare("SELECT 1 FROM friend_requests WHERE pair_key = ? AND status = 'accepted'")
     .get(friendPairKey(firstUserId, secondUserId)));
+}
+
+function optionalFiniteNumber(value, code, { min = 0, max = Number.MAX_SAFE_INTEGER, integer = false } = {}) {
+  if (value === undefined || value === null || value === '') return null;
+  const number = Number(value);
+  if (!Number.isFinite(number) || number < min || number > max || (integer && !Number.isInteger(number))) {
+    throw httpError(400, code);
+  }
+  return number;
+}
+
+function optionalIsoTimestamp(value, code) {
+  if (value === undefined || value === null || value === '') return null;
+  if (typeof value !== 'string') throw httpError(400, code);
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) throw httpError(400, code);
+  return date.toISOString();
+}
+
+function workoutExerciseSnapshot(value) {
+  if (!Array.isArray(value)) return [];
+  return value.slice(0, 50).map((item) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return null;
+    const exerciseId = String(item.exerciseId || item.id || '').trim().slice(0, 120);
+    const name = String(item.name || item.label || item.exerciseName || exerciseId || '动作').trim().slice(0, 120);
+    const rawSets = Array.isArray(item.sets) ? item.sets.length : item.sets ?? item.setCount ?? item.completedSets;
+    const sets = optionalFiniteNumber(rawSets, 'invalid_workout_exercise_sets', { min: 0, max: 1000, integer: true });
+    const topWeight = optionalFiniteNumber(item.topWeight ?? item.weight, 'invalid_workout_exercise_weight', { min: 0, max: 100000 });
+    const topReps = optionalFiniteNumber(item.topReps ?? item.reps, 'invalid_workout_exercise_reps', { min: 0, max: 1000, integer: true });
+    return { exerciseId: exerciseId || null, name, sets: sets === null ? 0 : sets, topWeight, topReps };
+  }).filter(Boolean);
+}
+
+function workoutSnapshotFromBody(body) {
+  const source = body.snapshot && typeof body.snapshot === 'object' && !Array.isArray(body.snapshot)
+    ? body.snapshot
+    : body.workout && typeof body.workout === 'object' && !Array.isArray(body.workout)
+      ? body.workout
+      : body;
+  const sourceWorkoutId = requireString(
+    body.sourceWorkoutId || body.workoutId || source.sourceWorkoutId || source.workoutId || source.id,
+    'source_workout_id_required',
+    200,
+  );
+  const completedAt = optionalIsoTimestamp(
+    body.completedAt || body.finishedAt || source.completedAt || source.finishedAt,
+    'completed_at_required',
+  );
+  if (!completedAt && body.completed !== true && source.completed !== true) throw httpError(400, 'workout_not_completed');
+  const completed = completedAt || nowIso();
+  const startedAt = optionalIsoTimestamp(body.startedAt || source.startedAt, 'invalid_started_at');
+  if (startedAt && new Date(startedAt) > new Date(completed)) throw httpError(400, 'invalid_workout_time_range');
+  const durationSeconds = optionalFiniteNumber(
+    body.durationSeconds ?? body.duration ?? source.durationSeconds ?? source.duration,
+    'invalid_duration_seconds',
+    { min: 0, max: 7 * 24 * 60 * 60, integer: true },
+  );
+  const volumeKg = optionalFiniteNumber(
+    body.volumeKg ?? body.volume ?? body.totalVolume ?? source.volumeKg ?? source.volume ?? source.totalVolume,
+    'invalid_workout_volume',
+    { min: 0, max: 10000000 },
+  );
+  let completionRate = optionalFiniteNumber(
+    body.completionRate ?? body.completionPercent ?? body.completedRate ?? source.completionRate ?? source.completionPercent ?? source.completedRate,
+    'invalid_completion_rate',
+    { min: 0, max: 100 },
+  );
+  if (completionRate !== null && completionRate > 1) completionRate /= 100;
+  const effectiveSets = optionalFiniteNumber(
+    body.effectiveSets ?? body.setsCompleted ?? source.effectiveSets ?? source.setsCompleted,
+    'invalid_effective_sets',
+    { min: 0, max: 10000, integer: true },
+  );
+  const exercises = workoutExerciseSnapshot(body.exercises || body.exerciseSummary || source.exercises || source.exerciseSummary);
+  const rawName = body.name || body.title || body.workoutName || source.name || source.title || source.workoutName || '训练完成';
+  const name = requireString(String(rawName), 'workout_name_required', 160);
+  const rawCaption = body.caption ?? body.publishNote ?? body.note ?? source.caption ?? source.publishNote;
+  if (rawCaption !== undefined && rawCaption !== null && typeof rawCaption !== 'string') throw httpError(400, 'invalid_workout_caption');
+  const caption = rawCaption ? rawCaption.trim().slice(0, 280) : null;
+  return { sourceWorkoutId, name, startedAt, completedAt: completed, durationSeconds, volumeKg, effectiveSets, completionRate, exercises, caption };
+}
+
+function parseWorkoutExercises(value) {
+  try {
+    const parsed = JSON.parse(value || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function workoutPostRowsForViewer(db, viewerId, postId = null) {
+  const idClause = postId ? 'AND p.id = ?' : '';
+  const params = postId
+    ? [viewerId, viewerId, viewerId, viewerId, postId]
+    : [viewerId, viewerId, viewerId, viewerId];
+  return db.prepare(`SELECT p.*, u.display_name,
+      (SELECT COUNT(*) FROM friend_workout_post_likes l WHERE l.post_id = p.id) AS like_count,
+      EXISTS (SELECT 1 FROM friend_workout_post_likes mine WHERE mine.post_id = p.id AND mine.user_id = ?) AS liked_by_me,
+      (SELECT COUNT(*) FROM friend_workout_post_comments c WHERE c.post_id = p.id) AS comment_count
+    FROM friend_workout_posts p JOIN users u ON u.id = p.owner_user_id
+    WHERE p.owner_user_id = ? OR EXISTS (
+      SELECT 1 FROM friend_requests fr
+      WHERE fr.status = 'accepted'
+        AND ((fr.sender_user_id = ? AND fr.receiver_user_id = p.owner_user_id)
+          OR (fr.receiver_user_id = ? AND fr.sender_user_id = p.owner_user_id))
+    ) ${idClause}
+    ORDER BY p.completed_at DESC, p.created_at DESC LIMIT 100`).all(...params);
+}
+
+function publicWorkoutPost(row, db, viewerId, { includeComments = false } = {}) {
+  const exercises = parseWorkoutExercises(row.exercises_json);
+  const emojiCounts = {};
+  db.prepare('SELECT emoji, COUNT(*) AS count FROM friend_workout_post_comments WHERE post_id = ? GROUP BY emoji').all(row.id)
+    .forEach((item) => { emojiCounts[item.emoji] = Number(item.count); });
+  const result = {
+    id: row.id,
+    type: 'workout',
+    ownerId: row.owner_user_id,
+    ownerName: row.display_name,
+    sourceWorkoutId: row.source_workout_id,
+    name: row.name,
+    workoutName: row.name,
+    startedAt: row.started_at,
+    completedAt: row.completed_at,
+    durationSeconds: row.duration_seconds === null ? null : Number(row.duration_seconds),
+    volumeKg: row.volume_kg === null ? null : Number(row.volume_kg),
+    volume: row.volume_kg === null ? null : Number(row.volume_kg),
+    effectiveSets: row.effective_sets === null ? null : Number(row.effective_sets),
+    completionRate: row.completion_rate === null ? null : Number(row.completion_rate),
+    completionPercent: row.completion_rate === null ? null : Math.round(Number(row.completion_rate) * 100),
+    exercises,
+    exerciseSummary: exercises,
+    caption: row.caption || null,
+    likeCount: Number(row.like_count || 0),
+    likedByMe: Boolean(row.liked_by_me),
+    liked: Boolean(row.liked_by_me),
+    commentCount: Number(row.comment_count || 0),
+    emojiCounts,
+    commentCounts: emojiCounts,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+  if (includeComments) {
+    result.comments = db.prepare(`SELECT c.id, c.user_id, u.display_name, c.emoji, c.created_at
+      FROM friend_workout_post_comments c JOIN users u ON u.id = c.user_id
+      WHERE c.post_id = ? ORDER BY c.created_at ASC LIMIT 100`).all(row.id)
+      .map((comment) => ({ id: comment.id, userId: comment.user_id, userName: comment.display_name, emoji: comment.emoji, createdAt: comment.created_at }));
+  }
+  return result;
+}
+
+function workoutPostForViewer(db, postId, viewerId, options = {}) {
+  const rows = workoutPostRowsForViewer(db, viewerId, postId);
+  if (!rows.length) throw httpError(404, 'workout_post_not_found');
+  return publicWorkoutPost(rows[0], db, viewerId, options);
+}
+
+function foodVisionSettings(ctx) {
+  const cfg = ctx.cfg || {};
+  const env = process.env;
+  const pick = (configNames, envNames, fallback = '') => {
+    for (const name of configNames) {
+      if (cfg[name] !== undefined && cfg[name] !== null && String(cfg[name]).trim()) return String(cfg[name]).trim();
+    }
+    for (const name of envNames) {
+      if (env[name] !== undefined && env[name] !== null && String(env[name]).trim()) return String(env[name]).trim();
+    }
+    return fallback;
+  };
+  const positiveInt = (value, fallback) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback;
+  };
+  const baseUrl = pick(['foodVisionBaseUrl'], ['KILO_FOOD_VISION_BASE_URL', 'FOOD_VISION_BASE_URL']);
+  const apiKey = pick(['foodVisionApiKey'], ['KILO_FOOD_VISION_API_KEY', 'FOOD_VISION_API_KEY']);
+  const model = pick(['foodVisionModel'], ['KILO_FOOD_VISION_MODEL', 'FOOD_VISION_MODEL']);
+  const endpoint = pick(['foodVisionEndpoint'], ['KILO_FOOD_VISION_ENDPOINT', 'FOOD_VISION_ENDPOINT']);
+  return {
+    baseUrl: baseUrl.replace(/\/+$/, ''),
+    apiKey,
+    model,
+    endpoint,
+    timeoutSeconds: Math.min(180, positiveInt(pick(['foodVisionTimeoutSeconds'], ['KILO_FOOD_VISION_TIMEOUT_SECONDS']), 60)),
+    maxImages: Math.min(12, positiveInt(pick(['foodVisionMaxImages'], ['KILO_FOOD_VISION_MAX_IMAGES']), 8)),
+    maxImageBytes: Math.min(25 * 1024 * 1024, positiveInt(pick(['foodVisionMaxImageBytes'], ['KILO_FOOD_VISION_MAX_IMAGE_BYTES']), 12 * 1024 * 1024)),
+    maxTotalBytes: Math.min(80 * 1024 * 1024, positiveInt(pick(['foodVisionMaxTotalBytes'], ['KILO_FOOD_VISION_MAX_TOTAL_BYTES']), 40 * 1024 * 1024)),
+  };
+}
+
+function assertFoodVisionConfigured(settings) {
+  const missing = [];
+  if (!settings.baseUrl && !settings.endpoint) missing.push('baseUrl');
+  if (!settings.apiKey) missing.push('apiKey');
+  if (!settings.model) missing.push('model');
+  if (missing.length) throw httpError(503, 'service_not_configured', { service: 'food_vision', missing });
+}
+
+function foodVisionUrl(settings) {
+  const raw = settings.endpoint || settings.baseUrl;
+  if (!raw) throw httpError(503, 'service_not_configured', { service: 'food_vision', missing: ['baseUrl'] });
+  let parsed;
+  try { parsed = new URL(raw); } catch { throw httpError(500, 'invalid_food_vision_url'); }
+  if (!['http:', 'https:'].includes(parsed.protocol)) throw httpError(500, 'invalid_food_vision_url');
+  if (settings.endpoint) return parsed.toString();
+  return `${raw.endsWith('/chat/completions') ? raw : `${raw}/chat/completions`}`;
+}
+
+function decodeFoodImage(value, settings) {
+  let dataBase64;
+  let contentType;
+  if (typeof value === 'string') {
+    const match = value.match(/^data:([^;,]+);base64,(.*)$/su);
+    if (!match) throw httpError(400, 'invalid_food_image');
+    contentType = match[1].toLowerCase();
+    dataBase64 = match[2];
+  } else if (value && typeof value === 'object' && !Array.isArray(value)) {
+    const dataUrl = typeof value.dataUrl === 'string' ? value.dataUrl : '';
+    const match = dataUrl.match(/^data:([^;,]+);base64,(.*)$/su);
+    contentType = String(value.contentType || (match && match[1]) || '').split(';')[0].trim().toLowerCase();
+    dataBase64 = value.dataBase64 || (match && match[2]);
+  }
+  if (!FOOD_IMAGE_TYPES.has(contentType) || typeof dataBase64 !== 'string') throw httpError(400, 'invalid_food_image');
+  const compact = dataBase64.replace(/\s+/g, '');
+  if (!compact || compact.length % 4 === 1 || !/^[A-Za-z0-9+/]*={0,2}$/u.test(compact)) throw httpError(400, 'invalid_food_image');
+  const bytes = Buffer.from(compact, 'base64');
+  if (!bytes.length) throw httpError(400, 'invalid_food_image');
+  if (bytes.length > settings.maxImageBytes) throw httpError(413, 'food_image_too_large', { maxBytes: settings.maxImageBytes });
+  return { contentType, bytes };
+}
+
+function foodImagesFromBody(body, settings) {
+  const images = body.images || body.photos;
+  if (!Array.isArray(images) || images.length < 1 || images.length > settings.maxImages) {
+    throw httpError(400, 'food_images_required', { minImages: 1, maxImages: settings.maxImages });
+  }
+  const decoded = images.map((item) => decodeFoodImage(item, settings));
+  const total = decoded.reduce((sum, item) => sum + item.bytes.length, 0);
+  if (total > settings.maxTotalBytes) throw httpError(413, 'food_images_too_large', { maxBytes: settings.maxTotalBytes });
+  return decoded;
+}
+
+async function readMultipartFoodImages(req, settings) {
+  const header = String(req.headers['content-type'] || '');
+  const match = header.match(/^multipart\/form-data;\s*boundary=(?:"([^"]+)"|([^;]+))/iu);
+  if (!match) throw httpError(415, 'multipart_content_type_required');
+  const boundary = match[1] || match[2];
+  const maxRequestBytes = settings.maxTotalBytes + settings.maxImages * 4096;
+  const contentLength = Number(req.headers['content-length'] || 0);
+  if (contentLength > maxRequestBytes) throw httpError(413, 'food_images_too_large', { maxBytes: settings.maxTotalBytes });
+  const chunks = [];
+  let total = 0;
+  for await (const chunk of req) {
+    total += chunk.length;
+    if (total > maxRequestBytes) throw httpError(413, 'food_images_too_large', { maxBytes: settings.maxTotalBytes });
+    chunks.push(chunk);
+  }
+  const raw = Buffer.concat(chunks);
+  const delimiter = Buffer.from(`--${boundary}`);
+  const headerDelimiter = Buffer.from('\r\n\r\n');
+  const images = [];
+  let cursor = 0;
+  while (cursor < raw.length) {
+    const marker = raw.indexOf(delimiter, cursor);
+    if (marker < 0) break;
+    let partStart = marker + delimiter.length;
+    if (raw[partStart] === 45 && raw[partStart + 1] === 45) break;
+    if (raw[partStart] === 13 && raw[partStart + 1] === 10) partStart += 2;
+    const contentStart = raw.indexOf(headerDelimiter, partStart);
+    if (contentStart < 0) break;
+    const headerText = raw.subarray(partStart, contentStart).toString('utf8');
+    const contentEnd = raw.indexOf(Buffer.from(`\r\n--${boundary}`), contentStart + headerDelimiter.length);
+    if (contentEnd < 0) break;
+    const dispositionText = headerText.match(/content-disposition:[^\r\n]*/iu)?.[0] || '';
+    const disposition = dispositionText.match(/\bname="([^"]+)"/iu);
+    const filename = dispositionText.match(/\bfilename="([^"]*)"/iu)?.[1] || '';
+    const declaredType = headerText.match(/content-type:\s*([^\r\n;]+)/iu)?.[1]?.trim().toLowerCase() || '';
+    const inferredType = MEDIA_CONTENT_TYPES.get(path.extname(filename).toLowerCase());
+    const type = FOOD_IMAGE_TYPES.has(declaredType) ? declaredType : inferredType;
+    if (disposition?.[1] === 'images' && type && FOOD_IMAGE_TYPES.has(type)) {
+      const bytes = raw.subarray(contentStart + headerDelimiter.length, contentEnd);
+      if (bytes.length > settings.maxImageBytes) throw httpError(413, 'food_image_too_large', { maxBytes: settings.maxImageBytes });
+      images.push({ contentType: type, bytes });
+      if (images.length > settings.maxImages) throw httpError(400, 'food_images_too_many', { maxImages: settings.maxImages });
+    }
+    cursor = contentEnd + 2;
+  }
+  if (!images.length) throw httpError(400, 'food_images_required', { minImages: 1, maxImages: settings.maxImages });
+  const imageBytes = images.reduce((sum, image) => sum + image.bytes.length, 0);
+  if (imageBytes > settings.maxTotalBytes) throw httpError(413, 'food_images_too_large', { maxBytes: settings.maxTotalBytes });
+  if (images.some((image) => !image.bytes.length)) throw httpError(400, 'empty_food_image');
+  return images;
+}
+
+function numberOrNull(value, { min = 0, max = 10000000 } = {}) {
+  const number = Number(value);
+  return Number.isFinite(number) && number >= min && number <= max ? number : null;
+}
+
+function nutritionRange(value, max = 10000000) {
+  let pair = value;
+  if (value && typeof value === 'object' && !Array.isArray(value)) pair = [value.min, value.max];
+  if (!Array.isArray(pair) || pair.length !== 2) return null;
+  const first = numberOrNull(pair[0], { max });
+  const second = numberOrNull(pair[1], { max });
+  if (first === null || second === null) return null;
+  return [Math.min(first, second), Math.max(first, second)];
+}
+
+function nutritionCandidate(item, modelName) {
+  if (!item || typeof item !== 'object' || Array.isArray(item)) return null;
+  const label = String(item.label || item.name || item.foodName || '').trim().slice(0, 160);
+  const confidence = numberOrNull(item.confidence, { min: 0, max: 1 });
+  if (!label || confidence === null) return null;
+  const estimatedGrams = numberOrNull(item.estimatedGrams ?? item.grams ?? item.portionGrams, { max: 100000 });
+  const estimatedCalories = numberOrNull(item.estimatedCalories ?? item.calories ?? item.kcal, { max: 1000000 });
+  const calorieRange = nutritionRange(item.calorieRange || item.caloriesRange, 1000000);
+  const proteinGrams = numberOrNull(item.proteinGrams ?? item.protein ?? item.protein_g, { max: 100000 });
+  const proteinRange = nutritionRange(item.proteinRange, 100000);
+  const carbohydratesGrams = numberOrNull(item.carbohydratesGrams ?? item.carbsGrams ?? item.carbohydrates ?? item.carbs, { max: 100000 });
+  const carbohydratesRange = nutritionRange(item.carbohydratesRange || item.carbsRange, 100000);
+  const fatGrams = numberOrNull(item.fatGrams ?? item.fat ?? item.fat_g, { max: 100000 });
+  const fatRange = nutritionRange(item.fatRange, 100000);
+  const uncertaintyValue = String(item.uncertainty || item.uncertaintyLevel || '').trim().toLowerCase();
+  const uncertainty = ['low', 'medium', 'high'].includes(uncertaintyValue) ? uncertaintyValue : 'unknown';
+  const source = String(item.nutritionSource || item.source || modelName).trim().slice(0, 160) || modelName;
+  return {
+    label,
+    confidence,
+    estimatedGrams,
+    estimatedCalories,
+    calorieRange,
+    proteinGrams,
+    proteinRange,
+    carbohydratesGrams,
+    carbohydratesRange,
+    fatGrams,
+    fatRange,
+    portionDescription: String(item.portionDescription || item.portion || '').trim().slice(0, 160) || null,
+    uncertainty,
+    nutritionSource: source,
+  };
+}
+
+function parseFoodVisionContent(content) {
+  if (content && typeof content === 'object' && !Array.isArray(content)) return content;
+  const text = Array.isArray(content)
+    ? content.map((part) => typeof part === 'string' ? part : String(part?.text || '')).join('')
+    : String(content || '').trim();
+  if (!text) throw httpError(502, 'food_vision_invalid_response');
+  const unfenced = text.replace(/^```(?:json)?\s*/iu, '').replace(/\s*```$/u, '').trim();
+  try { return JSON.parse(unfenced); } catch {
+    const start = unfenced.indexOf('{');
+    const end = unfenced.lastIndexOf('}');
+    if (start < 0 || end <= start) throw httpError(502, 'food_vision_invalid_response');
+    try { return JSON.parse(unfenced.slice(start, end + 1)); } catch { throw httpError(502, 'food_vision_invalid_response'); }
+  }
+}
+
+function normalizeFoodVisionResult(raw, modelName, imageCount) {
+  const source = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+  const sourceItems = Array.isArray(source.items)
+    ? source.items
+    : Array.isArray(source.foods)
+      ? source.foods
+      : Array.isArray(source.candidates)
+        ? source.candidates
+        : [];
+  const items = sourceItems.map((item) => nutritionCandidate(item, modelName)).filter(Boolean).slice(0, 30);
+  const warnings = Array.isArray(source.warnings)
+    ? source.warnings.map((item) => String(item).trim().slice(0, 300)).filter(Boolean).slice(0, 20)
+    : [];
+  warnings.push('视觉识别结果包含估算值，保存前请复核食物和份量。');
+  if (!items.length) warnings.push('当前图片没有识别到可确认的食物。');
+  return {
+    schemaVersion: 'food-photo-v1',
+    status: items.length ? 'completed' : 'insufficient_image',
+    requiresReview: true,
+    imageCount,
+    modelVersion: String(source.modelVersion || source.model || modelName).slice(0, 120),
+    items,
+    warnings: [...new Set(warnings)],
+  };
+}
+
+async function callFoodVision(ctx, images) {
+  const settings = foodVisionSettings(ctx);
+  assertFoodVisionConfigured(settings);
+  const content = [
+    {
+      type: 'text',
+      text: '请识别这些食物照片中的食物，并只返回 JSON。每种食物给出 label、confidence（0 到 1）、estimatedGrams、estimatedCalories、calorieRange、proteinGrams、proteinRange、carbohydratesGrams、carbohydratesRange、fatGrams、fatRange、portionDescription、uncertainty（low/medium/high）和 nutritionSource。无法判断的数字必须为 null，不得猜测；calorieRange 和各营养素范围应为 [下限,上限] 或 null。顶层使用 items 数组和 warnings 数组。所有结果都需要用户复核。',
+    },
+    ...images.map((image) => ({
+      type: 'image_url',
+      image_url: { url: `data:${image.contentType};base64,${image.bytes.toString('base64')}` },
+    })),
+  ];
+  const body = {
+    model: settings.model,
+    messages: [{ role: 'user', content }],
+    temperature: 0.1,
+    max_tokens: 1800,
+    response_format: { type: 'json_object' },
+  };
+  let response;
+  try {
+    response = await fetch(foodVisionUrl(settings), {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${settings.apiKey}` },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(settings.timeoutSeconds * 1000),
+    });
+  } catch (error) {
+    if (error?.name === 'AbortError' || error?.name === 'TimeoutError') throw httpError(504, 'food_vision_timeout');
+    throw httpError(502, 'food_vision_unavailable');
+  }
+  const responseText = await response.text();
+  if (!response.ok) throw httpError(response.status === 429 ? 503 : 502, 'food_vision_upstream_error', { upstreamStatus: response.status });
+  let payload;
+  try { payload = JSON.parse(responseText); } catch { throw httpError(502, 'food_vision_invalid_response'); }
+  const message = payload?.choices?.[0]?.message?.content ?? payload?.output_text ?? payload;
+  const rawResult = parseFoodVisionContent(message);
+  return normalizeFoodVisionResult(rawResult, settings.model, images.length);
+}
+
+function parseFoodResult(value) {
+  if (!value) return null;
+  try { return typeof value === 'string' ? JSON.parse(value) : value; } catch { return null; }
+}
+
+function publicFoodJob(row, db, cfg) {
+  const images = db.prepare('SELECT id, position, content_type, byte_size, uploaded_at FROM nutrition_recognition_images WHERE job_id = ? ORDER BY position').all(row.id);
+  return {
+    id: row.id,
+    status: row.status,
+    imageCount: images.length,
+    images: images.map((image) => ({ id: image.id, position: Number(image.position), contentType: image.content_type === 'application/octet-stream' ? null : image.content_type, bytes: Number(image.byte_size), uploaded: Boolean(image.uploaded_at) })),
+    modelVersion: row.model_version,
+    result: parseFoodResult(row.result_json),
+    error: row.error_code,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    completedAt: row.completed_at,
+  };
+}
+
+function foodJobForUser(db, id, userId) {
+  const row = db.prepare('SELECT * FROM nutrition_recognition_jobs WHERE id = ? AND user_id = ?').get(id, userId);
+  if (!row) throw httpError(404, 'food_recognition_not_found');
+  return row;
+}
+
+function createFoodJob(db, userId, imageCount) {
+  const id = randomId('food_job_');
+  const stamp = nowIso();
+  transaction(db, () => {
+    db.prepare(`INSERT INTO nutrition_recognition_jobs (id, user_id, status, result_json, error_code, model_version, created_at, updated_at, completed_at)
+      VALUES (?, ?, 'created', NULL, NULL, NULL, ?, ?, NULL)`).run(id, userId, stamp, stamp);
+    const insert = db.prepare(`INSERT INTO nutrition_recognition_images (id, job_id, position, storage_key, content_type, byte_size, created_at, uploaded_at)
+      VALUES (?, ?, ?, '', 'application/octet-stream', 0, ?, NULL)`);
+    for (let position = 0; position < imageCount; position += 1) insert.run(randomId('food_img_'), id, position, stamp);
+  });
+  return db.prepare('SELECT * FROM nutrition_recognition_jobs WHERE id = ?').get(id);
+}
+
+async function processFoodJob(ctx, jobId, userId) {
+  const current = foodJobForUser(ctx.db, jobId, userId);
+  if (current.status !== 'ready') throw httpError(409, 'food_images_not_ready', { status: current.status });
+  const changed = ctx.db.prepare("UPDATE nutrition_recognition_jobs SET status = 'processing', error_code = NULL, updated_at = ? WHERE id = ? AND user_id = ? AND status = 'ready'").run(nowIso(), jobId, userId);
+  if (changed.changes !== 1) throw httpError(409, 'food_recognition_in_progress');
+  const images = ctx.db.prepare('SELECT * FROM nutrition_recognition_images WHERE job_id = ? ORDER BY position').all(jobId);
+  try {
+    const buffers = await Promise.all(images.map(async (image) => ({ contentType: image.content_type, bytes: await fs.promises.readFile(ctx.storage.resolve(image.storage_key)) })));
+    const result = await callFoodVision(ctx, buffers);
+    const stamp = nowIso();
+    ctx.db.prepare(`UPDATE nutrition_recognition_jobs SET status = ?, result_json = ?, model_version = ?, error_code = NULL, completed_at = ?, updated_at = ? WHERE id = ? AND status = 'processing'`)
+      .run(result.status, JSON.stringify(result), result.modelVersion, stamp, stamp, jobId);
+  } catch (error) {
+    const code = error?.code || 'food_vision_unavailable';
+    ctx.db.prepare("UPDATE nutrition_recognition_jobs SET status = 'failed', error_code = ?, completed_at = ?, updated_at = ? WHERE id = ? AND status = 'processing'")
+      .run(code, nowIso(), nowIso(), jobId);
+    throw error;
+  }
+  return publicFoodJob(ctx.db.prepare('SELECT * FROM nutrition_recognition_jobs WHERE id = ?').get(jobId), ctx.db, ctx.cfg);
+}
+
+async function attachFoodImages(ctx, jobId, userId, decodedImages) {
+  const rows = ctx.db.prepare('SELECT * FROM nutrition_recognition_images WHERE job_id = ? ORDER BY position').all(jobId);
+  if (rows.length !== decodedImages.length) throw httpError(409, 'food_image_count_mismatch');
+  try {
+    for (let index = 0; index < rows.length; index += 1) {
+      const row = rows[index];
+      const image = decodedImages[index];
+      const key = `food/${userId}/${jobId}/${row.id}${extensionForType.get(image.contentType) || '.bin'}`;
+      await ctx.storage.putBuffer(key, image.bytes, { maxBytes: foodVisionSettings(ctx).maxImageBytes });
+      ctx.db.prepare(`UPDATE nutrition_recognition_images SET storage_key = ?, content_type = ?, byte_size = ?, uploaded_at = ? WHERE id = ? AND job_id = ?`)
+        .run(key, image.contentType, image.bytes.length, nowIso(), row.id, jobId);
+    }
+    ctx.db.prepare("UPDATE nutrition_recognition_jobs SET status = 'ready', updated_at = ? WHERE id = ? AND user_id = ? AND status IN ('created', 'uploading')")
+      .run(nowIso(), jobId, userId);
+  } catch (error) {
+    ctx.db.prepare("UPDATE nutrition_recognition_jobs SET status = 'failed', error_code = ?, completed_at = ?, updated_at = ? WHERE id = ? AND user_id = ? AND status NOT IN ('completed', 'failed', 'cancelled')")
+      .run(error?.code || 'food_image_upload_failed', nowIso(), nowIso(), jobId, userId);
+    throw error;
+  }
 }
 
 function entitlementFor(db, userId) {
@@ -1431,7 +1981,10 @@ async function handleRequest(req, res, ctx) {
       const id = randomId('usr_'); const hp = hashPassword(password); const stamp = nowIso();
       ctx.db.prepare(`INSERT INTO users (id, identifier, display_name, role, auth_provider, password_salt, password_hash, created_at)
         VALUES (?, ?, ?, 'user', 'password', ?, ?, ?)`).run(id, identifier, displayName, hp.salt, hp.hash, stamp);
-      ensureEntitlement(ctx.db, id); return ctx.db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+      ensureEntitlement(ctx.db, id);
+      const user = ctx.db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+      syncAccountPhoneIdentity(ctx.db, user);
+      return user;
     });
     const session = createSession(ctx.db, ctx.cfg, created.id);
     writeJson(res, 201, { user: publicUser(created), session }, req, ctx.cfg); return;
@@ -1445,6 +1998,7 @@ async function handleRequest(req, res, ctx) {
     const user = ctx.db.prepare("SELECT * FROM users WHERE identifier = ? AND auth_provider = 'password'").get(identifier);
     if (!user || !verifyPassword(password, user.password_salt, user.password_hash)) throw httpError(401, 'invalid_credentials');
     ensureEntitlement(ctx.db, user.id);
+    syncAccountPhoneIdentity(ctx.db, user);
     const session = createSession(ctx.db, ctx.cfg, user.id);
     writeJson(res, 200, { user: publicUser(user), session }, req, ctx.cfg); return;
   }
@@ -1461,6 +2015,22 @@ async function handleRequest(req, res, ctx) {
         .run(id, identifier, String(claims.email || identifier).slice(0, 120), provider, subject, stamp);
       ensureEntitlement(ctx.db, id); user = ctx.db.prepare('SELECT * FROM users WHERE id = ?').get(id);
     }
+    const email = normalizeEmail(claims.email);
+    const emailVerified = claims.email_verified === true || claims.email_verified === 'true';
+    if (email && emailVerified) {
+      const identityResult = putUserIdentity(ctx.db, {
+        userId: user.id,
+        kind: 'email',
+        normalizedValue: email,
+        displayValue: email,
+        source: provider,
+        verifiedAt: nowIso(),
+        searchable: true,
+      });
+      if (identityResult.status === 'conflict') {
+        audit(ctx.db, user.id, `${provider}_email_identity_conflict`, user.id, { existingUserId: identityResult.identity.user_id });
+      }
+    }
     const session = createSession(ctx.db, ctx.cfg, user.id);
     writeJson(res, 200, { user: publicUser(user), session }, req, ctx.cfg); return;
   }
@@ -1470,6 +2040,33 @@ async function handleRequest(req, res, ctx) {
     const token = bearer(req);
     ctx.db.prepare('DELETE FROM sessions WHERE id = ? AND user_id = ?').run(user.session_id, user.id);
     writeJson(res, 200, { loggedOut: true }, req, ctx.cfg); return;
+  }
+
+  if (req.method === 'GET' && url.pathname === '/v1/me/identities') {
+    const user = authenticate(req, ctx);
+    const identities = ctx.db.prepare('SELECT * FROM user_identities WHERE user_id = ? ORDER BY kind')
+      .all(user.id)
+      .map(publicIdentity);
+    writeJson(res, 200, { identities }, req, ctx.cfg); return;
+  }
+  if (req.method === 'PUT' && url.pathname === '/v1/me/username') {
+    const user = authenticate(req, ctx);
+    const body = await readBody(req, ctx.cfg.maxJsonBytes);
+    const rawUsername = requireString(body.username, 'username_required', 80);
+    const username = normalizeUsername(rawUsername);
+    if (!username) throw httpError(400, 'invalid_username');
+    const result = putUserIdentity(ctx.db, {
+      userId: user.id,
+      kind: 'username',
+      normalizedValue: username,
+      displayValue: rawUsername.normalize('NFKC').trim(),
+      source: 'user',
+      verifiedAt: nowIso(),
+      searchable: true,
+      replaceForUser: true,
+    });
+    if (result.status === 'conflict') throw httpError(409, 'username_taken');
+    writeJson(res, 200, { identity: publicIdentity(result.identity) }, req, ctx.cfg); return;
   }
 
   if (req.method === 'GET' && url.pathname === '/v1/me/entitlements') {
@@ -1686,6 +2283,7 @@ async function handleRequest(req, res, ctx) {
         VALUES (?, ?, ?, 'user', 'password', ?, ?, ?)`)
         .run(id, identifier, displayName, hp.salt, hp.hash, stamp);
       ensureEntitlement(ctx.db, id);
+      syncAccountPhoneIdentity(ctx.db, ctx.db.prepare('SELECT * FROM users WHERE id = ?').get(id));
       const entitlement = membershipPlan
         ? grantMembership(ctx.db, id, membershipPlan)
         : publicEntitlement(ensureEntitlement(ctx.db, id));
@@ -1707,32 +2305,81 @@ async function handleRequest(req, res, ctx) {
     writeJson(res, 201, { code, plan }, req, ctx.cfg); return;
   }
 
+  if (req.method === 'POST' && url.pathname === '/v1/friends/search') {
+    const user = authenticate(req, ctx);
+    enforceFriendSearchRateLimit(ctx, user, req);
+    const body = await readBody(req, ctx.cfg.maxJsonBytes);
+    const query = requireString(body.query, 'friend_search_required', 128);
+    const search = friendSearchKind(query);
+    const verificationClause = search.kind === 'phone'
+      ? "AND (matched.source = 'account' OR matched.verified_at IS NOT NULL)"
+      : search.kind === 'email'
+        ? 'AND matched.verified_at IS NOT NULL'
+        : '';
+    const valueClause = search.prefix
+      ? 'AND matched.normalized_value >= ? AND matched.normalized_value < ?'
+      : 'AND matched.normalized_value = ?';
+    const sql = `SELECT matched.*, u.display_name,
+      (SELECT display_value FROM user_identities username
+        WHERE username.user_id = u.id AND username.kind = 'username' AND username.searchable = 1) AS username
+      FROM user_identities matched JOIN users u ON u.id = matched.user_id
+      WHERE matched.kind = ? AND matched.searchable = 1 AND matched.user_id <> ?
+        ${verificationClause} ${valueClause}
+      ORDER BY CASE WHEN matched.normalized_value = ? THEN 0 ELSE 1 END,
+        matched.normalized_value, u.id LIMIT 20`;
+    const parameters = search.prefix
+      ? [search.kind, user.id, search.normalized, `${search.normalized}\uffff`, search.normalized]
+      : [search.kind, user.id, search.normalized, search.normalized];
+    const results = ctx.db.prepare(sql).all(...parameters).map((row) => ({
+      id: row.user_id,
+      displayName: row.display_name,
+      username: row.username || null,
+      matchType: row.kind,
+      maskedMatch: maskUserIdentity(row.kind, row.display_value),
+      relationshipStatus: friendRelationship(ctx.db, user.id, row.user_id),
+    }));
+    writeJson(res, 200, { results }, req, ctx.cfg); return;
+  }
   if (req.method === 'GET' && url.pathname === '/v1/friends') {
     const user = authenticate(req, ctx);
-    const friends = ctx.db.prepare(`SELECT fr.updated_at, u.id, u.identifier, u.display_name
+    const friends = ctx.db.prepare(`SELECT fr.updated_at, u.id, u.identifier, u.display_name,
+      (SELECT display_value FROM user_identities identity
+        WHERE identity.user_id = u.id AND identity.kind = 'username' AND identity.searchable = 1) AS username
       FROM friend_requests fr JOIN users u
       ON u.id = CASE WHEN fr.sender_user_id = ? THEN fr.receiver_user_id ELSE fr.sender_user_id END
       WHERE (fr.sender_user_id = ? OR fr.receiver_user_id = ?) AND fr.status = 'accepted'
       ORDER BY fr.updated_at DESC`).all(user.id, user.id, user.id);
     const pending = ctx.db.prepare(`SELECT fr.id AS request_id, fr.created_at,
-      u.id, u.identifier, u.display_name FROM friend_requests fr
+      u.id, u.identifier, u.display_name,
+      (SELECT display_value FROM user_identities identity
+        WHERE identity.user_id = u.id AND identity.kind = 'username' AND identity.searchable = 1) AS username
+      FROM friend_requests fr
       JOIN users u ON u.id = fr.sender_user_id
       WHERE fr.receiver_user_id = ? AND fr.status = 'pending' ORDER BY fr.created_at DESC`).all(user.id);
     writeJson(res, 200, {
-      friends: friends.map((row) => ({ id: row.id, identifier: row.identifier, displayName: row.display_name, since: row.updated_at })),
-      pending: pending.map((row) => ({ requestId: row.request_id, id: row.id, identifier: row.identifier, displayName: row.display_name, createdAt: row.created_at })),
+      friends: friends.map((row) => ({ id: row.id, identifier: row.identifier, displayName: row.display_name, username: row.username || null, since: row.updated_at })),
+      pending: pending.map((row) => ({ requestId: row.request_id, id: row.id, identifier: row.identifier, displayName: row.display_name, username: row.username || null, createdAt: row.created_at })),
     }, req, ctx.cfg); return;
   }
   if (req.method === 'POST' && url.pathname === '/v1/friends/requests') {
     const user = authenticate(req, ctx); const body = await readBody(req, ctx.cfg.maxJsonBytes);
-    const identifier = requireString(body.identifier, 'identifier_required', 256);
-    const target = ctx.db.prepare('SELECT * FROM users WHERE identifier = ?').get(identifier);
+    const hasTargetUserId = typeof body.targetUserId === 'string' && body.targetUserId.trim();
+    const hasIdentifier = typeof body.identifier === 'string' && body.identifier.trim();
+    if (hasTargetUserId && hasIdentifier) throw httpError(400, 'ambiguous_friend_target');
+    if (!hasTargetUserId && !hasIdentifier) throw httpError(400, 'friend_target_required');
+    const target = hasTargetUserId
+      ? ctx.db.prepare('SELECT * FROM users WHERE id = ?').get(String(body.targetUserId).trim())
+      : ctx.db.prepare('SELECT * FROM users WHERE identifier = ?').get(String(body.identifier).trim());
     if (!target) throw httpError(404, 'friend_not_found');
     if (target.id === user.id) throw httpError(400, 'cannot_friend_self');
     const pairKey = friendPairKey(user.id, target.id);
     const existing = ctx.db.prepare('SELECT * FROM friend_requests WHERE pair_key = ?').get(pairKey);
     if (existing?.status === 'accepted') throw httpError(409, 'already_friends');
-    if (existing?.status === 'pending') throw httpError(409, 'friend_request_pending');
+    if (existing?.status === 'pending') {
+      throw httpError(409, existing.sender_user_id === user.id
+        ? 'friend_request_pending'
+        : 'incoming_friend_request_pending');
+    }
     const stamp = nowIso(); const id = existing?.id || randomId('frq_');
     ctx.db.prepare(`INSERT INTO friend_requests
       (id, pair_key, sender_user_id, receiver_user_id, status, created_at, updated_at)
@@ -1751,6 +2398,92 @@ async function handleRequest(req, res, ctx) {
     ctx.db.prepare("UPDATE friend_requests SET status = 'accepted', updated_at = ? WHERE id = ?").run(nowIso(), request.id);
     writeJson(res, 200, { request: { id: request.id, status: 'accepted' } }, req, ctx.cfg); return;
   }
+
+  if (req.method === 'POST' && url.pathname === '/v1/friends/workouts') {
+    const user = authenticate(req, ctx);
+    const body = await readBody(req, ctx.cfg.maxJsonBytes);
+    const snapshot = workoutSnapshotFromBody(body);
+    if (ctx.db.prepare('SELECT 1 FROM friend_workout_posts WHERE owner_user_id = ? AND source_workout_id = ?').get(user.id, snapshot.sourceWorkoutId)) {
+      throw httpError(409, 'workout_already_published');
+    }
+    const id = randomId('fwp_');
+    const stamp = nowIso();
+    try {
+      ctx.db.prepare(`INSERT INTO friend_workout_posts
+        (id, owner_user_id, source_workout_id, name, started_at, completed_at,
+         duration_seconds, volume_kg, effective_sets, completion_rate, exercises_json,
+         caption, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+        .run(id, user.id, snapshot.sourceWorkoutId, snapshot.name, snapshot.startedAt, snapshot.completedAt,
+          snapshot.durationSeconds, snapshot.volumeKg, snapshot.effectiveSets, snapshot.completionRate,
+          JSON.stringify(snapshot.exercises), snapshot.caption, stamp, stamp);
+    } catch (error) {
+      if (String(error?.message || '').includes('UNIQUE')) throw httpError(409, 'workout_already_published');
+      throw error;
+    }
+    writeJson(res, 201, { post: workoutPostForViewer(ctx.db, id, user.id) }, req, ctx.cfg); return;
+  }
+  const friendWorkoutCommentListMatch = url.pathname.match(/^\/v1\/friends\/workouts\/([^/]+)\/comments$/);
+  if (friendWorkoutCommentListMatch && req.method === 'GET') {
+    const user = authenticate(req, ctx);
+    const post = workoutPostForViewer(ctx.db, decodeURIComponent(friendWorkoutCommentListMatch[1]), user.id, { includeComments: true });
+    writeJson(res, 200, { postId: post.id, comments: post.comments }, req, ctx.cfg); return;
+  }
+  if (friendWorkoutCommentListMatch && req.method === 'POST') {
+    const user = authenticate(req, ctx);
+    const postId = decodeURIComponent(friendWorkoutCommentListMatch[1]);
+    workoutPostForViewer(ctx.db, postId, user.id);
+    const body = await readBody(req, ctx.cfg.maxJsonBytes);
+    if (body.text !== undefined || body.content !== undefined || body.comment !== undefined) throw httpError(400, 'emoji_only_comment');
+    const emoji = requireString(body.emoji, 'emoji_required', 16);
+    if (!FRIEND_WORKOUT_EMOJIS.has(emoji)) throw httpError(400, 'invalid_workout_emoji');
+    const id = randomId('fwc_');
+    const stamp = nowIso();
+    ctx.db.prepare('INSERT INTO friend_workout_post_comments (id, post_id, user_id, emoji, created_at) VALUES (?, ?, ?, ?, ?)')
+      .run(id, postId, user.id, emoji, stamp);
+    const count = ctx.db.prepare('SELECT COUNT(*) AS count FROM friend_workout_post_comments WHERE post_id = ?').get(postId).count;
+    writeJson(res, 201, { comment: { id, postId, userId: user.id, emoji, createdAt: stamp }, commentCount: Number(count) }, req, ctx.cfg); return;
+  }
+  const friendWorkoutLikeMatch = url.pathname.match(/^\/v1\/friends\/workouts\/([^/]+)\/(?:likes?|like)$/);
+  if (friendWorkoutLikeMatch && (req.method === 'POST' || req.method === 'DELETE')) {
+    const user = authenticate(req, ctx);
+    const postId = decodeURIComponent(friendWorkoutLikeMatch[1]);
+    workoutPostForViewer(ctx.db, postId, user.id);
+    const toggle = url.pathname.endsWith('/like');
+    let liked = req.method === 'POST';
+    if (req.method === 'POST') {
+      if (toggle && ctx.db.prepare('SELECT 1 FROM friend_workout_post_likes WHERE post_id = ? AND user_id = ?').get(postId, user.id)) {
+        ctx.db.prepare('DELETE FROM friend_workout_post_likes WHERE post_id = ? AND user_id = ?').run(postId, user.id);
+        liked = false;
+      } else {
+        ctx.db.prepare('INSERT OR IGNORE INTO friend_workout_post_likes (post_id, user_id, created_at) VALUES (?, ?, ?)')
+          .run(postId, user.id, nowIso());
+      }
+    } else {
+      ctx.db.prepare('DELETE FROM friend_workout_post_likes WHERE post_id = ? AND user_id = ?').run(postId, user.id);
+      liked = false;
+    }
+    const count = ctx.db.prepare('SELECT COUNT(*) AS count FROM friend_workout_post_likes WHERE post_id = ?').get(postId).count;
+    writeJson(res, 200, { postId, liked, likeCount: Number(count) }, req, ctx.cfg); return;
+  }
+  const friendWorkoutPostMatch = url.pathname.match(/^\/v1\/friends\/workouts\/([^/]+)$/);
+  if (friendWorkoutPostMatch && req.method === 'GET') {
+    const user = authenticate(req, ctx);
+    writeJson(res, 200, { post: workoutPostForViewer(ctx.db, decodeURIComponent(friendWorkoutPostMatch[1]), user.id, { includeComments: true }) }, req, ctx.cfg); return;
+  }
+  if (friendWorkoutPostMatch && req.method === 'DELETE') {
+    const user = authenticate(req, ctx);
+    const postId = decodeURIComponent(friendWorkoutPostMatch[1]);
+    const post = ctx.db.prepare('SELECT id, owner_user_id FROM friend_workout_posts WHERE id = ?').get(postId);
+    if (!post || post.owner_user_id !== user.id) throw httpError(404, 'workout_post_not_found');
+    ctx.db.prepare('DELETE FROM friend_workout_posts WHERE id = ? AND owner_user_id = ?').run(postId, user.id);
+    writeJson(res, 200, { id: postId, deleted: true }, req, ctx.cfg); return;
+  }
+  if (req.method === 'GET' && url.pathname === '/v1/friends/workouts') {
+    const user = authenticate(req, ctx);
+    const rows = workoutPostRowsForViewer(ctx.db, user.id);
+    writeJson(res, 200, { workouts: rows.map((row) => publicWorkoutPost(row, ctx.db, user.id)) }, req, ctx.cfg); return;
+  }
   if (req.method === 'GET' && url.pathname === '/v1/friends/feed') {
     const user = authenticate(req, ctx);
     const rows = ctx.db.prepare(`SELECT s.*, u.display_name, u.identifier,
@@ -1761,10 +2494,13 @@ async function handleRequest(req, res, ctx) {
         WHERE fr.pair_key=CASE WHEN s.owner_user_id < ? THEN s.owner_user_id||':'||? ELSE ?||':'||s.owner_user_id END
         AND fr.status='accepted') ORDER BY s.updated_at DESC LIMIT 100`)
       .all(user.id, user.id, user.id, user.id, user.id);
+    const workoutRows = workoutPostRowsForViewer(ctx.db, user.id);
     writeJson(res, 200, { plans: rows.map((row) => ({ id: row.id, ownerId: row.owner_user_id,
       ownerName: row.display_name, ownerIdentifier: row.identifier, name: row.name,
       plan: JSON.parse(row.payload_json), reactionCount: Number(row.reaction_count),
-      myReaction: row.my_reaction, updatedAt: row.updated_at })) }, req, ctx.cfg); return;
+      myReaction: row.my_reaction, updatedAt: row.updated_at })),
+      workouts: workoutRows.map((row) => publicWorkoutPost(row, ctx.db, user.id)),
+    }, req, ctx.cfg); return;
   }
   if (req.method === 'POST' && url.pathname === '/v1/friends/plans') {
     const user = authenticate(req, ctx); const body = await readBody(req, ctx.cfg.maxJsonBytes);
@@ -2100,6 +2836,110 @@ ${languageInstruction}
     const user = authenticate(req, ctx); const body = await readBody(req, ctx.cfg.maxJsonBytes); const platform = requireString(body.platform, 'platform_required', 20); const token = requireString(body.token, 'token_required', 2048); if (!['ios', 'android'].includes(platform)) throw httpError(400, 'invalid_platform'); const tokenHash = sha256(token, ctx.cfg.sessionPepper); ctx.db.prepare(`INSERT INTO push_tokens (user_id, platform, token_hash, token, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(user_id, token_hash) DO UPDATE SET platform=excluded.platform, token=excluded.token, updated_at=excluded.updated_at`).run(user.id, platform, tokenHash, token, nowIso()); writeJson(res, 200, { registered: true, platform }, req, ctx.cfg); return;
   }
 
+  // Food recognition uses the configured OpenAI-compatible vision service.
+  // The streamed job form is the production path for multiple full-size
+  // photos; the JSON form is useful for small clients and deterministic tests.
+  if (req.method === 'POST' && ['/v1/nutrition/recognitions', '/v1/nutrition/photo-recognition', '/v1/food/recognition'].includes(url.pathname)) {
+    const user = authenticate(req, ctx);
+    const settings = foodVisionSettings(ctx);
+    assertFoodVisionConfigured(settings);
+    const contentType = String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
+    const decoded = contentType === 'multipart/form-data'
+      ? await readMultipartFoodImages(req, settings)
+      : foodImagesFromBody(await readBody(req, Math.max(ctx.cfg.maxJsonBytes, Math.ceil(settings.maxTotalBytes * 1.5))), settings);
+    const job = createFoodJob(ctx.db, user.id, decoded.length);
+    await attachFoodImages(ctx, job.id, user.id, decoded);
+    const result = await processFoodJob(ctx, job.id, user.id);
+    const candidateResult = result.result || {};
+    writeJson(res, 200, {
+      ...result,
+      ...candidateResult,
+      result: candidateResult,
+      jobId: result.id,
+      imageCount: result.imageCount,
+    }, req, ctx.cfg);
+    return;
+  }
+  if (req.method === 'POST' && url.pathname === '/v1/nutrition/jobs') {
+    const user = authenticate(req, ctx);
+    const settings = foodVisionSettings(ctx);
+    assertFoodVisionConfigured(settings);
+    const body = await readBody(req, ctx.cfg.maxJsonBytes);
+    const imageCount = optionalFiniteNumber(body.imageCount ?? body.count, 'invalid_food_image_count', { min: 1, max: settings.maxImages, integer: true });
+    if (imageCount === null) throw httpError(400, 'food_image_count_required', { minImages: 1, maxImages: settings.maxImages });
+    const job = createFoodJob(ctx.db, user.id, imageCount);
+    const images = ctx.db.prepare('SELECT id, position FROM nutrition_recognition_images WHERE job_id = ? ORDER BY position').all(job.id);
+    writeJson(res, 202, {
+      ...publicFoodJob(job, ctx.db, ctx.cfg),
+      uploads: images.map((image) => ({
+        imageId: image.id,
+        position: Number(image.position),
+        method: 'PUT',
+        url: `${ctx.cfg.publicBaseUrl}/v1/nutrition/jobs/${encodeURIComponent(job.id)}/images/${encodeURIComponent(image.id)}`,
+        maxBytes: settings.maxImageBytes,
+      })),
+    }, req, ctx.cfg); return;
+  }
+  const foodJobImageMatch = url.pathname.match(/^\/v1\/nutrition\/jobs\/([^/]+)\/images\/([^/]+)$/);
+  if (foodJobImageMatch && (req.method === 'PUT' || req.method === 'POST')) {
+    const user = authenticate(req, ctx);
+    const settings = foodVisionSettings(ctx);
+    assertFoodVisionConfigured(settings);
+    const jobId = decodeURIComponent(foodJobImageMatch[1]);
+    const imageId = decodeURIComponent(foodJobImageMatch[2]);
+    const job = foodJobForUser(ctx.db, jobId, user.id);
+    if (!['created', 'uploading'].includes(job.status)) throw httpError(409, 'invalid_food_job_state', { status: job.status });
+    const image = ctx.db.prepare('SELECT * FROM nutrition_recognition_images WHERE id = ? AND job_id = ?').get(imageId, jobId);
+    if (!image) throw httpError(404, 'food_image_not_found');
+    const contentType = String(req.headers['content-type'] || '').split(';')[0].toLowerCase();
+    if (!FOOD_IMAGE_TYPES.has(contentType)) throw httpError(415, 'unsupported_food_image_type');
+    const contentLength = Number(req.headers['content-length'] || 0);
+    if (contentLength > settings.maxImageBytes) throw httpError(413, 'food_image_too_large', { maxBytes: settings.maxImageBytes });
+    const key = `food/${user.id}/${jobId}/${imageId}_${randomToken().slice(0, 10)}${extensionForType.get(contentType) || '.bin'}`;
+    const previous = { ...image };
+    try {
+      await ctx.storage.putStream(key, req, { maxBytes: settings.maxImageBytes });
+    } catch (error) {
+      if (error?.code === 'upload_too_large') throw httpError(413, 'food_image_too_large', { maxBytes: settings.maxImageBytes });
+      throw httpError(500, 'food_image_upload_failed');
+    }
+    const stamp = nowIso();
+    const bytes = ctx.storage.stat(key).size;
+    if (!bytes) {
+      await ctx.storage.remove(key);
+      throw httpError(400, 'empty_food_image');
+    }
+    ctx.db.prepare(`UPDATE nutrition_recognition_images SET storage_key = ?, content_type = ?, byte_size = ?, uploaded_at = ? WHERE id = ? AND job_id = ?`)
+      .run(key, contentType, bytes, stamp, imageId, jobId);
+    const uploaded = ctx.db.prepare('SELECT COUNT(*) AS count FROM nutrition_recognition_images WHERE job_id = ? AND uploaded_at IS NOT NULL').get(jobId).count;
+    const total = ctx.db.prepare('SELECT COUNT(*) AS count FROM nutrition_recognition_images WHERE job_id = ?').get(jobId).count;
+    const totalBytes = ctx.db.prepare('SELECT COALESCE(SUM(byte_size), 0) AS bytes FROM nutrition_recognition_images WHERE job_id = ?').get(jobId).bytes;
+    if (Number(totalBytes) > settings.maxTotalBytes) {
+      await ctx.storage.remove(key);
+      ctx.db.prepare(`UPDATE nutrition_recognition_images SET storage_key = ?, content_type = ?, byte_size = ?, uploaded_at = ? WHERE id = ? AND job_id = ?`)
+        .run(previous.storage_key, previous.content_type, previous.byte_size, previous.uploaded_at, imageId, jobId);
+      throw httpError(413, 'food_images_too_large', { maxBytes: settings.maxTotalBytes });
+    }
+    if (previous.storage_key && previous.storage_key !== key) {
+      try { await ctx.storage.remove(previous.storage_key); } catch { /* stale replacement media is harmless */ }
+    }
+    ctx.db.prepare("UPDATE nutrition_recognition_jobs SET status = ?, updated_at = ? WHERE id = ? AND user_id = ? AND status IN ('created', 'uploading')")
+      .run(Number(uploaded) === Number(total) ? 'ready' : 'uploading', stamp, jobId, user.id);
+    writeJson(res, 200, publicFoodJob(foodJobForUser(ctx.db, jobId, user.id), ctx.db, ctx.cfg), req, ctx.cfg); return;
+  }
+  const foodJobAnalyzeMatch = url.pathname.match(/^\/v1\/nutrition\/jobs\/([^/]+)\/analyze$/);
+  if (foodJobAnalyzeMatch && req.method === 'POST') {
+    const user = authenticate(req, ctx);
+    const result = await processFoodJob(ctx, decodeURIComponent(foodJobAnalyzeMatch[1]), user.id);
+    writeJson(res, 200, result, req, ctx.cfg); return;
+  }
+  const foodJobMatch = url.pathname.match(/^\/v1\/nutrition\/(?:jobs|recognitions)\/([^/]+)$/);
+  if (foodJobMatch && req.method === 'GET') {
+    const user = authenticate(req, ctx);
+    const job = foodJobForUser(ctx.db, decodeURIComponent(foodJobMatch[1]), user.id);
+    writeJson(res, 200, publicFoodJob(job, ctx.db, ctx.cfg), req, ctx.cfg); return;
+  }
+
   // Recognition service: user-facing job creation, upload and result.
   if (req.method === 'POST' && ['/v1/analysis/jobs', '/v1/recognition/jobs'].includes(url.pathname)) {
     const user = authenticate(req, ctx); const body = await readBody(req, ctx.cfg.maxJsonBytes); const exerciseId = requireString(body.exerciseId, 'exercise_id_required', 200); const camera = requireString(body.camera, 'camera_required', 100); const includeOverlay = body.includeOverlay === true; if (!RECOGNITION_EXERCISE_IDS.has(exerciseId)) throw httpError(400, 'recognition_exercise_unsupported'); if (!RECOGNITION_CAMERAS.get(exerciseId)?.has(camera)) throw httpError(400, 'recognition_camera_unsupported'); const id = randomId('job_'); const quotaRequestId = `recognition:${id}`; const uploadToken = randomToken(); const stamp = nowIso(); const uploadExpiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
@@ -2236,7 +3076,7 @@ export function createApp(options = {}) {
   fs.mkdirSync(cfg.dataDir, { recursive: true }); fs.mkdirSync(cfg.mediaDir, { recursive: true });
   const db = options.db || openDatabase(cfg.databasePath); const storage = options.storage || new LocalStorage(cfg.mediaDir, { maxBytes: cfg.maxUploadBytes }); seedTestMember(db, cfg); seedTestAdmin(db, cfg);
   const aiGate = options.aiGate || new ConcurrencyGate({ limit: cfg.aiMaxConcurrency, queueLimit: cfg.aiQueueLimit });
-  const ctx = { cfg, db, storage, aiGate };
+  const ctx = { cfg, db, storage, aiGate, friendSearchWindows: new Map() };
   const server = createServer((req, res) => handleRequest(req, res, ctx).catch((error) => writeError(res, error, req, cfg)));
   server.context = ctx;
   server.closeGracefully = async () => { await new Promise((resolve) => server.close(resolve)); closeDatabase(db); };

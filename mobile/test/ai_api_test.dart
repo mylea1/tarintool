@@ -6,6 +6,42 @@ import 'package:http/testing.dart';
 import 'package:kilo_strength/ai_api.dart';
 
 void main() {
+  test('friend discovery uses masked search and stable target user IDs', () async {
+    final seen = <String, Map<String, dynamic>>{};
+    final client = MockClient((request) async {
+      if (request.url.path == '/v1/auth/phone/login') {
+        return http.Response(
+          jsonEncode({
+            'session': {'token': 'friend-session'},
+          }),
+          200,
+        );
+      }
+      if (request.body.isNotEmpty) {
+        seen[request.url.path] = Map<String, dynamic>.from(
+          jsonDecode(request.body) as Map,
+        );
+      }
+      expect(request.headers['authorization'], 'Bearer friend-session');
+      return http.Response(jsonEncode(<String, dynamic>{}), 200);
+    });
+    final api = HttpCoachApi(
+      baseUrl: 'https://api.example.test',
+      client: client,
+    );
+    await api.signIn(identifier: '13800138000', password: '1234');
+
+    await api.updateFriendUsername('lifting_小林');
+    await api.searchFriends('13800138001');
+    await api.sendFriendRequestToUser('usr_stable_123');
+
+    expect(seen['/v1/me/username'], {'username': 'lifting_小林'});
+    expect(seen['/v1/friends/search'], {'query': '13800138001'});
+    expect(seen['/v1/friends/requests'], {
+      'targetUserId': 'usr_stable_123',
+    });
+  });
+
   test('coach client signs in and forwards bearer token', () async {
     var requestCount = 0;
     final client = MockClient((request) async {

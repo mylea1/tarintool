@@ -52,6 +52,15 @@ void main() {
 
     await tester.pumpWidget(KiloApp(initialController: controller));
     await tester.pumpAndSettle();
+    expect(find.byKey(const Key('previous-notes-bench_press')), findsOneWidget);
+    expect(
+      find.byKey(const Key('previous-exercise-note-bench_press')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('previous-set-note-bench_press-0')),
+      findsOneWidget,
+    );
     final historyButton = find.byKey(
       Key('exercise-history-${controller.workout.single.id}'),
     );
@@ -63,8 +72,8 @@ void main() {
     await tester.tap(historyButton);
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('座椅第 6 档'), findsOneWidget);
-    expect(find.textContaining('最后两次速度变慢'), findsOneWidget);
+    expect(find.textContaining('座椅第 6 档'), findsWidgets);
+    expect(find.textContaining('最后两次速度变慢'), findsWidgets);
     expect(find.textContaining('整次训练右肩状态良好'), findsOneWidget);
     await tester.tap(
       find.byKey(const Key('exercise-history-record-history-notes')),
@@ -74,6 +83,6 @@ void main() {
       find.byKey(const Key('record-detail-history-notes')),
       findsOneWidget,
     );
-    expect(find.textContaining('动作备注 · 座椅第 6 档'), findsOneWidget);
+    expect(find.textContaining('动作备注 · 座椅第 6 档'), findsWidgets);
   });
 }

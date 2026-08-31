@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
@@ -203,6 +204,48 @@ class HttpCoachApi implements CoachApi, AgentCoachApi, StreamingCoachApi {
     return payload;
   }
 
+  Future<Map<String, dynamic>> signInWithApple({
+    required String identityToken,
+  }) async {
+    final response = await _client
+        .post(
+          _endpoint('/v1/auth/apple'),
+          headers: const {'Content-Type': 'application/json'},
+          body: jsonEncode({'identityToken': identityToken}),
+        )
+        .timeout(requestTimeout);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw _coachServerException(
+        response.statusCode,
+        response.body,
+        'coach_apple_auth',
+      );
+    }
+    final payload = jsonDecode(response.body) as Map<String, dynamic>;
+    final session = payload['session'];
+    final token = session is Map<String, dynamic>
+        ? (session['token'] ?? '').toString()
+        : '';
+    final rawUser = payload['user'];
+    final identifier = rawUser is Map
+        ? (rawUser['identifier'] ?? '').toString().trim()
+        : '';
+    if (token.isEmpty) {
+      throw const CoachApiException('coach_auth_token_missing');
+    }
+    if (identifier.isEmpty) {
+      throw const CoachApiException('coach_auth_user_missing');
+    }
+    _remoteSession = RemoteSession(
+      token: token,
+      accountIdentifier: identifier,
+      apiOrigin: baseUrl,
+      expiresAt: _sessionExpiry(session),
+    );
+    _sessionToken = token;
+    return payload;
+  }
+
   Future<Map<String, dynamic>> createManagedUser({
     required String identifier,
     required String password,
@@ -247,6 +290,35 @@ class HttpCoachApi implements CoachApi, AgentCoachApi, StreamingCoachApi {
     return _decodeJsonResponse(response, 'friends_fetch');
   }
 
+  Future<Map<String, dynamic>> fetchFriendIdentities() async {
+    final response = await _client
+        .get(_endpoint('/v1/me/identities'), headers: _authHeaders)
+        .timeout(requestTimeout);
+    return _decodeJsonResponse(response, 'friend_identities_fetch');
+  }
+
+  Future<Map<String, dynamic>> updateFriendUsername(String username) async {
+    final response = await _client
+        .put(
+          _endpoint('/v1/me/username'),
+          headers: _authHeaders,
+          body: jsonEncode({'username': username}),
+        )
+        .timeout(requestTimeout);
+    return _decodeJsonResponse(response, 'friend_username_update');
+  }
+
+  Future<Map<String, dynamic>> searchFriends(String query) async {
+    final response = await _client
+        .post(
+          _endpoint('/v1/friends/search'),
+          headers: _authHeaders,
+          body: jsonEncode({'query': query}),
+        )
+        .timeout(requestTimeout);
+    return _decodeJsonResponse(response, 'friend_search');
+  }
+
   Future<Map<String, dynamic>> fetchFriendPlanFeed() async {
     final response = await _client
         .get(_endpoint('/v1/friends/feed'), headers: _authHeaders)
@@ -260,6 +332,19 @@ class HttpCoachApi implements CoachApi, AgentCoachApi, StreamingCoachApi {
           _endpoint('/v1/friends/requests'),
           headers: _authHeaders,
           body: jsonEncode({'identifier': identifier}),
+        )
+        .timeout(requestTimeout);
+    return _decodeJsonResponse(response, 'friend_request');
+  }
+
+  Future<Map<String, dynamic>> sendFriendRequestToUser(
+    String targetUserId,
+  ) async {
+    final response = await _client
+        .post(
+          _endpoint('/v1/friends/requests'),
+          headers: _authHeaders,
+          body: jsonEncode({'targetUserId': targetUserId}),
         )
         .timeout(requestTimeout);
     return _decodeJsonResponse(response, 'friend_request');
@@ -306,6 +391,87 @@ class HttpCoachApi implements CoachApi, AgentCoachApi, StreamingCoachApi {
         )
         .timeout(requestTimeout);
     return _decodeJsonResponse(response, 'friend_plan_reaction');
+  }
+
+  /// Publishes an explicitly selected completed workout snapshot. The server
+  /// owns visibility and only returns posts visible to the current account.
+  Future<Map<String, dynamic>> publishWorkoutActivity(
+    Map<String, dynamic> snapshot,
+  ) async {
+    final response = await _client
+        .post(
+          _endpoint('/v1/friends/workouts'),
+          headers: _authHeaders,
+          body: jsonEncode(snapshot),
+        )
+        .timeout(requestTimeout);
+    return _decodeJsonResponse(response, 'friend_workout_publish');
+  }
+
+  Future<Map<String, dynamic>> toggleWorkoutActivityLike(String postId) async {
+    final response = await _client
+        .post(
+          _endpoint('/v1/friends/workouts/${Uri.encodeComponent(postId)}/like'),
+          headers: _authHeaders,
+          body: '{}',
+        )
+        .timeout(requestTimeout);
+    return _decodeJsonResponse(response, 'friend_workout_like');
+  }
+
+  Future<Map<String, dynamic>> commentOnWorkoutActivity(
+    String postId,
+    String emoji,
+  ) async {
+    final response = await _client
+        .post(
+          _endpoint(
+            '/v1/friends/workouts/${Uri.encodeComponent(postId)}/comments',
+          ),
+          headers: _authHeaders,
+          body: jsonEncode({'emoji': emoji}),
+        )
+        .timeout(requestTimeout);
+    return _decodeJsonResponse(response, 'friend_workout_comment');
+  }
+
+  Future<Map<String, dynamic>> deleteWorkoutActivity(String postId) async {
+    final response = await _client
+        .delete(
+          _endpoint('/v1/friends/workouts/${Uri.encodeComponent(postId)}'),
+          headers: _authHeaders,
+        )
+        .timeout(requestTimeout);
+    return _decodeJsonResponse(response, 'friend_workout_delete');
+  }
+
+  /// Sends one or more local image files to the server-owned multimodal
+  /// boundary. The result is always a reviewable candidate; this method never
+  /// manufactures nutrition values on-device.
+  Future<Map<String, dynamic>> recognizeFoodPhotos(
+    List<String> imagePaths,
+  ) async {
+    if (imagePaths.isEmpty) {
+      throw const CoachApiException('food_images_required');
+    }
+    final request = http.MultipartRequest(
+      'POST',
+      _endpoint('/v1/food/recognition'),
+    );
+    final headers = Map<String, String>.from(_authHeaders)
+      ..remove('Content-Type');
+    request.headers.addAll(headers);
+    for (final path in imagePaths.take(8)) {
+      final file = File(path);
+      if (!await file.exists()) continue;
+      request.files.add(await http.MultipartFile.fromPath('images', path));
+    }
+    if (request.files.isEmpty) {
+      throw const CoachApiException('food_images_unreadable');
+    }
+    final streamed = await request.send().timeout(requestTimeout);
+    final response = await http.Response.fromStream(streamed);
+    return _decodeJsonResponse(response, 'food_recognition');
   }
 
   void clearSession() {

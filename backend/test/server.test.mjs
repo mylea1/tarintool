@@ -204,6 +204,323 @@ test('friends can accept requests, react and copy only explicitly shared plan sn
   assert.equal(reaction.body.reactionCount, 1);
 });
 
+test('friend identity search is cross-platform, masked and supports stable user IDs', async () => {
+  const username = await api('/v1/me/username', {
+    method: 'PUT',
+    headers: { authorization: `Bearer ${userToken}` },
+    body: JSON.stringify({ username: 'Lifting_小林' }),
+  });
+  assert.equal(username.response.status, 200);
+  assert.equal(username.body.identity.value, 'Lifting_小林');
+
+  const identities = await api('/v1/me/identities', {
+    headers: { authorization: `Bearer ${userToken}` },
+  });
+  assert.equal(identities.response.status, 200);
+  assert.equal(identities.body.identities.some((item) => item.kind === 'username'), true);
+  assert.equal(identities.body.identities.some((item) => item.normalizedValue), false);
+
+  const usernameSearch = await api('/v1/friends/search', {
+    method: 'POST',
+    headers: { authorization: `Bearer ${user2Token}` },
+    body: JSON.stringify({ query: 'lifting_' }),
+  });
+  assert.equal(usernameSearch.response.status, 200);
+  assert.equal(usernameSearch.body.results[0].username, 'Lifting_小林');
+  assert.equal(usernameSearch.body.results[0].relationshipStatus, 'friends');
+  assert.equal('identifier' in usernameSearch.body.results[0], false);
+
+  const phoneSearch = await api('/v1/friends/search', {
+    method: 'POST',
+    headers: { authorization: `Bearer ${userToken}` },
+    body: JSON.stringify({ query: '17880160001' }),
+  });
+  assert.equal(phoneSearch.response.status, 200);
+  assert.equal(phoneSearch.body.results.length, 1);
+  assert.equal(phoneSearch.body.results[0].matchType, 'phone');
+  assert.match(phoneSearch.body.results[0].maskedMatch, /^\+86 178\*{4}0001$/);
+  assert.equal('normalized_value' in phoneSearch.body.results[0], false);
+
+  const request = await api('/v1/friends/requests', {
+    method: 'POST',
+    headers: { authorization: `Bearer ${userToken}` },
+    body: JSON.stringify({ targetUserId: phoneSearch.body.results[0].id }),
+  });
+  assert.equal(request.response.status, 201);
+
+  const ambiguous = await api('/v1/friends/requests', {
+    method: 'POST',
+    headers: { authorization: `Bearer ${userToken}` },
+    body: JSON.stringify({ targetUserId: phoneSearch.body.results[0].id, identifier: '17880160001' }),
+  });
+  assert.equal(ambiguous.response.status, 400);
+  assert.equal(ambiguous.body.error, 'ambiguous_friend_target');
+
+  const taken = await api('/v1/me/username', {
+    method: 'PUT',
+    headers: { authorization: `Bearer ${user2Token}` },
+    body: JSON.stringify({ username: 'lifting_小林' }),
+  });
+  assert.equal(taken.response.status, 409);
+  assert.equal(taken.body.error, 'username_taken');
+});
+
+test('completed workout posts are friend-visible, immutable, and emoji-only interactive', async () => {
+  const sourceWorkoutId = `workout-post-${Date.now()}`;
+  const created = await api('/v1/friends/workouts', {
+    method: 'POST',
+    headers: { authorization: `Bearer ${userToken}` },
+    body: JSON.stringify({
+      sourceWorkoutId,
+      workoutName: '周三上肢训练',
+      startedAt: '2026-08-31T10:00:00.000Z',
+      completedAt: '2026-08-31T11:03:00.000Z',
+      durationSeconds: 3780,
+      volumeKg: 1240.5,
+      effectiveSets: 12,
+      completionPercent: 100,
+      exerciseSummary: [
+        { exerciseId: 'bench_press', name: '卧推', sets: [{ reps: 8 }, { reps: 7 }] },
+        { exerciseId: 'row', name: '划船', setCount: 3 },
+      ],
+      caption: '今天完成了计划',
+    }),
+  });
+  assert.equal(created.response.status, 201);
+  assert.equal(created.body.post.type, 'workout');
+  assert.equal(created.body.post.effectiveSets, 12);
+  assert.equal(created.body.post.exercises[0].sets, 2);
+  assert.equal(created.body.post.likeCount, 0);
+
+  const duplicate = await api('/v1/friends/workouts', {
+    method: 'POST',
+    headers: { authorization: `Bearer ${userToken}` },
+    body: JSON.stringify({ sourceWorkoutId, name: '修改后的名称', completedAt: '2026-08-31T11:03:00.000Z' }),
+  });
+  assert.equal(duplicate.response.status, 409);
+  assert.equal(duplicate.body.error, 'workout_already_published');
+
+  const feed = await api('/v1/friends/feed', { headers: { authorization: `Bearer ${user2Token}` } });
+  assert.equal(feed.response.status, 200);
+  const visible = feed.body.workouts.find((item) => item.id === created.body.post.id);
+  assert.equal(visible.name, '周三上肢训练');
+  assert.equal('ownerIdentifier' in visible, false);
+
+  const hiddenFromUnrelated = await api(`/v1/friends/workouts/${created.body.post.id}`, { headers: { authorization: `Bearer ${adminToken}` } });
+  assert.equal(hiddenFromUnrelated.response.status, 404);
+
+  const like = await api(`/v1/friends/workouts/${created.body.post.id}/likes`, {
+    method: 'POST', headers: { authorization: `Bearer ${user2Token}` },
+  });
+  assert.equal(like.response.status, 200);
+  assert.equal(like.body.liked, true);
+  assert.equal(like.body.likeCount, 1);
+  const duplicateLike = await api(`/v1/friends/workouts/${created.body.post.id}/likes`, {
+    method: 'POST', headers: { authorization: `Bearer ${user2Token}` },
+  });
+  assert.equal(duplicateLike.body.likeCount, 1);
+  const unlike = await api(`/v1/friends/workouts/${created.body.post.id}/likes`, {
+    method: 'DELETE', headers: { authorization: `Bearer ${user2Token}` },
+  });
+  assert.equal(unlike.body.liked, false);
+  assert.equal(unlike.body.likeCount, 0);
+  const toggleOn = await api(`/v1/friends/workouts/${created.body.post.id}/like`, {
+    method: 'POST', headers: { authorization: `Bearer ${user2Token}` }, body: '{}',
+  });
+  assert.equal(toggleOn.body.liked, true);
+  const toggleOff = await api(`/v1/friends/workouts/${created.body.post.id}/like`, {
+    method: 'POST', headers: { authorization: `Bearer ${user2Token}` }, body: '{}',
+  });
+  assert.equal(toggleOff.body.liked, false);
+
+  const comment = await api(`/v1/friends/workouts/${created.body.post.id}/comments`, {
+    method: 'POST', headers: { authorization: `Bearer ${user2Token}` }, body: JSON.stringify({ emoji: '🔥' }),
+  });
+  assert.equal(comment.response.status, 201);
+  assert.equal(comment.body.comment.emoji, '🔥');
+  const textComment = await api(`/v1/friends/workouts/${created.body.post.id}/comments`, {
+    method: 'POST', headers: { authorization: `Bearer ${user2Token}` }, body: JSON.stringify({ emoji: '👏', text: '太棒了' }),
+  });
+  assert.equal(textComment.response.status, 400);
+  assert.equal(textComment.body.error, 'emoji_only_comment');
+  const comments = await api(`/v1/friends/workouts/${created.body.post.id}/comments`, { headers: { authorization: `Bearer ${user2Token}` } });
+  assert.deepEqual(comments.body.comments.map((item) => item.emoji), ['🔥']);
+
+  const deleted = await api(`/v1/friends/workouts/${created.body.post.id}`, {
+    method: 'DELETE', headers: { authorization: `Bearer ${userToken}` },
+  });
+  assert.equal(deleted.response.status, 200);
+  assert.equal(deleted.body.deleted, true);
+  const gone = await api(`/v1/friends/workouts/${created.body.post.id}`, { headers: { authorization: `Bearer ${user2Token}` } });
+  assert.equal(gone.response.status, 404);
+});
+
+test('food recognition sends multiple images to a configured OpenAI-compatible vision service and preserves ranges', async () => {
+  const isolated = await fs.mkdtemp(path.join(os.tmpdir(), 'kilo-food-vision-'));
+  let requestBody;
+  const upstream = createHttpServer(async (req, res) => {
+    let raw = '';
+    for await (const chunk of req) raw += chunk;
+    requestBody = { headers: req.headers, body: JSON.parse(raw) };
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({
+      model: 'vision-test-response',
+      choices: [{ message: { content: JSON.stringify({
+        items: [{
+          label: '鸡胸肉饭', confidence: 0.84, estimatedGrams: 420, estimatedCalories: 620,
+          calorieRange: [520, 740], proteinGrams: 45, proteinRange: [36, 54],
+          carbohydratesGrams: 68, carbohydratesRange: [55, 84], fatGrams: 12, fatRange: [8, 18],
+          portionDescription: '一盘', uncertainty: 'medium', nutritionSource: 'vision-test',
+        }],
+        warnings: ['米饭份量受拍摄角度影响'],
+      }) } }],
+    }));
+  });
+  await new Promise((resolve) => upstream.listen(0, '127.0.0.1', resolve));
+  const cfg = {
+    ...loadConfig({
+      ...process.env,
+      NODE_ENV: 'test',
+      KILO_ENABLE_TEST_ADMIN: 'false',
+      KILO_ENABLE_TEST_MEMBER: 'false',
+      KILO_ENABLE_PASSWORD_REGISTRATION: 'true',
+      KILO_GPU_API_KEY: 'food-gpu-test-key-12345678901234567890',
+      KILO_SESSION_PEPPER: 'food-session-test-pepper-12345678901234567890',
+      KILO_DATA_DIR: isolated,
+      KILO_DATABASE_PATH: path.join(isolated, 'kilo.sqlite3'),
+      KILO_MEDIA_DIR: path.join(isolated, 'media'),
+    }),
+    foodVisionBaseUrl: `http://127.0.0.1:${upstream.address().port}`,
+    foodVisionApiKey: 'vision-test-key',
+    foodVisionModel: 'vision-test-model',
+    foodVisionMaxImages: 4,
+  };
+  const isolatedServer = await startServer({ config: cfg, port: 0 });
+  const isolatedBase = `http://127.0.0.1:${isolatedServer.address().port}`;
+  const localApi = async (pathname, options = {}) => {
+    const headers = { ...(options.body !== undefined ? { 'content-type': 'application/json' } : {}), ...(options.headers || {}) };
+    const response = await fetch(`${isolatedBase}${pathname}`, { ...options, headers });
+    const text = await response.text();
+    return { response, body: text ? JSON.parse(text) : null };
+  };
+  try {
+    const registration = await localApi('/v1/auth/register', { method: 'POST', body: JSON.stringify({ identifier: 'food-user', password: '1234' }) });
+    assert.equal(registration.response.status, 201);
+    const token = registration.body.session.token;
+    const tinyPng = Buffer.from('png-test').toString('base64');
+    const recognized = await localApi('/v1/nutrition/recognitions', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+      body: JSON.stringify({ images: [
+        { contentType: 'image/png', dataBase64: tinyPng },
+        { contentType: 'image/png', dataBase64: tinyPng },
+      ] }),
+    });
+    assert.equal(recognized.response.status, 200);
+    assert.equal(recognized.body.status, 'completed');
+    assert.equal(recognized.body.imageCount, 2);
+    assert.deepEqual(recognized.body.result.items[0].calorieRange, [520, 740]);
+    assert.deepEqual(recognized.body.result.items[0].proteinRange, [36, 54]);
+    assert.equal(recognized.body.result.requiresReview, true);
+    assert.equal(requestBody.headers.authorization, 'Bearer vision-test-key');
+    assert.equal(requestBody.body.messages[0].content.filter((item) => item.type === 'image_url').length, 2);
+    assert.equal(requestBody.body.model, 'vision-test-model');
+
+    const form = new FormData();
+    form.append('images', new Blob([Buffer.from('png-test-1')]), 'meal-1.png');
+    form.append('images', new Blob([Buffer.from('png-test-2')]), 'meal-2.png');
+    const multipartResponse = await fetch(`${isolatedBase}/v1/food/recognition`, {
+      method: 'POST', headers: { authorization: `Bearer ${token}` }, body: form,
+    });
+    const multipartBody = await multipartResponse.json();
+    assert.equal(multipartResponse.status, 200);
+    assert.equal(multipartBody.imageCount, 2);
+    assert.equal(multipartBody.items[0].label, '鸡胸肉饭');
+
+    const fetched = await localApi(`/v1/nutrition/jobs/${recognized.body.id}`, { headers: { authorization: `Bearer ${token}` } });
+    assert.equal(fetched.response.status, 200);
+    assert.equal(fetched.body.result.items[0].label, '鸡胸肉饭');
+  } finally {
+    await isolatedServer.closeGracefully();
+    await new Promise((resolve) => upstream.close(resolve));
+    await fs.rm(isolated, { recursive: true, force: true });
+  }
+});
+
+test('food recognition supports streamed multi-image uploads and explicit unconfigured errors', async () => {
+  const isolated = await fs.mkdtemp(path.join(os.tmpdir(), 'kilo-food-stream-'));
+  const upstream = createHttpServer(async (_req, res) => {
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ items: [{ label: '香蕉', confidence: 0.7, estimatedCalories: 105, calorieRange: [80, 130] }] }) } }] }));
+  });
+  await new Promise((resolve) => upstream.listen(0, '127.0.0.1', resolve));
+  const cfg = {
+    ...loadConfig({
+      ...process.env,
+      NODE_ENV: 'test',
+      KILO_ENABLE_TEST_ADMIN: 'false',
+      KILO_ENABLE_TEST_MEMBER: 'false',
+      KILO_ENABLE_PASSWORD_REGISTRATION: 'true',
+      KILO_GPU_API_KEY: 'food-stream-gpu-key-12345678901234567890',
+      KILO_SESSION_PEPPER: 'food-stream-session-pepper-12345678901234567890',
+      KILO_DATA_DIR: isolated,
+      KILO_DATABASE_PATH: path.join(isolated, 'kilo.sqlite3'),
+      KILO_MEDIA_DIR: path.join(isolated, 'media'),
+    }),
+    foodVisionBaseUrl: `http://127.0.0.1:${upstream.address().port}`,
+    foodVisionApiKey: 'stream-vision-key',
+    foodVisionModel: 'stream-vision-model',
+  };
+  const isolatedServer = await startServer({ config: cfg, port: 0 });
+  const isolatedBase = `http://127.0.0.1:${isolatedServer.address().port}`;
+  const localApi = async (pathname, options = {}) => {
+    const headers = { ...(options.body !== undefined ? { 'content-type': 'application/json' } : {}), ...(options.headers || {}) };
+    const response = await fetch(`${isolatedBase}${pathname}`, { ...options, headers });
+    const text = await response.text();
+    return { response, body: text ? JSON.parse(text) : null };
+  };
+  try {
+    const registration = await localApi('/v1/auth/register', { method: 'POST', body: JSON.stringify({ identifier: 'food-stream-user', password: '1234' }) });
+    const token = registration.body.session.token;
+    const created = await localApi('/v1/nutrition/jobs', {
+      method: 'POST', headers: { authorization: `Bearer ${token}` }, body: JSON.stringify({ imageCount: 2 }),
+    });
+    assert.equal(created.response.status, 202);
+    for (const upload of created.body.uploads) {
+      const response = await fetch(upload.url.replace(cfg.publicBaseUrl, isolatedBase), {
+        method: 'PUT', headers: { authorization: `Bearer ${token}`, 'content-type': 'image/png', 'content-length': '9' }, body: Buffer.from('png-test!'),
+      });
+      assert.equal(response.status, 200);
+    }
+    const analyzed = await localApi(`/v1/nutrition/jobs/${created.body.id}/analyze`, { method: 'POST', headers: { authorization: `Bearer ${token}` } });
+    assert.equal(analyzed.response.status, 200);
+    assert.equal(analyzed.body.status, 'completed');
+    assert.equal(analyzed.body.result.items[0].label, '香蕉');
+
+    const missingCfg = { ...cfg, foodVisionBaseUrl: '', foodVisionApiKey: '', foodVisionModel: '' };
+    const noServiceDir = await fs.mkdtemp(path.join(os.tmpdir(), 'kilo-food-no-service-'));
+    const noServiceServer = await startServer({ config: { ...missingCfg, dataDir: noServiceDir, databasePath: path.join(noServiceDir, 'kilo.sqlite3'), mediaDir: path.join(noServiceDir, 'media') }, port: 0 });
+    const noServiceBase = `http://127.0.0.1:${noServiceServer.address().port}`;
+    try {
+      const noServiceRegistration = await fetch(`${noServiceBase}/v1/auth/register`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ identifier: 'food-no-service', password: '1234' }) });
+      const noServicePayload = await noServiceRegistration.json();
+      const unavailable = await fetch(`${noServiceBase}/v1/nutrition/recognitions`, {
+        method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${noServicePayload.session.token}` },
+        body: JSON.stringify({ images: [{ contentType: 'image/png', dataBase64: Buffer.from('x').toString('base64') }] }),
+      });
+      assert.equal(unavailable.status, 503);
+      assert.equal((await unavailable.json()).error, 'service_not_configured');
+    } finally {
+      await noServiceServer.closeGracefully();
+      await fs.rm(noServiceDir, { recursive: true, force: true });
+    }
+  } finally {
+    await isolatedServer.closeGracefully();
+    await new Promise((resolve) => upstream.close(resolve));
+    await fs.rm(isolated, { recursive: true, force: true });
+  }
+});
+
 test('knowledge search falls back to Chinese substring matching', async () => {
   const created = await api('/v1/admin/knowledge', {
     method: 'POST',

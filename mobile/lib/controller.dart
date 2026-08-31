@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_compress/video_compress.dart';
 
 import 'account_membership.dart';
+import 'apple_sign_in_client.dart';
 import 'app_localizations.dart';
 import 'ai_api.dart';
 import 'natural_workout_parser.dart';
@@ -222,6 +223,7 @@ class AppController extends ChangeNotifier {
     ActiveWorkoutPersistence? activeWorkoutPersistence,
     TrainingLibraryPersistence? trainingLibraryPersistence,
     SecureSessionStore? secureSessionStore,
+    AppleSignInClient? appleSignInClient,
   }) : accountService = accountService ?? AccountService(),
        workoutHistoryPersistence =
            workoutHistoryPersistence ??
@@ -232,7 +234,9 @@ class AppController extends ChangeNotifier {
        trainingLibraryPersistence =
            trainingLibraryPersistence ??
            SharedPreferencesTrainingLibraryPersistence(),
-       secureSessionStore = secureSessionStore ?? FlutterSecureSessionStore() {
+       secureSessionStore = secureSessionStore ?? FlutterSecureSessionStore(),
+       appleSignInClient =
+           appleSignInClient ?? const NativeAppleSignInClient() {
     _seed();
     PlatformTimerBridge.setSystemActionHandlers(
       onRestSkipped: skipRest,
@@ -252,6 +256,7 @@ class AppController extends ChangeNotifier {
   final ActiveWorkoutPersistence activeWorkoutPersistence;
   final TrainingLibraryPersistence trainingLibraryPersistence;
   final SecureSessionStore secureSessionStore;
+  final AppleSignInClient appleSignInClient;
   Future<void> _historyWriteChain = Future<void>.value();
   Future<void> _activeWorkoutWriteChain = Future<void>.value();
   Future<void> _trainingLibraryWriteChain = Future<void>.value();
@@ -618,6 +623,89 @@ class AppController extends ChangeNotifier {
     }
   }
 
+  Future<AuthResult> loginWithAppleRemote() async {
+    _defaultCoachApi?.clearSession();
+    _defaultRecognitionApi?.clearSession();
+    if (coachApi is HttpCoachApi) {
+      (coachApi as HttpCoachApi).clearSession();
+    }
+    if (recognitionApi is HttpRecognitionApi) {
+      (recognitionApi as HttpRecognitionApi).clearSession();
+    }
+    _storedRemoteSession = null;
+    _secureSessionLoaded = true;
+    final api = coachApi is HttpCoachApi
+        ? coachApi! as HttpCoachApi
+        : (_defaultCoachApi ??= HttpCoachApi(
+            baseUrl: defaultCoachApiBaseUrl,
+            onSessionInvalidated: _handleRemoteSessionInvalidated,
+          ));
+    _defaultCoachApiBaseUrl = defaultCoachApiBaseUrl;
+    try {
+      final identityToken = await appleSignInClient.requestIdentityToken();
+      final payload = await api.signInWithApple(identityToken: identityToken);
+      final rawUser = payload['user'];
+      if (rawUser is! Map) {
+        return const AuthResult.failure(
+          AccountError.invalidCredentials,
+          message: 'Apple 登录凭据无效，请重试。',
+        );
+      }
+      final user = Map<String, dynamic>.from(rawUser);
+      final identifier = (user['identifier'] ?? '').toString().trim();
+      if (identifier.isEmpty) {
+        return const AuthResult.failure(
+          AccountError.invalidCredentials,
+          message: 'Apple 登录凭据无效，请重试。',
+        );
+      }
+      final result = accountService.loginAuthenticatedRemote(
+        identifier: identifier,
+        displayName: (user['displayName'] ?? identifier).toString(),
+        isAdmin: user['role'] == 'admin',
+        provider: AuthProvider.apple,
+      );
+      if (result.isSuccess) {
+        _remoteIdentifier = identifier;
+        _remotePassword = null;
+        _sessionExpiredMessage = null;
+        _storedRemoteSession = api.session;
+        _secureSessionLoaded = true;
+        final session = api.session;
+        if (session != null) await secureSessionStore.write(session);
+        aiSkills.clear();
+        unawaited(_hydrateUserDataAfterLogin());
+      }
+      return result;
+    } on AppleSignInClientException catch (error) {
+      return AuthResult.failure(
+        AccountError.serviceNotConfigured,
+        message: switch (error.failure) {
+          AppleSignInFailure.canceled => 'Apple 登录已取消。',
+          AppleSignInFailure.notAvailable => '当前设备不支持 Apple 登录。',
+          AppleSignInFailure.missingIdentityToken => 'Apple 登录凭据无效，请重试。',
+          AppleSignInFailure.authorizationFailed => 'Apple 登录失败，请稍后重试。',
+        },
+      );
+    } on CoachApiException catch (error) {
+      return AuthResult.failure(
+        error.code == 'invalid_provider_token'
+            ? AccountError.invalidCredentials
+            : AccountError.serviceNotConfigured,
+        message: switch (error.code) {
+          'invalid_provider_token' => 'Apple 登录凭据无效，请重试。',
+          'provider_not_configured' => 'Apple 登录服务尚未完成服务器配置。',
+          _ => 'Apple 登录暂时不可用，请稍后重试。',
+        },
+      );
+    } catch (_) {
+      return const AuthResult.failure(
+        AccountError.serviceNotConfigured,
+        message: 'Apple 登录暂时不可用，请稍后重试。',
+      );
+    }
+  }
+
   Future<Map<String, dynamic>> createManagedUserRemote({
     required String identifier,
     String password = '1234',
@@ -670,6 +758,32 @@ class AppController extends ChangeNotifier {
     return api.fetchFriends();
   }
 
+  Future<Map<String, dynamic>> fetchFriendIdentitiesRemote() async {
+    final api = await _activeCoachApi();
+    if (api is! HttpCoachApi) {
+      throw const CoachApiException('friends_unavailable');
+    }
+    return api.fetchFriendIdentities();
+  }
+
+  Future<Map<String, dynamic>> updateFriendUsernameRemote(
+    String username,
+  ) async {
+    final api = await _activeCoachApi();
+    if (api is! HttpCoachApi) {
+      throw const CoachApiException('friends_unavailable');
+    }
+    return api.updateFriendUsername(username.trim());
+  }
+
+  Future<Map<String, dynamic>> searchFriendsRemote(String query) async {
+    final api = await _activeCoachApi();
+    if (api is! HttpCoachApi) {
+      throw const CoachApiException('friends_unavailable');
+    }
+    return api.searchFriends(query.trim());
+  }
+
   Future<Map<String, dynamic>> fetchFriendPlanFeedRemote() async {
     final api = await _activeCoachApi();
     if (api is! HttpCoachApi) {
@@ -684,6 +798,14 @@ class AppController extends ChangeNotifier {
       throw const CoachApiException('friends_unavailable');
     }
     await api.sendFriendRequest(identifier.trim());
+  }
+
+  Future<void> sendFriendRequestToUserRemote(String targetUserId) async {
+    final api = await _activeCoachApi();
+    if (api is! HttpCoachApi) {
+      throw const CoachApiException('friends_unavailable');
+    }
+    await api.sendFriendRequestToUser(targetUserId.trim());
   }
 
   Future<void> acceptFriendRequestRemote(String requestId) async {
@@ -729,6 +851,91 @@ class AppController extends ChangeNotifier {
       throw const CoachApiException('friends_unavailable');
     }
     await api.reactToFriendPlan(shareId, emoji);
+  }
+
+  Future<Map<String, dynamic>> publishWorkoutActivityRemote(
+    WorkoutRecord record, {
+    String caption = '',
+  }) async {
+    final api = await _activeCoachApi();
+    if (api is! HttpCoachApi) {
+      throw const CoachApiException('friends_unavailable');
+    }
+    final totalSets = record.exercises.fold<int>(
+      0,
+      (sum, exercise) => sum + exercise.sets.length,
+    );
+    final completedSets = record.exercises.fold<int>(
+      0,
+      (sum, exercise) =>
+          sum + exercise.sets.where((item) => item.completed).length,
+    );
+    final snapshot = <String, dynamic>{
+      'sourceWorkoutId': record.id,
+      'workoutName': record.name,
+      'completedAt': record.date.toIso8601String(),
+      'durationSeconds': record.durationSeconds,
+      'volume': record.volume,
+      'effectiveSets': record.effectiveSets,
+      'completionPercent': totalSets == 0
+          ? 0
+          : (completedSets / totalSets * 100).round(),
+      'exerciseSummary': [
+        for (final exercise in record.exercises)
+          {
+            'exerciseId': exercise.exerciseId,
+            'name': displayExerciseName(exerciseFor(exercise.exerciseId)),
+            'sets': exercise.sets.where((item) => item.completed).length,
+            if (exercise.sets.any((item) => item.completed))
+              'topWeight': exercise.sets
+                  .where((item) => item.completed)
+                  .map((item) => item.weight)
+                  .reduce((a, b) => a > b ? a : b),
+          },
+      ],
+      if (caption.trim().isNotEmpty) 'caption': caption.trim(),
+    };
+    return api.publishWorkoutActivity(snapshot);
+  }
+
+  Future<Map<String, dynamic>> toggleFriendWorkoutLikeRemote(
+    String postId,
+  ) async {
+    final api = await _activeCoachApi();
+    if (api is! HttpCoachApi) {
+      throw const CoachApiException('friends_unavailable');
+    }
+    return api.toggleWorkoutActivityLike(postId);
+  }
+
+  Future<Map<String, dynamic>> commentOnFriendWorkoutRemote(
+    String postId,
+    String emoji,
+  ) async {
+    final api = await _activeCoachApi();
+    if (api is! HttpCoachApi) {
+      throw const CoachApiException('friends_unavailable');
+    }
+    return api.commentOnWorkoutActivity(postId, emoji);
+  }
+
+  Future<Map<String, dynamic>> deleteFriendWorkoutRemote(String postId) async {
+    final api = await _activeCoachApi();
+    if (api is! HttpCoachApi) {
+      throw const CoachApiException('friends_unavailable');
+    }
+    return api.deleteWorkoutActivity(postId);
+  }
+
+  Future<FoodPhotoRecognitionResult> recognizeFoodPhotosRemote(
+    List<String> imagePaths,
+  ) async {
+    final api = await _activeCoachApi();
+    if (api is! HttpCoachApi) {
+      throw const CoachApiException('food_recognition_unavailable');
+    }
+    final payload = await api.recognizeFoodPhotos(imagePaths);
+    return FoodPhotoRecognitionResult.fromJson(payload);
   }
 
   void saveFriendPlan(Map<String, dynamic> share) {
@@ -777,8 +984,6 @@ class AppController extends ChangeNotifier {
     final name = (share['name'] ?? '好友训练计划').toString();
     saveRoutineFromDraft('$name · 好友分享', exercises, folder: '好友分享');
   }
-
-  AuthResult loginWithApple() => accountService.loginWithApple();
 
   AuthResult loginWithGoogle() => accountService.loginWithGoogle();
 
@@ -1440,6 +1645,7 @@ class AppController extends ChangeNotifier {
   bool livePrEnabled = true;
   String selectedExerciseId = 'bench_press';
   AppLanguage appLanguage = AppLanguage.simplifiedChinese;
+  KiloThemeChoice themeChoice = KiloThemeChoice.warm;
   String search = '';
   String muscleFilter = '全部';
   String equipmentFilter = '全部';
@@ -1530,9 +1736,7 @@ class AppController extends ChangeNotifier {
                   (item) =>
                       NutritionEntry.fromJson(Map<String, dynamic>.from(item)),
                 )
-                .where(
-                  (item) => item.id.isNotEmpty && item.foodName.isNotEmpty,
-                ),
+                .where((item) => item.id.isNotEmpty),
           );
         }
       }
@@ -1566,14 +1770,17 @@ class AppController extends ChangeNotifier {
 
   Future<void> addNutritionEntry(NutritionEntry entry) async {
     nutritionEntries.insert(0, entry);
-    await _persistNutrition();
     notifyListeners();
+    // Storage is an optional durability layer. Do not keep the capture sheet
+    // open while a platform channel is unavailable or slow (notably in
+    // widget tests and during first launch on a cold device).
+    unawaited(_persistNutrition().catchError((_) {}));
   }
 
   Future<void> deleteNutritionEntry(String id) async {
     nutritionEntries.removeWhere((item) => item.id == id);
-    await _persistNutrition();
     notifyListeners();
+    unawaited(_persistNutrition().catchError((_) {}));
   }
 
   Future<void> _persistNutrition() async {
@@ -1593,6 +1800,9 @@ class AppController extends ChangeNotifier {
             item.recordedAt.day == day.day,
       )
       .toList(growable: false);
+
+  String nextMealLabelFor(DateTime day) =>
+      '第${nutritionForDay(day).length + 1}餐';
 
   double get todayCalories => nutritionForDay(
     DateTime.now(),
@@ -1616,11 +1826,22 @@ class AppController extends ChangeNotifier {
         6.25 * profile.heightCm! -
         5 * profile.age! +
         sexOffset;
-    final activity = switch (profile.activityLevel) {
-      'low' => 1.2,
-      'high' => 1.725,
-      _ => 1.55,
-    };
+    final activity = profile.weeklyTrainingDays == null
+        ? switch (profile.activityLevel) {
+            'low' => 1.2,
+            'high' => 1.725,
+            _ => 1.55,
+          }
+        : switch (profile.weeklyTrainingDays!.clamp(0, 7)) {
+            0 => 1.2,
+            1 => 1.3,
+            2 => 1.4,
+            3 => 1.5,
+            4 => 1.6,
+            5 => 1.7,
+            6 => 1.75,
+            _ => 1.8,
+          };
     final goalOffset = switch (profile.goal) {
       'fat_loss' => -300,
       'muscle_gain' => 250,
@@ -1635,6 +1856,20 @@ class AppController extends ChangeNotifier {
     ...selectableCatalog,
     ...customExercises,
   ];
+
+  /// Stable, one-based catalog number shown to users. Soft-hidden exercises
+  /// stay in [catalog], so later pruning never renumbers saved references.
+  int exerciseNumberFor(Exercise exercise) {
+    final catalogIndex = catalog.indexWhere((item) => item.id == exercise.id);
+    if (catalogIndex >= 0) return catalogIndex + 1;
+    final customIndex = customExercises.indexWhere(
+      (item) => item.id == exercise.id,
+    );
+    return catalog.length + (customIndex < 0 ? 0 : customIndex) + 1;
+  }
+
+  String numberedExerciseName(Exercise exercise) =>
+      '${exerciseNumberFor(exercise)}  ${displayExerciseName(exercise)}';
 
   Exercise exerciseFor(String id) => allExercises.firstWhere(
     (item) => item.id == id,
@@ -1822,8 +2057,10 @@ class AppController extends ChangeNotifier {
   List<Exercise> get visibleExercises {
     final query = search.trim().toLowerCase();
     return selectableExercises.where((item) {
+      final exerciseNumber = exerciseNumberFor(item).toString();
       final queryMatch =
           query.isEmpty ||
+          exerciseNumber == query ||
           item.name.toLowerCase().contains(query) ||
           item.englishName.toLowerCase().contains(query) ||
           item.muscle.toLowerCase().contains(query) ||
@@ -1910,6 +2147,31 @@ class AppController extends ChangeNotifier {
       await preferences.setString('app_language', value.storageValue);
     } catch (_) {
       // The in-memory language still changes if platform storage is absent.
+    }
+  }
+
+  Future<void> hydrateTheme() async {
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      final stored = preferences.getString('kilo_theme_choice');
+      final value = KiloThemeChoice.values.where((item) => item.name == stored);
+      if (_disposed || value.isEmpty) return;
+      themeChoice = value.first;
+      notifyListeners();
+    } catch (_) {
+      // Keep the compatibility palette when storage is unavailable.
+    }
+  }
+
+  Future<void> setThemeChoice(KiloThemeChoice value) async {
+    if (themeChoice == value) return;
+    themeChoice = value;
+    notifyListeners();
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      await preferences.setString('kilo_theme_choice', value.name);
+    } catch (_) {
+      // The in-memory selection remains available in previews/tests.
     }
   }
 

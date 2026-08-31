@@ -24,6 +24,28 @@ CREATE TABLE IF NOT EXISTS sessions (
 );
 CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
 
+-- Searchable aliases are intentionally separate from the login identifier.
+-- Friend relationships always reference users.id, so changing a public
+-- username never breaks Android/iOS interoperability or existing friendships.
+CREATE TABLE IF NOT EXISTS user_identities (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL CHECK (kind IN ('username', 'phone', 'email')),
+  normalized_value TEXT NOT NULL,
+  display_value TEXT NOT NULL,
+  source TEXT NOT NULL CHECK (source IN ('user', 'account', 'apple', 'google')),
+  verified_at TEXT,
+  searchable INTEGER NOT NULL DEFAULT 1 CHECK (searchable IN (0, 1)),
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  UNIQUE(kind, normalized_value),
+  UNIQUE(user_id, kind)
+);
+CREATE INDEX IF NOT EXISTS idx_user_identities_user
+  ON user_identities(user_id, kind);
+CREATE INDEX IF NOT EXISTS idx_user_identities_search
+  ON user_identities(kind, normalized_value, searchable);
+
 CREATE TABLE IF NOT EXISTS entitlements (
   user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   membership TEXT NOT NULL DEFAULT 'free' CHECK (membership IN ('free', 'oneMonth', 'yearly', 'threeMonths', 'forever')),
@@ -150,6 +172,80 @@ CREATE TABLE IF NOT EXISTS friend_plan_reactions (
   updated_at TEXT NOT NULL,
   PRIMARY KEY (share_id, user_id)
 );
+
+-- A workout post is an immutable, opt-in snapshot created after a workout is
+-- completed. It intentionally stores only publish-safe aggregate data rather
+-- than the user's private workout notes or full local history.
+CREATE TABLE IF NOT EXISTS friend_workout_posts (
+  id TEXT PRIMARY KEY,
+  owner_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  source_workout_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  started_at TEXT,
+  completed_at TEXT NOT NULL,
+  duration_seconds INTEGER CHECK (duration_seconds IS NULL OR duration_seconds >= 0),
+  volume_kg REAL CHECK (volume_kg IS NULL OR volume_kg >= 0),
+  effective_sets INTEGER CHECK (effective_sets IS NULL OR effective_sets >= 0),
+  completion_rate REAL CHECK (completion_rate IS NULL OR (completion_rate >= 0 AND completion_rate <= 1)),
+  exercises_json TEXT NOT NULL DEFAULT '[]',
+  caption TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  UNIQUE(owner_user_id, source_workout_id)
+);
+CREATE INDEX IF NOT EXISTS idx_friend_workout_posts_owner
+  ON friend_workout_posts(owner_user_id, completed_at DESC);
+
+CREATE TABLE IF NOT EXISTS friend_workout_post_likes (
+  post_id TEXT NOT NULL REFERENCES friend_workout_posts(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (post_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_friend_workout_post_likes_post
+  ON friend_workout_post_likes(post_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS friend_workout_post_comments (
+  id TEXT PRIMARY KEY,
+  post_id TEXT NOT NULL REFERENCES friend_workout_posts(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  emoji TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_friend_workout_post_comments_post
+  ON friend_workout_post_comments(post_id, created_at ASC);
+
+-- Food-photo recognition is separate from exercise/video recognition. The
+-- image rows support streamed multi-image uploads, while result_json stores
+-- only the validated candidate response returned by the configured vision
+-- provider. No local fallback numbers are written when the provider is absent.
+CREATE TABLE IF NOT EXISTS nutrition_recognition_jobs (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  status TEXT NOT NULL CHECK (status IN ('created', 'uploading', 'ready', 'processing', 'completed', 'insufficient_image', 'failed', 'cancelled')),
+  result_json TEXT,
+  error_code TEXT,
+  model_version TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  completed_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_nutrition_recognition_jobs_user
+  ON nutrition_recognition_jobs(user_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS nutrition_recognition_images (
+  id TEXT PRIMARY KEY,
+  job_id TEXT NOT NULL REFERENCES nutrition_recognition_jobs(id) ON DELETE CASCADE,
+  position INTEGER NOT NULL CHECK (position >= 0),
+  storage_key TEXT NOT NULL DEFAULT '',
+  content_type TEXT NOT NULL DEFAULT 'application/octet-stream',
+  byte_size INTEGER NOT NULL DEFAULT 0 CHECK (byte_size >= 0),
+  created_at TEXT NOT NULL,
+  uploaded_at TEXT,
+  UNIQUE(job_id, position)
+);
+CREATE INDEX IF NOT EXISTS idx_nutrition_recognition_images_job
+  ON nutrition_recognition_images(job_id, position);
 
 CREATE TABLE IF NOT EXISTS conversations (
   id TEXT PRIMARY KEY,

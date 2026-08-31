@@ -761,10 +761,11 @@ class AccountService extends ChangeNotifier {
     required String identifier,
     required String displayName,
     required bool isAdmin,
+    AuthProvider provider = AuthProvider.phone,
   }) => _login(
     identifier: identifier.trim(),
     displayName: displayName.trim().isEmpty ? identifier.trim() : displayName,
-    provider: AuthProvider.phone,
+    provider: provider,
     isAdmin: isAdmin,
   );
 
@@ -775,7 +776,7 @@ class AccountService extends ChangeNotifier {
 
   AuthResult loginWithGoogle() => const AuthResult.failure(
     AccountError.serviceNotConfigured,
-    message: 'Google 登录尚未配置，后续海外开关开启后提供。',
+    message: 'Google 登录尚未配置，请先完成 OAuth 客户端配置。',
   );
 
   void logout() {
@@ -790,7 +791,10 @@ class AccountService extends ChangeNotifier {
     required AuthProvider provider,
     required bool isAdmin,
   }) {
-    final id = '${provider.name}:${identifier.toLowerCase()}';
+    final normalizedIdentifier = identifier.toLowerCase();
+    final id = normalizedIdentifier.startsWith('${provider.name}:')
+        ? normalizedIdentifier
+        : '${provider.name}:$normalizedIdentifier';
     // A successful backend login is authoritative. Rebuild the cached user
     // instead of keeping a stale locally-persisted role or display name.
     final user = AccountUser(

@@ -58,7 +58,7 @@ workflows:
       - name: Build signed IPA (config v3)
         script: |
           echo "Codemagic config v3; source commit: ${CM_COMMIT:-unknown}"
-          flutter build ipa --release --dart-define=KILO_API_BASE_URL=https://api.kilostrength.cn --build-name=1.0.17 --build-number="$BUILD_NUMBER" --export-options-plist="$HOME/export_options.plist"
+          flutter build ipa --release --dart-define=APP_MARKET=cn --dart-define=KILO_API_BASE_URL=https://api.kilostrength.cn --build-number="$BUILD_NUMBER" --export-options-plist="$HOME/export_options.plist"
       - name: Verify IPA artifact
         script: |
           IPA_PATH=$(find "$CM_BUILD_DIR/mobile/build/ios/ipa" -type f -name "*.ipa" | head -1)
@@ -67,6 +67,14 @@ workflows:
             exit 1
           fi
           echo "Found IPA: $IPA_PATH"
+          VERIFY_DIR=$(mktemp -d)
+          unzip -q "$IPA_PATH" -d "$VERIFY_DIR"
+          RUNNER_APP="$VERIFY_DIR/Payload/Runner.app"
+          codesign -d --entitlements :- "$RUNNER_APP" > "$VERIFY_DIR/app-entitlements.plist"
+          security cms -D -i "$RUNNER_APP/embedded.mobileprovision" > "$VERIFY_DIR/profile.plist"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :com.apple.developer.applesignin:0' "$VERIFY_DIR/app-entitlements.plist")" = "Default"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:com.apple.developer.applesignin:0' "$VERIFY_DIR/profile.plist")" = "Default"
+          echo "Apple Sign In entitlement verified in app signature and provisioning profile."
     artifacts:
       - $CM_BUILD_DIR/mobile/build/ios/ipa/*.ipa
       - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
@@ -76,7 +84,7 @@ workflows:
         auth: integration
 
   android-release-check:
-    name: KILO Android APK and AAB check
+    name: KILO Android CN signed APK and AAB
     instance_type: linux_x2
     max_build_duration: 90
     working_directory: mobile
@@ -94,10 +102,33 @@ workflows:
         script: flutter analyze
       - name: Run tests
         script: flutter test
-      - name: Build release APK
-        script: flutter build apk --release --dart-define=KILO_API_BASE_URL=https://api.kilostrength.cn
-      - name: Build release AAB
-        script: flutter build appbundle --release --dart-define=KILO_API_BASE_URL=https://api.kilostrength.cn
+      - name: Build signed CN release APK and AAB
+        script: bash ./tool/build_android_release.sh cn
     artifacts:
-      - mobile/build/app/outputs/flutter-apk/*.apk
-      - mobile/build/app/outputs/bundle/release/*.aab
+      - mobile/build/app/outputs/flutter-apk/app-cn-release.apk
+      - mobile/build/app/outputs/bundle/cnRelease/app-cn-release.aab
+
+  android-global-release-check:
+    name: KILO Android global signed APK and AAB
+    instance_type: linux_x2
+    max_build_duration: 90
+    working_directory: mobile
+    environment:
+      flutter: stable
+      java: 17
+    cache:
+      cache_paths:
+        - $FLUTTER_ROOT/.pub-cache
+        - $HOME/.gradle/caches
+    scripts:
+      - name: Install Flutter dependencies
+        script: flutter pub get
+      - name: Analyze
+        script: flutter analyze
+      - name: Run tests
+        script: flutter test
+      - name: Build signed global release APK and AAB
+        script: bash ./tool/build_android_release.sh global
+    artifacts:
+      - mobile/build/app/outputs/flutter-apk/app-global-release.apk
+      - mobile/build/app/outputs/bundle/globalRelease/app-global-release.aab
