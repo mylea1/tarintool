@@ -6,41 +6,42 @@ import 'package:http/testing.dart';
 import 'package:kilo_strength/ai_api.dart';
 
 void main() {
-  test('friend discovery uses masked search and stable target user IDs', () async {
-    final seen = <String, Map<String, dynamic>>{};
-    final client = MockClient((request) async {
-      if (request.url.path == '/v1/auth/phone/login') {
-        return http.Response(
-          jsonEncode({
-            'session': {'token': 'friend-session'},
-          }),
-          200,
-        );
-      }
-      if (request.body.isNotEmpty) {
-        seen[request.url.path] = Map<String, dynamic>.from(
-          jsonDecode(request.body) as Map,
-        );
-      }
-      expect(request.headers['authorization'], 'Bearer friend-session');
-      return http.Response(jsonEncode(<String, dynamic>{}), 200);
-    });
-    final api = HttpCoachApi(
-      baseUrl: 'https://api.example.test',
-      client: client,
-    );
-    await api.signIn(identifier: '13800138000', password: '1234');
+  test(
+    'friend discovery uses masked search and stable target user IDs',
+    () async {
+      final seen = <String, Map<String, dynamic>>{};
+      final client = MockClient((request) async {
+        if (request.url.path == '/v1/auth/phone/login') {
+          return http.Response(
+            jsonEncode({
+              'session': {'token': 'friend-session'},
+            }),
+            200,
+          );
+        }
+        if (request.body.isNotEmpty) {
+          seen[request.url.path] = Map<String, dynamic>.from(
+            jsonDecode(request.body) as Map,
+          );
+        }
+        expect(request.headers['authorization'], 'Bearer friend-session');
+        return http.Response(jsonEncode(<String, dynamic>{}), 200);
+      });
+      final api = HttpCoachApi(
+        baseUrl: 'https://api.example.test',
+        client: client,
+      );
+      await api.signIn(identifier: '13800138000', password: '1234');
 
-    await api.updateFriendUsername('lifting_小林');
-    await api.searchFriends('13800138001');
-    await api.sendFriendRequestToUser('usr_stable_123');
+      await api.updateFriendUsername('lifting_小林');
+      await api.searchFriends('13800138001');
+      await api.sendFriendRequestToUser('usr_stable_123');
 
-    expect(seen['/v1/me/username'], {'username': 'lifting_小林'});
-    expect(seen['/v1/friends/search'], {'query': '13800138001'});
-    expect(seen['/v1/friends/requests'], {
-      'targetUserId': 'usr_stable_123',
-    });
-  });
+      expect(seen['/v1/me/username'], {'username': 'lifting_小林'});
+      expect(seen['/v1/friends/search'], {'query': '13800138001'});
+      expect(seen['/v1/friends/requests'], {'targetUserId': 'usr_stable_123'});
+    },
+  );
 
   test('coach client signs in and forwards bearer token', () async {
     var requestCount = 0;
@@ -91,6 +92,68 @@ void main() {
     expect(answer.body, '训练建议');
     expect(answer.citations, ['知识库条目']);
   });
+
+  test(
+    'membership client refreshes entitlements and creates a quarterly order',
+    () async {
+      final requests = <String, Map<String, dynamic>>{};
+      final client = MockClient((request) async {
+        if (request.url.path == '/v1/auth/phone/login') {
+          return http.Response(
+            jsonEncode({
+              'session': {'token': 'membership-session'},
+            }),
+            200,
+          );
+        }
+        if (request.url.path == '/v1/membership/orders') {
+          requests[request.url.path] =
+              jsonDecode(request.body) as Map<String, dynamic>;
+          return http.Response(
+            jsonEncode({
+              'order': {
+                'id': 'order-quarterly',
+                'userId': 'user-1',
+                'plan': 'threeMonths',
+                'productId': 'com.kilostrength.pro.quarterly',
+                'provider': 'app_store',
+                'status': 'pending',
+              },
+            }),
+            201,
+          );
+        }
+        expect(request.url.path, '/v1/me/entitlements');
+        expect(request.headers['authorization'], 'Bearer membership-session');
+        return http.Response(
+          jsonEncode({'membership': 'yearly', 'isMember': true}),
+          200,
+        );
+      });
+      final api = HttpCoachApi(
+        baseUrl: 'https://api.example.test',
+        client: client,
+      );
+
+      await api.signIn(identifier: '13800138000', password: '1234');
+      final order = await api.createMembershipOrder(
+        productId: 'com.kilostrength.pro.quarterly',
+        plan: 'threeMonths',
+        amountMinor: 4990,
+      );
+      final entitlement = await api.fetchEntitlements();
+
+      expect(requests['/v1/membership/orders'], {
+        'productId': 'com.kilostrength.pro.quarterly',
+        'plan': 'threeMonths',
+        'provider': 'app_store',
+        'currency': 'CNY',
+        'amountMinor': 4990,
+      });
+      expect(order['order'], isA<Map<String, dynamic>>());
+      expect(entitlement['membership'], 'yearly');
+    },
+  );
 
   test(
     'coach client never calls protected endpoint without a session',

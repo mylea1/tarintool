@@ -24,6 +24,8 @@ import 'membership_ui.dart';
 import 'models.dart';
 import 'muscle_selector.dart';
 import 'recognition_api.dart';
+import 'ai_training_ui.dart';
+import 'training_intelligence.dart';
 import 'product_features.dart';
 
 // Warm-orange Material 3 tokens. The older names remain as compatibility
@@ -56,9 +58,16 @@ const setNoteColor = Color(0xFF176B4A);
 const setNoteContainer = Color(0xFFE5F5ED);
 const workoutNoteColor = Color(0xFF5F6673);
 const workoutNoteContainer = Color(0xFFF0F2F5);
-const kiloAppVersion = '1.0.23';
-const kiloAppBuild = '24';
+const kiloAppVersion = '1.0.25';
+const kiloAppBuild = '26';
 const kiloAppVersionLabel = '$kiloAppVersion ($kiloAppBuild)';
+const kiloSourceCommit = String.fromEnvironment(
+  'KILO_SOURCE_COMMIT',
+  defaultValue: 'unknown',
+);
+final kiloSourceCommitLabel = kiloSourceCommit == 'unknown'
+    ? '源码 unknown'
+    : '源码 ${kiloSourceCommit.length > 7 ? kiloSourceCommit.substring(0, 7) : kiloSourceCommit}';
 const kiloAppNavigationLabel = 'AI 记忆、饮食记录与视频优化';
 const brandName = '形域';
 const brandEnglish = 'XINGYU';
@@ -116,7 +125,16 @@ class _KiloAppState extends State<KiloApp> with WidgetsBindingObserver {
       await controller.restoreRemoteSession().timeout(
         const Duration(seconds: 3),
       );
-      await controller.restoreCloudBackup().timeout(const Duration(seconds: 5));
+      // A server entitlement check must complete before cloud data is read.
+      // Free accounts stay local and never trigger a sync request.
+      final entitlement = await controller.refreshRemoteEntitlements().timeout(
+        const Duration(seconds: 5),
+      );
+      if (entitlement?.isMember == true) {
+        await controller.restoreCloudBackup().timeout(
+          const Duration(seconds: 5),
+        );
+      }
       await controller.hydrateAppLanguage().timeout(const Duration(seconds: 3));
       await controller.hydrateTheme().timeout(const Duration(seconds: 3));
       await controller.hydrateAiSkills().timeout(const Duration(seconds: 3));
@@ -138,7 +156,9 @@ class _KiloAppState extends State<KiloApp> with WidgetsBindingObserver {
       await controller.hydratePersonalAgentData().timeout(
         const Duration(seconds: 3),
       );
-      unawaited(controller.backupUserData());
+      if (controller.entitlements?.isMember == true) {
+        unawaited(controller.backupUserData());
+      }
     } catch (_) {
       // Local storage is optional in previews; the in-memory repository stays
       // usable when a platform implementation is unavailable.
@@ -227,10 +247,19 @@ class _TrainingProfileOnboardingPageState
   String? gender;
   String? goal;
   int? weeklyTrainingDays;
+  final Set<int> preferredWeekdays = <int>{};
+  int sessionMinutes = 60;
+  String planStyle = 'fixed';
+  String preferredRepRange = '8-12';
+  bool needsWarmupSets = true;
+  final Set<String> focusMuscles = {};
+  final Set<String> reducedMuscles = {};
   final age = TextEditingController();
   final years = TextEditingController();
   final height = TextEditingController();
   final weight = TextEditingController();
+  final dislikedExercises = TextEditingController();
+  final unavailableExercises = TextEditingController();
   bool saving = false;
 
   @override
@@ -240,17 +269,36 @@ class _TrainingProfileOnboardingPageState
     final profile = widget.controller.trainingProfile;
     gender = profile.gender;
     goal = profile.goal;
-    weeklyTrainingDays =
+    final fallbackCount =
         profile.weeklyTrainingDays ??
         switch (profile.activityLevel) {
           'low' => 1,
           'high' => 5,
           _ => 3,
         };
+    preferredWeekdays.addAll(
+      profile.preferredWeekdays.isNotEmpty
+          ? profile.preferredWeekdays
+          : List<int>.generate(
+              fallbackCount.clamp(0, 7).toInt(),
+              (index) => DateTime.monday + index,
+            ),
+    );
+    weeklyTrainingDays = preferredWeekdays.isEmpty
+        ? null
+        : preferredWeekdays.length;
     age.text = profile.age?.toString() ?? '';
     years.text = profile.trainingYears?.toString() ?? '';
     height.text = profile.heightCm?.toString() ?? '';
     weight.text = profile.weightKg?.toString() ?? '';
+    sessionMinutes = profile.sessionMinutes;
+    planStyle = profile.planStyle;
+    preferredRepRange = profile.preferredRepRange;
+    needsWarmupSets = profile.needsWarmupSets;
+    focusMuscles.addAll(profile.focusMuscles);
+    reducedMuscles.addAll(profile.reducedMuscles);
+    dislikedExercises.text = profile.dislikedExerciseIds.join('、');
+    unavailableExercises.text = profile.unavailableExerciseIds.join('、');
   }
 
   @override
@@ -259,6 +307,8 @@ class _TrainingProfileOnboardingPageState
     years.dispose();
     height.dispose();
     weight.dispose();
+    dislikedExercises.dispose();
+    unavailableExercises.dispose();
     super.dispose();
   }
 
@@ -273,12 +323,23 @@ class _TrainingProfileOnboardingPageState
         goal: goal,
         heightCm: double.tryParse(height.text.trim()),
         weightKg: double.tryParse(weight.text.trim()),
-        weeklyTrainingDays: weeklyTrainingDays,
-        activityLevel: switch (weeklyTrainingDays ?? 3) {
+        weeklyTrainingDays: preferredWeekdays.isEmpty
+            ? null
+            : preferredWeekdays.length,
+        preferredWeekdays: preferredWeekdays.toList()..sort(),
+        activityLevel: switch (preferredWeekdays.length) {
           <= 1 => 'low',
           >= 5 => 'high',
           _ => 'moderate',
         },
+        sessionMinutes: sessionMinutes,
+        planStyle: planStyle,
+        preferredRepRange: preferredRepRange,
+        needsWarmupSets: needsWarmupSets,
+        focusMuscles: focusMuscles.toList(),
+        reducedMuscles: reducedMuscles.toList(),
+        dislikedExerciseIds: _splitProfileValues(dislikedExercises.text),
+        unavailableExerciseIds: _splitProfileValues(unavailableExercises.text),
       ),
     );
     if (widget.editMode && mounted) Navigator.pop(context);
@@ -378,26 +439,85 @@ class _TrainingProfileOnboardingPageState
               'muscle_gain': '增肌',
               'fat_loss': '减脂',
               'body_recomp': '塑形',
+              'strength': '力量',
             },
             onSelected: (value) => setState(() => goal = value),
           ),
           const SizedBox(height: 12),
+          _weekdayChoices(),
+          const SizedBox(height: 12),
           _profileChoices(
-            title: '一周几练',
-            value: weeklyTrainingDays?.toString(),
+            title: '每次训练时长',
+            value: sessionMinutes.toString(),
             choices: const {
-              '0': '0',
-              '1': '1',
-              '2': '2',
-              '3': '3',
-              '4': '4',
-              '5': '5',
-              '6': '6+',
+              '30': '30 分',
+              '45': '45 分',
+              '60': '60 分',
+              '75': '75 分',
+              '90': '90 分',
             },
             onSelected: (value) => setState(
-              () => weeklyTrainingDays = value == null
-                  ? null
-                  : int.tryParse(value),
+              () => sessionMinutes = int.tryParse(value ?? '') ?? 60,
+            ),
+          ),
+          const SizedBox(height: 12),
+          _profileChoices(
+            title: '计划变化偏好',
+            value: planStyle,
+            choices: const {'fixed': '固定计划', 'adaptive': '经常变化'},
+            onSelected: (value) => setState(() => planStyle = value ?? 'fixed'),
+          ),
+          const SizedBox(height: 12),
+          _profileChoices(
+            title: '常用次数范围',
+            value: preferredRepRange,
+            choices: const {
+              '3-6': '3–6',
+              '6-10': '6–10',
+              '8-12': '8–12',
+              '10-15': '10–15',
+            },
+            onSelected: (value) =>
+                setState(() => preferredRepRange = value ?? '8-12'),
+          ),
+          const SizedBox(height: 12),
+          SwitchListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+            tileColor: surface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: const BorderSide(color: hairline),
+            ),
+            value: needsWarmupSets,
+            title: const Text('需要热身组'),
+            onChanged: (value) => setState(() => needsWarmupSets = value),
+          ),
+          const SizedBox(height: 12),
+          _musclePreference(
+            title: '重点发展的肌群',
+            selected: focusMuscles,
+            onChanged: () => setState(() {}),
+          ),
+          const SizedBox(height: 12),
+          _musclePreference(
+            title: '希望减少训练的肌群',
+            selected: reducedMuscles,
+            onChanged: () => setState(() {}),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: dislikedExercises,
+            decoration: const InputDecoration(
+              labelText: '不喜欢的动作',
+              hintText: '用顿号或逗号分隔',
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: unavailableExercises,
+            decoration: const InputDecoration(
+              labelText: '无法完成的动作',
+              hintText: '伤病限制或当前无法完成',
             ),
           ),
           const SizedBox(height: 22),
@@ -410,6 +530,80 @@ class _TrainingProfileOnboardingPageState
       ),
     ),
   );
+
+  Widget _weekdayChoices() => Container(
+    key: const Key('preferred-weekdays-field'),
+    padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+    decoration: BoxDecoration(
+      color: surface,
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: hairline),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('每周训练日（可多选）', style: Theme.of(context).textTheme.labelMedium),
+        const SizedBox(height: 3),
+        const Text(
+          '选择后会自动计算每周训练次数',
+          style: TextStyle(fontSize: 11, color: muted),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 7,
+          runSpacing: 7,
+          children: [
+            for (final weekday in const [
+              DateTime.monday,
+              DateTime.tuesday,
+              DateTime.wednesday,
+              DateTime.thursday,
+              DateTime.friday,
+              DateTime.saturday,
+              DateTime.sunday,
+            ])
+              FilterChip(
+                key: Key('preferred-weekday-$weekday'),
+                label: Text(_weekdayLabel(weekday)),
+                selected: preferredWeekdays.contains(weekday),
+                onSelected: (selected) => setState(() {
+                  if (selected) {
+                    preferredWeekdays.add(weekday);
+                  } else {
+                    preferredWeekdays.remove(weekday);
+                  }
+                  weeklyTrainingDays = preferredWeekdays.isEmpty
+                      ? null
+                      : preferredWeekdays.length;
+                }),
+              ),
+          ],
+        ),
+        if (weeklyTrainingDays != null) ...[
+          const SizedBox(height: 5),
+          Text(
+            '每周 $weeklyTrainingDays 天',
+            style: const TextStyle(
+              color: primary,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ],
+    ),
+  );
+
+  String _weekdayLabel(int weekday) => switch (weekday) {
+    DateTime.monday => '周一',
+    DateTime.tuesday => '周二',
+    DateTime.wednesday => '周三',
+    DateTime.thursday => '周四',
+    DateTime.friday => '周五',
+    DateTime.saturday => '周六',
+    DateTime.sunday => '周日',
+    _ => '',
+  };
 
   Widget _profileChoices({
     required String title,
@@ -447,6 +641,52 @@ class _TrainingProfileOnboardingPageState
           ),
         ],
       ),
+    ),
+  );
+
+  Widget _musclePreference({
+    required String title,
+    required Set<String> selected,
+    required VoidCallback onChanged,
+  }) => Container(
+    padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+    decoration: BoxDecoration(
+      color: surface,
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: hairline),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: Theme.of(context).textTheme.labelMedium),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 7,
+          runSpacing: 7,
+          children: [
+            for (final muscle in const [
+              '胸',
+              '背',
+              '肩',
+              '二头',
+              '三头',
+              '股四头',
+              '腘绳肌',
+              '臀',
+              '小腿',
+              '核心',
+            ])
+              FilterChip(
+                label: Text(muscle),
+                selected: selected.contains(muscle),
+                onSelected: (value) {
+                  value ? selected.add(muscle) : selected.remove(muscle);
+                  onChanged();
+                },
+              ),
+          ],
+        ),
+      ],
     ),
   );
 }
@@ -1561,6 +1801,8 @@ class HomePage extends StatelessWidget {
     }
     return PageFrame(
       children: [
+        AiTrainingHomeCard(controller: controller),
+        const SizedBox(height: 16),
         _HomeTodayWorkoutCard(controller: controller),
         const SizedBox(height: 16),
         SectionTitle(
@@ -3393,6 +3635,12 @@ class _WorkoutExerciseCard extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
               child: Column(
                 children: [
+                  if (controller.entitlements?.isMember == true)
+                    _ProgressionRecommendationCard(
+                      recommendation: controller.progressionFor(
+                        exercise.exerciseId,
+                      ),
+                    ),
                   InkWell(
                     key: Key('exercise-note-preview-${exercise.id}'),
                     onTap: () =>
@@ -3527,6 +3775,74 @@ class _WorkoutExerciseCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ProgressionRecommendationCard extends StatelessWidget {
+  const _ProgressionRecommendationCard({required this.recommendation});
+  final ProgressionRecommendation recommendation;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    key: Key('progression-${recommendation.exerciseId}'),
+    width: double.infinity,
+    margin: const EdgeInsets.only(bottom: 9),
+    padding: const EdgeInsets.all(10),
+    decoration: BoxDecoration(
+      color: Theme.of(
+        context,
+      ).colorScheme.primaryContainer.withValues(alpha: .55),
+      borderRadius: BorderRadius.circular(11),
+      border: Border.all(
+        color: Theme.of(context).colorScheme.primary.withValues(alpha: .18),
+      ),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(
+              Icons.auto_awesome_rounded,
+              size: 16,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                recommendation.weight <= 0
+                    ? recommendation.decision
+                    : '${recommendation.decision} · ${_displayWeight(recommendation.weight)} kg × ${recommendation.targetMin}–${recommendation.targetMax} · ${recommendation.sets} 组',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 5),
+        Material(
+          color: Colors.transparent,
+          child: ExpansionTile(
+            key: Key('progression-why-${recommendation.exerciseId}'),
+            tilePadding: EdgeInsets.zero,
+            childrenPadding: EdgeInsets.zero,
+            dense: true,
+            title: const Text('为什么推荐这个重量？', style: TextStyle(fontSize: 11)),
+            children: [
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  recommendation.reason,
+                  style: const TextStyle(fontSize: 11, height: 1.4),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class _PreviousExerciseNotes extends StatelessWidget {
@@ -4424,6 +4740,25 @@ class _SetRow extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 5),
+                OutlinedButton(
+                  key: Key('set-effort-${set.id}'),
+                  onPressed: () =>
+                      _showSetEffortEditor(context, controller, set, index),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(54, 40),
+                    padding: const EdgeInsets.symmetric(horizontal: 7),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  child: Text(
+                    set.rir != null
+                        ? 'RIR ${set.rir!.toStringAsFixed(set.rir! % 1 == 0 ? 0 : 1)}'
+                        : set.rpe != null
+                        ? 'RPE ${set.rpe!.toStringAsFixed(set.rpe! % 1 == 0 ? 0 : 1)}'
+                        : '强度',
+                    style: const TextStyle(fontSize: 10),
+                  ),
+                ),
+                const SizedBox(width: 5),
                 IconButton.outlined(
                   key: Key('delete-set-${set.id}'),
                   tooltip: '删除第 ${index + 1} 组',
@@ -4453,6 +4788,109 @@ class _SetRow extends StatelessWidget {
           child: _CompletionBurst(controller: controller),
         ),
     ],
+  );
+}
+
+List<String> _splitProfileValues(String value) => value
+    .split(RegExp(r'[,，、\n]'))
+    .map((item) => item.trim())
+    .where((item) => item.isNotEmpty)
+    .toList();
+
+Future<void> _showSetEffortEditor(
+  BuildContext context,
+  AppController controller,
+  WorkoutSet set,
+  int index,
+) async {
+  var mode = set.rir != null ? 'rir' : 'rpe';
+  var value = set.rir ?? set.rpe ?? (mode == 'rir' ? 2 : 8);
+  await showModalBottomSheet<void>(
+    context: context,
+    useSafeArea: true,
+    showDragHandle: true,
+    builder: (sheetContext) => StatefulBuilder(
+      builder: (context, setSheetState) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 22),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              '第 ${index + 1} 组训练强度',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'RIR 是还能完成的次数；RPE 是主观用力程度。只需记录一种。',
+              style: TextStyle(color: quiet),
+            ),
+            const SizedBox(height: 14),
+            SegmentedButton<String>(
+              segments: const [
+                ButtonSegment(value: 'rir', label: Text('RIR 剩余次数')),
+                ButtonSegment(value: 'rpe', label: Text('RPE 用力程度')),
+              ],
+              selected: {mode},
+              onSelectionChanged: (selected) => setSheetState(() {
+                mode = selected.first;
+                value = mode == 'rir' ? 2 : 8;
+              }),
+            ),
+            const SizedBox(height: 18),
+            Text(
+              mode == 'rir'
+                  ? 'RIR ${value.toStringAsFixed(1)}'
+                  : 'RPE ${value.toStringAsFixed(1)}',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
+            ),
+            Slider(
+              value: value,
+              min: mode == 'rir' ? 0 : 1,
+              max: mode == 'rir' ? 5 : 10,
+              divisions: mode == 'rir' ? 10 : 18,
+              label: value.toStringAsFixed(1),
+              onChanged: (next) => setSheetState(() => value = next),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: TextButton(
+                    onPressed: () {
+                      set.rir = null;
+                      set.rpe = null;
+                      controller.persistActiveWorkout();
+                      Navigator.pop(sheetContext);
+                    },
+                    child: const Text('清除'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  flex: 2,
+                  child: FilledButton(
+                    onPressed: () {
+                      if (mode == 'rir') {
+                        set.rir = value;
+                        set.rpe = null;
+                      } else {
+                        set.rpe = value;
+                        set.rir = null;
+                      }
+                      controller.persistActiveWorkout();
+                      Navigator.pop(sheetContext);
+                    },
+                    child: const Text('保存强度'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    ),
   );
 }
 
@@ -4609,6 +5047,14 @@ class _PlansView extends StatelessWidget {
 }
 
 void _showAiWorkoutPlanner(BuildContext context, AppController controller) {
+  if (controller.entitlements?.isMember != true) {
+    showMembershipPaywall(
+      context,
+      controller: controller,
+      reason: MembershipPaywallReason.premiumFeature,
+    );
+    return;
+  }
   showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -9164,6 +9610,8 @@ class _RecognitionReport extends StatelessWidget {
             title: '原始视频',
           ),
         const SizedBox(height: 14),
+        _RecognitionTechniqueScoreCard(result: result),
+        const SizedBox(height: 10),
         _RecognitionCoachSummary(result: result),
         const SizedBox(height: 8),
         Align(
@@ -9182,6 +9630,132 @@ class _RecognitionReport extends StatelessWidget {
       ],
     );
   }
+}
+
+class _RecognitionTechniqueScoreCard extends StatelessWidget {
+  const _RecognitionTechniqueScoreCard({required this.result});
+  final RecognitionResult result;
+
+  @override
+  Widget build(BuildContext context) {
+    final raw = result.metrics['scores'];
+    final scores = raw is Map
+        ? Map<String, dynamic>.from(raw)
+        : const <String, dynamic>{};
+    int score(String key) =>
+        ((scores[key] as num?)?.round() ?? 0).clamp(0, 100);
+    final values = <String, int>{
+      '动作幅度': score('rom'),
+      '稳定性': score('stability'),
+      '左右对称': score('symmetry'),
+      '节奏控制': score('tempo'),
+      '动作轨迹': score('trajectory'),
+    };
+    final overall = score('overall');
+    final scoreable =
+        result.assessment == 'assessable' &&
+        result.confidence >= .6 &&
+        overall > 0 &&
+        values.values.every((value) => value > 0);
+    return Container(
+      key: const Key('recognition-technique-score'),
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: surface,
+        borderRadius: BorderRadius.circular(17),
+        border: Border.all(color: hairline),
+      ),
+      child: scoreable
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        '综合动作评分',
+                        style: TextStyle(fontWeight: FontWeight.w900),
+                      ),
+                    ),
+                    Text(
+                      '$overall',
+                      style: const TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w900,
+                        color: primary,
+                      ),
+                    ),
+                    const Text(' / 100', style: TextStyle(color: quiet)),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                for (final entry in values.entries)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 70,
+                          child: Text(
+                            entry.key,
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ),
+                        Expanded(
+                          child: LinearProgressIndicator(
+                            value: entry.value / 100,
+                            minHeight: 7,
+                            borderRadius: BorderRadius.circular(7),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        SizedBox(
+                          width: 26,
+                          child: Text(
+                            '${entry.value}',
+                            textAlign: TextAlign.right,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '本次不输出动作评分',
+                  style: TextStyle(fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  _recognitionQualityGuidance(result),
+                  style: const TextStyle(color: quiet, height: 1.45),
+                ),
+              ],
+            ),
+    );
+  }
+}
+
+String _recognitionQualityGuidance(RecognitionResult result) {
+  final reason = result.evidenceReason.toLowerCase();
+  if (reason.contains('short') || reason.contains('cycle')) {
+    return '视频过短或没有完整动作周期。请录制至少一次完整的起始—发力—还原过程。';
+  }
+  if (reason.contains('frame') || reason.contains('body')) {
+    return '身体没有完整进入画面。请确保头、躯干、髋、膝和脚在动作全程可见。';
+  }
+  if (reason.contains('camera') || reason.contains('angle')) {
+    return '拍摄角度不适合该动作。请按机位提示重新拍摄，并避免器械遮挡关节。';
+  }
+  return '当前视频不足以可靠判断全部技术维度。请保持镜头稳定、身体完整入镜，并录制完整动作周期。';
 }
 
 class _RecognitionEvidenceGallery extends StatelessWidget {
@@ -11472,6 +12046,7 @@ class _AccountMembershipCard extends StatelessWidget {
     MembershipPlan.free => '\u514d\u8d39\u8d26\u53f7',
     MembershipPlan.oneMonth => '1 \u4e2a\u6708\u4f1a\u5458',
     MembershipPlan.threeMonths => '3 \u4e2a\u6708\u4f1a\u5458',
+    MembershipPlan.yearly => '1 \u5e74\u4f1a\u5458',
     MembershipPlan.forever => '\u6c38\u4e45\u4f1a\u5458',
   };
 
@@ -11495,7 +12070,7 @@ class _AccountMembershipCard extends StatelessWidget {
           leading: const CircleAvatar(child: Icon(Icons.person_outline)),
           title: const Text('\u672a\u767b\u5f55'),
           subtitle: const Text(
-            '\u767b\u5f55\u540e\u540c\u6b65\u4f1a\u5458\u4e0e AI \u989d\u5ea6',
+            '\u767b\u5f55\u540e\u540c\u6b65\u4f1a\u5458\u72b6\u6001',
           ),
           trailing: FilledButton(
             onPressed: () => showKiloSnack(
@@ -11609,38 +12184,7 @@ class _AccountMembershipCard extends StatelessWidget {
               },
             ),
             const SizedBox(height: 11),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final compact = constraints.maxWidth < 330 || textScale > 1.5;
-                final ai = _QuotaMetric(
-                  icon: Icons.auto_awesome_outlined,
-                  label: 'AI 问答',
-                  value: '${quota.aiRemaining} / ${quota.aiDailyLimit}',
-                  caption: '今日剩余',
-                );
-                final recognition = _QuotaMetric(
-                  icon: Icons.center_focus_strong_outlined,
-                  label: '动作识别',
-                  value: '${quota.recognitionRemaining}',
-                  caption: '当前可用',
-                );
-                return compact
-                    ? Column(
-                        children: [ai, const Divider(height: 14), recognition],
-                      )
-                    : Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(child: ai),
-                          const SizedBox(
-                            height: 52,
-                            child: VerticalDivider(width: 18),
-                          ),
-                          Expanded(child: recognition),
-                        ],
-                      );
-              },
-            ),
+            _AccountBenefitsLine(isEnabled: controller.cloudSyncAllowed),
             const SizedBox(height: 10),
             Row(
               children: [
@@ -11710,49 +12254,24 @@ class _AccountMembershipCard extends StatelessWidget {
   }
 }
 
-class _QuotaMetric extends StatelessWidget {
-  const _QuotaMetric({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.caption,
-  });
+class _AccountBenefitsLine extends StatelessWidget {
+  const _AccountBenefitsLine({required this.isEnabled});
 
-  final IconData icon;
-  final String label;
-  final String value;
-  final String caption;
+  final bool isEnabled;
 
   @override
   Widget build(BuildContext context) => Row(
     children: [
-      Container(
-        width: 30,
-        height: 30,
-        decoration: BoxDecoration(
-          color: primaryContainer,
-          borderRadius: BorderRadius.circular(9),
-        ),
-        child: Icon(icon, color: primary, size: 16),
+      Icon(
+        isEnabled ? Icons.cloud_done_outlined : Icons.cloud_outlined,
+        color: primary,
+        size: 18,
       ),
       const SizedBox(width: 7),
       Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
-            Text(
-              value,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 17,
-                color: ink,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-            Text(caption, style: const TextStyle(fontSize: 11, color: quiet)),
-          ],
+        child: Text(
+          isEnabled ? 'PRO 云同步已开启' : '训练记录保存在本机 · 可升级 PRO 云同步',
+          style: const TextStyle(color: muted, fontSize: 12),
         ),
       ),
     ],
@@ -11860,14 +12379,6 @@ class ProfilePage extends StatelessWidget {
                   onTap: () => _showProgress(context, controller),
                 ),
                 _ProfileQuickAction(
-                  icon: Icons.timer_outlined,
-                  title: '组间休息',
-                  caption: controller.defaultRestSeconds > 0
-                      ? '${controller.defaultRestSeconds} 秒'
-                      : '完成首组时设置',
-                  onTap: () => _showWorkoutSettings(context, controller),
-                ),
-                _ProfileQuickAction(
                   key: const Key('training-profile-setting'),
                   icon: Icons.person_search_outlined,
                   title: '训练资料',
@@ -11973,7 +12484,7 @@ class ProfilePage extends StatelessWidget {
               _ProfileSettingRow(
                 icon: Icons.lock_clock_outlined,
                 title: '锁屏实时活动',
-                caption: '训练总时长与组间休息',
+                caption: '训练状态同步到锁屏',
                 trailing: Switch(
                   value: controller.liveActivity,
                   onChanged: (value) {
@@ -12005,11 +12516,12 @@ class ProfilePage extends StatelessWidget {
                 onTap: () => controller.selectPage(PageId.ai),
               ),
               const Divider(height: 1),
-              const _ProfileSettingRow(
+              _ProfileSettingRow(
                 key: Key('app-version-row'),
                 icon: Icons.info_outline,
                 title: '关于形域',
-                caption: '版本 $kiloAppVersionLabel · $kiloAppNavigationLabel',
+                caption:
+                    '版本 $kiloAppVersionLabel · $kiloSourceCommitLabel · $kiloAppNavigationLabel',
               ),
             ],
           ),
@@ -12196,6 +12708,10 @@ void _showAdminGrantDialog(BuildContext context, AppController controller) {
                   child: Text('3 \u4e2a\u6708'),
                 ),
                 DropdownMenuItem(
+                  value: MembershipPlan.yearly,
+                  child: Text('1 \u5e74'),
+                ),
+                DropdownMenuItem(
                   value: MembershipPlan.forever,
                   child: Text('\u6c38\u4e45'),
                 ),
@@ -12371,6 +12887,10 @@ Future<void> _showAdminCreateUserSheet(
                     ),
                     DropdownMenuItem(
                       value: MembershipPlan.threeMonths,
+                      child: Text('3 个月'),
+                    ),
+                    DropdownMenuItem(
+                      value: MembershipPlan.yearly,
                       child: Text('1 年'),
                     ),
                     DropdownMenuItem(
@@ -12478,6 +12998,10 @@ void _showAdminCodeDialog(BuildContext context, AppController controller) {
             DropdownMenuItem(
               value: MembershipPlan.threeMonths,
               child: Text('3 \u4e2a\u6708'),
+            ),
+            DropdownMenuItem(
+              value: MembershipPlan.yearly,
+              child: Text('1 \u5e74'),
             ),
             DropdownMenuItem(
               value: MembershipPlan.forever,
@@ -12756,6 +13280,11 @@ class _ExerciseDetailSheetState extends State<_ExerciseDetailSheet> {
       .where((set) => set.completed && set.reps > 0)
       .toList();
 
+  List<TechniqueAssessment> get techniqueHistory => controller
+      .techniqueAssessments
+      .where((item) => item.exerciseId == exercise.id)
+      .toList();
+
   double? get heaviestWeight {
     if (completedSets.isEmpty) return null;
     return completedSets
@@ -12910,6 +13439,8 @@ class _ExerciseDetailSheetState extends State<_ExerciseDetailSheet> {
           ),
         ),
         const SizedBox(height: 10),
+        _buildTechniqueGrowth(),
+        const SizedBox(height: 10),
         _DetailBlock(
           key: const Key('exercise-detail-resource'),
           title: '备注与链接',
@@ -12993,6 +13524,91 @@ class _ExerciseDetailSheetState extends State<_ExerciseDetailSheet> {
           },
         ),
       ],
+    );
+  }
+
+  Widget _buildTechniqueGrowth() {
+    final scoreable = techniqueHistory.where((item) => item.scoreable).toList();
+    final unavailable = techniqueHistory
+        .where((item) => !item.scoreable)
+        .firstOrNull;
+    if (scoreable.isEmpty) {
+      return _DetailBlock(
+        key: const Key('exercise-technique-growth'),
+        title: '技术成长档案',
+        child: Text(
+          unavailable == null
+              ? '上传一次完整动作视频后，这里会记录 ROM、稳定性、对称性、节奏和轨迹。'
+              : '最近视频未进入评分曲线：${unavailable.qualityReason}。请完整拍到身体并录制至少一个完整动作周期。',
+          style: const TextStyle(color: quiet, height: 1.45),
+        ),
+      );
+    }
+    final latest = scoreable.first;
+    final earliest = scoreable.last;
+    final highest = scoreable
+        .map((item) => item.overall)
+        .reduce((a, b) => a > b ? a : b);
+    return _DetailBlock(
+      key: const Key('exercise-technique-growth'),
+      title: '技术成长档案',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _DetailTag(label: '当前 ${latest.overall}'),
+              _DetailTag(label: '最高 $highest'),
+              _DetailTag(label: '首次 ${earliest.overall}'),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (var index = scoreable.length - 1; index >= 0; index--) ...[
+                  CircleAvatar(
+                    radius: 18,
+                    backgroundColor: primaryContainer,
+                    foregroundColor: primary,
+                    child: Text(
+                      '${scoreable[index].overall}',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  if (index > 0)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 5),
+                      child: Icon(
+                        Icons.arrow_forward_rounded,
+                        size: 14,
+                        color: quiet,
+                      ),
+                    ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'ROM ${latest.rom} · 稳定 ${latest.stability} · 对称 ${latest.symmetry} · 节奏 ${latest.tempo} · 轨迹 ${latest.trajectory}',
+            style: const TextStyle(fontSize: 12, height: 1.45),
+          ),
+          if (latest.nextFocus.isNotEmpty) ...[
+            const SizedBox(height: 7),
+            Text(
+              '下一次重点：${latest.nextFocus}',
+              style: const TextStyle(fontWeight: FontWeight.w800, height: 1.4),
+            ),
+          ],
+        ],
+      ),
     );
   }
 
@@ -13108,7 +13724,11 @@ class _ExerciseDetailSheetState extends State<_ExerciseDetailSheet> {
                       for (final set in setsFor(record)) ...[
                         Padding(
                           padding: const EdgeInsets.only(bottom: 3),
-                          child: Text('${_weight(set.weight)} × ${set.reps}'),
+                          child: Text(
+                            '${_weight(set.weight)} × ${set.reps}'
+                            '${set.rir == null ? '' : ' · RIR ${set.rir}'}'
+                            '${set.rpe == null ? '' : ' · RPE ${set.rpe}'}',
+                          ),
                         ),
                         if (set.note.trim().isNotEmpty)
                           Padding(
@@ -14365,52 +14985,6 @@ void _showExerciseActions(
     ),
   ),
 );
-
-void _showWorkoutSettings(BuildContext context, AppController controller) {
-  showModalBottomSheet<void>(
-    context: context,
-    builder: (context) => StatefulBuilder(
-      builder: (context, setSheetState) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                '训练设置',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
-              ),
-              const SizedBox(height: 14),
-              Text(
-                controller.defaultRestSeconds > 0
-                    ? '本次训练组间休息：${controller.defaultRestSeconds} 秒'
-                    : '训练中按需设置（滑动后应用）',
-              ),
-              Slider(
-                // A zero value means “unset”; use a temporary visual thumb
-                // position so Flutter's min/max assertion is never hit.
-                // Merely opening this sheet does not persist the 180-second
-                // visual suggestion.
-                value: controller.defaultRestSeconds > 0
-                    ? controller.defaultRestSeconds.clamp(30, 300).toDouble()
-                    : 180,
-                min: 30,
-                max: 300,
-                divisions: 9,
-                onChanged: (value) {
-                  controller.defaultRestSeconds = value.round();
-                  setSheetState(() {});
-                },
-              ),
-              const SizedBox(height: 8),
-            ],
-          ),
-        ),
-      ),
-    ),
-  );
-}
 
 void _showFinishWorkout(
   BuildContext context,

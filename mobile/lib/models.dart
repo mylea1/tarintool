@@ -508,6 +508,8 @@ class WorkoutSet {
     this.restSeconds = 0,
     this.completed = false,
     this.failed = false,
+    this.rpe,
+    this.rir,
     this.note = '',
     this.durationSeconds,
   });
@@ -528,6 +530,11 @@ class WorkoutSet {
   int restSeconds;
   bool completed;
   bool failed;
+
+  /// User-reported effort. RPE is 1-10; RIR is 0-5. Both remain nullable so
+  /// legacy records are never treated as if effort had been measured.
+  double? rpe;
+  double? rir;
   String note;
   int? durationSeconds;
 
@@ -546,6 +553,8 @@ class WorkoutSet {
     restSeconds: restSeconds,
     completed: completed,
     failed: failed,
+    rpe: rpe,
+    rir: rir,
     note: note,
     durationSeconds: durationSeconds,
   );
@@ -568,6 +577,8 @@ class WorkoutSet {
     restSeconds: restSeconds,
     completed: completed,
     failed: failed,
+    rpe: rpe,
+    rir: rir,
     note: note,
     durationSeconds: durationSeconds,
   );
@@ -636,6 +647,7 @@ class WorkoutRecord {
     this.prs = const [],
     this.prDetails = const [],
     this.exercises = const [],
+    this.gymId,
   });
   final String id;
   final String name;
@@ -652,6 +664,7 @@ class WorkoutRecord {
   /// A snapshot of the exercises and sets performed in this record.
   /// Older records may omit it and fall back to [exerciseIds].
   final List<WorkoutExercise> exercises;
+  final String? gymId;
 }
 
 /// A personal record proven against this user's earlier records for the same
@@ -889,7 +902,16 @@ class TrainingProfile {
     this.heightCm,
     this.weightKg,
     this.weeklyTrainingDays,
+    this.preferredWeekdays = const [],
     this.activityLevel = 'moderate',
+    this.sessionMinutes = 60,
+    this.planStyle = 'fixed',
+    this.preferredRepRange = '8-12',
+    this.needsWarmupSets = true,
+    this.focusMuscles = const [],
+    this.reducedMuscles = const [],
+    this.dislikedExerciseIds = const [],
+    this.unavailableExerciseIds = const [],
   });
 
   final String? gender;
@@ -900,9 +922,23 @@ class TrainingProfile {
   final double? weightKg;
   final int? weeklyTrainingDays;
 
+  /// ISO weekday numbers (1 = Monday … 7 = Sunday) selected by the user.
+  /// Empty means that the user has not selected a preferred schedule yet.
+  /// [weeklyTrainingDays] remains in the wire shape for older installs and
+  /// is derived from this list whenever the profile is saved.
+  final List<int> preferredWeekdays;
+
   /// Kept for backward compatibility with profiles saved before weekly
   /// training frequency replaced the vague daily-activity selector.
   final String activityLevel;
+  final int sessionMinutes;
+  final String planStyle;
+  final String preferredRepRange;
+  final bool needsWarmupSets;
+  final List<String> focusMuscles;
+  final List<String> reducedMuscles;
+  final List<String> dislikedExerciseIds;
+  final List<String> unavailableExerciseIds;
 
   Map<String, dynamic> toJson() => {
     if (gender != null) 'gender': gender,
@@ -912,21 +948,77 @@ class TrainingProfile {
     if (heightCm != null) 'heightCm': heightCm,
     if (weightKg != null) 'weightKg': weightKg,
     if (weeklyTrainingDays != null) 'weeklyTrainingDays': weeklyTrainingDays,
+    'preferredWeekdays': preferredWeekdays,
     'activityLevel': activityLevel,
+    'sessionMinutes': sessionMinutes,
+    'planStyle': planStyle,
+    'preferredRepRange': preferredRepRange,
+    'needsWarmupSets': needsWarmupSets,
+    'focusMuscles': focusMuscles,
+    'reducedMuscles': reducedMuscles,
+    'dislikedExerciseIds': dislikedExerciseIds,
+    'unavailableExerciseIds': unavailableExerciseIds,
   };
 
-  factory TrainingProfile.fromJson(Map<String, dynamic> json) =>
-      TrainingProfile(
-        gender: json['gender']?.toString(),
-        age: (json['age'] as num?)?.toInt(),
-        trainingYears: (json['trainingYears'] as num?)?.toDouble(),
-        goal: json['goal']?.toString(),
-        heightCm: (json['heightCm'] as num?)?.toDouble(),
-        weightKg: (json['weightKg'] as num?)?.toDouble(),
-        weeklyTrainingDays: (json['weeklyTrainingDays'] as num?)?.toInt(),
-        activityLevel: json['activityLevel']?.toString() ?? 'moderate',
-      );
+  factory TrainingProfile.fromJson(Map<String, dynamic> json) {
+    final rawWeekdays = json['preferredWeekdays'];
+    final parsedWeekdays = rawWeekdays is List
+        ? rawWeekdays
+              .map((item) => item is num ? item.toInt() : int.tryParse('$item'))
+              .whereType<int>()
+              .where(
+                (item) => item >= DateTime.monday && item <= DateTime.sunday,
+              )
+              .toSet()
+              .toList()
+        : <int>[];
+    final legacyFrequency = (json['weeklyTrainingDays'] as num?)?.toInt();
+    final activityLevel = json['activityLevel']?.toString() ?? 'moderate';
+    final fallbackCount =
+        legacyFrequency ??
+        switch (activityLevel) {
+          'low' => 1,
+          'high' => 5,
+          _ => 3,
+        };
+    final preferredWeekdays = parsedWeekdays.isNotEmpty
+        ? (parsedWeekdays..sort())
+        : List<int>.generate(
+            fallbackCount.clamp(0, 7).toInt(),
+            (index) => DateTime.monday + index,
+          );
+    return TrainingProfile(
+      gender: json['gender']?.toString(),
+      age: (json['age'] as num?)?.toInt(),
+      trainingYears: (json['trainingYears'] as num?)?.toDouble(),
+      goal: json['goal']?.toString(),
+      heightCm: (json['heightCm'] as num?)?.toDouble(),
+      weightKg: (json['weightKg'] as num?)?.toDouble(),
+      // The selected weekdays are authoritative for new profiles. Keep the
+      // legacy frequency only as the source for the fallback list above.
+      weeklyTrainingDays: preferredWeekdays.length,
+      preferredWeekdays: preferredWeekdays,
+      activityLevel: activityLevel,
+      sessionMinutes: (json['sessionMinutes'] as num?)?.toInt() ?? 60,
+      planStyle: json['planStyle']?.toString() ?? 'fixed',
+      preferredRepRange: json['preferredRepRange']?.toString() ?? '8-12',
+      needsWarmupSets: json['needsWarmupSets'] != false,
+      focusMuscles: _profileStringList(json['focusMuscles']),
+      reducedMuscles: _profileStringList(json['reducedMuscles']),
+      dislikedExerciseIds: _profileStringList(json['dislikedExerciseIds']),
+      unavailableExerciseIds: _profileStringList(
+        json['unavailableExerciseIds'],
+      ),
+    );
+  }
 }
+
+List<String> _profileStringList(Object? value) => value is List
+    ? value
+          .map((item) => item.toString())
+          .where((item) => item.isNotEmpty)
+          .toList()
+    : const [];
 
 class NutritionEntry {
   const NutritionEntry({

@@ -44,8 +44,12 @@ fi
 
 cd "$MOBILE_ROOT"
 flutter pub get
-flutter build apk --release --flavor "$FLAVOR" --dart-define=APP_MARKET="$FLAVOR"
-flutter build appbundle --release --flavor "$FLAVOR" --dart-define=APP_MARKET="$FLAVOR"
+COMMON_DART_DEFINES=(
+  "--dart-define=APP_MARKET=$FLAVOR"
+  "--dart-define=KILO_SOURCE_COMMIT=${KILO_SOURCE_COMMIT:-unknown}"
+)
+flutter build apk --release --flavor "$FLAVOR" "${COMMON_DART_DEFINES[@]}"
+flutter build appbundle --release --flavor "$FLAVOR" "${COMMON_DART_DEFINES[@]}"
 
 APK_PATH="$MOBILE_ROOT/build/app/outputs/flutter-apk/app-${FLAVOR}-release.apk"
 AAB_PATH="$MOBILE_ROOT/build/app/outputs/bundle/${FLAVOR}Release/app-${FLAVOR}-release.aab"

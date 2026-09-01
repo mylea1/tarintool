@@ -19,6 +19,14 @@ const AI_TOOL_DEFINITIONS = [
   {
     type: 'function',
     function: {
+      name: 'read_training_intelligence',
+      description: '读取用户设备计算的今日建议、肌群恢复、近四周训练量、动作技术趋势、当前健身房和周报。只读。',
+      parameters: { type: 'object', properties: {}, additionalProperties: false },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'read_training_plans',
       description: '读取当前用户保存的训练计划及其中的动作、组数、重量、次数和休息时间。只读。',
       parameters: {
@@ -106,18 +114,19 @@ function aiClientTimeInstruction(body) {
 }
 const ALLOWED_ENTITIES = new Set(['workout', 'plan', 'template', 'settings']);
 const PLANS = new Set(['oneMonth', 'yearly', 'threeMonths', 'forever']);
-// Only the monthly and yearly products are displayed to customers. Legacy
+// Three current subscription products are displayed to customers. Legacy
 // product IDs remain verifiable so a previously purchased prototype product
 // is not silently lost during migration.
 const APPLE_MEMBERSHIP_PRODUCTS = new Map([
   ['com.kilostrength.pro.monthly', 'oneMonth'],
-  ['com.kilostrength.pro.yearly', 'yearly'],
   ['com.kilostrength.pro.quarterly', 'threeMonths'],
+  ['com.kilostrength.pro.yearly', 'yearly'],
   ['com.kilostrength.pro.lifetime', 'forever'],
 ]);
 const PUBLIC_MEMBERSHIP_PRODUCTS = new Map([
-  ['com.kilostrength.pro.monthly', { plan: 'oneMonth', amountMinor: 1800, currency: 'CNY' }],
-  ['com.kilostrength.pro.yearly', { plan: 'yearly', amountMinor: 16800, currency: 'CNY' }],
+  ['com.kilostrength.pro.monthly', { plan: 'oneMonth', amountMinor: 1990, currency: 'CNY', duration: '1个月' }],
+  ['com.kilostrength.pro.quarterly', { plan: 'threeMonths', amountMinor: 4990, currency: 'CNY', duration: '3个月' }],
+  ['com.kilostrength.pro.yearly', { plan: 'yearly', amountMinor: 15900, currency: 'CNY', duration: '12个月' }],
 ]);
 const JOB_STATES = new Set(['created', 'uploading', 'queued', 'processing', 'completed', 'failed', 'cancelled', 'expired']);
 const ALLOWED_MEDIA_TYPES = new Set(extensionForType.keys());
@@ -1811,7 +1820,11 @@ async function createAndroidCheckout(cfg, provider, order) {
     body: JSON.stringify({
       provider,
       orderId: order.id,
-      description: order.plan === 'yearly' ? '形域年度会员' : '形域月度会员',
+      description: order.plan === 'yearly'
+        ? '形域年度会员'
+        : order.plan === 'threeMonths'
+          ? '形域季度会员'
+          : '形域月度会员',
       amountMinor: order.amount_minor,
       currency: order.currency,
       notifyUrl: `${cfg.publicBaseUrl}/v1/membership/android/webhook/${provider}`,
@@ -2078,22 +2091,20 @@ async function handleRequest(req, res, ctx) {
   if (req.method === 'GET' && url.pathname === '/v1/me/entitlements') {
     const user = authenticate(req, ctx); writeJson(res, 200, publicEntitlement(entitlementRow(ctx.db, user.id)), req, ctx.cfg); return;
   }
-  if (req.method === 'GET' && ['/v1/checkin/status', '/v1/checkins/status'].includes(url.pathname)) {
-    const user = authenticate(req, ctx);
-    const state = transaction(ctx.db, () => publicCheckinState(ctx.db, user.id));
-    writeJson(res, 200, { ...state, entitlement: publicEntitlement(entitlementRow(ctx.db, user.id)) }, req, ctx.cfg); return;
-  }
-  if (req.method === 'POST' && ['/v1/checkin', '/v1/checkins'].includes(url.pathname)) {
-    const user = authenticate(req, ctx);
-    const result = transaction(ctx.db, () => recordDailyCheckin(ctx.db, user.id));
-    if (result.awarded) audit(ctx.db, user.id, 'daily_checkin_reward', String(result.rewardRound), { rewardDays: result.rewardDays });
-    writeJson(res, 200, result, req, ctx.cfg); return;
+  // Daily check-in rewards were removed from the product. Keep the legacy
+  // database tables for migration/audit compatibility, but intentionally do
+  // not expose either the status or reward endpoint anymore.
+  if (['/v1/checkin', '/v1/checkins', '/v1/checkin/status', '/v1/checkins/status'].includes(url.pathname)) {
+    throw httpError(404, 'checkin_disabled');
   }
   if (req.method === 'GET' && url.pathname === '/v1/membership/products') {
-    writeJson(res, 200, { products: [
-      { productId: 'com.kilostrength.pro.monthly', plan: 'oneMonth', type: 'subscription' },
-      { productId: 'com.kilostrength.pro.yearly', plan: 'yearly', type: 'subscription' },
-    ] }, req, ctx.cfg); return;
+    writeJson(res, 200, {
+      products: [...PUBLIC_MEMBERSHIP_PRODUCTS.entries()].map(([productId, product]) => ({
+        productId,
+        ...product,
+        type: 'subscription',
+      })),
+    }, req, ctx.cfg); return;
   }
   if (req.method === 'GET' && url.pathname === '/v1/membership/android/capabilities') {
     writeJson(res, 200, androidPaymentCapabilities(ctx.cfg), req, ctx.cfg); return;
@@ -2628,7 +2639,7 @@ async function handleRequest(req, res, ctx) {
       const recent = conversationMessages(ctx.db, conversationId, 20);
       const knowledge = knowledgeSearch(ctx.db, question, 20);
       const answerLocale = String(body.locale || '').toLowerCase().startsWith('en') ? 'en' : 'zh-CN';
-      const messages = [{ role: 'system', content: `你是 KILO Strength 健身训练助手。提供一般训练、恢复和动作记录建议，不进行医疗诊断。证据不足时明确说明。${answerLocale === 'en' ? ' Answer in natural, concise English.' : ' 使用自然、简洁的中文回答。'}回答使用简洁 Markdown。不要在正文中披露内部知识库名称或技能名。` }];
+      const messages = [{ role: 'system', content: `你是 KILO Strength 健身训练助手。优先基于用户长期训练数据解释下一步怎么练，不要给通用健身话术。提供一般训练、恢复和动作记录建议，不进行医疗诊断。证据不足时明确说明。视频动作分析不得识别或猜测训练重量，重量只能来自用户实际记录。${answerLocale === 'en' ? ' Answer in natural, concise English.' : ' 使用自然、简洁的中文回答。'}回答使用简洁 Markdown。不要在正文中披露内部知识库名称或技能名。` }];
       messages.push({ role: 'system', content: aiClientTimeInstruction(body) });
       if (conversation.memory_summary) messages.push({ role: 'system', content: `长期记忆摘要：${conversation.memory_summary.slice(0, 3000)}` });
       if (knowledge.length) messages.push({ role: 'system', content: `内部知识库参考：\n${knowledge.map((item) => `${item.title}: ${item.content.slice(0, 1200)}`).join('\n')}` });
@@ -2708,9 +2719,9 @@ async function handleRequest(req, res, ctx) {
       const languageInstruction = answerLocale === 'en'
         ? 'Answer in natural, concise English. All headings, explanations, plan names and session names must be in English.'
         : '使用自然、简洁的中文回答，标题、解释、计划名称和训练日名称均使用中文。';
-      const messages = [{ role: 'system', content: `你是 KILO Strength 健身训练助手。提供一般训练、恢复和动作记录建议，不进行医疗诊断。证据不足时明确说明。
+      const messages = [{ role: 'system', content: `你是 KILO Strength 健身训练助手。你的核心任务是基于用户长期训练数据，解释今天该练什么以及下一步该怎么练，而不是给通用健身话术。提供一般训练、恢复和动作记录建议，不进行医疗诊断。证据不足时明确说明。
 ${languageInstruction}
-回答使用简洁 Markdown：用标题、加粗、列表组织内容，但不要堆叠格式。只总结知识库结论，不要大段照搬原文。不要在正文中写文献名称、来源列表、脚注编号或“根据某文献”；客户端会在回答结尾统一展示服务端检索到的来源。凡是建议用户增加或降低重量、次数、组数或休息时间，必须紧接着说明依据（历史表现、完成质量、备注、训练目标或恢复状态）；没有足够数据时必须明确说这是保守起点而非个性化结论。` }];
+回答使用简洁 Markdown：用标题、加粗、列表组织内容，但不要堆叠格式。只总结知识库结论，不要大段照搬原文。不要在正文中写文献名称、来源列表、脚注编号或“根据某文献”；客户端会在回答结尾统一展示服务端检索到的来源。凡是建议用户增加或降低重量、次数、组数或休息时间，必须紧接着说明依据（历史表现、RIR/RPE、动作质量、备注、训练目标或恢复状态）；没有足够数据时必须明确说这是保守起点而非个性化结论。视频动作分析只能评价人体动作，不得识别或猜测杠铃片、哑铃或器械重量；训练重量只能读取用户实际记录。恢复建议不得强制阻止用户训练。` }];
       messages.push({ role: 'system', content: aiClientTimeInstruction(body) });
       if (conversation.memory_summary) messages.push({ role: 'system', content: `长期记忆摘要：${conversation.memory_summary.slice(0, 3000)}` });
       if (knowledge.length) messages.push({ role: 'system', content: `内部知识库参考：\n${knowledge.map((item) => `${item.title}: ${item.content.slice(0, 1200)}`).join('\n')}\n这些内容可以帮助推理，但不得在正文中披露内部知识库名称、文件名或技能名。客户端会统一展示检索来源。B站、GitHub、内部文件和仓库来源不作为用户可见引用；论文、标准、公共机构或其他公开网页来源可以展示。` });

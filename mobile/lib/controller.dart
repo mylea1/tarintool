@@ -17,6 +17,7 @@ import 'models.dart';
 import 'recognition_api.dart';
 import 'secure_session_store.dart';
 import 'workout_history_persistence.dart';
+import 'training_intelligence.dart';
 
 const String defaultCoachApiBaseUrl = String.fromEnvironment(
   'KILO_API_BASE_URL',
@@ -278,6 +279,7 @@ class AppController extends ChangeNotifier {
   RemoteSession? _storedRemoteSession;
   bool _secureSessionLoaded = false;
   String? _sessionExpiredMessage;
+  bool _remoteEntitlementsFresh = false;
   bool _disposed = false;
 
   AccountUser? get currentUser => accountService.currentUser;
@@ -288,7 +290,8 @@ class AppController extends ChangeNotifier {
   int get aiRemaining => accountService.aiRemaining;
   int get recognitionRemaining => accountService.recognitionRemaining;
   List<MembershipOrder> get membershipOrders => accountService.membershipOrders;
-  CheckinSnapshot get checkinStatus => accountService.checkinStatus;
+  bool get cloudSyncAllowed =>
+      _remoteEntitlementsFresh && entitlements?.isMember == true;
 
   MembershipOrder? createMembershipOrder({
     required MembershipPlan plan,
@@ -332,7 +335,13 @@ class AppController extends ChangeNotifier {
     }
     final payload = await api.createMembershipOrder(
       productId: productId,
-      plan: productId.endsWith('.yearly') ? 'yearly' : 'oneMonth',
+      plan: switch (plan) {
+        MembershipPlan.oneMonth => 'oneMonth',
+        MembershipPlan.threeMonths => 'threeMonths',
+        MembershipPlan.yearly => 'yearly',
+        MembershipPlan.forever => 'forever',
+        MembershipPlan.free => 'free',
+      },
       provider: provider == MembershipOrderProvider.googlePlay
           ? 'google_play'
           : provider == MembershipOrderProvider.wechatPay
@@ -370,57 +379,37 @@ class AppController extends ChangeNotifier {
       accountService.replaceMembershipOrders(
         rows.map(_remoteMembershipOrder).toList(),
       );
+      // Order refresh (including Android gateway return) also refreshes the
+      // server-owned entitlement before a PRO backup is attempted.
+      final entitlement = await refreshRemoteEntitlements();
+      if (entitlement?.isMember == true) _scheduleCloudBackup();
     } catch (_) {
       // Local orders remain available while a tunnel/network is offline.
     }
   }
 
-  Future<void> hydrateCheckinStatus() async {
-    try {
-      final api = await _activeCoachApi();
-      if (api is! HttpCoachApi) return;
-      final payload = await api.fetchCheckinStatus();
-      final raw = payload['entitlement'];
-      if (raw is Map) {
-        accountService.replaceCurrentEntitlement(
-          EntitlementSnapshot.fromMap(Map<String, dynamic>.from(raw)),
-        );
-      }
-      accountService.replaceCheckinStatus(_checkinFromRemote(payload));
-    } catch (_) {
-      // Sign-in should not be blocked by an unavailable reward endpoint.
-    }
-  }
-
-  Future<CheckinSnapshot> checkIn() async {
+  /// Refreshes membership from the authenticated server. This is deliberately
+  /// separate from local persistence so callers can gate cloud access on a
+  /// successful authoritative response.
+  Future<EntitlementSnapshot?> refreshRemoteEntitlements() async {
     final api = await _activeCoachApi();
     if (api is! HttpCoachApi) {
-      throw const CoachApiException('checkin_unavailable');
+      _remoteEntitlementsFresh = false;
+      return null;
     }
-    final payload = await api.checkIn();
-    final raw = payload['entitlement'];
-    if (raw is Map) {
-      accountService.replaceCurrentEntitlement(
-        EntitlementSnapshot.fromMap(Map<String, dynamic>.from(raw)),
-      );
+    try {
+      final payload = await api.fetchEntitlements();
+      final entitlement = EntitlementSnapshot.fromMap(payload);
+      if (currentUser != null) {
+        accountService.replaceCurrentEntitlement(entitlement);
+      }
+      _remoteEntitlementsFresh = true;
+      return entitlement;
+    } catch (_) {
+      _remoteEntitlementsFresh = false;
+      rethrow;
     }
-    final snapshot = _checkinFromRemote(payload);
-    accountService.replaceCheckinStatus(snapshot);
-    return snapshot;
   }
-
-  CheckinSnapshot _checkinFromRemote(Map<String, dynamic> payload) =>
-      CheckinSnapshot(
-        todayCheckedIn: payload['todayCheckedIn'] == true,
-        roundDays: (payload['roundDays'] as num?)?.toInt() ?? 0,
-        totalDays: (payload['totalDays'] as num?)?.toInt() ?? 0,
-        rewardRound: (payload['rewardRound'] as num?)?.toInt() ?? 0,
-        lastRewardAt: DateTime.tryParse(
-          (payload['lastRewardAt'] ?? '').toString(),
-        ),
-        rewarded: payload['awarded'] == true,
-        rewardDays: (payload['rewardDays'] as num?)?.toInt() ?? 0,
-      );
 
   static int? _priceToMinor(String value) {
     final match = RegExp(r'([0-9]+(?:\.[0-9]+)?)').firstMatch(value);
@@ -451,6 +440,11 @@ class AppController extends ChangeNotifier {
     accountService.replaceCurrentEntitlement(
       EntitlementSnapshot.fromMap(Map<String, dynamic>.from(raw)),
     );
+    _remoteEntitlementsFresh = true;
+    // A successful server verification is the first point at which the new
+    // PRO entitlement is authoritative, so upload the current device state
+    // once. The backup itself remains best-effort and idempotent.
+    unawaited(backupUserData());
   }
 
   void _handleAccountChanged() {
@@ -459,6 +453,7 @@ class AppController extends ChangeNotifier {
       _observedAccountUserId = userId;
       _remoteIdentifier = currentUser?.identifier;
       _remotePassword = null;
+      _remoteEntitlementsFresh = false;
       if (userId == null || userId.isEmpty) {
         unawaited(secureSessionStore.clear());
       }
@@ -467,13 +462,14 @@ class AppController extends ChangeNotifier {
       chat.clear();
       trainingProfile = const TrainingProfile();
       nutritionEntries.clear();
+      gymLocations.clear();
+      techniqueAssessments.clear();
       profileOnboardingCompleted = false;
       personalAgentDataReady = false;
       activeConversationId = 'conversation-main';
       if (userId != null && userId.isNotEmpty) {
         unawaited(hydrateAiConversations(force: true));
         unawaited(hydrateMembershipOrders());
-        unawaited(hydrateCheckinStatus());
       }
     }
     notifyListeners();
@@ -483,6 +479,7 @@ class AppController extends ChangeNotifier {
     _defaultCoachApi?.clearSession();
     _defaultRecognitionApi?.clearSession();
     _storedRemoteSession = null;
+    _remoteEntitlementsFresh = false;
     _secureSessionLoaded = true;
     unawaited(secureSessionStore.clear());
     final result = accountService.loginWithPhone(
@@ -533,7 +530,12 @@ class AppController extends ChangeNotifier {
       provider: provider == MembershipOrderProvider.wechatPay
           ? 'wechat_pay'
           : 'alipay',
-      amountMinor: plan == MembershipPlan.threeMonths ? 16800 : 1800,
+      amountMinor: switch (plan) {
+        MembershipPlan.oneMonth => 1990,
+        MembershipPlan.threeMonths => 4990,
+        MembershipPlan.yearly => 15900,
+        MembershipPlan.forever || MembershipPlan.free => 0,
+      },
     );
     final raw = payload['order'];
     if (raw is Map) {
@@ -549,9 +551,13 @@ class AppController extends ChangeNotifier {
   }
 
   static String membershipProductIdForPlan(MembershipPlan plan) =>
-      plan == MembershipPlan.threeMonths
-      ? 'com.kilostrength.pro.yearly'
-      : 'com.kilostrength.pro.monthly';
+      switch (plan) {
+        MembershipPlan.oneMonth => 'com.kilostrength.pro.monthly',
+        MembershipPlan.threeMonths => 'com.kilostrength.pro.quarterly',
+        MembershipPlan.yearly => 'com.kilostrength.pro.yearly',
+        MembershipPlan.forever => 'com.kilostrength.pro.lifetime',
+        MembershipPlan.free => 'com.kilostrength.pro.monthly',
+      };
 
   Future<AuthResult> loginWithPhoneRemote(
     String identifier, {
@@ -572,6 +578,7 @@ class AppController extends ChangeNotifier {
       (recognitionApi as HttpRecognitionApi).clearSession();
     }
     _storedRemoteSession = null;
+    _remoteEntitlementsFresh = false;
     _secureSessionLoaded = true;
     final api = coachApi is HttpCoachApi
         ? coachApi! as HttpCoachApi
@@ -724,7 +731,8 @@ class AppController extends ChangeNotifier {
           ? null
           : switch (membershipPlan) {
               MembershipPlan.oneMonth => 'oneMonth',
-              MembershipPlan.threeMonths => 'yearly',
+              MembershipPlan.threeMonths => 'threeMonths',
+              MembershipPlan.yearly => 'yearly',
               MembershipPlan.forever => 'forever',
               MembershipPlan.free => 'free',
             },
@@ -743,7 +751,8 @@ class AppController extends ChangeNotifier {
       identifier: identifier,
       plan: switch (plan) {
         MembershipPlan.oneMonth => 'oneMonth',
-        MembershipPlan.threeMonths => 'yearly',
+        MembershipPlan.threeMonths => 'threeMonths',
+        MembershipPlan.yearly => 'yearly',
         MembershipPlan.forever => 'forever',
         MembershipPlan.free => 'free',
       },
@@ -993,6 +1002,7 @@ class AppController extends ChangeNotifier {
     _defaultCoachApi?.clearSession();
     _defaultRecognitionApi?.clearSession();
     _storedRemoteSession = null;
+    _remoteEntitlementsFresh = false;
     _secureSessionLoaded = true;
     unawaited(secureSessionStore.clear());
     _sessionExpiredMessage = null;
@@ -1047,12 +1057,19 @@ class AppController extends ChangeNotifier {
   static const _cloudBackupEntityId = 'mobile_backup_v1';
 
   void _scheduleCloudBackup() {
-    if (!isAuthenticated) return;
+    if (!cloudSyncAllowed) return;
     unawaited(backupUserData());
   }
 
   Future<void> _hydrateUserDataAfterLogin() async {
-    await restoreCloudBackup();
+    EntitlementSnapshot? entitlement;
+    try {
+      entitlement = await refreshRemoteEntitlements();
+    } catch (_) {
+      // Keep local data usable, but do not read cloud data without a fresh
+      // server entitlement response.
+    }
+    if (entitlement?.isMember == true) await restoreCloudBackup();
     await Future.wait([
       hydrateWorkoutHistory(force: true),
       hydrateActiveWorkout(),
@@ -1066,7 +1083,7 @@ class AppController extends ChangeNotifier {
 
   Future<void> restoreCloudBackup() async {
     final userId = currentUser?.id;
-    if (userId == null || userId.isEmpty) return;
+    if (userId == null || userId.isEmpty || !cloudSyncAllowed) return;
     try {
       final api = await _activeCoachApi();
       if (api is! HttpCoachApi) return;
@@ -1099,6 +1116,7 @@ class AppController extends ChangeNotifier {
       for (final item in const [
         ['trainingProfile', 'kilo.training-profile.v1.'],
         ['nutrition', 'kilo.nutrition.v1.'],
+        ['trainingIntelligence', 'kilo.training-intelligence.v1.'],
       ]) {
         final key = '${item[1]}$userId';
         if ((preferences.getString(key) ?? '').isNotEmpty) continue;
@@ -1112,7 +1130,7 @@ class AppController extends ChangeNotifier {
 
   Future<void> backupUserData() async {
     final userId = currentUser?.id;
-    if (userId == null || userId.isEmpty) return;
+    if (userId == null || userId.isEmpty || !cloudSyncAllowed) return;
     try {
       await Future.wait([_historyWriteChain, _aiConversationWriteChain]);
       final api = await _activeCoachApi();
@@ -1123,6 +1141,9 @@ class AppController extends ChangeNotifier {
         'kilo.training-profile.v1.$userId',
       );
       final rawNutrition = preferences.getString('kilo.nutrition.v1.$userId');
+      final rawIntelligence = preferences.getString(
+        'kilo.training-intelligence.v1.$userId',
+      );
       final entities = await api.fetchSyncEntities('settings');
       var revision = 0;
       for (final entity in entities) {
@@ -1144,6 +1165,8 @@ class AppController extends ChangeNotifier {
             'trainingProfile': jsonDecode(rawProfile!),
           if (rawNutrition?.isNotEmpty == true)
             'nutrition': jsonDecode(rawNutrition!),
+          if (rawIntelligence?.isNotEmpty == true)
+            'trainingIntelligence': jsonDecode(rawIntelligence!),
         },
       );
     } catch (_) {
@@ -1625,6 +1648,10 @@ class AppController extends ChangeNotifier {
   final List<String> routineFolders = [];
   final List<WorkoutRecord> history = [];
   final List<NutritionEntry> nutritionEntries = [];
+  final List<GymLocationProfile> gymLocations = [];
+  final List<TechniqueAssessment> techniqueAssessments = [];
+  final TrainingIntelligenceEngine intelligenceEngine =
+      const TrainingIntelligenceEngine();
   TrainingProfile trainingProfile = const TrainingProfile();
   bool profileOnboardingCompleted = false;
   bool personalAgentDataReady = false;
@@ -1707,6 +1734,70 @@ class AppController extends ChangeNotifier {
       'kilo.training-profile.v1.${currentUser?.id ?? 'local'}';
   String get _nutritionStorageKey =>
       'kilo.nutrition.v1.${currentUser?.id ?? 'local'}';
+  String get _intelligenceStorageKey =>
+      'kilo.training-intelligence.v1.${currentUser?.id ?? 'local'}';
+
+  GymLocationProfile? get currentGym =>
+      gymLocations.where((item) => item.isCurrent).firstOrNull;
+
+  TrainingIntelligenceSnapshot get trainingIntelligence =>
+      intelligenceEngine.calculate(
+        history: history,
+        exercises: allExercises,
+        routines: routines,
+        techniques: techniqueAssessments,
+        profile: trainingProfile,
+        scheduledRoutineName: _nextScheduledRoutineName(),
+      );
+
+  String? _nextScheduledRoutineName() {
+    final now = DateTime.now();
+    String key(DateTime value) =>
+        '${value.year.toString().padLeft(4, '0')}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
+    final today = scheduledLabels[key(now)];
+    if (today != null) return today;
+    // A missed planned session remains the next candidate for up to seven
+    // days. Completing a record with the same name consumes that candidate.
+    for (var offset = 1; offset <= 7; offset++) {
+      final day = now.subtract(Duration(days: offset));
+      final planned = scheduledLabels[key(day)];
+      if (planned == null) continue;
+      final completed = history.any(
+        (record) =>
+            record.name == planned &&
+            !record.date.isBefore(DateTime(day.year, day.month, day.day)),
+      );
+      if (!completed) return planned;
+    }
+    return null;
+  }
+
+  ProgressionRecommendation progressionFor(String exerciseId) {
+    final definition = exerciseFor(exerciseId);
+    final snapshot = trainingIntelligence;
+    final recovery = snapshot.recovery
+        .where(
+          (item) =>
+              definition.muscle.contains(item.muscle) ||
+              definition.family.contains(item.muscle),
+        )
+        .firstOrNull;
+    final equipment = definition.equipment.toLowerCase();
+    final standard =
+        equipment.contains('杠铃') ||
+        equipment.contains('哑铃') ||
+        equipment.contains('barbell') ||
+        equipment.contains('dumbbell') ||
+        equipment.contains('自重');
+    return intelligenceEngine.recommendProgression(
+      exerciseId: exerciseId,
+      history: history,
+      techniques: techniqueAssessments,
+      recoveryPercent: recovery?.percent ?? 100,
+      gymId: currentGym?.id,
+      machineExercise: !standard,
+    );
+  }
 
   Future<void> hydratePersonalAgentData() async {
     final preferences = await SharedPreferences.getInstance();
@@ -1741,6 +1832,30 @@ class AppController extends ChangeNotifier {
         }
       }
       nutritionEntries.sort((a, b) => b.recordedAt.compareTo(a.recordedAt));
+      final rawIntelligence = preferences.getString(_intelligenceStorageKey);
+      gymLocations.clear();
+      techniqueAssessments.clear();
+      if (rawIntelligence != null && rawIntelligence.isNotEmpty) {
+        final decoded = jsonDecode(rawIntelligence);
+        if (decoded is Map) {
+          final map = Map<String, dynamic>.from(decoded);
+          gymLocations.addAll(
+            (map['gyms'] as List<dynamic>? ?? const []).whereType<Map>().map(
+              (item) =>
+                  GymLocationProfile.fromJson(Map<String, dynamic>.from(item)),
+            ),
+          );
+          techniqueAssessments.addAll(
+            (map['techniques'] as List<dynamic>? ?? const [])
+                .whereType<Map>()
+                .map(
+                  (item) => TechniqueAssessment.fromJson(
+                    Map<String, dynamic>.from(item),
+                  ),
+                ),
+          );
+        }
+      }
       personalAgentDataReady = true;
       notifyListeners();
     } catch (_) {
@@ -1767,6 +1882,57 @@ class AppController extends ChangeNotifier {
 
   Future<void> skipTrainingProfile() =>
       saveTrainingProfile(trainingProfile, completed: true);
+
+  Future<void> saveGymLocation(GymLocationProfile location) async {
+    final updated = GymLocationProfile(
+      id: location.id,
+      name: location.name,
+      equipment: location.equipment,
+      isCurrent: true,
+    );
+    for (var i = 0; i < gymLocations.length; i++) {
+      final item = gymLocations[i];
+      gymLocations[i] = GymLocationProfile(
+        id: item.id,
+        name: item.name,
+        equipment: item.equipment,
+        isCurrent: item.id == updated.id,
+      );
+    }
+    final index = gymLocations.indexWhere((item) => item.id == updated.id);
+    if (index < 0) gymLocations.add(updated);
+    await _persistTrainingIntelligence();
+    notifyListeners();
+  }
+
+  Future<void> selectGym(String id) async {
+    for (var i = 0; i < gymLocations.length; i++) {
+      final item = gymLocations[i];
+      gymLocations[i] = GymLocationProfile(
+        id: item.id,
+        name: item.name,
+        equipment: item.equipment,
+        isCurrent: item.id == id,
+      );
+    }
+    await _persistTrainingIntelligence();
+    notifyListeners();
+  }
+
+  Future<void> _persistTrainingIntelligence() async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString(
+      _intelligenceStorageKey,
+      jsonEncode({
+        'schemaVersion': 1,
+        'gyms': gymLocations.map((item) => item.toJson()).toList(),
+        'techniques': techniqueAssessments
+            .map((item) => item.toJson())
+            .toList(),
+      }),
+    );
+    _scheduleCloudBackup();
+  }
 
   Future<void> addNutritionEntry(NutritionEntry entry) async {
     nutritionEntries.insert(0, entry);
@@ -2969,6 +3135,7 @@ class AppController extends ChangeNotifier {
       prs: prs,
       prDetails: prDetails,
       exercises: historySnapshot,
+      gymId: currentGym?.id,
     );
     history.insert(0, record);
     _persistWorkoutHistory();
@@ -3346,6 +3513,7 @@ class AppController extends ChangeNotifier {
       prs: record.prs,
       prDetails: record.prDetails,
       exercises: record.exercises.map((item) => item.copy()).toList(),
+      gymId: record.gymId,
     );
     _persistWorkoutHistory();
     notifyListeners();
@@ -3754,6 +3922,7 @@ class AppController extends ChangeNotifier {
       _recognitionReservation = null;
       recognitionResult = result;
       recognitionStatus = result.status;
+      if (succeeded) unawaited(_recordTechniqueAssessment(result));
     } on RecognitionApiException catch (error) {
       _recognitionReservation?.rollback();
       _recognitionReservation = null;
@@ -3781,6 +3950,57 @@ class AppController extends ChangeNotifier {
     }
     _recognitionTicker?.cancel();
     notifyListeners();
+  }
+
+  Future<void> _recordTechniqueAssessment(RecognitionResult result) async {
+    final rawScores = result.metrics['scores'];
+    final scores = rawScores is Map
+        ? Map<String, dynamic>.from(rawScores)
+        : const <String, dynamic>{};
+    int score(String key) =>
+        ((scores[key] as num?)?.round() ?? 0).clamp(0, 100);
+    final requiredScores = [
+      score('overall'),
+      score('rom'),
+      score('stability'),
+      score('symmetry'),
+      score('tempo'),
+      score('trajectory'),
+    ];
+    // Never synthesize a technique score from event count or confidence.
+    // A curve point exists only when the recognition backend supplied every
+    // requested motion dimension and the video was assessable.
+    final scoreable =
+        result.assessment == 'assessable' &&
+        result.confidence >= .6 &&
+        requiredScores.every((value) => value > 0);
+    final review = result.aiReview;
+    techniqueAssessments.insert(
+      0,
+      TechniqueAssessment(
+        id: 'technique-${DateTime.now().microsecondsSinceEpoch}',
+        exerciseId: recognitionExerciseId,
+        createdAt: DateTime.now(),
+        scoreable: scoreable,
+        overall: scoreable ? requiredScores[0] : 0,
+        rom: scoreable ? requiredScores[1] : 0,
+        stability: scoreable ? requiredScores[2] : 0,
+        symmetry: scoreable ? requiredScores[3] : 0,
+        tempo: scoreable ? requiredScores[4] : 0,
+        trajectory: scoreable ? requiredScores[5] : 0,
+        videoPath: selectedMediaPath,
+        qualityReason: scoreable
+            ? ''
+            : (result.evidenceReason.isNotEmpty
+                  ? result.evidenceReason
+                  : '视频未提供足够的完整动作证据'),
+        strengths: review?.strengths ?? const [],
+        issues: review?.risks ?? const [],
+        nextFocus: review?.nextSet ?? '',
+      ),
+    );
+    await _persistTrainingIntelligence();
+    if (!_disposed) notifyListeners();
   }
 
   Future<String> _prepareRecognitionUpload(String sourcePath) async {
@@ -4029,6 +4249,7 @@ class AppController extends ChangeNotifier {
     _storedRemoteSession = null;
     _secureSessionLoaded = true;
     _remotePassword = null;
+    _remoteEntitlementsFresh = false;
     _sessionExpiredMessage = '登录已过期，请重新登录。';
     unawaited(secureSessionStore.clear());
     _defaultCoachApi?.clearSession();
@@ -4053,8 +4274,36 @@ class AppController extends ChangeNotifier {
       if (profile.goal != null) '目标 ${profile.goal}',
       if (profile.heightCm != null) '身高 ${profile.heightCm} cm',
       if (profile.weightKg != null) '体重 ${profile.weightKg} kg',
+      '每周 ${profile.weeklyTrainingDays ?? 3} 练',
+      '每次约 ${profile.sessionMinutes} 分钟',
+      '计划偏好 ${profile.planStyle == 'adaptive' ? '经常变化' : '固定计划'}',
+      '常用次数 ${profile.preferredRepRange}',
+      '热身组 ${profile.needsWarmupSets ? '需要' : '不需要'}',
+      if (profile.focusMuscles.isNotEmpty)
+        '重点肌群 ${profile.focusMuscles.join('、')}',
+      if (profile.reducedMuscles.isNotEmpty)
+        '减少肌群 ${profile.reducedMuscles.join('、')}',
+      if (profile.dislikedExerciseIds.isNotEmpty)
+        '不喜欢动作 ${profile.dislikedExerciseIds.join('、')}',
+      if (profile.unavailableExerciseIds.isNotEmpty)
+        '无法完成动作 ${profile.unavailableExerciseIds.join('、')}',
     ];
     if (profileParts.isNotEmpty) lines.add('用户训练资料：${profileParts.join('，')}。');
+    final intelligence = trainingIntelligence;
+    lines.add(
+      '当前训练智能状态：今日建议 ${intelligence.today.title}；原因：${intelligence.today.reason}',
+    );
+    lines.add(
+      '肌群恢复：${intelligence.recovery.map((item) => '${item.muscle}${item.percent}%').join('，')}。',
+    );
+    lines.add(
+      '近4周训练量：${intelligence.volume4Weeks.map((item) => '${item.muscle}${item.effectiveSets.toStringAsFixed(1)}组(${item.status})').join('，')}。',
+    );
+    if (currentGym != null) {
+      lines.add(
+        '当前训练地点：${currentGym!.name}；器械：${currentGym!.equipment.join('、')}。',
+      );
+    }
     final todayNutrition = nutritionForDay(DateTime.now());
     if (todayNutrition.isNotEmpty) {
       lines.add(
@@ -4074,6 +4323,8 @@ class AppController extends ChangeNotifier {
             .map((set) {
               final status = set.completed ? '已完成' : '未完成';
               return '$status ${set.weight.toStringAsFixed(1)} kg × ${set.reps}'
+                  '${set.rir == null ? '' : '，RIR ${set.rir}'}'
+                  '${set.rpe == null ? '' : '，RPE ${set.rpe}'}'
                   '${set.note.trim().isEmpty ? '' : '，备注：${set.note.trim()}'}';
             })
             .join('；');
@@ -4100,6 +4351,8 @@ class AppController extends ChangeNotifier {
             .map(
               (set) =>
                   '${set.weight.toStringAsFixed(1)} kg × ${set.reps}'
+                  '${set.rir == null ? '' : '，RIR ${set.rir}'}'
+                  '${set.rpe == null ? '' : '，RPE ${set.rpe}'}'
                   '${set.note.trim().isEmpty ? '' : '，备注：${set.note.trim()}'}',
             )
             .join('；');
@@ -4149,6 +4402,18 @@ class AppController extends ChangeNotifier {
   /// The only tools exposed to the model. They are read-only and run against
   /// this device's in-memory state; no server can call Dart or mutate a plan.
   List<Map<String, dynamic>> get aiAvailableTools => const [
+    {
+      'type': 'function',
+      'function': {
+        'name': 'read_training_intelligence',
+        'description': '读取恢复、肌群训练量、技术趋势、周报、当前健身房和今日动态建议',
+        'parameters': {
+          'type': 'object',
+          'properties': {},
+          'additionalProperties': false,
+        },
+      },
+    },
     {
       'type': 'function',
       'function': {
@@ -4219,6 +4484,50 @@ class AppController extends ChangeNotifier {
 
   Map<String, dynamic> executeAiTool(CoachToolCall call) {
     final args = call.arguments;
+    if (call.name == 'read_training_intelligence') {
+      final snapshot = trainingIntelligence;
+      return {
+        'tool': call.name,
+        'today': {
+          'title': snapshot.today.title,
+          'muscles': snapshot.today.muscles,
+          'reason': snapshot.today.reason,
+          'estimatedMinutes': snapshot.today.estimatedMinutes,
+        },
+        'recovery': [
+          for (final item in snapshot.recovery)
+            {
+              'muscle': item.muscle,
+              'percent': item.percent,
+              'status': item.status,
+              'reason': item.reason,
+            },
+        ],
+        'volume4Weeks': [
+          for (final item in snapshot.volume4Weeks)
+            {
+              'muscle': item.muscle,
+              'effectiveSets': item.effectiveSets,
+              'status': item.status,
+            },
+        ],
+        'technique': [
+          for (final item
+              in techniqueAssessments.where((item) => item.scoreable).take(30))
+            item.toJson(),
+        ],
+        'gym': currentGym?.toJson(),
+        'weeklyReport': {
+          'sessions': snapshot.weeklyReport.sessions,
+          'durationMinutes': snapshot.weeklyReport.durationMinutes,
+          'volumeChangePercent': snapshot.weeklyReport.volumeChangePercent,
+          'strengthChangePercent': snapshot.weeklyReport.strengthChangePercent,
+          'techniqueChange': snapshot.weeklyReport.techniqueChange,
+          'summary': snapshot.weeklyReport.summary,
+          'nextWeekAdvice': snapshot.weeklyReport.nextWeekAdvice,
+        },
+      };
+    }
     if (call.name == 'read_training_plans') {
       final query = (args['query'] ?? '').toString().trim().toLowerCase();
       final limit = (((args['limit'] as num?)?.toInt() ?? 10).clamp(
@@ -4339,6 +4648,8 @@ class AppController extends ChangeNotifier {
     'targetMax': set.targetMax,
     'restSeconds': set.restSeconds,
     'completed': set.completed,
+    'rpe': set.rpe,
+    'rir': set.rir,
     'note': set.note.trim(),
     'durationSeconds': set.durationSeconds,
   };
@@ -4369,6 +4680,7 @@ class AppController extends ChangeNotifier {
     'volumeKg': record.volume,
     'completedSets': record.effectiveSets,
     'note': record.note.trim(),
+    'gymId': record.gymId,
     'exercises': record.exercises
         .take(12)
         .map(_aiWorkoutExercisePayload)
@@ -4715,7 +5027,7 @@ class AppController extends ChangeNotifier {
   List<Map<String, String>> _aiExerciseCatalog() {
     final selected = <Exercise>[];
     final seenGroups = <String>{};
-    for (final exercise in selectableExercises) {
+    for (final exercise in selectableExercises.where(_availableAtCurrentGym)) {
       final key = '${exercise.equipment}|${exercise.muscle}';
       if (selected.length < 80 &&
           (curatedCatalog.contains(exercise) || seenGroups.add(key))) {
@@ -4733,6 +5045,22 @@ class AppController extends ChangeNotifier {
           'cue': exercise.cue,
         },
     ];
+  }
+
+  bool _availableAtCurrentGym(Exercise exercise) {
+    final gym = currentGym;
+    if (gym == null || gym.equipment.isEmpty) return true;
+    final required = exercise.equipment.trim().toLowerCase();
+    if (required.isEmpty ||
+        required.contains('自重') ||
+        required.contains('bodyweight') ||
+        required.contains('无器械')) {
+      return true;
+    }
+    return gym.equipment.any((value) {
+      final available = value.toLowerCase();
+      return available.contains(required) || required.contains(available);
+    });
   }
 
   List<Map<String, String>> _activeAiSkillPayload() => [
@@ -4840,9 +5168,10 @@ class AppController extends ChangeNotifier {
   Future<void> requestAiCustomizedWorkout({String details = ''}) {
     final request = details.trim();
     return sendChat(
-      '请为我生成一节可直接执行的训练计划。${request.isEmpty ? '' : '我的要求：$request。'}'
-      '请结合我的历史训练和当前能力，明确给出动作、组数、每组重量、次数和组间休息；'
-      '如果数据不足请留空并说明依据，不要虚构我的能力。生成结构化计划卡，方便我查看和保存。',
+      '请为我生成一套会随真实训练更新的可执行训练计划。${request.isEmpty ? '' : '我的额外要求：$request。'}'
+      '先读取训练计划、近期训练与 training intelligence，结合目标、训练年限、周频率、单次时长、重点/减少肌群、动作限制、当前恢复、近4周训练量和当前健身房器械。'
+      '明确每周安排、每天肌群、动作顺序、组数、目标次数、建议强度、休息和预计时间。重量只能来自我的实际训练记录；没有基线时写重量待定。'
+      '当前地点没有的器械动作不得生成。说明漏练、未完成或临时加练后将如何重排，并为推荐给出简短原因。生成结构化计划卡，方便查看和保存。',
       includeTrainingContext: true,
     );
   }

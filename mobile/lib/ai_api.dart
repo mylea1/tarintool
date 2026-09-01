@@ -534,6 +534,16 @@ class HttpCoachApi implements CoachApi, AgentCoachApi, StreamingCoachApi {
     return _decodeJsonResponse(response, 'membership_order_create');
   }
 
+  /// Reads the server-owned membership state. Callers must refresh this
+  /// before deciding whether a cloud backup/restore is allowed; local cached
+  /// quota or membership data is never sufficient for that decision.
+  Future<Map<String, dynamic>> fetchEntitlements() async {
+    final response = await _client
+        .get(_endpoint('/v1/me/entitlements'), headers: _authHeaders)
+        .timeout(requestTimeout);
+    return _decodeJsonResponse(response, 'membership_entitlements');
+  }
+
   Future<Map<String, dynamic>> cancelMembershipOrder(String orderId) async {
     final response = await _client
         .post(
@@ -583,13 +593,6 @@ class HttpCoachApi implements CoachApi, AgentCoachApi, StreamingCoachApi {
         )
         .timeout(requestTimeout);
     return _decodeJsonResponse(response, 'android_payment_checkout');
-  }
-
-  Future<Map<String, dynamic>> fetchCheckinStatus() async {
-    final response = await _client
-        .get(_endpoint('/v1/checkin/status'), headers: _authHeaders)
-        .timeout(requestTimeout);
-    return _decodeJsonResponse(response, 'checkin_status');
   }
 
   Future<List<Map<String, dynamic>>> fetchSyncEntities(
@@ -646,13 +649,6 @@ class HttpCoachApi implements CoachApi, AgentCoachApi, StreamingCoachApi {
       throw _coachServerException(response.statusCode, response.body, 'sync');
     }
     return jsonDecode(response.body) as Map<String, dynamic>;
-  }
-
-  Future<Map<String, dynamic>> checkIn() async {
-    final response = await _client
-        .post(_endpoint('/v1/checkin'), headers: _authHeaders, body: '{}')
-        .timeout(requestTimeout);
-    return _decodeJsonResponse(response, 'checkin');
   }
 
   Map<String, dynamic> _decodeJsonResponse(

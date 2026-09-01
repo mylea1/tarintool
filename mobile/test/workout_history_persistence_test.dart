@@ -45,6 +45,8 @@ void main() {
                 type: 'work',
                 weight: 72.5,
                 plannedWeight: 70,
+                rpe: 8,
+                rir: 2,
                 reps: 6,
                 restSeconds: 90,
                 completed: true,
@@ -66,6 +68,8 @@ void main() {
       expect(restored.single.exercises.single.supersetId, 'superset-1');
       expect(restored.single.exercises.single.note, '肩胛收紧，窄握');
       expect(restored.single.exercises.single.sets.single.plannedWeight, 70);
+      expect(restored.single.exercises.single.sets.single.rpe, 8);
+      expect(restored.single.exercises.single.sets.single.rir, 2);
       expect(restored.single.exercises.single.sets.single.note, '组备注');
       expect(restored.single.prDetails.single.metric, 'estimated1rm');
       expect(restored.single.prDetails.single.previousRecordId, 'history-0');

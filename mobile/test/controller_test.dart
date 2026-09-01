@@ -142,6 +142,7 @@ void main() {
           .map((item) => (item['function'] as Map)['name'])
           .toList();
       expect(names, [
+        'read_training_intelligence',
         'read_training_plans',
         'read_workout_history',
         'read_active_workout',

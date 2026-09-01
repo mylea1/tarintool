@@ -29,14 +29,14 @@ enum MembershipPaywallReason {
 
 const Map<MembershipPlan, String> membershipProductIds = {
   MembershipPlan.oneMonth: 'com.kilostrength.pro.monthly',
-  // The legacy enum value is retained for persisted data compatibility; it
-  // now represents the yearly subscription in the public purchase UI.
-  MembershipPlan.threeMonths: 'com.kilostrength.pro.yearly',
+  MembershipPlan.threeMonths: 'com.kilostrength.pro.quarterly',
+  MembershipPlan.yearly: 'com.kilostrength.pro.yearly',
 };
 
 const Map<MembershipPlan, String> _fallbackPrices = {
-  MembershipPlan.oneMonth: '¥18',
-  MembershipPlan.threeMonths: '¥168',
+  MembershipPlan.oneMonth: '¥19.9',
+  MembershipPlan.threeMonths: '¥49.9',
+  MembershipPlan.yearly: '¥159',
 };
 
 class MembershipMark extends StatelessWidget {
@@ -360,17 +360,16 @@ Future<void> showMembershipPaywall(
   required AppController controller,
   required MembershipPaywallReason reason,
 }) async {
-  final entitlement = controller.entitlements;
   final title = switch (reason) {
-    MembershipPaywallReason.aiQuota => '今天的 3 次免费问答已用完',
-    MembershipPaywallReason.recognitionQuota => '本周免费动作识别已用完',
+    MembershipPaywallReason.aiQuota => '今日 AI 使用已达到免费上限',
+    MembershipPaywallReason.recognitionQuota => '本周动作识别已达到免费上限',
     MembershipPaywallReason.nutritionPhoto => '拍照识别营养属于形域 PRO',
     MembershipPaywallReason.advancedStatistics => '进阶数据统计属于形域 PRO',
     MembershipPaywallReason.premiumFeature => '这项能力属于形域 PRO',
   };
   final caption = switch (reason) {
-    MembershipPaywallReason.aiQuota => '免费额度会在明天恢复。开通 PRO 后，今天可继续使用。',
-    MembershipPaywallReason.recognitionQuota => '免费额度会按周补充，完成有效训练也能获得额外次数。',
+    MembershipPaywallReason.aiQuota => '开通 PRO 后，训练数据分析和 AI 决策能力持续可用。',
+    MembershipPaywallReason.recognitionQuota => '开通 PRO 后可继续使用动作技术分析。',
     MembershipPaywallReason.nutritionPhoto => '多图识别会自动填入热量、蛋白质、碳水和脂肪；手动记录仍然免费。',
     MembershipPaywallReason.advancedStatistics =>
       '解锁上期对比、营养达标率、训练与饮食联动趋势和下一步建议。',
@@ -423,15 +422,15 @@ Future<void> showMembershipPaywall(
               style: const TextStyle(color: _muted),
             ),
             const SizedBox(height: 18),
-            _PaywallBenefit(
+            const _PaywallBenefit(
               icon: Icons.auto_awesome_rounded,
-              title: 'AI 问答每日 20 次',
-              caption: '免费账号每日 ${entitlement?.aiDailyLimit ?? 3} 次，按自然日恢复',
+              title: 'AI 训练决策',
+              caption: '结合训练历史、恢复与动作质量给出下一步建议',
             ),
             const _PaywallBenefit(
               icon: Icons.center_focus_strong_rounded,
-              title: '动作识别每周 3 次',
-              caption: '训练完成奖励次数仍会保留',
+              title: '动作技术分析',
+              caption: '记录动作表现并持续追踪技术成长',
             ),
             const _PaywallBenefit(
               icon: Icons.add_a_photo_outlined,
@@ -532,7 +531,7 @@ class MembershipCenterPage extends StatefulWidget {
 class _MembershipCenterPageState extends State<MembershipCenterPage>
     with WidgetsBindingObserver {
   late final MembershipPurchaseCoordinator purchase;
-  MembershipPlan selected = MembershipPlan.threeMonths;
+  MembershipPlan selected = MembershipPlan.yearly;
 
   @override
   void initState() {
@@ -542,7 +541,6 @@ class _MembershipCenterPageState extends State<MembershipCenterPage>
       ..addListener(_refresh);
     unawaited(purchase.initialize());
     unawaited(widget.controller.hydrateMembershipOrders());
-    unawaited(widget.controller.hydrateCheckinStatus());
   }
 
   void _refresh() {
@@ -564,7 +562,6 @@ class _MembershipCenterPageState extends State<MembershipCenterPage>
     // WeChat/Alipay returns through the app link. The server callback remains
     // authoritative, so resuming only refreshes the order and entitlement.
     unawaited(widget.controller.hydrateMembershipOrders());
-    unawaited(widget.controller.hydrateCheckinStatus());
   }
 
   @override
@@ -593,7 +590,7 @@ class _MembershipCenterPageState extends State<MembershipCenterPage>
         children: [
           _MemberHero(entitlement: entitlement),
           const SizedBox(height: 12),
-          _CheckinCard(controller: widget.controller),
+          _CloudSyncStatus(isEnabled: widget.controller.cloudSyncAllowed),
           const SizedBox(height: 16),
           const Text(
             '选择方案',
@@ -607,6 +604,7 @@ class _MembershipCenterPageState extends State<MembershipCenterPage>
           for (final plan in const [
             MembershipPlan.oneMonth,
             MembershipPlan.threeMonths,
+            MembershipPlan.yearly,
           ]) ...[
             _PlanTile(
               plan: plan,
@@ -641,7 +639,7 @@ class _MembershipCenterPageState extends State<MembershipCenterPage>
           ),
           Text(
             Platform.isIOS || Platform.isMacOS
-                ? '付款由 App Store 安全处理。月付和年付会按 Apple 规则自动续订，可在 Apple ID 中管理或恢复。'
+                ? '付款由 App Store 安全处理。月度、季度和年度方案会按 Apple 规则自动续订，可在 Apple ID 中管理或恢复。'
                 : '微信或支付宝完成支付后，由服务端回调确认订单并发放会员；不要重复支付同一订单。',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 11, height: 1.45, color: _muted),
@@ -769,12 +767,11 @@ class _MemberHero extends StatelessWidget {
                   spacing: 8,
                   runSpacing: 6,
                   children: [
-                    _HeroPill(
-                      'AI ${entitlement?.aiRemaining ?? 3}/${entitlement?.aiDailyLimit ?? 3}',
-                    ),
-                    _HeroPill('识别 ${entitlement?.recognitionRemaining ?? 0} 次'),
-                    const _HeroPill('饮食拍照'),
+                    _HeroPill('AI 训练决策'),
+                    const _HeroPill('动作分析'),
+                    const _HeroPill('饮食识别'),
                     const _HeroPill('进阶统计'),
+                    const _HeroPill('云同步'),
                   ],
                 ),
               ],
@@ -815,144 +812,40 @@ class _HeroPill extends StatelessWidget {
   );
 }
 
-class _CheckinCard extends StatefulWidget {
-  const _CheckinCard({required this.controller});
-  final AppController controller;
+class _CloudSyncStatus extends StatelessWidget {
+  const _CloudSyncStatus({required this.isEnabled});
+
+  final bool isEnabled;
 
   @override
-  State<_CheckinCard> createState() => _CheckinCardState();
-}
-
-class _CheckinCardState extends State<_CheckinCard> {
-  bool loading = false;
-  String? message;
-
-  Future<void> _checkIn() async {
-    if (loading || widget.controller.checkinStatus.todayCheckedIn) return;
-    setState(() {
-      loading = true;
-      message = null;
-    });
-    try {
-      final result = await widget.controller.checkIn();
-      if (!mounted) return;
-      setState(() {
-        message = result.rewarded ? '完成 7 天签到，已获得 15 天会员' : '签到成功，继续保持';
-      });
-    } catch (_) {
-      if (mounted) setState(() => message = '签到失败，请稍后重试');
-    } finally {
-      if (mounted) setState(() => loading = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final status = widget.controller.checkinStatus;
-    return Container(
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _line),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.calendar_month_rounded, color: _ember),
-              const SizedBox(width: 8),
-              const Expanded(
-                child: Text(
-                  '每日签到',
-                  style: TextStyle(
-                    color: _ink,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-              Text(
-                '累计 ${status.totalDays} 天',
-                style: const TextStyle(color: _muted, fontSize: 12),
-              ),
-            ],
+  Widget build(BuildContext context) => Container(
+    key: const Key('membership-cloud-sync-status'),
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    decoration: BoxDecoration(
+      color: isEnabled ? const Color(0xFFEAF5EF) : Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: isEnabled ? const Color(0xFFB9DDC8) : _line),
+    ),
+    child: Row(
+      children: [
+        Icon(
+          isEnabled ? Icons.cloud_done_outlined : Icons.cloud_outlined,
+          color: isEnabled ? _success : _muted,
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            isEnabled ? 'PRO 云同步已开启' : 'PRO 解锁多设备云同步',
+            style: const TextStyle(fontWeight: FontWeight.w800, color: _ink),
           ),
-          const SizedBox(height: 12),
-          Row(
-            children: List<Widget>.generate(7, (index) {
-              final active = index < status.roundDays;
-              return Expanded(
-                child: Padding(
-                  padding: EdgeInsets.only(right: index == 6 ? 0 : 5),
-                  child: AspectRatio(
-                    aspectRatio: 1,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: active ? _ember : _emberSoft,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Icon(
-                        active
-                            ? Icons.check_rounded
-                            : Icons.calendar_today_outlined,
-                        size: 16,
-                        color: active ? Colors.white : _ember,
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            }),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  status.rewarded ? '已获得 15 天会员奖励' : '累计 7 个自然日可得 15 天会员',
-                  style: const TextStyle(color: _muted, fontSize: 12),
-                ),
-              ),
-              FilledButton.icon(
-                onPressed: loading || status.todayCheckedIn ? null : _checkIn,
-                icon: loading
-                    ? const SizedBox.square(
-                        dimension: 14,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Icon(Icons.check_rounded, size: 17),
-                label: Text(status.todayCheckedIn ? '今日已签' : '签到'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: _ember,
-                  disabledBackgroundColor: _line,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 13,
-                    vertical: 9,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          if (message != null) ...[
-            const SizedBox(height: 7),
-            Text(
-              message!,
-              style: const TextStyle(
-                color: _success,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
+        ),
+        Text(
+          isEnabled ? '登录后自动同步' : '会员权益',
+          style: const TextStyle(fontSize: 11, color: _muted),
+        ),
+      ],
+    ),
+  );
 }
 
 class _PlanTile extends StatelessWidget {
@@ -971,13 +864,15 @@ class _PlanTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final title = switch (plan) {
       MembershipPlan.oneMonth => '月度会员',
-      MembershipPlan.threeMonths => '年度会员',
+      MembershipPlan.threeMonths => '季度会员',
+      MembershipPlan.yearly => '年度会员',
       MembershipPlan.forever => '永久会员',
       MembershipPlan.free => '免费账号',
     };
     final caption = switch (plan) {
       MembershipPlan.oneMonth => '灵活体验，按月续订',
-      MembershipPlan.threeMonths => '一次购买一年 · 更省心',
+      MembershipPlan.threeMonths => '每 3 个月自动续订 · 更划算',
+      MembershipPlan.yearly => '每 12 个月自动续订 · 更省心',
       MembershipPlan.forever => '一次购买，长期使用',
       MembershipPlan.free => '',
     };
@@ -1017,7 +912,7 @@ class _PlanTile extends StatelessWidget {
                             ),
                           ),
                         ),
-                        if (plan == MembershipPlan.threeMonths) ...[
+                        if (plan == MembershipPlan.yearly) ...[
                           const SizedBox(width: 7),
                           Container(
                             padding: const EdgeInsets.symmetric(
@@ -1078,26 +973,32 @@ class _BenefitsCard extends StatelessWidget {
       children: [
         _BenefitRow(
           icon: Icons.auto_awesome_rounded,
-          title: 'AI 问答每日 20 次',
-          caption: '可附带多次训练、计划和备注一起分析',
+          title: 'AI 训练决策',
+          caption: '结合历史训练、恢复和动作质量调整下一步',
         ),
         Divider(height: 24),
         _BenefitRow(
           icon: Icons.center_focus_strong_rounded,
-          title: '更多动作识别次数',
-          caption: '每周补充 3 次，训练奖励继续累积',
+          title: '动作技术分析',
+          caption: '动作质量与技术成长趋势持续记录',
         ),
         Divider(height: 24),
         _BenefitRow(
           icon: Icons.insights_rounded,
-          title: '训练 × 饮食进阶统计',
-          caption: '同期对比、营养达标率、联动趋势与下一步建议',
+          title: '训练与饮食进阶统计',
+          caption: '同期对比、营养趋势与下一步建议',
         ),
         Divider(height: 24),
         _BenefitRow(
           icon: Icons.add_a_photo_outlined,
           title: '饮食拍照识别',
-          caption: '一次最多 8 张，自动填入热量和三大营养素',
+          caption: '自动识别热量和三大营养素候选',
+        ),
+        Divider(height: 24),
+        _BenefitRow(
+          icon: Icons.cloud_sync_outlined,
+          title: 'PRO 云同步',
+          caption: '登录后在多台设备恢复训练与饮食资料',
         ),
       ],
     ),
@@ -1264,8 +1165,8 @@ class _OrderCard extends StatelessWidget {
     };
     final plan = switch (order.plan) {
       MembershipPlan.oneMonth => '月度会员',
-      MembershipPlan.threeMonths =>
-        order.productId.endsWith('.yearly') ? '年度会员' : '季度会员',
+      MembershipPlan.threeMonths => '季度会员',
+      MembershipPlan.yearly => '年度会员',
       MembershipPlan.forever => '永久会员',
       MembershipPlan.free => '免费账号',
     };

@@ -358,6 +358,7 @@ Map<String, dynamic> _recordToMap(WorkoutRecord record) => {
   'prs': record.prs,
   'prDetails': record.prDetails.map(_prDetailToMap).toList(),
   'exercises': record.exercises.map(_exerciseToMap).toList(),
+  'gymId': record.gymId,
 };
 
 WorkoutRecord _recordFromMap(Map<String, dynamic> map) => WorkoutRecord(
@@ -373,6 +374,7 @@ WorkoutRecord _recordFromMap(Map<String, dynamic> map) => WorkoutRecord(
   prs: _asStringList(map['prs']),
   prDetails: _asMapList(map['prDetails']).map(_prDetailFromMap).toList(),
   exercises: _asMapList(map['exercises']).map(_exerciseFromMap).toList(),
+  gymId: map['gymId']?.toString(),
 );
 
 Map<String, dynamic> _prDetailToMap(WorkoutPrDetail detail) => {
@@ -443,6 +445,8 @@ Map<String, dynamic> _setToMap(WorkoutSet set) => {
   'restSeconds': set.restSeconds,
   'completed': set.completed,
   'failed': set.failed,
+  'rpe': set.rpe,
+  'rir': set.rir,
   'note': set.note,
   'durationSeconds': set.durationSeconds,
 };
@@ -460,6 +464,8 @@ WorkoutSet _setFromMap(Map<String, dynamic> map) => WorkoutSet(
   restSeconds: _asInt(map['restSeconds'], fallback: 120),
   completed: map['completed'] == true,
   failed: map['failed'] == true,
+  rpe: map['rpe'] == null ? null : _asDouble(map['rpe']),
+  rir: map['rir'] == null ? null : _asDouble(map['rir']),
   note: map['note']?.toString() ?? '',
   durationSeconds: map['durationSeconds'] == null
       ? null

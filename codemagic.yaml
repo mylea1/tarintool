@@ -20,7 +20,7 @@ workflows:
       - name: Run tests
         script: flutter test
       - name: Build unsigned iOS app
-        script: flutter build ios --release --no-codesign
+        script: flutter build ios --release --no-codesign --dart-define=KILO_SOURCE_COMMIT="${CM_COMMIT:-unknown}"
     artifacts:
       - mobile/build/ios/iphoneos/*.app
       - mobile/flutter_drive.log
@@ -58,7 +58,7 @@ workflows:
       - name: Build signed IPA (config v3)
         script: |
           echo "Codemagic config v3; source commit: ${CM_COMMIT:-unknown}"
-          flutter build ipa --release --dart-define=APP_MARKET=cn --dart-define=KILO_API_BASE_URL=https://api.kilostrength.cn --build-number="$BUILD_NUMBER" --export-options-plist="$HOME/export_options.plist"
+          flutter build ipa --release --dart-define=APP_MARKET=cn --dart-define=KILO_API_BASE_URL=https://api.kilostrength.cn --dart-define=KILO_SOURCE_COMMIT="${CM_COMMIT:-unknown}" --build-number="$BUILD_NUMBER" --export-options-plist="$HOME/export_options.plist"
       - name: Verify IPA artifact
         script: |
           IPA_PATH=$(find "$CM_BUILD_DIR/mobile/build/ios/ipa" -type f -name "*.ipa" | head -1)
@@ -103,7 +103,9 @@ workflows:
       - name: Run tests
         script: flutter test
       - name: Build signed CN release APK and AAB
-        script: bash ./tool/build_android_release.sh cn
+        script: |
+          export KILO_SOURCE_COMMIT="${CM_COMMIT:-unknown}"
+          bash ./tool/build_android_release.sh cn
     artifacts:
       - mobile/build/app/outputs/flutter-apk/app-cn-release.apk
       - mobile/build/app/outputs/bundle/cnRelease/app-cn-release.aab
@@ -128,7 +130,9 @@ workflows:
       - name: Run tests
         script: flutter test
       - name: Build signed global release APK and AAB
-        script: bash ./tool/build_android_release.sh global
+        script: |
+          export KILO_SOURCE_COMMIT="${CM_COMMIT:-unknown}"
+          bash ./tool/build_android_release.sh global
     artifacts:
       - mobile/build/app/outputs/flutter-apk/app-global-release.apk
       - mobile/build/app/outputs/bundle/globalRelease/app-global-release.aab

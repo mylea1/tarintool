@@ -11,6 +11,43 @@ import 'package:kilo_strength/main.dart';
 import 'package:kilo_strength/models.dart';
 import 'package:kilo_strength/recognition_api.dart';
 import 'package:kilo_strength/secure_session_store.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+class _SyncCoachApi extends HttpCoachApi {
+  _SyncCoachApi(this.membership)
+    : super(
+        baseUrl: 'https://api.example.test',
+        client: MockClient((_) async => http.Response('{}', 200)),
+      );
+
+  String membership;
+  int syncReads = 0;
+  int syncWrites = 0;
+
+  @override
+  Future<Map<String, dynamic>> fetchEntitlements() async => {
+    'membership': membership,
+  };
+
+  @override
+  Future<List<Map<String, dynamic>>> fetchSyncEntities(
+    String entityType,
+  ) async {
+    syncReads += 1;
+    return const [];
+  }
+
+  @override
+  Future<Map<String, dynamic>> upsertSyncEntity({
+    required String entityType,
+    required String entityId,
+    required Map<String, dynamic> payload,
+    required int baseRevision,
+  }) async {
+    syncWrites += 1;
+    return const {};
+  }
+}
 
 void main() {
   testWidgets('default app starts at login root', (tester) async {
@@ -195,6 +232,27 @@ void main() {
     expect(find.byKey(const Key('admin-create-user-phone')), findsOneWidget);
     expect(find.byKey(const Key('admin-create-user-password')), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('profile no longer exposes quota or rest shortcuts', (
+    tester,
+  ) async {
+    final service = AccountService();
+    service.loginWithPhone('13800138021');
+    final controller = AppController(
+      accountService: service,
+      recognitionApi: UnconfiguredRecognitionApi(),
+    );
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(home: ProfilePage(controller: controller)),
+    );
+
+    expect(find.text('AI问答'), findsNothing);
+    expect(find.text('动作识别'), findsNothing);
+    expect(find.text('组间休息'), findsNothing);
+    expect(find.text('训练记录保存在本机 · 可升级 PRO 云同步'), findsOneWidget);
   });
 
   test('test admin is explicitly gated and release default is safe', () {
@@ -510,9 +568,80 @@ void main() {
       'updatedAt': '2026-08-20T01:00:00.000Z',
     });
 
-    expect(order.plan, MembershipPlan.threeMonths);
+    expect(order.plan, MembershipPlan.yearly);
     expect(order.status, MembershipOrderStatus.refunded);
     expect(order.provider, MembershipOrderProvider.appStore);
+  });
+
+  test('membership plans map to the three subscription products', () {
+    expect(
+      AppController.membershipProductIdForPlan(MembershipPlan.oneMonth),
+      'com.kilostrength.pro.monthly',
+    );
+    expect(
+      AppController.membershipProductIdForPlan(MembershipPlan.threeMonths),
+      'com.kilostrength.pro.quarterly',
+    );
+    expect(
+      AppController.membershipProductIdForPlan(MembershipPlan.yearly),
+      'com.kilostrength.pro.yearly',
+    );
+  });
+
+  test('training profile persists selected weekdays and derives frequency', () {
+    const profile = TrainingProfile(
+      goal: 'muscle_gain',
+      weeklyTrainingDays: 3,
+      preferredWeekdays: [
+        DateTime.monday,
+        DateTime.wednesday,
+        DateTime.saturday,
+      ],
+    );
+
+    final restored = TrainingProfile.fromJson(profile.toJson());
+
+    expect(restored.preferredWeekdays, [1, 3, 6]);
+    expect(restored.weeklyTrainingDays, 3);
+  });
+
+  test(
+    'legacy training frequency backfills a predictable weekday schedule',
+    () {
+      final restored = TrainingProfile.fromJson({
+        'weeklyTrainingDays': 4,
+        'activityLevel': 'moderate',
+      });
+
+      expect(restored.preferredWeekdays, [1, 2, 3, 4]);
+      expect(restored.weeklyTrainingDays, 4);
+    },
+  );
+
+  test('cloud sync requires fresh PRO entitlements', () async {
+    SharedPreferences.setMockInitialValues({});
+    final service = AccountService();
+    service.loginWithPhone('13800138020');
+    final api = _SyncCoachApi('free');
+    final controller = AppController(
+      accountService: service,
+      coachApi: api,
+      recognitionApi: UnconfiguredRecognitionApi(),
+    );
+    addTearDown(controller.dispose);
+
+    await controller.refreshRemoteEntitlements();
+    await controller.backupUserData();
+    expect(controller.cloudSyncAllowed, isFalse);
+    expect(api.syncReads, 0);
+    expect(api.syncWrites, 0);
+
+    api.membership = 'yearly';
+    await controller.refreshRemoteEntitlements();
+    await controller.backupUserData();
+    expect(controller.cloudSyncAllowed, isTrue);
+    expect(api.syncReads, 1);
+    expect(api.syncWrites, 1);
   });
 
   test('persisted test admin is removed when the release gate is disabled', () {

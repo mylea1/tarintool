@@ -197,6 +197,11 @@ void main() {
     expect(find.byKey(const Key('home-overview-section')), findsOneWidget);
     expect(find.text('今日训练'), findsOneWidget);
     expect(find.text('本周训练'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('本周肌群'),
+      220,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('本周肌群'), findsOneWidget);
     expect(find.text('进步摘要'), findsNothing);
     expect(find.text('训练概览'), findsNothing);
@@ -235,7 +240,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('profile uses direct choices for goal and weekly training days', (
+  testWidgets('profile uses direct choices for goal and preferred weekdays', (
     tester,
   ) async {
     final controller = AppController();
@@ -247,9 +252,13 @@ void main() {
     expect(find.text('减脂'), findsOneWidget);
     expect(find.text('塑形'), findsOneWidget);
     expect(find.text('保持体能'), findsNothing);
-    expect(find.text('一周几练'), findsOneWidget);
+    expect(find.text('每周训练日（可多选）'), findsOneWidget);
     await tester.tap(find.text('塑形'));
-    await tester.tap(find.text('4'));
+    await tester.drag(find.byType(ListView), const Offset(0, -260));
+    await tester.pump();
+    for (final weekday in [1, 3, 5, 7]) {
+      await tester.tap(find.byKey(Key('preferred-weekday-$weekday')));
+    }
     await tester.scrollUntilVisible(
       find.byKey(const Key('profile-onboarding-save')),
       180,
@@ -259,6 +268,7 @@ void main() {
     await tester.pump();
     expect(controller.trainingProfile.goal, 'body_recomp');
     expect(controller.trainingProfile.weeklyTrainingDays, 4);
+    expect(controller.trainingProfile.preferredWeekdays, [1, 3, 5, 7]);
   });
 
   testWidgets('home nutrition card records calories and protein', (
@@ -460,6 +470,11 @@ void main() {
     ]);
     addTearDown(controller.dispose);
     await tester.pumpWidget(KiloApp(initialController: controller));
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('home-trend-picker')),
+      220,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('杠铃卧推趋势'), findsOneWidget);
     expect(find.text('82.5 kg'), findsOneWidget);
     await tester.tap(find.byKey(const Key('home-trend-picker')));
