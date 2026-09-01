@@ -14,10 +14,31 @@ import 'package:kilo_strength/membership_ui.dart';
 import 'package:kilo_strength/models.dart';
 import 'package:kilo_strength/muscle_selector.dart';
 import 'package:kilo_strength/recognition_api.dart';
+import 'package:kilo_strength/training_intelligence.dart';
+import 'package:kilo_strength/product_features.dart';
 
 Future<void> _openRoute(WidgetTester tester, String label) async {
   await tester.tap(find.text(label).last);
   await tester.pumpAndSettle();
+}
+
+Future<void> _pumpRecognitionPage(
+  WidgetTester tester,
+  AppController controller, {
+  MediaQueryData? mediaQuery,
+  bool settle = true,
+}) async {
+  final app = MaterialApp(
+    home: Scaffold(body: RecognitionPage(controller: controller)),
+  );
+  await tester.pumpWidget(
+    mediaQuery == null ? app : MediaQuery(data: mediaQuery, child: app),
+  );
+  if (settle) {
+    await tester.pumpAndSettle();
+  } else {
+    await tester.pump();
+  }
 }
 
 void main() {
@@ -220,6 +241,120 @@ void main() {
     expect(controller.routines, isEmpty);
   });
 
+  testWidgets('AI top level keeps only the Coach conversation', (tester) async {
+    final controller = AppController();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(KiloApp(initialController: controller));
+    await _openRoute(tester, 'AI');
+
+    expect(find.byKey(const Key('ai-page')), findsOneWidget);
+    expect(find.text('AI Coach'), findsOneWidget);
+    expect(find.byKey(const Key('ai-recognition')), findsNothing);
+    expect(find.byKey(const Key('ai-top-tabs')), findsNothing);
+    expect(find.byType(NavigationDestination), findsNWidgets(5));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('home keeps one today recommendation and gates the why link', (
+    tester,
+  ) async {
+    final controller = AppController();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(KiloApp(initialController: controller));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('ai-training-home-card')), findsOneWidget);
+    expect(find.byKey(const Key('home-overview-section')), findsOneWidget);
+    expect(find.text('今日训练建议'), findsOneWidget);
+    expect(find.byKey(const Key('home-why-training')), findsOneWidget);
+    expect(find.byKey(const Key('home-start-today-workout')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('home-why-training')));
+    await tester.pumpAndSettle();
+    expect(find.text('这项能力属于形域 PRO'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('nutrition advice stays inline for free and member users', (
+    tester,
+  ) async {
+    final freeController = AppController();
+    addTearDown(freeController.dispose);
+    await tester.pumpWidget(
+      MaterialApp(home: NutritionCenterPage(controller: freeController)),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('nutrition-center-page')), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('nutrition-ai-advice-locked')),
+      240,
+      scrollable: find.byType(Scrollable).last,
+    );
+    expect(find.byKey(const Key('nutrition-ai-advice-locked')), findsOneWidget);
+    expect(
+      find.byKey(const Key('nutrition-ai-advice-paywall')),
+      findsOneWidget,
+    );
+    expect(find.byType(NutritionCenterPage), findsOneWidget);
+
+    final account = AccountService()..loginWithPhone('13800138031');
+    account.replaceCurrentEntitlement(
+      account.entitlements!.copyWith(
+        membership: MembershipPlan.forever,
+        clearMembershipExpiresAt: true,
+      ),
+    );
+    final memberController = AppController(accountService: account);
+    memberController.trainingProfile = const TrainingProfile(
+      gender: 'male',
+      age: 30,
+      heightCm: 180,
+      weightKg: 75,
+      weeklyTrainingDays: 4,
+    );
+    memberController.nutritionEntries.add(
+      NutritionEntry(
+        id: 'nutrition-advice-fixture',
+        recordedAt: DateTime.now(),
+        mealType: '第一餐',
+        foodName: '鸡胸肉',
+        calories: 420,
+        proteinGrams: 42,
+      ),
+    );
+    memberController.history.add(
+      WorkoutRecord(
+        id: 'nutrition-advice-training',
+        name: '训练日',
+        date: DateTime.now(),
+        startTime: '18:00',
+        durationSeconds: 1800,
+        volume: 800,
+        effectiveSets: 3,
+        exerciseIds: const ['bench_press'],
+      ),
+    );
+    addTearDown(memberController.dispose);
+    await tester.pumpWidget(
+      MaterialApp(home: NutritionCenterPage(controller: memberController)),
+    );
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('nutrition-ai-advice')),
+      240,
+      scrollable: find.byType(Scrollable).last,
+    );
+    expect(find.byKey(const Key('nutrition-ai-advice')), findsOneWidget);
+    expect(
+      find.byKey(const Key('nutrition-ai-advice-content')),
+      findsOneWidget,
+    );
+    expect(find.textContaining('训练 × 饮食'), findsOneWidget);
+    expect(find.textContaining('蛋白质目标'), findsWidgets);
+    expect(find.byKey(const Key('nutrition-ai-advice-locked')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('training profile onboarding keeps every field optional', (
     tester,
   ) async {
@@ -321,6 +456,16 @@ void main() {
     await tester.tap(find.text('统计'));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('member-analytics-locked')), findsOneWidget);
+    expect(find.byKey(const Key('stats-ai-insight-locked')), findsOneWidget);
+    expect(
+      find.byKey(const Key('stats-nutrition-adherence-locked')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('stats-muscle-volume-locked')), findsOneWidget);
+    expect(
+      find.byKey(const Key('stats-ai-weekly-report-locked')),
+      findsOneWidget,
+    );
     await tester.ensureVisible(
       find.byKey(const Key('open-member-analytics-paywall')),
     );
@@ -357,6 +502,11 @@ void main() {
     await tester.tap(find.text('统计'));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('member-analytics-panel')), findsOneWidget);
+    expect(find.byKey(const Key('stats-ai-insight')), findsOneWidget);
+    expect(find.byKey(const Key('stats-nutrition-adherence')), findsOneWidget);
+    expect(find.byKey(const Key('stats-muscle-volume')), findsOneWidget);
+    expect(find.byKey(const Key('stats-ai-weekly-report')), findsOneWidget);
+    expect(find.text('AI训练分析'), findsNothing);
     await tester.ensureVisible(find.text('训练 × 饮食时间轴'));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
@@ -616,6 +766,13 @@ void main() {
     addTearDown(controller.dispose);
     await tester.pumpWidget(KiloApp(initialController: controller));
     await _openRoute(tester, '训练');
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('official-plans-entry')),
+      220,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.drag(find.byType(Scrollable).last, const Offset(0, -220));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('official-plans-entry')));
     await tester.pumpAndSettle();
     expect(find.text('官方单日计划'), findsOneWidget);
@@ -696,6 +853,12 @@ void main() {
     await tester.pumpWidget(KiloApp(initialController: controller));
     await tester.pump();
 
+    await tester.scrollUntilVisible(
+      find.text('本周肌群'),
+      220,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
     expect(find.byKey(const Key('home-muscle-map')), findsOneWidget);
     expect(find.byKey(const Key('interactive-muscle-map')), findsOneWidget);
     expect(find.bySemanticsLabel('正面人体图'), findsOneWidget);
@@ -750,10 +913,7 @@ void main() {
       });
       final controller = AppController();
       addTearDown(controller.dispose);
-      await tester.pumpWidget(KiloApp(initialController: controller));
-      await _openRoute(tester, 'AI');
-      await tester.tap(find.byKey(const Key('ai-recognition')));
-      await tester.pump();
+      await _pumpRecognitionPage(tester, controller);
 
       expect(find.byType(DropdownButton<String>), findsNothing);
       expect(
@@ -888,15 +1048,11 @@ void main() {
           basis: '视频时间事件与骨骼关键点轨迹',
         ),
       );
-      await tester.pumpWidget(
-        MediaQuery(
-          data: const MediaQueryData(textScaler: TextScaler.linear(2)),
-          child: KiloApp(initialController: controller),
-        ),
+      await _pumpRecognitionPage(
+        tester,
+        controller,
+        mediaQuery: const MediaQueryData(textScaler: TextScaler.linear(2)),
       );
-      await _openRoute(tester, 'AI');
-      await tester.tap(find.byKey(const Key('ai-recognition')));
-      await tester.pump();
       await tester.ensureVisible(
         find.byKey(const Key('recognition-open-result')),
       );
@@ -990,10 +1146,7 @@ void main() {
       summary: '内部结果',
       overlayUrl: 'http://127.0.0.1:1/overlay.mp4',
     );
-    await tester.pumpWidget(KiloApp(initialController: controller));
-    await _openRoute(tester, 'AI');
-    await tester.tap(find.byKey(const Key('ai-recognition')));
-    await tester.pump();
+    await _pumpRecognitionPage(tester, controller);
     await tester.ensureVisible(
       find.byKey(const Key('recognition-open-result')),
     );
@@ -1025,9 +1178,7 @@ void main() {
       controller.recognitionStatus = RecognitionStatus.processing;
       controller.recognitionStage = RecognitionStage.analyzing;
       controller.recognitionElapsedSeconds = 72;
-      await tester.pumpWidget(KiloApp(initialController: controller));
-      await _openRoute(tester, 'AI');
-      await tester.tap(find.byKey(const Key('ai-recognition')));
+      await _pumpRecognitionPage(tester, controller, settle: false);
       await tester.pump(const Duration(milliseconds: 300));
 
       expect(
@@ -1677,6 +1828,13 @@ void main() {
     await tester.pumpWidget(KiloApp(initialController: controller));
     await _openRoute(tester, '训练');
 
+    await tester.scrollUntilVisible(
+      find.byKey(Key('routine-card-${routine.id}')),
+      220,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.drag(find.byType(Scrollable).last, const Offset(0, -220));
+    await tester.pumpAndSettle();
     expect(find.byKey(Key('routine-card-${routine.id}')), findsOneWidget);
     expect(find.byKey(Key('routine-start-${routine.id}')), findsOneWidget);
     expect(find.byKey(Key('routine-more-${routine.id}')), findsOneWidget);
@@ -1714,6 +1872,22 @@ void main() {
       ..reps = 10
       ..note = '最后两次速度变慢'
       ..completed = true;
+    controller.techniqueAssessments.add(
+      TechniqueAssessment(
+        id: 'technique-record-fixture',
+        exerciseId: 'bench_press',
+        createdAt: DateTime.now(),
+        scoreable: true,
+        overall: 78,
+        rom: 86,
+        stability: 72,
+        symmetry: 80,
+        tempo: 76,
+        trajectory: 83,
+        issues: const ['最后两次稳定性下降'],
+        nextFocus: '保持动作稳定，再考虑增加重量',
+      ),
+    );
     controller.finishWorkout();
     final record = controller.history.single;
     addTearDown(controller.dispose);
@@ -1732,6 +1906,12 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(Key('record-detail-${record.id}')), findsOneWidget);
     expect(find.byKey(Key('record-set-row-${set.id}')), findsOneWidget);
+    expect(
+      find.byKey(Key('record-technique-${record.id}-${exercise.id}')),
+      findsOneWidget,
+    );
+    expect(find.textContaining('技术评分 78/100'), findsOneWidget);
+    expect(find.textContaining('最后两次稳定性下降'), findsOneWidget);
     final detailRow = tester.widget<Container>(
       find.byKey(Key('record-set-row-${set.id}')),
     );
@@ -1745,6 +1925,119 @@ void main() {
     ).pop();
     await tester.pumpAndSettle();
   });
+
+  testWidgets(
+    'member exercise detail filters real technique assessments by date',
+    (tester) async {
+      final account = AccountService()..loginWithPhone('13800138032');
+      account.replaceCurrentEntitlement(
+        account.entitlements!.copyWith(
+          membership: MembershipPlan.forever,
+          clearMembershipExpiresAt: true,
+        ),
+      );
+      final controller = AppController(accountService: account);
+      final recentAt = DateTime.now();
+      final olderAt = recentAt.subtract(const Duration(days: 45));
+      controller.techniqueAssessments.addAll([
+        TechniqueAssessment(
+          id: 'technique-recent-fixture',
+          exerciseId: 'bench_press',
+          createdAt: recentAt,
+          scoreable: true,
+          overall: 82,
+          rom: 91,
+          stability: 76,
+          symmetry: 84,
+          tempo: 81,
+          trajectory: 83,
+          nextFocus: '保持下降节奏',
+        ),
+        TechniqueAssessment(
+          id: 'technique-older-fixture',
+          exerciseId: 'bench_press',
+          createdAt: olderAt,
+          scoreable: true,
+          overall: 74,
+          rom: 80,
+          stability: 69,
+          symmetry: 77,
+          tempo: 72,
+          trajectory: 75,
+          nextFocus: '保持动作轨迹',
+        ),
+      ]);
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(KiloApp(initialController: controller));
+      await _openRoute(tester, '动作');
+      await tester.enterText(find.byKey(const Key('exercise-search')), '卧推');
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('exercise-cover-bench_press')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('exercise-technique-growth')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('exercise-technique-range-month')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('exercise-technique-range-quarter')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('exercise-technique-range-all')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(
+          const Key('exercise-technique-assessment-technique-recent-fixture'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(
+          const Key('exercise-technique-assessment-technique-older-fixture'),
+        ),
+        findsOneWidget,
+      );
+
+      await tester.ensureVisible(
+        find.byKey(const Key('exercise-technique-range-month')),
+      );
+      await tester.tap(find.byKey(const Key('exercise-technique-range-month')));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(
+          const Key('exercise-technique-assessment-technique-recent-fixture'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(
+          const Key('exercise-technique-assessment-technique-older-fixture'),
+        ),
+        findsNothing,
+      );
+
+      await tester.ensureVisible(
+        find.byKey(const Key('exercise-technique-range-all')),
+      );
+      await tester.tap(find.byKey(const Key('exercise-technique-range-all')));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('保持动作轨迹'), findsOneWidget);
+      expect(
+        find.byKey(
+          const Key('exercise-technique-assessment-technique-older-fixture'),
+        ),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('live set table stays within a 320dp viewport', (tester) async {
     tester.view.physicalSize = const Size(320, 812);

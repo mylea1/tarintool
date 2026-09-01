@@ -2534,8 +2534,10 @@ class AppController extends ChangeNotifier {
         page = PageId.train;
         trainView = TrainView.history;
       case PageId.recognition:
-        page = PageId.ai;
-        aiView = AiView.recognition;
+        // Video analysis is opened from an exercise/record detail. Keep a
+        // legacy enum value from reviving the removed standalone AI page.
+        page = PageId.exercises;
+        aiView = AiView.chat;
       case PageId.today:
       case PageId.train:
       case PageId.exercises:
@@ -2562,8 +2564,10 @@ class AppController extends ChangeNotifier {
   }
 
   void selectAiView(AiView next) {
-    aiView = next;
-    page = PageId.ai;
+    // The Coach is the only AI top-level destination. Recognition remains a
+    // detail flow launched from the exercise library.
+    aiView = AiView.chat;
+    page = next == AiView.recognition ? PageId.exercises : PageId.ai;
     notifyListeners();
   }
 

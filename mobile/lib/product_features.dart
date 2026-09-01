@@ -150,6 +150,11 @@ class _NutritionCenterPageState extends State<NutritionCenterPage> {
               date: selectedDate,
               onAdd: _showCapture,
             ),
+            const SizedBox(height: 12),
+            _NutritionAiAdviceModule(
+              controller: widget.controller,
+              date: selectedDate,
+            ),
             const SizedBox(height: 16),
             OutlinedButton.icon(
               key: const Key('nutrition-unified-calendar-button'),
@@ -173,6 +178,206 @@ class _NutritionCenterPageState extends State<NutritionCenterPage> {
       onPressed: _showCapture,
       tooltip: '记录饮食',
       child: const Icon(Icons.camera_alt_outlined),
+    ),
+  );
+}
+
+class _NutritionAiAdviceModule extends StatelessWidget {
+  const _NutritionAiAdviceModule({
+    required this.controller,
+    required this.date,
+  });
+
+  final AppController controller;
+  final DateTime date;
+
+  double _totalCalories(List<NutritionEntry> entries) =>
+      entries.fold(0, (sum, entry) => sum + entry.calories);
+
+  double _totalProtein(List<NutritionEntry> entries) =>
+      entries.fold(0, (sum, entry) => sum + entry.proteinGrams);
+
+  String _advice({
+    required double calories,
+    required double protein,
+    required double? calorieTarget,
+    required double? proteinTarget,
+    required bool hasTraining,
+  }) {
+    final parts = <String>[];
+    if (calories == 0 && protein == 0) {
+      parts.add('今天还没有饮食记录，先记录一餐，建议会更准确。');
+    } else if (proteinTarget != null && protein < proteinTarget * .8) {
+      parts.add(
+        '距离蛋白质目标还差 ${(proteinTarget - protein).clamp(0, proteinTarget).toStringAsFixed(0)} g，下一餐优先补充高蛋白食物。',
+      );
+    } else if (calorieTarget != null && calories < calorieTarget * .8) {
+      parts.add('当前热量低于目标，按计划继续记录，训练日可适当补充碳水。');
+    } else if (calorieTarget != null && calories > calorieTarget * 1.1) {
+      parts.add('当前热量高于目标，后续餐次可适当收窄份量。');
+    } else {
+      parts.add('当前摄入接近目标，继续保持记录节奏。');
+    }
+    if (hasTraining) {
+      if (calorieTarget != null && calories < calorieTarget * .8) {
+        parts.add('训练 × 饮食：当天有训练，训练前后适当补充能量。');
+      } else {
+        parts.add('训练 × 饮食：当天有训练，可结合训练量继续观察摄入。');
+      }
+    }
+    return parts.join(' ');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final entries = controller.nutritionForDay(date);
+    final calories = _totalCalories(entries);
+    final protein = _totalProtein(entries);
+    final calorieTarget = controller.estimatedDailyCalories;
+    final weight = controller.trainingProfile.weightKg;
+    final proteinTarget = weight == null ? null : weight * 1.6;
+    final hasTraining = controller.history.any(
+      (record) => _sameDay(record.date, date),
+    );
+    final isMember = controller.entitlements?.isMember == true;
+    if (!isMember) {
+      return Card(
+        key: const Key('nutrition-ai-advice-locked'),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(13, 12, 13, 11),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.auto_awesome_rounded,
+                    size: 19,
+                    color: _primary(context),
+                  ),
+                  const SizedBox(width: 7),
+                  const Expanded(
+                    child: Text(
+                      'AI 今日饮食建议',
+                      style: TextStyle(fontWeight: FontWeight.w900),
+                    ),
+                  ),
+                  _NutritionProPill(),
+                  const SizedBox(width: 5),
+                  Icon(
+                    Icons.lock_outline_rounded,
+                    size: 17,
+                    color: _muted(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                '根据当天热量、蛋白质和训练记录给出下一餐建议。',
+                style: TextStyle(color: Color(0xFF756156), fontSize: 12),
+              ),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton.icon(
+                  key: const Key('nutrition-ai-advice-paywall'),
+                  onPressed: () => showMembershipPaywall(
+                    context,
+                    controller: controller,
+                    reason: MembershipPaywallReason.premiumFeature,
+                  ),
+                  icon: const Icon(Icons.lock_open_outlined, size: 17),
+                  label: const Text('解锁 PRO 建议'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    return Card(
+      key: const Key('nutrition-ai-advice'),
+      color: _primaryContainer(context).withValues(alpha: .3),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(13, 12, 13, 13),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.auto_awesome_rounded,
+                  size: 19,
+                  color: _primary(context),
+                ),
+                const SizedBox(width: 7),
+                const Expanded(
+                  child: Text(
+                    'AI 今日饮食建议',
+                    style: TextStyle(fontWeight: FontWeight.w900),
+                  ),
+                ),
+                _NutritionProPill(),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 14,
+              runSpacing: 5,
+              children: [
+                Text('当前 ${calories.toStringAsFixed(0)} kcal'),
+                Text('蛋白质 ${protein.toStringAsFixed(0)} g'),
+              ],
+            ),
+            const SizedBox(height: 5),
+            Text(
+              calorieTarget == null
+                  ? '热量目标：完善身高、体重、年龄后显示'
+                  : '热量目标：${calorieTarget.toStringAsFixed(0)} kcal',
+              style: TextStyle(color: _muted(context), fontSize: 12),
+            ),
+            Text(
+              proteinTarget == null
+                  ? '蛋白质目标：完善体重后显示'
+                  : '蛋白质目标：${proteinTarget.toStringAsFixed(0)} g（按体重估算）',
+              style: TextStyle(color: _muted(context), fontSize: 12),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _advice(
+                calories: calories,
+                protein: protein,
+                calorieTarget: calorieTarget,
+                proteinTarget: proteinTarget,
+                hasTraining: hasTraining,
+              ),
+              key: const Key('nutrition-ai-advice-content'),
+              style: const TextStyle(height: 1.4, fontWeight: FontWeight.w700),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NutritionProPill extends StatelessWidget {
+  const _NutritionProPill();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+    decoration: BoxDecoration(
+      color: _primaryContainer(context),
+      borderRadius: BorderRadius.circular(99),
+    ),
+    child: Text(
+      'PRO',
+      style: TextStyle(
+        color: _primary(context),
+        fontSize: 10,
+        fontWeight: FontWeight.w900,
+      ),
     ),
   );
 }
