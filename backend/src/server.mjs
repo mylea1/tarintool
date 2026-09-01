@@ -1044,6 +1044,12 @@ function entitlementFor(db, userId) {
   return transaction(db, () => publicEntitlement(ensureEntitlement(db, userId)));
 }
 
+function requireActiveMembership(db, userId) {
+  const entitlement = ensureEntitlement(db, userId);
+  if (!membershipActive(entitlement)) throw httpError(403, 'membership_required');
+  return entitlement;
+}
+
 function membershipFor(db, userId, plan) {
   const current = ensureEntitlement(db, userId);
   const currentActive = membershipActive(current);
@@ -2841,6 +2847,7 @@ ${languageInstruction}
   // photos; the JSON form is useful for small clients and deterministic tests.
   if (req.method === 'POST' && ['/v1/nutrition/recognitions', '/v1/nutrition/photo-recognition', '/v1/food/recognition'].includes(url.pathname)) {
     const user = authenticate(req, ctx);
+    requireActiveMembership(ctx.db, user.id);
     const settings = foodVisionSettings(ctx);
     assertFoodVisionConfigured(settings);
     const contentType = String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
@@ -2862,6 +2869,7 @@ ${languageInstruction}
   }
   if (req.method === 'POST' && url.pathname === '/v1/nutrition/jobs') {
     const user = authenticate(req, ctx);
+    requireActiveMembership(ctx.db, user.id);
     const settings = foodVisionSettings(ctx);
     assertFoodVisionConfigured(settings);
     const body = await readBody(req, ctx.cfg.maxJsonBytes);

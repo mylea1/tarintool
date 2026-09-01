@@ -277,6 +277,12 @@ void main() {
     expect(find.byKey(const Key('nutrition-journal-page')), findsOneWidget);
     await tester.tap(find.byKey(const Key('nutrition-empty-add')));
     await tester.pumpAndSettle();
+    expect(find.text('PRO 拍照识别'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('nutrition-photo-picker')));
+    await tester.pumpAndSettle();
+    expect(find.text('拍照识别营养属于形域 PRO'), findsOneWidget);
+    await tester.tap(find.text('暂不开通'));
+    await tester.pumpAndSettle();
     await tester.enterText(find.widgetWithText(TextField, '食物名称 *'), '鸡胸肉');
     await tester.enterText(find.widgetWithText(TextField, '热量 kcal *'), '220');
     await tester.enterText(find.widgetWithText(TextField, '蛋白质 g'), '42');
@@ -284,6 +290,66 @@ void main() {
     await tester.pumpAndSettle();
     expect(controller.todayCalories, 220);
     expect(controller.todayProtein, 42);
+  });
+
+  testWidgets('advanced statistics stays locked and usable at 320dp', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 812);
+    tester.view.devicePixelRatio = 1;
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    final controller = AppController();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: RecordsPage(controller: controller)),
+      ),
+    );
+    await tester.tap(find.text('统计'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('member-analytics-locked')), findsOneWidget);
+    await tester.ensureVisible(
+      find.byKey(const Key('open-member-analytics-paywall')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('open-member-analytics-paywall')));
+    await tester.pumpAndSettle();
+    expect(find.text('进阶数据统计属于形域 PRO'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('member analytics survives compact width and 200% text', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 812);
+    tester.view.devicePixelRatio = 1;
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    final account = AccountService()..loginWithPhone('13800138001');
+    account.replaceCurrentEntitlement(
+      account.entitlements!.copyWith(
+        membership: MembershipPlan.forever,
+        clearMembershipExpiresAt: true,
+      ),
+    );
+    final controller = AppController(accountService: account);
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: RecordsPage(controller: controller)),
+      ),
+    );
+    await tester.tap(find.text('统计'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('member-analytics-panel')), findsOneWidget);
+    await tester.ensureVisible(find.text('训练 × 饮食时间轴'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('new plan composer stays compact at 320dp', (tester) async {

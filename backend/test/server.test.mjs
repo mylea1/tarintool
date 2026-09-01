@@ -408,6 +408,17 @@ test('food recognition sends multiple images to a configured OpenAI-compatible v
     assert.equal(registration.response.status, 201);
     const token = registration.body.session.token;
     const tinyPng = Buffer.from('png-test').toString('base64');
+    const locked = await localApi('/v1/nutrition/recognitions', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+      body: JSON.stringify({ images: [
+        { contentType: 'image/png', dataBase64: tinyPng },
+      ] }),
+    });
+    assert.equal(locked.response.status, 403);
+    assert.equal(locked.body.error, 'membership_required');
+    isolatedServer.context.db.prepare("UPDATE entitlements SET membership = 'forever', membership_expires_at = NULL WHERE user_id = ?")
+      .run(registration.body.user.id);
     const recognized = await localApi('/v1/nutrition/recognitions', {
       method: 'POST',
       headers: { authorization: `Bearer ${token}` },
@@ -482,6 +493,8 @@ test('food recognition supports streamed multi-image uploads and explicit unconf
   try {
     const registration = await localApi('/v1/auth/register', { method: 'POST', body: JSON.stringify({ identifier: 'food-stream-user', password: '1234' }) });
     const token = registration.body.session.token;
+    isolatedServer.context.db.prepare("UPDATE entitlements SET membership = 'forever', membership_expires_at = NULL WHERE user_id = ?")
+      .run(registration.body.user.id);
     const created = await localApi('/v1/nutrition/jobs', {
       method: 'POST', headers: { authorization: `Bearer ${token}` }, body: JSON.stringify({ imageCount: 2 }),
     });
@@ -504,6 +517,8 @@ test('food recognition supports streamed multi-image uploads and explicit unconf
     try {
       const noServiceRegistration = await fetch(`${noServiceBase}/v1/auth/register`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ identifier: 'food-no-service', password: '1234' }) });
       const noServicePayload = await noServiceRegistration.json();
+      noServiceServer.context.db.prepare("UPDATE entitlements SET membership = 'forever', membership_expires_at = NULL WHERE user_id = ?")
+        .run(noServicePayload.user.id);
       const unavailable = await fetch(`${noServiceBase}/v1/nutrition/recognitions`, {
         method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${noServicePayload.session.token}` },
         body: JSON.stringify({ images: [{ contentType: 'image/png', dataBase64: Buffer.from('x').toString('base64') }] }),

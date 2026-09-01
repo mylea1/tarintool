@@ -19,7 +19,13 @@ const _emberSoft = Color(0xFFFFE3D2);
 const _line = Color(0xFFEAD9CD);
 const _success = Color(0xFF21845A);
 
-enum MembershipPaywallReason { aiQuota, recognitionQuota, premiumFeature }
+enum MembershipPaywallReason {
+  aiQuota,
+  recognitionQuota,
+  nutritionPhoto,
+  advancedStatistics,
+  premiumFeature,
+}
 
 const Map<MembershipPlan, String> membershipProductIds = {
   MembershipPlan.oneMonth: 'com.kilostrength.pro.monthly',
@@ -358,11 +364,16 @@ Future<void> showMembershipPaywall(
   final title = switch (reason) {
     MembershipPaywallReason.aiQuota => '今天的 3 次免费问答已用完',
     MembershipPaywallReason.recognitionQuota => '本周免费动作识别已用完',
+    MembershipPaywallReason.nutritionPhoto => '拍照识别营养属于形域 PRO',
+    MembershipPaywallReason.advancedStatistics => '进阶数据统计属于形域 PRO',
     MembershipPaywallReason.premiumFeature => '这项能力属于形域 PRO',
   };
   final caption = switch (reason) {
     MembershipPaywallReason.aiQuota => '免费额度会在明天恢复。开通 PRO 后，今天可继续使用。',
     MembershipPaywallReason.recognitionQuota => '免费额度会按周补充，完成有效训练也能获得额外次数。',
+    MembershipPaywallReason.nutritionPhoto => '多图识别会自动填入热量、蛋白质、碳水和脂肪；手动记录仍然免费。',
+    MembershipPaywallReason.advancedStatistics =>
+      '解锁上期对比、营养达标率、训练与饮食联动趋势和下一步建议。',
     MembershipPaywallReason.premiumFeature => '升级后即可解锁更完整的训练分析与会员权益。',
   };
   await showModalBottomSheet<void>(
@@ -370,79 +381,93 @@ Future<void> showMembershipPaywall(
     useSafeArea: true,
     isScrollControlled: true,
     backgroundColor: _paper,
-    builder: (sheetContext) => Padding(
-      padding: EdgeInsets.fromLTRB(
-        22,
-        12,
-        22,
-        20 + MediaQuery.viewPaddingOf(sheetContext).bottom,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Align(
-            child: Container(
-              width: 42,
-              height: 4,
-              decoration: BoxDecoration(
-                color: _line,
-                borderRadius: BorderRadius.circular(4),
+    builder: (sheetContext) => SafeArea(
+      top: false,
+      child: SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(
+          22,
+          12,
+          22,
+          20 + MediaQuery.viewPaddingOf(sheetContext).bottom,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Align(
+              child: Container(
+                width: 42,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: _line,
+                  borderRadius: BorderRadius.circular(4),
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 20),
-          const Align(child: MembershipMark(isMember: true, size: 58)),
-          const SizedBox(height: 14),
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: _ink,
-              fontSize: 22,
-              fontWeight: FontWeight.w900,
+            const SizedBox(height: 20),
+            const Align(child: MembershipMark(isMember: true, size: 58)),
+            const SizedBox(height: 14),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: _ink,
+                fontSize: 22,
+                fontWeight: FontWeight.w900,
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            caption,
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: _muted),
-          ),
-          const SizedBox(height: 18),
-          _PaywallBenefit(
-            icon: Icons.auto_awesome_rounded,
-            title: 'AI 问答每日 20 次',
-            caption: '免费账号每日 ${entitlement?.aiDailyLimit ?? 3} 次，按自然日恢复',
-          ),
-          const _PaywallBenefit(
-            icon: Icons.center_focus_strong_rounded,
-            title: '动作识别每周 3 次',
-            caption: '训练完成奖励次数仍会保留',
-          ),
-          const SizedBox(height: 18),
-          FilledButton(
-            onPressed: () {
-              Navigator.pop(sheetContext);
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => MembershipCenterPage(controller: controller),
-                ),
-              );
-            },
-            style: FilledButton.styleFrom(
-              minimumSize: const Size.fromHeight(52),
-              backgroundColor: _ember,
+            const SizedBox(height: 8),
+            Text(
+              caption,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: _muted),
             ),
-            child: const Text('查看会员方案'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(sheetContext),
-            child: Text(
-              reason == MembershipPaywallReason.aiQuota ? '明天再用' : '暂不开通',
+            const SizedBox(height: 18),
+            _PaywallBenefit(
+              icon: Icons.auto_awesome_rounded,
+              title: 'AI 问答每日 20 次',
+              caption: '免费账号每日 ${entitlement?.aiDailyLimit ?? 3} 次，按自然日恢复',
             ),
-          ),
-        ],
+            const _PaywallBenefit(
+              icon: Icons.center_focus_strong_rounded,
+              title: '动作识别每周 3 次',
+              caption: '训练完成奖励次数仍会保留',
+            ),
+            const _PaywallBenefit(
+              icon: Icons.add_a_photo_outlined,
+              title: '饮食拍照识别',
+              caption: '一次最多 8 张，自动生成热量与三大营养素候选',
+            ),
+            const _PaywallBenefit(
+              icon: Icons.query_stats_rounded,
+              title: '训练 × 饮食进阶统计',
+              caption: '同期对比、周均、达标率与可执行的下一步',
+            ),
+            const SizedBox(height: 18),
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(sheetContext);
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) =>
+                        MembershipCenterPage(controller: controller),
+                  ),
+                );
+              },
+              style: FilledButton.styleFrom(
+                minimumSize: const Size.fromHeight(52),
+                backgroundColor: _ember,
+              ),
+              child: const Text('查看会员方案'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(sheetContext),
+              child: Text(
+                reason == MembershipPaywallReason.aiQuota ? '明天再用' : '暂不开通',
+              ),
+            ),
+          ],
+        ),
       ),
     ),
   );
@@ -733,7 +758,7 @@ class _MemberHero extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  member ? _memberValidity(entitlement!) : '让 AI 与动作反馈陪你持续进步',
+                  member ? _memberValidity(entitlement!) : '让识别、数据与 AI 陪你持续进步',
                   style: const TextStyle(
                     color: Color(0xFFD9C8BE),
                     fontSize: 12,
@@ -748,6 +773,8 @@ class _MemberHero extends StatelessWidget {
                       'AI ${entitlement?.aiRemaining ?? 3}/${entitlement?.aiDailyLimit ?? 3}',
                     ),
                     _HeroPill('识别 ${entitlement?.recognitionRemaining ?? 0} 次'),
+                    const _HeroPill('饮食拍照'),
+                    const _HeroPill('进阶统计'),
                   ],
                 ),
               ],
@@ -1063,8 +1090,14 @@ class _BenefitsCard extends StatelessWidget {
         Divider(height: 24),
         _BenefitRow(
           icon: Icons.insights_rounded,
-          title: '完整进步洞察',
-          caption: '容量、表现趋势与训练总结更清楚',
+          title: '训练 × 饮食进阶统计',
+          caption: '同期对比、营养达标率、联动趋势与下一步建议',
+        ),
+        Divider(height: 24),
+        _BenefitRow(
+          icon: Icons.add_a_photo_outlined,
+          title: '饮食拍照识别',
+          caption: '一次最多 8 张，自动填入热量和三大营养素',
         ),
       ],
     ),

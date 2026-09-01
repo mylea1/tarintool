@@ -56,8 +56,8 @@ const setNoteColor = Color(0xFF176B4A);
 const setNoteContainer = Color(0xFFE5F5ED);
 const workoutNoteColor = Color(0xFF5F6673);
 const workoutNoteContainer = Color(0xFFF0F2F5);
-const kiloAppVersion = '1.0.22';
-const kiloAppBuild = '23';
+const kiloAppVersion = '1.0.23';
+const kiloAppBuild = '24';
 const kiloAppVersionLabel = '$kiloAppVersion ($kiloAppBuild)';
 const kiloAppNavigationLabel = 'AI 记忆、饮食记录与视频优化';
 const brandName = '形域';
@@ -5868,6 +5868,14 @@ class _TrainingStatisticsView extends StatelessWidget {
             ),
           ),
         ),
+        const SizedBox(height: 12),
+        _MemberAnalyticsPanel(
+          controller: controller,
+          range: selectedRange,
+          records: records,
+          trainingDays: trainingDays,
+          volume: volume,
+        ),
         const SizedBox(height: 16),
         const Text(
           '部位概览',
@@ -5966,6 +5974,563 @@ class _TrainingStatisticsView extends StatelessWidget {
                 style: const TextStyle(fontWeight: FontWeight.w900),
               ),
             ),
+      ],
+    );
+  }
+}
+
+class _MemberAnalyticsPanel extends StatelessWidget {
+  const _MemberAnalyticsPanel({
+    required this.controller,
+    required this.range,
+    required this.records,
+    required this.trainingDays,
+    required this.volume,
+  });
+
+  final AppController controller;
+  final DateTimeRange range;
+  final List<WorkoutRecord> records;
+  final int trainingDays;
+  final double volume;
+
+  int get rangeDays =>
+      DateUtils.dateOnly(
+        range.end,
+      ).difference(DateUtils.dateOnly(range.start)).inDays +
+      1;
+
+  List<WorkoutRecord> _recordsIn(DateTimeRange value) => controller.history
+      .where((record) {
+        final day = DateUtils.dateOnly(record.date);
+        return !day.isBefore(DateUtils.dateOnly(value.start)) &&
+            !day.isAfter(DateUtils.dateOnly(value.end));
+      })
+      .toList(growable: false);
+
+  List<NutritionEntry> _nutritionIn(DateTimeRange value) => controller
+      .nutritionEntries
+      .where((entry) {
+        final day = DateUtils.dateOnly(entry.recordedAt);
+        return !day.isBefore(DateUtils.dateOnly(value.start)) &&
+            !day.isAfter(DateUtils.dateOnly(value.end));
+      })
+      .toList(growable: false);
+
+  double? _delta(double current, double previous) {
+    if (previous <= 0) return current > 0 ? null : 0;
+    return (current - previous) / previous * 100;
+  }
+
+  String _deltaText(double? value) {
+    if (value == null) return '新增数据';
+    if (value.abs() < .5) return '与上期持平';
+    return '${value > 0 ? '+' : ''}${value.toStringAsFixed(0)}% 较上期';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isMember = controller.entitlements?.isMember == true;
+    if (!isMember) {
+      return Card(
+        key: const Key('member-analytics-locked'),
+        color: const Color(0xFF241A15),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Row(
+                children: [
+                  MembershipMark(isMember: true, size: 28),
+                  SizedBox(width: 9),
+                  Expanded(
+                    child: Text(
+                      'PRO 进阶数据',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  Icon(Icons.lock_outline_rounded, color: Color(0xFFFFB47F)),
+                ],
+              ),
+              SizedBox(height: 10),
+              Text(
+                '同期对比 · 热量与蛋白质周均 · 营养达标率 · 训练饮食联动',
+                style: TextStyle(color: Color(0xFFD9C9BE), height: 1.5),
+              ),
+              SizedBox(height: 12),
+              FilledButton.icon(
+                key: Key('open-member-analytics-paywall'),
+                onPressed: () => showMembershipPaywall(
+                  context,
+                  controller: controller,
+                  reason: MembershipPaywallReason.advancedStatistics,
+                ),
+                icon: Icon(Icons.query_stats_rounded),
+                label: Text('查看 PRO 统计'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final previousEnd = DateUtils.dateOnly(
+      range.start,
+    ).subtract(const Duration(days: 1));
+    final previousStart = previousEnd.subtract(Duration(days: rangeDays - 1));
+    final previous = _recordsIn(
+      DateTimeRange(start: previousStart, end: previousEnd),
+    );
+    final previousDays = previous
+        .map((item) => DateUtils.dateOnly(item.date))
+        .toSet()
+        .length;
+    final previousVolume = previous.fold<double>(
+      0,
+      (sum, item) => sum + item.volume,
+    );
+    final nutrition = _nutritionIn(range);
+    final nutritionByDay = <DateTime, List<NutritionEntry>>{};
+    for (final entry in nutrition) {
+      nutritionByDay
+          .putIfAbsent(DateUtils.dateOnly(entry.recordedAt), () => [])
+          .add(entry);
+    }
+    final targetCalories = controller.estimatedDailyCalories;
+    final targetProtein = controller.trainingProfile.weightKg == null
+        ? null
+        : controller.trainingProfile.weightKg! * 1.6;
+    final totalCalories = nutrition.fold<double>(
+      0,
+      (sum, item) => sum + item.calories,
+    );
+    final totalProtein = nutrition.fold<double>(
+      0,
+      (sum, item) => sum + item.proteinGrams,
+    );
+    final averageCalories = totalCalories / rangeDays;
+    final averageProtein = totalProtein / rangeDays;
+    var calorieHitDays = 0;
+    var proteinHitDays = 0;
+    for (final entries in nutritionByDay.values) {
+      final dayCalories = entries.fold<double>(
+        0,
+        (sum, item) => sum + item.calories,
+      );
+      final dayProtein = entries.fold<double>(
+        0,
+        (sum, item) => sum + item.proteinGrams,
+      );
+      if (targetCalories != null &&
+          dayCalories >= targetCalories * .9 &&
+          dayCalories <= targetCalories * 1.1) {
+        calorieHitDays++;
+      }
+      if (targetProtein != null && dayProtein >= targetProtein) {
+        proteinHitDays++;
+      }
+    }
+    final loggedDays = nutritionByDay.length;
+    final calorieHitRate = loggedDays == 0 || targetCalories == null
+        ? null
+        : calorieHitDays / loggedDays;
+    final proteinHitRate = loggedDays == 0 || targetProtein == null
+        ? null
+        : proteinHitDays / loggedDays;
+    final action = _nextAction(
+      loggedDays: loggedDays,
+      averageProtein: averageProtein,
+      targetProtein: targetProtein,
+      calorieHitRate: calorieHitRate,
+      trainingDays: trainingDays,
+      expectedTrainingDays:
+          (controller.trainingProfile.weeklyTrainingDays ?? 3) * rangeDays / 7,
+      volumeDelta: _delta(volume, previousVolume),
+    );
+
+    return Card(
+      key: const Key('member-analytics-panel'),
+      color: const Color(0xFFF5F1FF),
+      child: Padding(
+        padding: const EdgeInsets.all(15),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.query_stats_rounded, color: Color(0xFF5C3FA3)),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'PRO 进阶数据',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                  ),
+                ),
+                MembershipMark(isMember: true, size: 26),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _AnalyticsActionCard(text: action),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _AnalyticsMetric(
+                    label: '训练频率',
+                    value: '$trainingDays 天',
+                    comparison: _deltaText(
+                      _delta(trainingDays.toDouble(), previousDays.toDouble()),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _AnalyticsMetric(
+                    label: '训练容量',
+                    value: volume >= 1000
+                        ? '${(volume / 1000).toStringAsFixed(1)} 吨'
+                        : '${volume.toStringAsFixed(0)} kg',
+                    comparison: _deltaText(_delta(volume, previousVolume)),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: _AnalyticsMetric(
+                    label: '日均热量',
+                    value: '${averageCalories.toStringAsFixed(0)} kcal',
+                    comparison: targetCalories == null
+                        ? '完善档案后显示目标'
+                        : '目标 ${targetCalories.toStringAsFixed(0)} kcal',
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _AnalyticsMetric(
+                    label: '日均蛋白质',
+                    value: '${averageProtein.toStringAsFixed(0)} g',
+                    comparison: targetProtein == null
+                        ? '完善体重后显示目标'
+                        : '目标 ${targetProtein.toStringAsFixed(0)} g',
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _NutritionAdherenceRow(
+              loggedDays: loggedDays,
+              rangeDays: rangeDays,
+              calorieHitRate: calorieHitRate,
+              proteinHitRate: proteinHitRate,
+            ),
+            const SizedBox(height: 14),
+            _TrainingNutritionTimeline(
+              range: range,
+              records: records,
+              nutritionByDay: nutritionByDay,
+              calorieTarget: targetCalories,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _nextAction({
+    required int loggedDays,
+    required double averageProtein,
+    required double? targetProtein,
+    required double? calorieHitRate,
+    required int trainingDays,
+    required double expectedTrainingDays,
+    required double? volumeDelta,
+  }) {
+    if (loggedDays < (rangeDays >= 7 ? 3 : 1)) {
+      return '下一步：先连续记录 3 天饮食，建立可用的营养基线。';
+    }
+    if (targetProtein != null && averageProtein < targetProtein * .8) {
+      return '下一步：日均蛋白质偏低，优先每天增加一份高蛋白食物。';
+    }
+    if (calorieHitRate != null && calorieHitRate < .5) {
+      return '下一步：热量波动较大，先将一半以上记录日控制在目标 ±10% 内。';
+    }
+    if (trainingDays + .5 < expectedTrainingDays) {
+      return '下一步：训练频率低于设定目标，先在日历补上下一次训练。';
+    }
+    if (volumeDelta != null && volumeDelta < -15) {
+      return '下一步：容量较上期下降，检查恢复与计划完成情况，不必盲目加量。';
+    }
+    return '下一步：当前训练与营养节奏稳定，继续保持并观察下一周趋势。';
+  }
+}
+
+class _AnalyticsActionCard extends StatelessWidget {
+  const _AnalyticsActionCard({required this.text});
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: const Color(0xFF2B2240),
+      borderRadius: BorderRadius.circular(13),
+    ),
+    child: Text(
+      text,
+      style: const TextStyle(
+        color: Colors.white,
+        height: 1.45,
+        fontWeight: FontWeight.w700,
+      ),
+    ),
+  );
+}
+
+class _AnalyticsMetric extends StatelessWidget {
+  const _AnalyticsMetric({
+    required this.label,
+    required this.value,
+    required this.comparison,
+  });
+  final String label;
+  final String value;
+  final String comparison;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    constraints: const BoxConstraints(minHeight: 94),
+    padding: const EdgeInsets.all(11),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(13),
+      border: Border.all(color: const Color(0xFFE1D8F3)),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(color: quiet, fontSize: 12)),
+        const SizedBox(height: 4),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            value,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+          ),
+        ),
+        const SizedBox(height: 3),
+        Text(
+          comparison,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(color: Color(0xFF6C579E), fontSize: 11),
+        ),
+      ],
+    ),
+  );
+}
+
+class _NutritionAdherenceRow extends StatelessWidget {
+  const _NutritionAdherenceRow({
+    required this.loggedDays,
+    required this.rangeDays,
+    required this.calorieHitRate,
+    required this.proteinHitRate,
+  });
+  final int loggedDays;
+  final int rangeDays;
+  final double? calorieHitRate;
+  final double? proteinHitRate;
+
+  String _rate(double? value) =>
+      value == null ? '--' : '${(value * 100).round()}%';
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      Expanded(
+        child: _AnalyticsMiniBar(
+          label: '记录覆盖',
+          value: rangeDays == 0 ? 0 : loggedDays / rangeDays,
+          trailing: '$loggedDays/$rangeDays 天',
+        ),
+      ),
+      const SizedBox(width: 8),
+      Expanded(
+        child: _AnalyticsMiniBar(
+          label: '热量达标',
+          value: calorieHitRate ?? 0,
+          trailing: _rate(calorieHitRate),
+        ),
+      ),
+      const SizedBox(width: 8),
+      Expanded(
+        child: _AnalyticsMiniBar(
+          label: '蛋白达标',
+          value: proteinHitRate ?? 0,
+          trailing: _rate(proteinHitRate),
+        ),
+      ),
+    ],
+  );
+}
+
+class _AnalyticsMiniBar extends StatelessWidget {
+  const _AnalyticsMiniBar({
+    required this.label,
+    required this.value,
+    required this.trailing,
+  });
+  final String label;
+  final double value;
+  final String trailing;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(label, style: const TextStyle(fontSize: 11, color: quiet)),
+      const SizedBox(height: 5),
+      LinearProgressIndicator(
+        value: value.clamp(0, 1),
+        minHeight: 7,
+        borderRadius: BorderRadius.circular(99),
+        color: const Color(0xFF7254B8),
+        backgroundColor: const Color(0xFFE4DCF4),
+      ),
+      const SizedBox(height: 4),
+      Text(
+        trailing,
+        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
+      ),
+    ],
+  );
+}
+
+class _TrainingNutritionTimeline extends StatelessWidget {
+  const _TrainingNutritionTimeline({
+    required this.range,
+    required this.records,
+    required this.nutritionByDay,
+    required this.calorieTarget,
+  });
+  final DateTimeRange range;
+  final List<WorkoutRecord> records;
+  final Map<DateTime, List<NutritionEntry>> nutritionByDay;
+  final double? calorieTarget;
+
+  @override
+  Widget build(BuildContext context) {
+    final totalDays =
+        DateUtils.dateOnly(
+          range.end,
+        ).difference(DateUtils.dateOnly(range.start)).inDays +
+        1;
+    final shown = totalDays.clamp(1, 14);
+    final first = DateUtils.dateOnly(
+      range.end,
+    ).subtract(Duration(days: shown - 1));
+    final training = records
+        .map((item) => DateUtils.dateOnly(item.date))
+        .toSet();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('训练 × 饮食时间轴', style: TextStyle(fontWeight: FontWeight.w900)),
+        const SizedBox(height: 3),
+        const Text(
+          '柱高为热量相对目标，紫点代表当天训练',
+          style: TextStyle(color: quiet, fontSize: 11),
+        ),
+        const SizedBox(height: 9),
+        SizedBox(
+          height: 105,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              for (var index = 0; index < shown; index++) ...[
+                Expanded(
+                  child: _TimelineDay(
+                    day: first.add(Duration(days: index)),
+                    entries:
+                        nutritionByDay[first.add(Duration(days: index))] ??
+                        const [],
+                    trained: training.contains(
+                      first.add(Duration(days: index)),
+                    ),
+                    calorieTarget: calorieTarget,
+                  ),
+                ),
+                if (index != shown - 1) const SizedBox(width: 3),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TimelineDay extends StatelessWidget {
+  const _TimelineDay({
+    required this.day,
+    required this.entries,
+    required this.trained,
+    required this.calorieTarget,
+  });
+  final DateTime day;
+  final List<NutritionEntry> entries;
+  final bool trained;
+  final double? calorieTarget;
+
+  @override
+  Widget build(BuildContext context) {
+    final calories = entries.fold<double>(
+      0,
+      (sum, item) => sum + item.calories,
+    );
+    final base = calorieTarget == null || calorieTarget! <= 0
+        ? (calories <= 0 ? 1 : calories)
+        : calorieTarget!;
+    final height = (calories / base).clamp(0.04, 1.15) * 58;
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        Container(
+          width: double.infinity,
+          height: height,
+          decoration: BoxDecoration(
+            color: calories <= 0
+                ? const Color(0xFFE5E0EA)
+                : const Color(0xFFB9DCCB),
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Container(
+          width: 7,
+          height: 7,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: trained ? const Color(0xFF7254B8) : Colors.transparent,
+          ),
+        ),
+        const SizedBox(height: 3),
+        FittedBox(
+          child: Text(
+            '${day.month}/${day.day}',
+            style: const TextStyle(fontSize: 9),
+          ),
+        ),
       ],
     );
   }

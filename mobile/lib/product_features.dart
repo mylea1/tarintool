@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'ai_api.dart';
 import 'controller.dart';
 import 'exercise_media.dart';
+import 'membership_ui.dart';
 import 'models.dart';
 
 DateTime _dayOnly(DateTime value) =>
@@ -681,6 +682,8 @@ class _NutritionCaptureSheetState extends State<_NutritionCaptureSheet> {
   bool recognizing = false;
   bool saving = false;
 
+  bool get isMember => widget.controller.entitlements?.isMember == true;
+
   @override
   void initState() {
     super.initState();
@@ -704,6 +707,14 @@ class _NutritionCaptureSheetState extends State<_NutritionCaptureSheet> {
   }
 
   Future<void> _pickImages() async {
+    if (!isMember) {
+      await showMembershipPaywall(
+        context,
+        controller: widget.controller,
+        reason: MembershipPaywallReason.nutritionPhoto,
+      );
+      return;
+    }
     final result = await FilePicker.platform.pickFiles(
       type: FileType.image,
       allowMultiple: true,
@@ -725,6 +736,14 @@ class _NutritionCaptureSheetState extends State<_NutritionCaptureSheet> {
   }
 
   Future<void> _recognize() async {
+    if (!isMember) {
+      await showMembershipPaywall(
+        context,
+        controller: widget.controller,
+        reason: MembershipPaywallReason.nutritionPhoto,
+      );
+      return;
+    }
     if (recognizing || imagePaths.isEmpty) return;
     setState(() {
       recognizing = true;
@@ -754,6 +773,7 @@ class _NutritionCaptureSheetState extends State<_NutritionCaptureSheet> {
       return switch (caught.code) {
         'food_images_required' || 'food_images_unreadable' => '图片不可用，请重新选择。',
         'coach_unauthenticated' || 'coach_session_expired' => '登录后才能使用拍照识别。',
+        'membership_required' => '拍照识别是形域 PRO 会员功能。',
         'food_recognition_unavailable' ||
         'food_recognition_http_404' => '识别服务尚未配置，可直接手动记录。',
         _ => '识别失败，可重试或直接手动记录。',
@@ -879,7 +899,7 @@ class _NutritionCaptureSheetState extends State<_NutritionCaptureSheet> {
             ),
             const SizedBox(height: 5),
             Text(
-              '照片识别后请复核候选值，食物名称可留空。',
+              isMember ? '照片识别后请复核候选值，食物名称可留空。' : '手动记录免费；多图拍照识别为 PRO 会员功能。',
               style: TextStyle(color: _muted(context), fontSize: 12),
             ),
             const SizedBox(height: 13),
@@ -888,10 +908,14 @@ class _NutritionCaptureSheetState extends State<_NutritionCaptureSheet> {
               child: OutlinedButton.icon(
                 key: const Key('nutrition-photo-picker'),
                 onPressed: recognizing ? null : _pickImages,
-                icon: const Icon(Icons.photo_library_outlined),
+                icon: Icon(
+                  isMember
+                      ? Icons.photo_library_outlined
+                      : Icons.lock_outline_rounded,
+                ),
                 label: Text(
                   imagePaths.isEmpty
-                      ? '选择食物照片'
+                      ? (isMember ? '选择食物照片' : 'PRO 拍照识别')
                       : '重新选择照片（${imagePaths.length}/8）',
                 ),
               ),
