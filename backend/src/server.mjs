@@ -124,9 +124,9 @@ const APPLE_MEMBERSHIP_PRODUCTS = new Map([
   ['com.kilostrength.pro.lifetime', 'forever'],
 ]);
 const PUBLIC_MEMBERSHIP_PRODUCTS = new Map([
-  ['com.kilostrength.pro.monthly', { plan: 'oneMonth', amountMinor: 1990, currency: 'CNY', duration: '1个月' }],
-  ['com.kilostrength.pro.quarterly', { plan: 'threeMonths', amountMinor: 4990, currency: 'CNY', duration: '3个月' }],
-  ['com.kilostrength.pro.yearly', { plan: 'yearly', amountMinor: 15900, currency: 'CNY', duration: '12个月' }],
+  ['com.kilostrength.pro.monthly', { plan: 'oneMonth', amountMinor: 1200, currency: 'CNY', duration: '1个月' }],
+  ['com.kilostrength.pro.quarterly', { plan: 'threeMonths', amountMinor: 3800, currency: 'CNY', duration: '3个月' }],
+  ['com.kilostrength.pro.yearly', { plan: 'yearly', amountMinor: 12800, currency: 'CNY', duration: '12个月' }],
 ]);
 const JOB_STATES = new Set(['created', 'uploading', 'queued', 'processing', 'completed', 'failed', 'cancelled', 'expired']);
 const ALLOWED_MEDIA_TYPES = new Set(extensionForType.keys());

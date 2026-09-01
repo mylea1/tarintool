@@ -139,7 +139,7 @@ void main() {
       final order = await api.createMembershipOrder(
         productId: 'com.kilostrength.pro.quarterly',
         plan: 'threeMonths',
-        amountMinor: 4990,
+        amountMinor: 3800,
       );
       final entitlement = await api.fetchEntitlements();
 
@@ -148,7 +148,7 @@ void main() {
         'plan': 'threeMonths',
         'provider': 'app_store',
         'currency': 'CNY',
-        'amountMinor': 4990,
+        'amountMinor': 3800,
       });
       expect(order['order'], isA<Map<String, dynamic>>());
       expect(entitlement['membership'], 'yearly');

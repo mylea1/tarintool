@@ -34,9 +34,15 @@ const Map<MembershipPlan, String> membershipProductIds = {
 };
 
 const Map<MembershipPlan, String> _fallbackPrices = {
-  MembershipPlan.oneMonth: '¥19.9',
-  MembershipPlan.threeMonths: '¥49.9',
-  MembershipPlan.yearly: '¥159',
+  MembershipPlan.oneMonth: '¥12',
+  MembershipPlan.threeMonths: '¥38',
+  MembershipPlan.yearly: '¥128',
+};
+
+const Map<MembershipPlan, double> _fallbackRawPrices = {
+  MembershipPlan.oneMonth: 12,
+  MembershipPlan.threeMonths: 38,
+  MembershipPlan.yearly: 128,
 };
 
 class MembershipMark extends StatelessWidget {
@@ -531,12 +537,14 @@ class MembershipCenterPage extends StatefulWidget {
 class _MembershipCenterPageState extends State<MembershipCenterPage>
     with WidgetsBindingObserver {
   late final MembershipPurchaseCoordinator purchase;
+  late final ScrollController _planScrollController;
   MembershipPlan selected = MembershipPlan.yearly;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _planScrollController = ScrollController(initialScrollOffset: 576);
     purchase = MembershipPurchaseCoordinator(widget.controller)
       ..addListener(_refresh);
     unawaited(purchase.initialize());
@@ -553,6 +561,7 @@ class _MembershipCenterPageState extends State<MembershipCenterPage>
     purchase
       ..removeListener(_refresh)
       ..dispose();
+    _planScrollController.dispose();
     super.dispose();
   }
 
@@ -593,27 +602,25 @@ class _MembershipCenterPageState extends State<MembershipCenterPage>
           _CloudSyncStatus(isEnabled: widget.controller.cloudSyncAllowed),
           const SizedBox(height: 16),
           const Text(
-            '选择方案',
+            '选择适合你的方案',
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.w900,
               color: _ink,
             ),
           ),
-          const SizedBox(height: 10),
-          for (final plan in const [
-            MembershipPlan.oneMonth,
-            MembershipPlan.threeMonths,
-            MembershipPlan.yearly,
-          ]) ...[
-            _PlanTile(
-              plan: plan,
-              price: purchase.priceFor(plan),
-              selected: selected == plan,
-              onTap: () => setState(() => selected = plan),
-            ),
-            const SizedBox(height: 9),
-          ],
+          const SizedBox(height: 4),
+          const Text(
+            '所有方案均解锁完整 PRO 能力，区别仅在订阅周期。',
+            style: TextStyle(fontSize: 12, color: _muted),
+          ),
+          const SizedBox(height: 12),
+          _PlanComparison(
+            selected: selected,
+            purchase: purchase,
+            scrollController: _planScrollController,
+            onSelected: (plan) => setState(() => selected = plan),
+          ),
           const SizedBox(height: 8),
           const _BenefitsCard(),
           if (purchase.errorMessage != null) ...[
@@ -848,15 +855,106 @@ class _CloudSyncStatus extends StatelessWidget {
   );
 }
 
-class _PlanTile extends StatelessWidget {
-  const _PlanTile({
+class _PlanComparison extends StatelessWidget {
+  const _PlanComparison({
+    required this.selected,
+    required this.purchase,
+    required this.scrollController,
+    required this.onSelected,
+  });
+
+  final MembershipPlan selected;
+  final MembershipPurchaseCoordinator purchase;
+  final ScrollController scrollController;
+  final ValueChanged<MembershipPlan> onSelected;
+
+  static const plans = [
+    MembershipPlan.oneMonth,
+    MembershipPlan.threeMonths,
+    MembershipPlan.yearly,
+  ];
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final cards = [
+        for (final plan in plans)
+          _PlanCard(
+            plan: plan,
+            price: purchase.priceFor(plan),
+            monthlyEquivalent: _monthlyEquivalent(purchase, plan),
+            selected: selected == plan,
+            onTap: () => onSelected(plan),
+          ),
+      ];
+      if (constraints.maxWidth >= 760) {
+        return IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (var index = 0; index < cards.length; index++) ...[
+                Expanded(child: cards[index]),
+                if (index != cards.length - 1) const SizedBox(width: 12),
+              ],
+            ],
+          ),
+        );
+      }
+      final cardWidth = (constraints.maxWidth - 18).clamp(248.0, 304.0);
+      return Semantics(
+        label: '会员方案，可横向滑动比较',
+        child: SingleChildScrollView(
+          key: const Key('membership-plan-comparison'),
+          controller: scrollController,
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.only(right: 6),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (var index = 0; index < cards.length; index++) ...[
+                SizedBox(width: cardWidth, child: cards[index]),
+                if (index != cards.length - 1) const SizedBox(width: 12),
+              ],
+            ],
+          ),
+        ),
+      );
+    },
+  );
+
+  static String _monthlyEquivalent(
+    MembershipPurchaseCoordinator purchase,
+    MembershipPlan plan,
+  ) {
+    final product = purchase.productFor(plan);
+    final raw = product?.rawPrice ?? _fallbackRawPrices[plan]!;
+    final months = switch (plan) {
+      MembershipPlan.oneMonth => 1,
+      MembershipPlan.threeMonths => 3,
+      MembershipPlan.yearly => 12,
+      _ => 1,
+    };
+    final value = raw / months;
+    final symbol = product == null
+        ? '¥'
+        : product.price.replaceAll(RegExp(r'[\d\s.,]'), '');
+    final decimals = value == value.roundToDouble() ? 0 : 1;
+    return '约 $symbol${value.toStringAsFixed(decimals)} / 月';
+  }
+}
+
+class _PlanCard extends StatelessWidget {
+  const _PlanCard({
     required this.plan,
     required this.price,
+    required this.monthlyEquivalent,
     required this.selected,
     required this.onTap,
   });
+
   final MembershipPlan plan;
   final String price;
+  final String monthlyEquivalent;
   final bool selected;
   final VoidCallback onTap;
 
@@ -870,13 +968,32 @@ class _PlanTile extends StatelessWidget {
       MembershipPlan.free => '免费账号',
     };
     final caption = switch (plan) {
-      MembershipPlan.oneMonth => '灵活体验，按月续订',
-      MembershipPlan.threeMonths => '每 3 个月自动续订 · 更划算',
-      MembershipPlan.yearly => '每 12 个月自动续订 · 更省心',
+      MembershipPlan.oneMonth => '按月自动续订',
+      MembershipPlan.threeMonths => '每 3 个月自动续订',
+      MembershipPlan.yearly => '每 12 个月自动续订',
       MembershipPlan.forever => '一次购买，长期使用',
       MembershipPlan.free => '',
     };
+    final features = switch (plan) {
+      MembershipPlan.oneMonth => const [
+        '完整 PRO 权益',
+        '适合先体验 AI 训练闭环',
+        '可在应用商店管理订阅',
+      ],
+      MembershipPlan.threeMonths => const [
+        '完整 PRO 权益',
+        '覆盖一个完整训练周期',
+        '技术与力量趋势连续记录',
+      ],
+      MembershipPlan.yearly => const [
+        '完整 PRO 权益',
+        '长期训练记忆与云同步',
+        '全年技术、力量与饮食趋势',
+      ],
+      _ => const <String>[],
+    };
     return Material(
+      key: Key('membership-plan-${plan.name}'),
       color: selected ? const Color(0xFFFFEEE2) : Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18),
@@ -889,68 +1006,94 @@ class _PlanTile extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(18),
         child: Padding(
-          padding: const EdgeInsets.all(15),
-          child: Row(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(
-                selected ? Icons.radio_button_checked : Icons.radio_button_off,
-                color: selected ? _ember : _muted,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            title,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w900,
-                              color: _ink,
-                            ),
-                          ),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        color: _ink,
+                      ),
+                    ),
+                  ),
+                  if (plan == MembershipPlan.yearly)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _ember,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Text(
+                        '最受欢迎',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
                         ),
-                        if (plan == MembershipPlan.yearly) ...[
-                          const SizedBox(width: 7),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 7,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: _ember,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Text(
-                              '推荐',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
+                      ),
                     ),
-                    Text(
-                      caption,
-                      style: const TextStyle(color: _muted, fontSize: 12),
-                    ),
-                  ],
-                ),
+                ],
               ),
-              const SizedBox(width: 8),
+              const SizedBox(height: 22),
               Text(
                 price,
                 style: const TextStyle(
                   color: _ink,
-                  fontSize: 20,
+                  fontSize: 34,
                   fontWeight: FontWeight.w900,
                 ),
               ),
+              const SizedBox(height: 2),
+              Text(
+                caption,
+                style: const TextStyle(color: _muted, fontSize: 12),
+              ),
+              Text(
+                monthlyEquivalent,
+                style: const TextStyle(
+                  color: _ember,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 18),
+              SizedBox(
+                width: double.infinity,
+                child: selected
+                    ? FilledButton.icon(
+                        onPressed: onTap,
+                        icon: const Icon(Icons.check_rounded, size: 18),
+                        label: const Text('已选择'),
+                        style: FilledButton.styleFrom(backgroundColor: _ink),
+                      )
+                    : OutlinedButton(onPressed: onTap, child: Text('选择$title')),
+              ),
+              const SizedBox(height: 18),
+              for (final feature in features) ...[
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.check_rounded, color: _success, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        feature,
+                        style: const TextStyle(fontSize: 12, height: 1.35),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+              ],
             ],
           ),
         ),

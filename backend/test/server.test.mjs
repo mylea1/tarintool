@@ -586,7 +586,7 @@ test('membership products are public but orders and verification are protected',
   );
   assert.deepEqual(
     products.body.products.map((item) => item.amountMinor),
-    [1990, 4990, 15900],
+    [1200, 3800, 12800],
   );
   assert.equal((await api('/v1/membership/orders')).response.status, 401);
   const androidCapabilities = await api('/v1/membership/android/capabilities');
@@ -599,7 +599,7 @@ test('membership products are public but orders and verification are protected',
       productId: 'com.kilostrength.pro.monthly',
       provider: 'wechat_pay',
       platform: 'android',
-      amountMinor: 1990,
+      amountMinor: 1200,
       currency: 'CNY',
     }),
   });
@@ -629,7 +629,7 @@ test('membership orders are server-owned, idempotent and cancellable only while 
     body: JSON.stringify({
       productId: 'com.kilostrength.pro.monthly',
       provider: 'app_store',
-      amountMinor: 1990,
+      amountMinor: 1200,
       currency: 'CNY',
     }),
   });
@@ -657,7 +657,7 @@ test('membership orders are server-owned, idempotent and cancellable only while 
   });
   assert.equal(quarterly.response.status, 201);
   assert.equal(quarterly.body.order.plan, 'threeMonths');
-  assert.equal(quarterly.body.order.amountMinor, 4990);
+  assert.equal(quarterly.body.order.amountMinor, 3800);
 
   const yearly = await api('/v1/membership/orders', {
     method: 'POST',
@@ -1166,7 +1166,7 @@ test('Android gateway checkout and signed webhook grant membership idempotently'
     assert.equal(checkout.body.paymentUrl, 'weixin://wap/pay?prepayid=test');
     assert.equal(gatewayRequest.path, '/checkout');
     assert.equal(gatewayRequest.authorization, 'Bearer wechat-gateway-secret');
-    assert.equal(gatewayRequest.body.amountMinor, 1990);
+    assert.equal(gatewayRequest.body.amountMinor, 1200);
     assert.equal(gatewayRequest.body.currency, 'CNY');
     assert.equal(gatewayRequest.body.notifyUrl, 'https://api.kilostrength.cn/v1/membership/android/webhook/wechat_pay');
 

@@ -123,12 +123,23 @@ void main() {
     final controller = AppController(accountService: account);
     addTearDown(controller.dispose);
     await tester.pumpWidget(
-      MaterialApp(home: MembershipCenterPage(controller: controller)),
+      MediaQuery(
+        data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+        child: MaterialApp(home: MembershipCenterPage(controller: controller)),
+      ),
     );
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('会员中心'), findsOneWidget);
+    await tester.drag(find.byType(ListView), const Offset(0, -760));
+    await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('月度会员'), findsOneWidget);
+    expect(find.text('季度会员'), findsOneWidget);
     expect(find.text('年度会员'), findsOneWidget);
+    expect(find.text('¥12'), findsOneWidget);
+    expect(find.text('¥38'), findsOneWidget);
+    expect(find.text('¥128'), findsOneWidget);
+    expect(find.text('最受欢迎'), findsOneWidget);
+    expect(find.byKey(const Key('membership-plan-comparison')), findsOneWidget);
     expect(find.text('永久会员'), findsNothing);
     expect(find.text('订单'), findsOneWidget);
     expect(tester.takeException(), isNull);

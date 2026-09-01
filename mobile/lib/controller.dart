@@ -531,9 +531,9 @@ class AppController extends ChangeNotifier {
           ? 'wechat_pay'
           : 'alipay',
       amountMinor: switch (plan) {
-        MembershipPlan.oneMonth => 1990,
-        MembershipPlan.threeMonths => 4990,
-        MembershipPlan.yearly => 15900,
+        MembershipPlan.oneMonth => 1200,
+        MembershipPlan.threeMonths => 3800,
+        MembershipPlan.yearly => 12800,
         MembershipPlan.forever || MembershipPlan.free => 0,
       },
     );
