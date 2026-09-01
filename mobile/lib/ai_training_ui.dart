@@ -358,10 +358,26 @@ class GymLocationsPage extends StatelessWidget {
                           custom.clear();
                         });
                       },
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: '自定义器械',
                         hintText: '例如：划船机、双滑轮（回车添加）',
-                        suffixIcon: Icon(Icons.add_rounded),
+                        suffixIcon: IconButton(
+                          key: const Key('add-custom-gym-equipment'),
+                          tooltip: '添加器械',
+                          onPressed: () {
+                            final values = _splitEquipment(custom.text);
+                            if (values.isEmpty) return;
+                            setSheetState(() {
+                              for (final value in values) {
+                                if (!selectedEquipment.contains(value)) {
+                                  selectedEquipment.add(value);
+                                }
+                              }
+                              custom.clear();
+                            });
+                          },
+                          icon: const Icon(Icons.add_rounded),
+                        ),
                       ),
                     ),
                     if (selectedEquipment.isNotEmpty) ...[
@@ -419,6 +435,10 @@ class GymLocationsPage extends StatelessWidget {
         ),
       );
     } finally {
+      // The modal route can still render one final reverse-animation frame
+      // after its result completes. Dispose after that frame so its text
+      // fields never observe an already-disposed controller.
+      await Future<void>.delayed(const Duration(milliseconds: 250));
       name.dispose();
       custom.dispose();
     }

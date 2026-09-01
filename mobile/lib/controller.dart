@@ -1937,7 +1937,11 @@ class AppController extends ChangeNotifier {
       );
     }
     final index = gymLocations.indexWhere((item) => item.id == updated.id);
-    if (index < 0) gymLocations.add(updated);
+    if (index < 0) {
+      gymLocations.add(updated);
+    } else {
+      gymLocations[index] = updated;
+    }
     await _persistTrainingIntelligence();
     notifyListeners();
   }

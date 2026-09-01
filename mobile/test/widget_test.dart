@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:kilo_strength/ai_api.dart';
+import 'package:kilo_strength/ai_training_ui.dart';
 import 'package:kilo_strength/controller.dart';
 import 'package:kilo_strength/account_membership.dart';
 import 'package:kilo_strength/exercise_media.dart';
@@ -45,6 +46,36 @@ Future<void> _pumpRecognitionPage(
 void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
+  });
+
+  testWidgets('existing gym accepts custom equipment from the add button', (
+    tester,
+  ) async {
+    final controller = AppController();
+    addTearDown(controller.dispose);
+    await controller.saveGymLocation(
+      const GymLocationProfile(
+        id: 'gym-test',
+        name: '启动力量健身房',
+        equipment: ['杠铃'],
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(home: GymLocationsPage(controller: controller)),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('edit-gym-gym-test')));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.widgetWithText(TextField, '自定义器械'), '划船机');
+    await tester.tap(find.byKey(const Key('add-custom-gym-equipment')));
+    await tester.pump();
+    expect(find.text('划船机'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('save-gym-location')));
+    await tester.pumpAndSettle();
+    expect(controller.gymLocations.single.equipment, contains('划船机'));
   });
 
   testWidgets('friend search remains usable at 320dp with 200% text', (
