@@ -48,29 +48,20 @@ jobs:
       - name: Test
         run: flutter test --no-pub
 
-      - name: Build universal release APK
+      - name: Build installable China debug APK
         run: >-
-          flutter build apk --release
+          flutter build apk --debug --flavor cn
+          --dart-define=APP_MARKET=cn
           --dart-define=KILO_API_BASE_URL=https://api.kilostrength.cn
+          --dart-define=KILO_SOURCE_COMMIT=${{ github.sha }}
 
-      - name: Preserve universal APK
-        # Give the universal package a stable, user-facing name before the
-        # split build reuses Flutter's output directory.
-        run: cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/kilo-strength-1.0.17-universal.apk
-
-      - name: Build optimized per-ABI APKs
-        run: >-
-          flutter build apk --release --split-per-abi
-          --dart-define=KILO_API_BASE_URL=https://api.kilostrength.cn
+      - name: Preserve installable APK
+        run: cp build/app/outputs/flutter-apk/app-cn-debug.apk build/app/outputs/flutter-apk/KILOSTRENGTH-cn-debug.apk
 
       - name: Upload installable APKs
         uses: actions/upload-artifact@v4
         with:
-          name: kilo-strength-android-1.0.17
-          path: |
-            mobile/build/app/outputs/flutter-apk/kilo-strength-1.0.17-universal.apk
-            mobile/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
-            mobile/build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
-            mobile/build/app/outputs/flutter-apk/app-x86_64-release.apk
+          name: kilo-strength-android-cn-debug
+          path: mobile/build/app/outputs/flutter-apk/KILOSTRENGTH-cn-debug.apk
           if-no-files-found: error
           retention-days: 14
