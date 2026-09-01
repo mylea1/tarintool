@@ -34,6 +34,20 @@ Color _onSurface(BuildContext context) =>
 Color _muted(BuildContext context) =>
     Theme.of(context).colorScheme.onSurface.withValues(alpha: .62);
 
+Color _shareStyleColor(String style) => switch (style) {
+  'midnight' => const Color(0xFF252B39),
+  'forest' => const Color(0xFF2F6653),
+  'titanium' => const Color(0xFF59616B),
+  _ => const Color(0xFFE96A45),
+};
+
+String _shareStyleLabel(String style) => switch (style) {
+  'midnight' => '午夜',
+  'forest' => '森绿',
+  'titanium' => '钛银',
+  _ => '珊瑚',
+};
+
 class NutritionCenterPage extends StatefulWidget {
   const NutritionCenterPage({super.key, required this.controller});
 
@@ -2036,6 +2050,10 @@ class _PublishWorkoutSheetState extends State<PublishWorkoutSheet> {
   late final TextEditingController caption;
   bool publishing = false;
   String? error;
+  String cardStyle = 'coral';
+  String cardImageKey = 'brand';
+  String? localPhotoPath;
+  String? localPhotoName;
 
   @override
   void initState() {
@@ -2049,6 +2067,21 @@ class _PublishWorkoutSheetState extends State<PublishWorkoutSheet> {
     super.dispose();
   }
 
+  Future<void> _pickPhoto() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.image,
+      allowMultiple: false,
+      withData: false,
+    );
+    if (!mounted || result == null || result.files.isEmpty) return;
+    final file = result.files.single;
+    if (file.path == null || file.path!.isEmpty) return;
+    setState(() {
+      localPhotoPath = file.path;
+      localPhotoName = file.name;
+    });
+  }
+
   Future<void> _publish() async {
     if (publishing) return;
     setState(() {
@@ -2059,6 +2092,11 @@ class _PublishWorkoutSheetState extends State<PublishWorkoutSheet> {
       await widget.controller.publishWorkoutActivityRemote(
         widget.record,
         caption: caption.text,
+        cardStyle: cardStyle,
+        // A local photo cannot be addressed by another user's device. The
+        // allow-listed image key keeps the dynamic cross-device safe; the
+        // selected local file remains available for the system share card.
+        cardImageKey: localPhotoPath == null ? cardImageKey : 'brand',
       );
       if (!mounted) return;
       final messenger = ScaffoldMessenger.maybeOf(context);
@@ -2127,6 +2165,70 @@ class _PublishWorkoutSheetState extends State<PublishWorkoutSheet> {
               ),
             ),
             const SizedBox(height: 10),
+            _WorkoutActivityRecordPreview(
+              record: widget.record,
+              style: cardStyle,
+              imageKey: localPhotoPath == null ? cardImageKey : 'local',
+              localPhotoPath: localPhotoPath,
+            ),
+            const SizedBox(height: 10),
+            const Text('卡片样式', style: TextStyle(fontWeight: FontWeight.w800)),
+            const SizedBox(height: 7),
+            Wrap(
+              spacing: 7,
+              runSpacing: 7,
+              children: [
+                for (final style in workoutCardStyles)
+                  ChoiceChip(
+                    key: Key('publish-card-style-$style'),
+                    label: Text(_shareStyleLabel(style)),
+                    selected: cardStyle == style,
+                    onSelected: (_) => setState(() => cardStyle = style),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 7,
+              runSpacing: 7,
+              children: [
+                ChoiceChip(
+                  key: const Key('publish-card-image-brand'),
+                  label: const Text('品牌默认图'),
+                  selected: localPhotoPath == null && cardImageKey == 'brand',
+                  onSelected: (_) => setState(() {
+                    localPhotoPath = null;
+                    localPhotoName = null;
+                    cardImageKey = 'brand';
+                  }),
+                ),
+                ChoiceChip(
+                  key: const Key('publish-card-image-exercise'),
+                  label: const Text('动作插图'),
+                  selected:
+                      localPhotoPath == null && cardImageKey == 'exercise',
+                  onSelected: (_) => setState(() {
+                    localPhotoPath = null;
+                    localPhotoName = null;
+                    cardImageKey = 'exercise';
+                  }),
+                ),
+                ActionChip(
+                  key: const Key('publish-card-image-picker'),
+                  avatar: const Icon(Icons.add_a_photo_outlined, size: 18),
+                  label: Text(localPhotoName ?? '选择照片'),
+                  onPressed: _pickPhoto,
+                ),
+              ],
+            ),
+            if (localPhotoPath != null) ...[
+              const SizedBox(height: 5),
+              Text(
+                '自选照片只用于本机分享；好友动态将使用默认图，保证跨设备可见。',
+                style: TextStyle(color: _muted(context), fontSize: 11),
+              ),
+            ],
+            const SizedBox(height: 10),
             TextField(
               key: const Key('publish-workout-caption'),
               controller: caption,
@@ -2162,6 +2264,221 @@ class _PublishWorkoutSheetState extends State<PublishWorkoutSheet> {
           ],
         ),
       ),
+    ),
+  );
+}
+
+class _WorkoutActivityRecordPreview extends StatelessWidget {
+  const _WorkoutActivityRecordPreview({
+    required this.record,
+    required this.style,
+    required this.imageKey,
+    this.localPhotoPath,
+  });
+
+  final WorkoutRecord record;
+  final String style;
+  final String imageKey;
+  final String? localPhotoPath;
+
+  String get _date =>
+      '${record.date.year}.${record.date.month.toString().padLeft(2, '0')}.${record.date.day.toString().padLeft(2, '0')}';
+
+  @override
+  Widget build(BuildContext context) {
+    final firstExercise = record.exercises.firstOrNull?.exerciseId;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: SizedBox(
+        height: 164,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              flex: 6,
+              child: Container(
+                color: _shareStyleColor(style),
+                padding: const EdgeInsets.fromLTRB(14, 13, 10, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'KILOSTRENGTH',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 13),
+                    Text(
+                      record.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const Spacer(),
+                    Row(
+                      children: [
+                        _ActivityPreviewMetric(
+                          value: '${record.durationSeconds ~/ 60}',
+                          label: 'MIN',
+                        ),
+                        _ActivityPreviewMetric(
+                          value: '${record.effectiveSets}',
+                          label: 'SETS',
+                        ),
+                        _ActivityPreviewMetric(value: _date, label: 'DATE'),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Expanded(
+              flex: 4,
+              child: ClipRect(
+                child: localPhotoPath != null
+                    ? Image.file(
+                        File(localPhotoPath!),
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => Image.asset(
+                          'assets/branding/xingyu-app-icon.png',
+                          fit: BoxFit.cover,
+                        ),
+                      )
+                    : Image.asset(
+                        imageKey == 'exercise' && firstExercise != null
+                            ? exerciseAsset(firstExercise)
+                            : 'assets/branding/xingyu-app-icon.png',
+                        fit: BoxFit.cover,
+                      ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _WorkoutActivityPostPreview extends StatelessWidget {
+  const _WorkoutActivityPostPreview({required this.post});
+
+  final WorkoutActivityPost post;
+
+  @override
+  Widget build(BuildContext context) {
+    final firstExercise = post.exerciseSummary.firstOrNull?.exerciseId;
+    final imagePath = post.cardImageKey == 'exercise' && firstExercise != null
+        ? exerciseAsset(firstExercise)
+        : 'assets/branding/xingyu-app-icon.png';
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(15),
+      child: SizedBox(
+        height: 152,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              flex: 6,
+              child: Container(
+                color: _shareStyleColor(post.cardStyle),
+                padding: const EdgeInsets.fromLTRB(13, 12, 10, 11),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'KILOSTRENGTH',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      post.workoutName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const Spacer(),
+                    Row(
+                      children: [
+                        _ActivityPreviewMetric(
+                          value: '${post.effectiveSets}',
+                          label: 'SETS',
+                        ),
+                        _ActivityPreviewMetric(
+                          value: '${post.completionPercent}%',
+                          label: 'DONE',
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Expanded(
+              flex: 4,
+              child: Image.asset(
+                imagePath,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => Image.asset(
+                  'assets/branding/xingyu-app-icon.png',
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ActivityPreviewMetric extends StatelessWidget {
+  const _ActivityPreviewMetric({required this.value, required this.label});
+
+  final String value;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Expanded(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 14,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: .72),
+            fontSize: 8,
+            fontWeight: FontWeight.w800,
+            letterSpacing: .7,
+          ),
+        ),
+      ],
     ),
   );
 }
@@ -2312,6 +2629,8 @@ class _WorkoutActivityCardState extends State<WorkoutActivityCard> {
               ],
             ),
             const SizedBox(height: 13),
+            _WorkoutActivityPostPreview(post: post),
+            const SizedBox(height: 12),
             Text(
               post.workoutName,
               style: Theme.of(context).textTheme.titleLarge,

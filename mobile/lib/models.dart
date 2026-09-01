@@ -1114,6 +1114,8 @@ class WorkoutActivityPost {
     this.likeCount = 0,
     this.liked = false,
     this.emojiCounts = const {},
+    this.cardStyle = 'coral',
+    this.cardImageKey = 'brand',
   });
 
   final String id;
@@ -1131,6 +1133,12 @@ class WorkoutActivityPost {
   final int likeCount;
   final bool liked;
   final Map<String, int> emojiCounts;
+
+  /// A small allow-listed appearance key. The server stores these keys so a
+  /// feed card renders consistently across devices without shipping local
+  /// filesystem paths between accounts.
+  final String cardStyle;
+  final String cardImageKey;
 
   factory WorkoutActivityPost.fromJson(Map<String, dynamic> json) {
     final rawExercises = json['exerciseSummary'] ?? json['exercises'];
@@ -1183,6 +1191,8 @@ class WorkoutActivityPost {
       likeCount: (json['likeCount'] ?? json['likes'] as num?)?.toInt() ?? 0,
       liked: json['liked'] == true || json['myLike'] == true,
       emojiCounts: Map<String, int>.unmodifiable(emojiCounts),
+      cardStyle: _safeWorkoutCardStyle(json['cardStyle']),
+      cardImageKey: _safeWorkoutCardImage(json['cardImageKey']),
     );
   }
 
@@ -1202,12 +1212,16 @@ class WorkoutActivityPost {
     'likeCount': likeCount,
     'liked': liked,
     'emojiCounts': emojiCounts,
+    'cardStyle': cardStyle,
+    'cardImageKey': cardImageKey,
   };
 
   WorkoutActivityPost copyWith({
     int? likeCount,
     bool? liked,
     Map<String, int>? emojiCounts,
+    String? cardStyle,
+    String? cardImageKey,
   }) => WorkoutActivityPost(
     id: id,
     ownerId: ownerId,
@@ -1224,7 +1238,22 @@ class WorkoutActivityPost {
     likeCount: likeCount ?? this.likeCount,
     liked: liked ?? this.liked,
     emojiCounts: emojiCounts ?? this.emojiCounts,
+    cardStyle: cardStyle ?? this.cardStyle,
+    cardImageKey: cardImageKey ?? this.cardImageKey,
   );
+}
+
+const workoutCardStyles = <String>['coral', 'midnight', 'forest', 'titanium'];
+const workoutCardImages = <String>['brand', 'exercise'];
+
+String _safeWorkoutCardStyle(Object? value) {
+  final candidate = value?.toString() ?? '';
+  return workoutCardStyles.contains(candidate) ? candidate : 'coral';
+}
+
+String _safeWorkoutCardImage(Object? value) {
+  final candidate = value?.toString() ?? '';
+  return workoutCardImages.contains(candidate) ? candidate : 'brand';
 }
 
 @immutable

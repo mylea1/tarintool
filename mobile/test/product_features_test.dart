@@ -32,11 +32,27 @@ void main() {
       'likeCount': 3,
       'liked': true,
       'emojiCounts': {'🔥': 2, '👏': 1},
+      'cardStyle': 'forest',
+      'cardImageKey': 'exercise',
     });
     expect(activity.completionPercent, 75);
     expect(activity.exerciseSummary.single.name, '卧推');
     expect(activity.likeCount, 3);
     expect(activity.emojiCounts['🔥'], 2);
+    expect(activity.cardStyle, 'forest');
+    expect(activity.cardImageKey, 'exercise');
+
+    final unsafeActivity = WorkoutActivityPost.fromJson({
+      'id': 'post-unsafe',
+      'ownerId': 'user-1',
+      'ownerName': '训练伙伴',
+      'workoutName': '训练',
+      'completedAt': '2026-08-30T10:00:00Z',
+      'cardStyle': 'custom-css',
+      'cardImageKey': 'file:///private/photo.jpg',
+    });
+    expect(unsafeActivity.cardStyle, 'coral');
+    expect(unsafeActivity.cardImageKey, 'brand');
 
     final food = FoodPhotoRecognitionResult.fromJson({
       'status': 'completed',

@@ -79,3 +79,50 @@ test('legacy membership tables migrate to yearly plans without losing orders', (
     fs.rmSync(directory, { recursive: true, force: true });
   }
 });
+
+test('legacy workout posts gain safe cross-device card appearance fields', () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'kilo-workout-card-migration-'));
+  const databasePath = path.join(directory, 'legacy.sqlite');
+  const legacy = new Database(databasePath);
+  legacy.exec(`
+    CREATE TABLE friend_workout_posts (
+      id TEXT PRIMARY KEY,
+      owner_user_id TEXT NOT NULL,
+      source_workout_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      started_at TEXT,
+      completed_at TEXT NOT NULL,
+      duration_seconds INTEGER NOT NULL DEFAULT 0,
+      volume_kg REAL NOT NULL DEFAULT 0,
+      effective_sets INTEGER NOT NULL DEFAULT 0,
+      completion_rate REAL NOT NULL DEFAULT 0,
+      exercises_json TEXT NOT NULL DEFAULT '[]',
+      caption TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      UNIQUE(owner_user_id, source_workout_id)
+    );
+    INSERT INTO friend_workout_posts VALUES
+      ('post-1', 'user-1', 'workout-1', '旧训练', NULL,
+       '2026-08-31T11:00:00.000Z', 3600, 1200, 10, 1, '[]', NULL,
+       '2026-08-31T11:00:00.000Z', '2026-08-31T11:00:00.000Z');
+  `);
+  legacy.close();
+
+  const upgraded = openDatabase(databasePath);
+  try {
+    const columns = upgraded
+      .prepare('PRAGMA table_info(friend_workout_posts)')
+      .all()
+      .map((column) => column.name);
+    assert.ok(columns.includes('card_style'));
+    assert.ok(columns.includes('card_image_key'));
+    const post = upgraded
+      .prepare('SELECT card_style, card_image_key FROM friend_workout_posts WHERE id = ?')
+      .get('post-1');
+    assert.deepEqual(post, { card_style: 'coral', card_image_key: 'brand' });
+  } finally {
+    closeDatabase(upgraded);
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});

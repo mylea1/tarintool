@@ -262,66 +262,173 @@ class GymLocationsPage extends StatelessWidget {
   const GymLocationsPage({super.key, required this.controller});
   final AppController controller;
 
-  Future<void> _edit(BuildContext context) async {
-    final name = TextEditingController();
-    final equipment = TextEditingController();
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      showDragHandle: true,
-      builder: (sheetContext) => Padding(
-        padding: EdgeInsets.fromLTRB(
-          20,
-          0,
-          20,
-          MediaQuery.viewInsetsOf(sheetContext).bottom + 20,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text('添加训练地点', style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 14),
-            TextField(
-              controller: name,
-              decoration: const InputDecoration(labelText: '地点名称'),
+  static const _commonEquipment = <String>[
+    '杠铃',
+    '深蹲架',
+    '卧推架',
+    '史密斯机',
+    'Cable',
+    '哑铃',
+    '可调哑铃',
+    '腿举机',
+    '腿屈伸',
+    '腿弯举',
+    '蝴蝶机',
+    '引体向上杆',
+    '训练凳',
+    '弹力带',
+  ];
+
+  Future<void> _edit(
+    BuildContext context, [
+    GymLocationProfile? existing,
+  ]) async {
+    final name = TextEditingController(text: existing?.name ?? '');
+    final custom = TextEditingController();
+    final selectedEquipment = <String>[...?existing?.equipment];
+    try {
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        showDragHandle: true,
+        builder: (sheetContext) => StatefulBuilder(
+          builder: (context, setSheetState) => Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: equipment,
-              maxLines: 4,
-              decoration: const InputDecoration(
-                labelText: '可用器械',
-                hintText: '杠铃、深蹲架、Cable、哑铃2-30kg',
+            child: SafeArea(
+              top: false,
+              minimum: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      existing == null ? '添加训练地点' : '编辑训练地点',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: name,
+                      textInputAction: TextInputAction.next,
+                      decoration: const InputDecoration(labelText: '地点名称'),
+                    ),
+                    const SizedBox(height: 13),
+                    const Text(
+                      '常用器械',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: 7),
+                    Wrap(
+                      spacing: 7,
+                      runSpacing: 7,
+                      children: [
+                        for (final item in _commonEquipment)
+                          FilterChip(
+                            key: Key('gym-equipment-chip-$item'),
+                            label: Text(item),
+                            selected: selectedEquipment.contains(item),
+                            onSelected: (value) => setSheetState(() {
+                              if (value) {
+                                if (!selectedEquipment.contains(item)) {
+                                  selectedEquipment.add(item);
+                                }
+                              } else {
+                                selectedEquipment.remove(item);
+                              }
+                            }),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: custom,
+                      textInputAction: TextInputAction.done,
+                      onSubmitted: (_) {
+                        final values = _splitEquipment(custom.text);
+                        if (values.isEmpty) return;
+                        setSheetState(() {
+                          for (final value in values) {
+                            if (!selectedEquipment.contains(value)) {
+                              selectedEquipment.add(value);
+                            }
+                          }
+                          custom.clear();
+                        });
+                      },
+                      decoration: const InputDecoration(
+                        labelText: '自定义器械',
+                        hintText: '例如：划船机、双滑轮（回车添加）',
+                        suffixIcon: Icon(Icons.add_rounded),
+                      ),
+                    ),
+                    if (selectedEquipment.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: [
+                            for (final item in selectedEquipment)
+                              InputChip(
+                                label: Text(item),
+                                onDeleted: () => setSheetState(
+                                  () => selectedEquipment.remove(item),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 16),
+                    FilledButton(
+                      key: const Key('save-gym-location'),
+                      onPressed: () async {
+                        final locationName = name.text.trim();
+                        if (locationName.isEmpty) {
+                          ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+                            const SnackBar(content: Text('请填写地点名称')),
+                          );
+                          return;
+                        }
+                        final values = <String>[...selectedEquipment];
+                        for (final value in _splitEquipment(custom.text)) {
+                          if (!values.contains(value)) values.add(value);
+                        }
+                        await controller.saveGymLocation(
+                          GymLocationProfile(
+                            id:
+                                existing?.id ??
+                                'gym-${DateTime.now().microsecondsSinceEpoch}',
+                            name: locationName,
+                            equipment: values,
+                          ),
+                        );
+                        if (sheetContext.mounted) Navigator.pop(sheetContext);
+                      },
+                      child: Text(existing == null ? '保存并设为当前地点' : '保存器械配置'),
+                    ),
+                  ],
+                ),
               ),
             ),
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: () async {
-                if (name.text.trim().isEmpty) return;
-                await controller.saveGymLocation(
-                  GymLocationProfile(
-                    id: 'gym-${DateTime.now().microsecondsSinceEpoch}',
-                    name: name.text.trim(),
-                    equipment: equipment.text
-                        .split(RegExp(r'[,，、\n]'))
-                        .map((item) => item.trim())
-                        .where((item) => item.isNotEmpty)
-                        .toList(),
-                  ),
-                );
-                if (sheetContext.mounted) Navigator.pop(sheetContext);
-              },
-              child: const Text('保存并设为当前地点'),
-            ),
-          ],
+          ),
         ),
-      ),
-    );
-    name.dispose();
-    equipment.dispose();
+      );
+    } finally {
+      name.dispose();
+      custom.dispose();
+    }
   }
+
+  List<String> _splitEquipment(String value) => value
+      .split(RegExp(r'[,，、\n]'))
+      .map((item) => item.trim())
+      .where((item) => item.isNotEmpty)
+      .toList(growable: false);
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -362,10 +469,16 @@ class GymLocationsPage extends StatelessWidget {
                   ),
                   subtitle: Text(
                     gym.equipment.isEmpty
-                        ? '尚未添加器械'
+                        ? '尚未添加器械 · 点击右侧编辑'
                         : gym.equipment.join(' · '),
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis,
+                  ),
+                  trailing: IconButton(
+                    key: Key('edit-gym-${gym.id}'),
+                    tooltip: '编辑器械',
+                    onPressed: () => _edit(context, gym),
+                    icon: const Icon(Icons.edit_outlined),
                   ),
                 ),
               ),

@@ -284,6 +284,8 @@ test('completed workout posts are friend-visible, immutable, and emoji-only inte
         { exerciseId: 'row', name: '划船', setCount: 3 },
       ],
       caption: '今天完成了计划',
+      cardStyle: 'forest',
+      cardImageKey: 'exercise',
     }),
   });
   assert.equal(created.response.status, 201);
@@ -291,6 +293,8 @@ test('completed workout posts are friend-visible, immutable, and emoji-only inte
   assert.equal(created.body.post.effectiveSets, 12);
   assert.equal(created.body.post.exercises[0].sets, 2);
   assert.equal(created.body.post.likeCount, 0);
+  assert.equal(created.body.post.cardStyle, 'forest');
+  assert.equal(created.body.post.cardImageKey, 'exercise');
 
   const duplicate = await api('/v1/friends/workouts', {
     method: 'POST',
@@ -304,7 +308,23 @@ test('completed workout posts are friend-visible, immutable, and emoji-only inte
   assert.equal(feed.response.status, 200);
   const visible = feed.body.workouts.find((item) => item.id === created.body.post.id);
   assert.equal(visible.name, '周三上肢训练');
+  assert.equal(visible.cardStyle, 'forest');
+  assert.equal(visible.cardImageKey, 'exercise');
   assert.equal('ownerIdentifier' in visible, false);
+
+  const invalidAppearance = await api('/v1/friends/workouts', {
+    method: 'POST',
+    headers: { authorization: `Bearer ${userToken}` },
+    body: JSON.stringify({
+      sourceWorkoutId: `${sourceWorkoutId}-invalid`,
+      workoutName: '无效卡片',
+      completedAt: '2026-08-31T12:00:00.000Z',
+      cardStyle: 'custom-css',
+      cardImageKey: 'file:///private/photo.jpg',
+    }),
+  });
+  assert.equal(invalidAppearance.response.status, 400);
+  assert.equal(invalidAppearance.body.error, 'invalid_workout_card_style');
 
   const hiddenFromUnrelated = await api(`/v1/friends/workouts/${created.body.post.id}`, { headers: { authorization: `Bearer ${adminToken}` } });
   assert.equal(hiddenFromUnrelated.response.status, 404);

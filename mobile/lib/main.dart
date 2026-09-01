@@ -58,8 +58,8 @@ const setNoteColor = Color(0xFF176B4A);
 const setNoteContainer = Color(0xFFE5F5ED);
 const workoutNoteColor = Color(0xFF5F6673);
 const workoutNoteContainer = Color(0xFFF0F2F5);
-const kiloAppVersion = '1.0.26';
-const kiloAppBuild = '27';
+const kiloAppVersion = '1.0.28';
+const kiloAppBuild = '29';
 const kiloAppVersionLabel = '$kiloAppVersion ($kiloAppBuild)';
 const kiloSourceCommit = String.fromEnvironment(
   'KILO_SOURCE_COMMIT',
@@ -1783,16 +1783,19 @@ class HomePage extends StatelessWidget {
         .where((record) => !record.date.isBefore(monday))
         .toList(growable: false);
     final muscleSets = <String, int>{};
+    final homeDisplaySets = <String, int>{};
     for (final record in weekRecords) {
       for (final workoutExercise in record.exercises) {
-        final muscle = controller.muscleGroupFor(
-          controller.exerciseFor(workoutExercise.exerciseId).muscle,
-        );
+        final exercise = controller.exerciseFor(workoutExercise.exerciseId);
+        final muscle = controller.muscleGroupFor(exercise.muscle);
         final completed = workoutExercise.sets
             .where((set) => set.completed)
             .length;
         if (completed > 0) {
           muscleSets[muscle] = (muscleSets[muscle] ?? 0) + completed;
+          final displayMuscle = _homeDisplayMuscle(exercise.muscle);
+          homeDisplaySets[displayMuscle] =
+              (homeDisplaySets[displayMuscle] ?? 0) + completed;
         }
       }
     }
@@ -1807,26 +1810,10 @@ class HomePage extends StatelessWidget {
         ),
         _WeekStrip(controller: controller),
         const SizedBox(height: 12),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final cards = <Widget>[
-              _HomeMuscleCard(controller: controller, muscleSets: muscleSets),
-              _HomeExerciseTrendCard(controller: controller),
-            ];
-            if (constraints.maxWidth < 315) {
-              return Column(
-                children: [cards.first, const SizedBox(height: 10), cards.last],
-              );
-            }
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(child: cards.first),
-                const SizedBox(width: 10),
-                Expanded(child: cards.last),
-              ],
-            );
-          },
+        _HomeMuscleCard(
+          controller: controller,
+          muscleSets: muscleSets,
+          displaySets: homeDisplaySets,
         ),
         const SizedBox(height: 12),
         Card(
@@ -2122,19 +2109,74 @@ class _HomeAccentIcon extends StatelessWidget {
   }
 }
 
+String _homeDisplayMuscle(String muscle) {
+  if (muscle.contains('二头') || muscle.toLowerCase().contains('biceps')) {
+    return '二头';
+  }
+  if (muscle.contains('三头') || muscle.toLowerCase().contains('triceps')) {
+    return '三头';
+  }
+  if (muscle.contains('胸') || muscle.toLowerCase().contains('chest')) {
+    return '胸';
+  }
+  if (muscle.contains('背') || muscle.toLowerCase().contains('back')) {
+    return '背';
+  }
+  if (muscle.contains('肩') ||
+      muscle.contains('三角') ||
+      muscle.toLowerCase().contains('delt')) {
+    return '肩';
+  }
+  if (muscle.contains('腿') ||
+      muscle.contains('股') ||
+      muscle.contains('臀') ||
+      muscle.contains('腘') ||
+      muscle.contains('小腿') ||
+      muscle.contains('髋') ||
+      muscle.contains('内收') ||
+      muscle.toLowerCase().contains('quad') ||
+      muscle.toLowerCase().contains('hamstring') ||
+      muscle.toLowerCase().contains('glute') ||
+      muscle.toLowerCase().contains('calf')) {
+    return '腿';
+  }
+  if (muscle.contains('腹') ||
+      muscle.contains('核心') ||
+      muscle.toLowerCase().contains('ab')) {
+    return '核心';
+  }
+  if (muscle.contains('前锯') || muscle.contains('斜方') || muscle.contains('竖脊')) {
+    return '背';
+  }
+  return '其他';
+}
+
 class _HomeMuscleCard extends StatelessWidget {
-  const _HomeMuscleCard({required this.controller, required this.muscleSets});
+  const _HomeMuscleCard({
+    required this.controller,
+    required this.muscleSets,
+    required this.displaySets,
+  });
   final AppController controller;
   final Map<String, int> muscleSets;
+  final Map<String, int> displaySets;
+
+  static const _groups = <String>['胸', '背', '肩', '二头', '三头', '腿', '核心'];
 
   @override
   Widget build(BuildContext context) {
     final compact = MediaQuery.sizeOf(context).width <= 360;
-    final ranked = muscleSets.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-    final summary = ranked.isEmpty
-        ? '完成训练后显示分布'
-        : ranked.take(3).map((item) => item.key).join(' · ');
+    final ranked = _groups
+        .map((group) => MapEntry(group, displaySets[group] ?? 0))
+        .toList(growable: false);
+    final initialMuscle = const [
+      '胸',
+      '背',
+      '肩',
+      '手臂',
+      '腿',
+      '核心',
+    ].where((group) => (muscleSets[group] ?? 0) > 0).firstOrNull;
     return Card(
       child: InkWell(
         key: const Key('home-muscle-card'),
@@ -2143,38 +2185,92 @@ class _HomeMuscleCard extends StatelessWidget {
           MaterialPageRoute<void>(
             builder: (_) => MuscleDetailsPage(
               controller: controller,
-              initialMuscle: ranked.firstOrNull?.key,
+              initialMuscle: initialMuscle,
             ),
           ),
         ),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Row(
+              Row(
                 children: [
-                  Expanded(
+                  const Expanded(
                     child: Text(
-                      '本周肌群',
-                      style: TextStyle(fontWeight: FontWeight.w900),
+                      '本周肌群训练量',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w900,
+                      ),
                     ),
                   ),
-                  Icon(Icons.chevron_right_rounded, size: 19, color: quiet),
+                  TextButton.icon(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => MuscleDetailsPage(
+                          controller: controller,
+                          initialMuscle: initialMuscle,
+                        ),
+                      ),
+                    ),
+                    icon: const Icon(Icons.chevron_right_rounded, size: 18),
+                    label: const Text('详情'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: primary,
+                      minimumSize: const Size(44, 44),
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                    ),
+                  ),
                 ],
               ),
-              _MuscleBodyMap(
-                muscleSets: muscleSets,
-                height: compact ? 126 : 158,
-                key: const Key('home-muscle-map'),
+              const ExcludeSemantics(
+                child: Text('本周肌群', style: TextStyle(fontSize: 0, height: 0)),
               ),
-              Center(
-                child: Text(
-                  summary,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: quiet, fontSize: 11),
+              const SizedBox(height: 3),
+              const Text(
+                '颜色越深，代表本周有效训练组越多',
+                style: TextStyle(color: quiet, fontSize: 11),
+              ),
+              const SizedBox(height: 9),
+              LayoutBuilder(
+                builder: (context, _) => Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      flex: 5,
+                      child: _MuscleBodyMap(
+                        muscleSets: muscleSets,
+                        height: compact ? 178 : 196,
+                        key: const Key('home-muscle-map'),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      flex: compact ? 6 : 7,
+                      child: Column(
+                        children: [
+                          for (final item in ranked)
+                            _HomeMuscleVolumeRow(
+                              muscle: item.key,
+                              sets: item.value,
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
+              ),
+              const SizedBox(height: 7),
+              const Wrap(
+                spacing: 10,
+                runSpacing: 6,
+                children: [
+                  _HomeVolumeLegend(color: _volumeNone, label: '未训练'),
+                  _HomeVolumeLegend(color: _volumeLow, label: '较少'),
+                  _HomeVolumeLegend(color: _volumeMedium, label: '适中'),
+                  _HomeVolumeLegend(color: _volumeHigh, label: '较多'),
+                ],
               ),
             ],
           ),
@@ -2182,6 +2278,96 @@ class _HomeMuscleCard extends StatelessWidget {
       ),
     );
   }
+}
+
+const _volumeNone = Color(0xFFD7D0CB);
+const _volumeLow = Color(0xFFFFC766);
+const _volumeMedium = Color(0xFFF28A3B);
+const _volumeHigh = Color(0xFFD94B25);
+
+Color _homeVolumeColor(int sets) {
+  if (sets <= 0) return _volumeNone;
+  if (sets <= 4) return _volumeLow;
+  if (sets <= 9) return _volumeMedium;
+  return _volumeHigh;
+}
+
+class _HomeMuscleVolumeRow extends StatelessWidget {
+  const _HomeMuscleVolumeRow({required this.muscle, required this.sets});
+
+  final String muscle;
+  final int sets;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _homeVolumeColor(sets);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        children: [
+          Container(
+            width: 9,
+            height: 9,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 7),
+          SizedBox(
+            width: 32,
+            child: Text(
+              muscle,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+            ),
+          ),
+          const SizedBox(width: 5),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(99),
+              child: LinearProgressIndicator(
+                value: (sets / 16).clamp(0.0, 1.0),
+                minHeight: 7,
+                backgroundColor: const Color(0xFFF2E8E1),
+                valueColor: AlwaysStoppedAnimation<Color>(color),
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          SizedBox(
+            width: 30,
+            child: Text(
+              '$sets组',
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                color: sets == 0 ? quiet : color.withValues(alpha: .95),
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HomeVolumeLegend extends StatelessWidget {
+  const _HomeVolumeLegend({required this.color, required this.label});
+
+  final Color color;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Container(
+        width: 8,
+        height: 8,
+        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+      ),
+      const SizedBox(width: 4),
+      Text(label, style: const TextStyle(color: quiet, fontSize: 10)),
+    ],
+  );
 }
 
 class _ExerciseTrendPoint {
@@ -6220,10 +6406,6 @@ class _TrainingStatisticsView extends StatelessWidget {
             ),
           );
     }).toList();
-    final duration = records.fold<int>(
-      0,
-      (sum, record) => sum + record.durationSeconds,
-    );
     final volume = records.fold<double>(
       0,
       (sum, record) => sum + record.volume,
@@ -6233,7 +6415,6 @@ class _TrainingStatisticsView extends StatelessWidget {
       (sum, record) => sum + record.effectiveSets,
     );
     final muscleSets = <String, int>{};
-    final exerciseStats = <String, ({double maxWeight, double oneRm})>{};
     final trainingDays = records
         .map(
           (record) =>
@@ -6252,26 +6433,10 @@ class _TrainingStatisticsView extends StatelessWidget {
             .where((set) => set.completed)
             .toList();
         muscleSets[muscle] = (muscleSets[muscle] ?? 0) + completed.length;
-        for (final set in completed) {
-          final oneRm = set.reps <= 0
-              ? set.weight
-              : set.weight * (1 + set.reps / 30);
-          final current = exerciseStats[exercise.id];
-          exerciseStats[exercise.id] = (
-            maxWeight: current == null || set.weight > current.maxWeight
-                ? set.weight
-                : current.maxWeight,
-            oneRm: current == null || oneRm > current.oneRm
-                ? oneRm
-                : current.oneRm,
-          );
-        }
       }
     }
     final muscles = muscleSets.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
-    final exercises = exerciseStats.entries.toList()
-      ..sort((a, b) => b.value.oneRm.compareTo(a.value.oneRm));
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -6415,54 +6580,514 @@ class _TrainingStatisticsView extends StatelessWidget {
               ),
             ),
         const SizedBox(height: 15),
-        const Text(
-          '运动时间与容量',
-          style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
+        _TrackedStrengthSection(
+          controller: controller,
+          records: records,
+          metric: controller.trackedExerciseMetric,
         ),
-        const SizedBox(height: 8),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
-            child: _StatisticsTrend(records: records),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          '总训练时间 ${(duration / 3600).toStringAsFixed(1)} 小时 · 平均每次 ${records.isEmpty ? 0 : (duration / records.length / 60).round()} 分钟',
-          style: const TextStyle(color: secondaryInk),
-        ),
-        const SizedBox(height: 18),
-        const Text(
-          '最大重量与 PR',
-          style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
-        ),
-        const SizedBox(height: 4),
-        if (exercises.isEmpty)
-          const Text(
-            '完成带重量的训练组后，这里会显示最大重量和 1RM 预测。',
-            style: TextStyle(color: quiet),
-          )
-        else
-          for (final item in exercises.take(6))
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: _ExerciseThumb(exerciseId: item.key, size: 42),
-              title: Text(
-                controller.displayExerciseName(
-                  controller.exerciseFor(item.key),
-                ),
-              ),
-              subtitle: Text(
-                '最大重量 ${item.value.maxWeight.toStringAsFixed(1)} kg',
-              ),
-              trailing: Text(
-                '1RM ${item.value.oneRm.toStringAsFixed(1)}',
-                style: const TextStyle(fontWeight: FontWeight.w900),
-              ),
-            ),
       ],
     );
   }
+}
+
+class _ExerciseGrowthPoint {
+  const _ExerciseGrowthPoint({required this.date, required this.value});
+
+  final DateTime date;
+  final double value;
+}
+
+List<_ExerciseGrowthPoint> _exerciseGrowthSeries(
+  List<WorkoutRecord> records,
+  String exerciseId, {
+  required String metric,
+}) {
+  final points = <_ExerciseGrowthPoint>[];
+  final ordered = records.toList()..sort((a, b) => a.date.compareTo(b.date));
+  for (final record in ordered) {
+    final performed = record.exercises
+        .where((item) => item.exerciseId == exerciseId)
+        .toList(growable: false);
+    if (performed.isEmpty) continue;
+    final completed = performed
+        .expand((item) => item.sets)
+        .where((set) => set.completed)
+        .toList(growable: false);
+    if (completed.isEmpty) continue;
+    final value = metric == 'reps'
+        ? completed
+              .map((set) => set.reps.toDouble())
+              .reduce((a, b) => a > b ? a : b)
+        : completed
+              .map(
+                (set) => set.reps <= 0
+                    ? set.weight
+                    : set.weight * (1 + set.reps / 30),
+              )
+              .reduce((a, b) => a > b ? a : b);
+    if (value > 0) {
+      points.add(_ExerciseGrowthPoint(date: record.date, value: value));
+    }
+  }
+  return points;
+}
+
+class _TrackedStrengthSection extends StatelessWidget {
+  const _TrackedStrengthSection({
+    required this.controller,
+    required this.records,
+    required this.metric,
+  });
+
+  final AppController controller;
+  final List<WorkoutRecord> records;
+  final String metric;
+
+  Future<void> _manage(BuildContext context) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => _StrengthTrackingPage(controller: controller),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: controller,
+    builder: (context, _) => _buildContent(context),
+  );
+
+  Widget _buildContent(BuildContext context) {
+    final metric = controller.trackedExerciseMetric;
+    final tracked = controller.trackedExerciseIds;
+    final title = metric == 'reps' ? '动作次数增长' : '动作力量增长';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+            TextButton.icon(
+              key: const Key('manage-tracked-exercises'),
+              onPressed: () => _manage(context),
+              icon: const Icon(Icons.tune_rounded, size: 18),
+              label: const Text('管理'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Wrap(
+          spacing: 8,
+          runSpacing: 6,
+          children: [
+            ChoiceChip(
+              key: const Key('tracked-metric-strength'),
+              label: const Text('力量 / 1RM'),
+              selected: metric != 'reps',
+              onSelected: (_) => unawaited(
+                controller.setTrackedExerciseMetric('estimated1rm'),
+              ),
+            ),
+            ChoiceChip(
+              key: const Key('tracked-metric-reps'),
+              label: const Text('次数'),
+              selected: metric == 'reps',
+              onSelected: (_) =>
+                  unawaited(controller.setTrackedExerciseMetric('reps')),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        if (tracked.isEmpty)
+          Card(
+            key: const Key('tracked-exercise-empty'),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 15, 14, 15),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    '选择你想长期关注的动作',
+                    style: TextStyle(fontWeight: FontWeight.w900),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    '力量或次数的变化会按训练日期绘制，不会默认替你挑动作。',
+                    style: TextStyle(color: quiet, fontSize: 12),
+                  ),
+                  const SizedBox(height: 10),
+                  OutlinedButton.icon(
+                    key: const Key('tracked-exercise-empty-manage'),
+                    onPressed: () => _manage(context),
+                    icon: const Icon(Icons.add_rounded),
+                    label: const Text('添加关注动作'),
+                  ),
+                ],
+              ),
+            ),
+          )
+        else
+          for (final exerciseId in tracked.take(3))
+            _TrackedExerciseChartCard(
+              key: Key('tracked-exercise-card-$exerciseId'),
+              controller: controller,
+              exerciseId: exerciseId,
+              points: _exerciseGrowthSeries(
+                records,
+                exerciseId,
+                metric: metric,
+              ),
+              metric: metric,
+            ),
+        if (tracked.length > 3) ...[
+          const SizedBox(height: 4),
+          TextButton(
+            onPressed: () => _manage(context),
+            child: Text('查看全部 ${tracked.length} 个关注动作'),
+          ),
+        ],
+        const SizedBox(height: 13),
+        const Text(
+          '最大重量与 PR',
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+        ),
+        const SizedBox(height: 5),
+        if (tracked.isEmpty)
+          const Text(
+            '添加关注动作后，这里只显示你主动选择的动作。',
+            style: TextStyle(color: quiet, fontSize: 12),
+          )
+        else
+          for (final exerciseId in tracked.take(3))
+            _TrackedPrCard(
+              controller: controller,
+              exerciseId: exerciseId,
+              records: records,
+            ),
+        const SizedBox(height: 4),
+        TextButton.icon(
+          key: const Key('tracked-pr-manage'),
+          onPressed: () => _manage(context),
+          icon: const Icon(Icons.edit_outlined, size: 18),
+          label: const Text('管理关注动作'),
+        ),
+      ],
+    );
+  }
+}
+
+class _TrackedExerciseChartCard extends StatelessWidget {
+  const _TrackedExerciseChartCard({
+    super.key,
+    required this.controller,
+    required this.exerciseId,
+    required this.points,
+    required this.metric,
+  });
+
+  final AppController controller;
+  final String exerciseId;
+  final List<_ExerciseGrowthPoint> points;
+  final String metric;
+
+  @override
+  Widget build(BuildContext context) {
+    final exercise = controller.exerciseFor(exerciseId);
+    final name = controller.displayExerciseName(exercise);
+    final latest = points.lastOrNull?.value;
+    final first = points.firstOrNull?.value;
+    final delta = latest != null && first != null ? latest - first : null;
+    final unit = metric == 'reps' ? '次' : 'kg 估算 1RM';
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 9),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                _ExerciseThumb(exerciseId: exerciseId, size: 38),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w900),
+                  ),
+                ),
+                if (latest != null)
+                  Text(
+                    '${latest.toStringAsFixed(latest % 1 == 0 ? 0 : 1)} $unit',
+                    style: const TextStyle(fontWeight: FontWeight.w900),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 3),
+            Text(
+              delta == null
+                  ? '完成更多记录后显示增长'
+                  : '${delta >= 0 ? '+' : ''}${delta.toStringAsFixed(delta % 1 == 0 ? 0 : 1)} $unit',
+              style: TextStyle(
+                color: delta == null
+                    ? quiet
+                    : delta >= 0
+                    ? success
+                    : danger,
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 6),
+            SizedBox(
+              key: Key('statistics-strength-chart-$exerciseId'),
+              height: 136,
+              child: points.isEmpty
+                  ? const Center(
+                      child: Text('所选时间段暂无数据', style: TextStyle(color: quiet)),
+                    )
+                  : CustomPaint(
+                      painter: _StrengthGrowthPainter(points: points),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StrengthGrowthPainter extends CustomPainter {
+  const _StrengthGrowthPainter({required this.points});
+
+  final List<_ExerciseGrowthPoint> points;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (points.isEmpty || size.width <= 0 || size.height <= 0) return;
+    final values = points.map((point) => point.value).toList(growable: false);
+    final minValue = values.reduce((a, b) => a < b ? a : b);
+    final maxValue = values.reduce((a, b) => a > b ? a : b);
+    final spread = (maxValue - minValue).abs();
+    final low = minValue - (spread == 0 ? 1 : spread * .16);
+    final high = maxValue + (spread == 0 ? 1 : spread * .16);
+    final grid = Paint()
+      ..color = hairline
+      ..strokeWidth = 1;
+    for (var index = 0; index < 3; index++) {
+      final y = size.height * index / 2;
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), grid);
+    }
+    final pointsOnCanvas = <Offset>[];
+    for (var index = 0; index < values.length; index++) {
+      final x = values.length == 1
+          ? size.width / 2
+          : size.width * index / (values.length - 1);
+      final ratio = ((values[index] - low) / (high - low)).clamp(0.0, 1.0);
+      pointsOnCanvas.add(Offset(x, size.height * (1 - ratio)));
+    }
+    final line = Paint()
+      ..color = primary
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..style = PaintingStyle.stroke;
+    if (pointsOnCanvas.length == 1) {
+      canvas.drawCircle(pointsOnCanvas.first, 5, Paint()..color = primary);
+      return;
+    }
+    final path = Path()
+      ..moveTo(pointsOnCanvas.first.dx, pointsOnCanvas.first.dy);
+    for (final point in pointsOnCanvas.skip(1)) {
+      path.lineTo(point.dx, point.dy);
+    }
+    canvas.drawPath(path, line);
+    for (final point in pointsOnCanvas) {
+      canvas.drawCircle(point, 4, Paint()..color = primary);
+      canvas.drawCircle(point, 2, Paint()..color = Colors.white);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _StrengthGrowthPainter oldDelegate) =>
+      oldDelegate.points != points;
+}
+
+class _TrackedPrCard extends StatelessWidget {
+  const _TrackedPrCard({
+    required this.controller,
+    required this.exerciseId,
+    required this.records,
+  });
+
+  final AppController controller;
+  final String exerciseId;
+  final List<WorkoutRecord> records;
+
+  @override
+  Widget build(BuildContext context) {
+    final completed = records
+        .expand((record) => record.exercises)
+        .where((item) => item.exerciseId == exerciseId)
+        .expand((item) => item.sets)
+        .where((set) => set.completed && set.weight > 0)
+        .toList(growable: false);
+    if (completed.isEmpty) {
+      return Card(
+        margin: const EdgeInsets.only(bottom: 7),
+        child: ListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+          leading: _ExerciseThumb(exerciseId: exerciseId, size: 38),
+          title: Text(
+            controller.displayExerciseName(controller.exerciseFor(exerciseId)),
+          ),
+          subtitle: const Text('所选时间段暂无带重量的记录'),
+        ),
+      );
+    }
+    final maxWeight = completed
+        .map((set) => set.weight)
+        .reduce((a, b) => a > b ? a : b);
+    final oneRm = completed
+        .map(
+          (set) =>
+              set.reps <= 0 ? set.weight : set.weight * (1 + set.reps / 30),
+        )
+        .reduce((a, b) => a > b ? a : b);
+    return Card(
+      margin: const EdgeInsets.only(bottom: 7),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+        leading: _ExerciseThumb(exerciseId: exerciseId, size: 38),
+        title: Text(
+          controller.displayExerciseName(controller.exerciseFor(exerciseId)),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: Text('最大重量 ${maxWeight.toStringAsFixed(1)} kg'),
+        trailing: Text(
+          '1RM ${oneRm.toStringAsFixed(1)}',
+          style: const TextStyle(fontWeight: FontWeight.w900),
+        ),
+      ),
+    );
+  }
+}
+
+class _StrengthTrackingPage extends StatefulWidget {
+  const _StrengthTrackingPage({required this.controller});
+
+  final AppController controller;
+
+  @override
+  State<_StrengthTrackingPage> createState() => _StrengthTrackingPageState();
+}
+
+class _StrengthTrackingPageState extends State<_StrengthTrackingPage> {
+  late final Set<String> selected;
+
+  @override
+  void initState() {
+    super.initState();
+    selected = {...widget.controller.trackedExerciseIds};
+  }
+
+  List<String> get candidates {
+    final ids = <String>{};
+    for (final record in widget.controller.history) {
+      for (final exercise in record.exercises) {
+        if (exercise.sets.any((set) => set.completed)) {
+          ids.add(exercise.exerciseId);
+        }
+      }
+    }
+    final values = ids.toList()
+      ..sort(
+        (a, b) => widget.controller
+            .displayExerciseName(widget.controller.exerciseFor(a))
+            .compareTo(
+              widget.controller.displayExerciseName(
+                widget.controller.exerciseFor(b),
+              ),
+            ),
+      );
+    return values;
+  }
+
+  Future<void> _save() async {
+    await widget.controller.setTrackedExercises(selected);
+    if (mounted) Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(
+      title: const Text('关注动作'),
+      actions: [
+        TextButton(
+          key: const Key('save-tracked-exercises'),
+          onPressed: _save,
+          child: const Text('保存'),
+        ),
+      ],
+    ),
+    body: ListView(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 30),
+      children: [
+        const Text(
+          '选择你想在统计首页长期观察的动作，最多 8 个。',
+          style: TextStyle(color: quiet, height: 1.4),
+        ),
+        const SizedBox(height: 10),
+        if (candidates.isEmpty)
+          const Card(
+            child: Padding(
+              padding: EdgeInsets.all(18),
+              child: Text('完成带重量或次数的训练后，这里会出现可关注动作。'),
+            ),
+          )
+        else
+          for (final id in candidates)
+            Card(
+              margin: const EdgeInsets.only(bottom: 7),
+              child: CheckboxListTile(
+                key: Key('tracked-exercise-option-$id'),
+                value: selected.contains(id),
+                onChanged: (value) {
+                  setState(() {
+                    if (value == true) {
+                      if (selected.length < 8) selected.add(id);
+                    } else {
+                      selected.remove(id);
+                    }
+                  });
+                },
+                secondary: _ExerciseThumb(exerciseId: id, size: 42),
+                title: Text(
+                  widget.controller.displayExerciseName(
+                    widget.controller.exerciseFor(id),
+                  ),
+                ),
+                subtitle: Text(
+                  selected.contains(id) ? '已加入关注' : '未关注',
+                  style: const TextStyle(color: quiet, fontSize: 11),
+                ),
+                controlAffinity: ListTileControlAffinity.trailing,
+              ),
+            ),
+      ],
+    ),
+  );
 }
 
 class _MemberAnalyticsPanel extends StatelessWidget {
@@ -6520,38 +7145,12 @@ class _MemberAnalyticsPanel extends StatelessWidget {
     if (!isMember) {
       return KeyedSubtree(
         key: const Key('member-analytics-locked'),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _LockedAnalyticsModule(
-              key: const Key('stats-ai-insight-locked'),
-              controller: controller,
-              title: 'AI训练发现',
-              description: '结合近期训练记录，告诉你下一步该怎么调整。',
-              actionKey: const Key('open-member-analytics-paywall'),
-            ),
-            const SizedBox(height: 10),
-            _LockedAnalyticsModule(
-              key: const Key('stats-nutrition-adherence-locked'),
-              controller: controller,
-              title: '训练 × 饮食',
-              description: '在同一时间轴查看训练与热量、蛋白质达标情况。',
-            ),
-            const SizedBox(height: 10),
-            _LockedAnalyticsModule(
-              key: const Key('stats-muscle-volume-locked'),
-              controller: controller,
-              title: '肌群训练量解读',
-              description: '识别训练不足或偏高的部位，给出下一周期建议。',
-            ),
-            const SizedBox(height: 10),
-            _LockedAnalyticsModule(
-              key: const Key('stats-ai-weekly-report-locked'),
-              controller: controller,
-              title: 'AI周报',
-              description: '汇总本周训练完成度、力量和动作质量变化。',
-            ),
-          ],
+        child: _LockedAnalyticsModule(
+          key: const Key('stats-ai-insight-locked'),
+          controller: controller,
+          title: '深度训练洞察',
+          description: '把训练、恢复、饮食和周报放在同一条判断链上。',
+          actionKey: const Key('open-member-analytics-paywall'),
         ),
       );
     }
@@ -6785,15 +7384,18 @@ class _LockedAnalyticsModule extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Icon(Icons.lock_outline_rounded, size: 18, color: primary),
               const SizedBox(width: 7),
               Expanded(
                 child: Text(
                   title,
+                  softWrap: true,
                   style: const TextStyle(fontWeight: FontWeight.w900),
                 ),
               ),
+              const SizedBox(width: 7),
               const _ProPill(),
             ],
           ),
@@ -6801,6 +7403,49 @@ class _LockedAnalyticsModule extends StatelessWidget {
           Text(
             description,
             style: const TextStyle(color: quiet, fontSize: 12, height: 1.35),
+          ),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.fromLTRB(10, 9, 10, 8),
+            decoration: BoxDecoration(
+              color: primaryContainer.withValues(alpha: .28),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: hairline),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  '本周期的下一步建议',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 6),
+                ClipRect(
+                  child: ImageFiltered(
+                    imageFilter: ui.ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                    child: const ExcludeSemantics(
+                      child: Text(
+                        '恢复状态与近期训练量正在综合计算，下一周将优先安排需要补足的部位。',
+                        maxLines: 2,
+                        overflow: TextOverflow.clip,
+                        style: TextStyle(fontSize: 12, height: 1.35),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 7),
+                const Wrap(
+                  spacing: 6,
+                  runSpacing: 5,
+                  children: [
+                    _LockedPreviewPill(label: 'AI训练发现'),
+                    _LockedPreviewPill(label: '训练 × 饮食'),
+                    _LockedPreviewPill(label: '肌群训练量'),
+                    _LockedPreviewPill(label: 'AI周报'),
+                  ],
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 8),
           Align(
@@ -6813,12 +7458,45 @@ class _LockedAnalyticsModule extends StatelessWidget {
                 reason: MembershipPaywallReason.advancedStatistics,
               ),
               icon: const Icon(Icons.lock_open_outlined, size: 17),
-              label: const Text('解锁高级分析'),
+              label: const Text('解锁深度洞察'),
             ),
+          ),
+          // Keep legacy test hooks and deep links stable while the four
+          // previously separate visual cards are now one integrated module.
+          const SizedBox(
+            key: Key('stats-nutrition-adherence-locked'),
+            width: 0,
+            height: 0,
+          ),
+          const SizedBox(
+            key: Key('stats-muscle-volume-locked'),
+            width: 0,
+            height: 0,
+          ),
+          const SizedBox(
+            key: Key('stats-ai-weekly-report-locked'),
+            width: 0,
+            height: 0,
           ),
         ],
       ),
     ),
+  );
+}
+
+class _LockedPreviewPill extends StatelessWidget {
+  const _LockedPreviewPill({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+    decoration: BoxDecoration(
+      color: Colors.white.withValues(alpha: .75),
+      borderRadius: BorderRadius.circular(99),
+    ),
+    child: Text(label, style: const TextStyle(color: quiet, fontSize: 10)),
   );
 }
 
@@ -7304,139 +7982,31 @@ class _StatisticMetric extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: const TextStyle(color: quiet, fontSize: 12)),
-        Text.rich(
-          TextSpan(
-            children: [
-              TextSpan(
-                text: value,
-                style: const TextStyle(
-                  fontSize: 27,
-                  fontWeight: FontWeight.w900,
-                  color: ink,
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(
+                  text: value,
+                  style: const TextStyle(
+                    fontSize: 27,
+                    fontWeight: FontWeight.w900,
+                    color: ink,
+                  ),
                 ),
-              ),
-              TextSpan(
-                text: ' $unit',
-                style: const TextStyle(color: quiet),
-              ),
-            ],
+                TextSpan(
+                  text: ' $unit',
+                  style: const TextStyle(color: quiet),
+                ),
+              ],
+            ),
           ),
         ),
       ],
     ),
   );
-}
-
-class _StatisticsTrend extends StatelessWidget {
-  const _StatisticsTrend({required this.records});
-  final List<WorkoutRecord> records;
-  @override
-  Widget build(BuildContext context) {
-    final ordered = records.reversed.toList();
-    final values = ordered.map((record) => record.volume).toList();
-    return SizedBox(
-      key: const Key('statistics-volume-chart'),
-      height: 210,
-      width: double.infinity,
-      child: DecoratedBox(
-        decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: hairline)),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(4, 12, 4, 6),
-          child: values.isEmpty
-              ? const Center(
-                  child: Text('暂无趋势数据', style: TextStyle(color: quiet)),
-                )
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '平均容量 ${(values.reduce((a, b) => a + b) / values.length).toStringAsFixed(0)} kg',
-                      style: const TextStyle(fontWeight: FontWeight.w800),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      '橙色：单次容量  紫色：变化均线',
-                      style: TextStyle(color: quiet, fontSize: 11),
-                    ),
-                    const SizedBox(height: 8),
-                    Expanded(
-                      child: CustomPaint(
-                        painter: _VolumeAndAveragePainter(values),
-                        child: const SizedBox.expand(),
-                      ),
-                    ),
-                  ],
-                ),
-        ),
-      ),
-    );
-  }
-}
-
-class _VolumeAndAveragePainter extends CustomPainter {
-  const _VolumeAndAveragePainter(this.values);
-  final List<double> values;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (values.isEmpty) return;
-    final maxValue = values
-        .reduce((a, b) => a > b ? a : b)
-        .clamp(1, double.infinity);
-    final grid = Paint()
-      ..color = hairline
-      ..strokeWidth = 1;
-    for (var row = 0; row <= 3; row++) {
-      final y = size.height * row / 3;
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), grid);
-    }
-    final slot = size.width / values.length;
-    final bar = Paint()..color = primary.withValues(alpha: .30);
-    final points = <Offset>[];
-    for (var index = 0; index < values.length; index++) {
-      final height = values[index] / maxValue * (size.height - 12);
-      final left = index * slot + slot * .18;
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(left, size.height - height, slot * .64, height),
-          const Radius.circular(5),
-        ),
-        bar,
-      );
-      final start = (index - 2).clamp(0, index);
-      final sample = values.sublist(start, index + 1);
-      final average = sample.reduce((a, b) => a + b) / sample.length;
-      points.add(
-        Offset(
-          index * slot + slot / 2,
-          size.height - average / maxValue * (size.height - 12),
-        ),
-      );
-    }
-    final curve = Paint()
-      ..color = const Color(0xFF6E36B2)
-      ..strokeWidth = 3
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-    if (points.length == 1) {
-      canvas.drawCircle(points.first, 4, curve..style = PaintingStyle.fill);
-    } else {
-      final path = Path()..moveTo(points.first.dx, points.first.dy);
-      for (final point in points.skip(1)) {
-        path.lineTo(point.dx, point.dy);
-      }
-      canvas.drawPath(path, curve);
-      for (final point in points) {
-        canvas.drawCircle(point, 3.2, Paint()..color = const Color(0xFF6E36B2));
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _VolumeAndAveragePainter oldDelegate) =>
-      oldDelegate.values != values;
 }
 
 class _MuscleBodyMap extends StatelessWidget {
@@ -16322,6 +16892,25 @@ class _WorkoutShareSheet extends StatefulWidget {
 class _WorkoutShareSheetState extends State<_WorkoutShareSheet> {
   final boundaryKey = GlobalKey();
   bool sharing = false;
+  String cardStyle = 'coral';
+  String cardImageKey = 'brand';
+  String? localPhotoPath;
+  String? localPhotoName;
+
+  Future<void> _pickPhoto() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.image,
+      allowMultiple: false,
+      withData: false,
+    );
+    if (!mounted || result == null || result.files.isEmpty) return;
+    final file = result.files.single;
+    if (file.path == null || file.path!.isEmpty) return;
+    setState(() {
+      localPhotoPath = file.path;
+      localPhotoName = file.name;
+    });
+  }
 
   Future<void> _share(BuildContext actionContext) async {
     if (sharing) return;
@@ -16400,6 +16989,9 @@ class _WorkoutShareSheetState extends State<_WorkoutShareSheet> {
                           child: _WorkoutShareCard(
                             controller: widget.controller,
                             record: widget.record,
+                            cardStyle: cardStyle,
+                            cardImageKey: cardImageKey,
+                            localPhotoPath: localPhotoPath,
                           ),
                         ),
                       ),
@@ -16407,6 +16999,75 @@ class _WorkoutShareSheetState extends State<_WorkoutShareSheet> {
                   ),
                 ),
               ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  '卡片样式',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 5),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 5,
+                  children: [
+                    for (final style in workoutCardStyles)
+                      ChoiceChip(
+                        key: Key('share-card-style-$style'),
+                        label: Text(_shareCardStyleLabel(style)),
+                        selected: cardStyle == style,
+                        onSelected: (_) => setState(() => cardStyle = style),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 5,
+                  children: [
+                    ChoiceChip(
+                      key: const Key('share-card-image-brand'),
+                      label: const Text('品牌默认图'),
+                      selected:
+                          localPhotoPath == null && cardImageKey == 'brand',
+                      onSelected: (_) => setState(() {
+                        localPhotoPath = null;
+                        localPhotoName = null;
+                        cardImageKey = 'brand';
+                      }),
+                    ),
+                    ChoiceChip(
+                      key: const Key('share-card-image-exercise'),
+                      label: const Text('动作插图'),
+                      selected:
+                          localPhotoPath == null && cardImageKey == 'exercise',
+                      onSelected: (_) => setState(() {
+                        localPhotoPath = null;
+                        localPhotoName = null;
+                        cardImageKey = 'exercise';
+                      }),
+                    ),
+                    ActionChip(
+                      key: const Key('share-card-image-picker'),
+                      avatar: const Icon(Icons.add_a_photo_outlined, size: 18),
+                      label: Text(localPhotoName ?? '选择照片'),
+                      onPressed: _pickPhoto,
+                    ),
+                  ],
+                ),
+                if (localPhotoPath != null)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 3),
+                    child: Text(
+                      '自选照片仅用于本机分享，不会上传服务器。',
+                      style: TextStyle(color: quiet, fontSize: 11),
+                    ),
+                  ),
+              ],
             ),
           ),
           Padding(
@@ -16437,209 +17098,207 @@ class _WorkoutShareSheetState extends State<_WorkoutShareSheet> {
 }
 
 class _WorkoutShareCard extends StatelessWidget {
-  const _WorkoutShareCard({required this.controller, required this.record});
+  const _WorkoutShareCard({
+    required this.controller,
+    required this.record,
+    this.cardStyle = 'coral',
+    this.cardImageKey = 'brand',
+    this.localPhotoPath,
+  });
 
   final AppController controller;
   final WorkoutRecord record;
+  final String cardStyle;
+  final String cardImageKey;
+  final String? localPhotoPath;
 
-  String get duration {
-    final minutes = (record.durationSeconds / 60).round();
-    return '$minutes MIN';
-  }
+  Color get accent => switch (cardStyle) {
+    'midnight' => const Color(0xFF2E3546),
+    'forest' => const Color(0xFF346B57),
+    'titanium' => const Color(0xFF66707A),
+    _ => const Color(0xFFE96A45),
+  };
 
-  String get volume {
-    if (record.volume >= 1000) {
-      return '${(record.volume / 1000).toStringAsFixed(1)}T';
-    }
-    return '${record.volume.toStringAsFixed(0)}KG';
-  }
+  String get date =>
+      '${record.date.year}.${record.date.month.toString().padLeft(2, '0')}.${record.date.day.toString().padLeft(2, '0')}';
+
+  String get duration => '${(record.durationSeconds / 60).round()} MIN';
+
+  String get volume => record.volume >= 1000
+      ? '${(record.volume / 1000).toStringAsFixed(1)}T'
+      : '${record.volume.toStringAsFixed(0)}KG';
 
   @override
   Widget build(BuildContext context) {
-    final exercises = record.exercises.take(4).toList(growable: false);
-    final date =
-        '${record.date.year}.${record.date.month.toString().padLeft(2, '0')}.${record.date.day.toString().padLeft(2, '0')}';
+    final exercises = record.exercises.take(5).toList(growable: false);
+    final firstExercise = exercises.firstOrNull?.exerciseId;
+    final imageAsset = cardImageKey == 'exercise' && firstExercise != null
+        ? exerciseAsset(firstExercise)
+        : 'assets/branding/xingyu-app-icon.png';
     return Container(
       key: const Key('workout-share-card'),
       clipBehavior: Clip.antiAlias,
-      decoration: const BoxDecoration(
-        color: Color(0xFF0D1017),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF171B26), Color(0xFF0A0D13)],
-        ),
+      decoration: BoxDecoration(
+        color: accent,
+        borderRadius: BorderRadius.circular(26),
       ),
-      child: Stack(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Positioned(
-            right: -88,
-            top: -100,
-            child: _ShareGlow(color: Color(0xFF6480FF), size: 270),
-          ),
-          const Positioned(
-            left: -90,
-            bottom: -120,
-            child: _ShareGlow(color: Color(0xFF44D7C8), size: 260),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(28, 26, 28, 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 30,
-                      height: 30,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(9),
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF8FA4FF), Color(0xFF52E3D2)],
-                        ),
-                      ),
-                      child: const Icon(
-                        Icons.bolt_rounded,
-                        color: Color(0xFF0B1018),
-                        size: 19,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    const Expanded(
-                      child: Text(
-                        'KILOSTRENGTH',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 1.8,
-                        ),
-                      ),
-                    ),
-                    Text(
-                      date,
-                      style: const TextStyle(
-                        color: Color(0xFFAEB5C5),
-                        fontSize: 11,
-                        letterSpacing: .8,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 31),
-                const Text(
-                  'TRAINING / COMPLETE',
-                  style: TextStyle(
-                    color: Color(0xFF7FE4D8),
-                    fontSize: 10,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 2.2,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  record.name,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 30,
-                    height: 1.08,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -.8,
-                  ),
-                ),
-                const SizedBox(height: 22),
-                Row(
-                  children: [
-                    _ShareMetric(label: 'DURATION', value: duration),
-                    _ShareMetric(label: 'VOLUME', value: volume),
-                    _ShareMetric(
-                      label: 'SETS',
-                      value: '${record.effectiveSets}',
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                Container(height: 1, color: const Color(0xFF303746)),
-                const SizedBox(height: 16),
-                const Text(
-                  'SESSION',
-                  style: TextStyle(
-                    color: Color(0xFF8E97A9),
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.8,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Expanded(
-                  child: Column(
+          Expanded(
+            flex: 11,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(27, 27, 18, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     children: [
-                      for (var index = 0; index < exercises.length; index++)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: _ShareExerciseRow(
-                            index: index,
-                            name: controller.displayExerciseName(
-                              controller.exerciseFor(
-                                exercises[index].exerciseId,
-                              ),
-                            ),
-                            sets: exercises[index].sets
-                                .where((set) => set.completed)
-                                .length,
+                      Container(
+                        width: 30,
+                        height: 30,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: .92),
+                          borderRadius: BorderRadius.circular(9),
+                        ),
+                        child: Icon(
+                          Icons.bolt_rounded,
+                          color: accent,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 9),
+                      const Expanded(
+                        child: Text(
+                          'KILOSTRENGTH',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1.5,
                           ),
                         ),
-                      if (exercises.isEmpty)
-                        const Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 34),
+                  const Text(
+                    'TRAINING / COMPLETE',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.8,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    record.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 27,
+                      height: 1.08,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 23),
+                  Row(
+                    children: [
+                      _ShareMetric(label: 'DURATION', value: duration),
+                      _ShareMetric(label: 'VOLUME', value: volume),
+                      _ShareMetric(
+                        label: 'SETS',
+                        value: '${record.effectiveSets}',
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 23),
+                  Container(height: 1, color: Colors.white24),
+                  const SizedBox(height: 15),
+                  const Text(
+                    'SESSION',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.7,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        for (var index = 0; index < exercises.length; index++)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: _ShareExerciseRow(
+                              index: index,
+                              name: controller.displayExerciseName(
+                                controller.exerciseFor(
+                                  exercises[index].exerciseId,
+                                ),
+                              ),
+                              sets: exercises[index].sets
+                                  .where((set) => set.completed)
+                                  .length,
+                            ),
+                          ),
+                        if (exercises.isEmpty)
+                          const Text(
                             '完成一次自由训练',
                             style: TextStyle(
-                              color: Color(0xFFD8DCE5),
+                              color: Colors.white70,
                               fontSize: 14,
                             ),
                           ),
+                      ],
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          '把自律，练成日常。',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
+                      ),
+                      Text(
+                        date,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 11,
+                        ),
+                      ),
                     ],
                   ),
-                ),
-                Row(
-                  children: [
-                    const Expanded(
-                      child: Text(
-                        '把自律，练成日常。',
-                        style: TextStyle(
-                          color: Color(0xFFE9ECF2),
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: .08),
-                        borderRadius: BorderRadius.circular(99),
-                        border: Border.all(color: const Color(0xFF3D4658)),
-                      ),
-                      child: const Text(
-                        '形域',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+                ],
+              ),
             ),
+          ),
+          Expanded(
+            flex: 9,
+            child: localPhotoPath != null
+                ? Image.file(
+                    File(localPhotoPath!),
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) =>
+                        Image.asset(imageAsset, fit: BoxFit.cover),
+                  )
+                : Image.asset(
+                    imageAsset,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => Image.asset(
+                      'assets/branding/xingyu-app-icon.png',
+                      fit: BoxFit.cover,
+                    ),
+                  ),
           ),
         ],
       ),
@@ -16647,23 +17306,12 @@ class _WorkoutShareCard extends StatelessWidget {
   }
 }
 
-class _ShareGlow extends StatelessWidget {
-  const _ShareGlow({required this.color, required this.size});
-  final Color color;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: size,
-    height: size,
-    decoration: BoxDecoration(
-      shape: BoxShape.circle,
-      gradient: RadialGradient(
-        colors: [color.withValues(alpha: .36), color.withValues(alpha: 0)],
-      ),
-    ),
-  );
-}
+String _shareCardStyleLabel(String style) => switch (style) {
+  'midnight' => '午夜',
+  'forest' => '森绿',
+  'titanium' => '钛银',
+  _ => '珊瑚',
+};
 
 class _ShareMetric extends StatelessWidget {
   const _ShareMetric({required this.label, required this.value});

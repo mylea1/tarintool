@@ -152,16 +152,20 @@ class _InteractiveMuscleMapState extends State<InteractiveMuscleMap> {
   }
 
   Color _heat(String group, {bool selected = false}) {
-    final maxValue = widget.muscleSets.values.fold<int>(
-      1,
-      (max, value) => value > max ? value : max,
-    );
     final value = widget.muscleSets[group] ?? 0;
-    final amount = value <= 0
-        ? 0.18
-        : (.24 + value / maxValue * .68).clamp(.24, .92);
-    final base = selected ? const Color(0xFFF36A1D) : const Color(0xFFD95718);
-    return base.withValues(alpha: amount);
+    // Use categorical heat colors so the body map communicates volume at a
+    // glance. This is intentionally aligned with the home-card legend rather
+    // than scaling every muscle to the current maximum (which made one small
+    // set look as intense as a high-volume muscle).
+    final base = switch (value) {
+      <= 0 => const Color(0xFFD7D0CB),
+      <= 4 => const Color(0xFFFFC766),
+      <= 9 => const Color(0xFFF28A3B),
+      _ => const Color(0xFFD94B25),
+    };
+    return selected
+        ? Color.alphaBlend(Colors.white.withValues(alpha: .2), base)
+        : base;
   }
 
   void _toggle(String slug) {

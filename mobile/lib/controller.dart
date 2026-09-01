@@ -865,6 +865,8 @@ class AppController extends ChangeNotifier {
   Future<Map<String, dynamic>> publishWorkoutActivityRemote(
     WorkoutRecord record, {
     String caption = '',
+    String cardStyle = 'coral',
+    String cardImageKey = 'brand',
   }) async {
     final api = await _activeCoachApi();
     if (api is! HttpCoachApi) {
@@ -903,6 +905,9 @@ class AppController extends ChangeNotifier {
           },
       ],
       if (caption.trim().isNotEmpty) 'caption': caption.trim(),
+      if (workoutCardStyles.contains(cardStyle)) 'cardStyle': cardStyle,
+      if (workoutCardImages.contains(cardImageKey))
+        'cardImageKey': cardImageKey,
     };
     return api.publishWorkoutActivity(snapshot);
   }
@@ -1649,6 +1654,12 @@ class AppController extends ChangeNotifier {
   final List<WorkoutRecord> history = [];
   final List<NutritionEntry> nutritionEntries = [];
   final List<GymLocationProfile> gymLocations = [];
+
+  /// Exercises the user explicitly follows on the statistics overview. An
+  /// empty list is intentional: the overview must never silently choose a
+  /// default exercise for the user.
+  final List<String> trackedExerciseIds = [];
+  String trackedExerciseMetric = 'estimated1rm';
   final List<TechniqueAssessment> techniqueAssessments = [];
   final TrainingIntelligenceEngine intelligenceEngine =
       const TrainingIntelligenceEngine();
@@ -1736,6 +1747,8 @@ class AppController extends ChangeNotifier {
       'kilo.nutrition.v1.${currentUser?.id ?? 'local'}';
   String get _intelligenceStorageKey =>
       'kilo.training-intelligence.v1.${currentUser?.id ?? 'local'}';
+  String get _statisticsTrackingStorageKey =>
+      'kilo.statistics-tracking.v1.${currentUser?.id ?? 'local'}';
 
   GymLocationProfile? get currentGym =>
       gymLocations.where((item) => item.isCurrent).firstOrNull;
@@ -1835,6 +1848,8 @@ class AppController extends ChangeNotifier {
       final rawIntelligence = preferences.getString(_intelligenceStorageKey);
       gymLocations.clear();
       techniqueAssessments.clear();
+      trackedExerciseIds.clear();
+      trackedExerciseMetric = 'estimated1rm';
       if (rawIntelligence != null && rawIntelligence.isNotEmpty) {
         final decoded = jsonDecode(rawIntelligence);
         if (decoded is Map) {
@@ -1854,6 +1869,28 @@ class AppController extends ChangeNotifier {
                   ),
                 ),
           );
+        }
+      }
+      final rawTracking = preferences.getString(_statisticsTrackingStorageKey);
+      if (rawTracking != null && rawTracking.isNotEmpty) {
+        final decoded = jsonDecode(rawTracking);
+        if (decoded is Map) {
+          final map = Map<String, dynamic>.from(decoded);
+          final rawIds = map['exerciseIds'];
+          if (rawIds is List) {
+            trackedExerciseIds.addAll(
+              rawIds
+                  .map((item) => item.toString())
+                  .where(
+                    (id) => allExercises.any((exercise) => exercise.id == id),
+                  )
+                  .toSet(),
+            );
+          }
+          final metric = map['metric']?.toString();
+          if (metric == 'estimated1rm' || metric == 'reps') {
+            trackedExerciseMetric = metric!;
+          }
         }
       }
       personalAgentDataReady = true;
@@ -1917,6 +1954,39 @@ class AppController extends ChangeNotifier {
     }
     await _persistTrainingIntelligence();
     notifyListeners();
+  }
+
+  Future<void> setTrackedExercises(Iterable<String> ids) async {
+    final valid = <String>[];
+    for (final id in ids) {
+      if (valid.contains(id)) continue;
+      if (!allExercises.any((exercise) => exercise.id == id)) continue;
+      valid.add(id);
+      if (valid.length >= 8) break;
+    }
+    trackedExerciseIds
+      ..clear()
+      ..addAll(valid);
+    await _persistStatisticsTracking();
+    notifyListeners();
+  }
+
+  Future<void> setTrackedExerciseMetric(String metric) async {
+    if (metric != 'estimated1rm' && metric != 'reps') return;
+    trackedExerciseMetric = metric;
+    await _persistStatisticsTracking();
+    notifyListeners();
+  }
+
+  Future<void> _persistStatisticsTracking() async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString(
+      _statisticsTrackingStorageKey,
+      jsonEncode({
+        'exerciseIds': trackedExerciseIds,
+        'metric': trackedExerciseMetric,
+      }),
+    );
   }
 
   Future<void> _persistTrainingIntelligence() async {

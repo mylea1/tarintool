@@ -16,6 +16,7 @@ import 'package:kilo_strength/muscle_selector.dart';
 import 'package:kilo_strength/recognition_api.dart';
 import 'package:kilo_strength/training_intelligence.dart';
 import 'package:kilo_strength/product_features.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 Future<void> _openRoute(WidgetTester tester, String label) async {
   await tester.tap(find.text(label).last);
@@ -42,6 +43,10 @@ Future<void> _pumpRecognitionPage(
 }
 
 void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+  });
+
   testWidgets('friend search remains usable at 320dp with 200% text', (
     tester,
   ) async {
@@ -239,7 +244,8 @@ void main() {
     expect(find.text('训练概览'), findsNothing);
     expect(find.text('实时训练'), findsNothing);
     expect(find.text('自由训练'), findsNothing);
-    expect(find.byKey(const Key('home-trend-picker')), findsOneWidget);
+    expect(find.byKey(const Key('home-trend-picker')), findsNothing);
+    expect(find.byKey(const Key('home-muscle-card')), findsOneWidget);
     await tester.scrollUntilVisible(
       find.byKey(const Key('home-ai-workout')),
       220,
@@ -428,6 +434,8 @@ void main() {
       220,
       scrollable: find.byType(Scrollable).first,
     );
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -120));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('home-nutrition-card')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('nutrition-journal-page')), findsOneWidget);
@@ -464,8 +472,10 @@ void main() {
         home: Scaffold(body: RecordsPage(controller: controller)),
       ),
     );
+    expect(tester.takeException(), isNull, reason: 'initial history view');
     await tester.tap(find.text('统计'));
     await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull, reason: 'statistics view');
     expect(find.byKey(const Key('member-analytics-locked')), findsOneWidget);
     expect(find.byKey(const Key('stats-ai-insight-locked')), findsOneWidget);
     expect(
@@ -481,6 +491,7 @@ void main() {
       find.byKey(const Key('open-member-analytics-paywall')),
     );
     await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull, reason: 'locked card visible');
     await tester.tap(find.byKey(const Key('open-member-analytics-paywall')));
     await tester.pumpAndSettle();
     expect(find.text('进阶数据统计属于形域 PRO'), findsOneWidget);
@@ -533,25 +544,30 @@ void main() {
     final controller = AppController();
     addTearDown(controller.dispose);
     await tester.pumpWidget(KiloApp(initialController: controller));
+    expect(tester.takeException(), isNull, reason: 'initial shell');
     await _openRoute(tester, '训练');
+    expect(tester.takeException(), isNull, reason: 'training landing');
     await tester.tap(find.text('新建计划'));
     await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull, reason: 'empty plan composer');
     final nameField = tester.widget<TextField>(
       find.byKey(const Key('draft-name')),
     );
     expect(nameField.style?.fontSize, 20);
     await tester.tap(find.byKey(const Key('draft-add-exercise')));
     await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull, reason: 'exercise picker');
     final first = selectableCatalog.first;
     await tester.tap(find.byKey(Key('exercise-picker-add-${first.id}')));
     await tester.tap(find.byKey(const Key('exercise-picker-add-selected')));
     await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull, reason: 'plan with exercise');
     expect(find.text(controller.displayExerciseName(first)), findsWidgets);
     expect(find.text('保存计划'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('home exercise trend can switch between recorded exercises', (
+  testWidgets('statistics tracks only exercises selected by the user', (
     tester,
   ) async {
     final controller = AppController();
@@ -629,25 +645,28 @@ void main() {
         ],
       ),
     ]);
+    controller.trackedExerciseIds.addAll(const ['bench_press', 'lat_pulldown']);
     addTearDown(controller.dispose);
-    await tester.pumpWidget(KiloApp(initialController: controller));
-    await tester.scrollUntilVisible(
-      find.byKey(const Key('home-trend-picker')),
-      220,
-      scrollable: find.byType(Scrollable).first,
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: RecordsPage(controller: controller)),
+      ),
     );
-    expect(find.text('杠铃卧推趋势'), findsOneWidget);
-    expect(find.text('82.5 kg'), findsOneWidget);
-    await tester.tap(find.byKey(const Key('home-trend-picker')));
+    await tester.tap(find.text('统计'));
     await tester.pumpAndSettle();
-    final pulldownOption = find.byKey(
-      const Key('home-trend-option-lat_pulldown'),
+    expect(
+      find.byKey(const Key('tracked-exercise-card-bench_press')),
+      findsOneWidget,
     );
-    await tester.ensureVisible(pulldownOption);
-    await tester.tap(pulldownOption);
+    expect(
+      find.byKey(const Key('tracked-exercise-card-lat_pulldown')),
+      findsOneWidget,
+    );
+    await tester.ensureVisible(find.byKey(const Key('tracked-metric-reps')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('tracked-metric-reps')));
     await tester.pumpAndSettle();
-    expect(find.textContaining('高位下拉'), findsOneWidget);
-    expect(find.text('65.0 kg'), findsOneWidget);
+    expect(controller.trackedExerciseMetric, 'reps');
   });
 
   testWidgets('warm orange theme tokens reach shell navigation and inputs', (

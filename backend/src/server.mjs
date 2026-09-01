@@ -136,6 +136,8 @@ const MEDIA_CONTENT_TYPES = new Map([
 ]);
 const FOOD_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const FRIEND_WORKOUT_EMOJIS = new Set(['👍', '🔥', '👏', '💪', '❤️', '😂', '😮', '🎉', '🙌', '🥳']);
+const FRIEND_WORKOUT_CARD_STYLES = new Set(['coral', 'midnight', 'forest', 'titanium']);
+const FRIEND_WORKOUT_CARD_IMAGES = new Set(['brand', 'exercise']);
 const FOOD_RECOGNITION_STATUSES = new Set(['created', 'uploading', 'ready', 'processing', 'completed', 'insufficient_image', 'failed', 'cancelled']);
 const BASE_RECOGNITION_CAPABILITIES = [
   {
@@ -620,7 +622,11 @@ function workoutSnapshotFromBody(body) {
   const rawCaption = body.caption ?? body.publishNote ?? body.note ?? source.caption ?? source.publishNote;
   if (rawCaption !== undefined && rawCaption !== null && typeof rawCaption !== 'string') throw httpError(400, 'invalid_workout_caption');
   const caption = rawCaption ? rawCaption.trim().slice(0, 280) : null;
-  return { sourceWorkoutId, name, startedAt, completedAt: completed, durationSeconds, volumeKg, effectiveSets, completionRate, exercises, caption };
+  const cardStyle = String(body.cardStyle ?? source.cardStyle ?? 'coral').trim().toLowerCase();
+  if (!FRIEND_WORKOUT_CARD_STYLES.has(cardStyle)) throw httpError(400, 'invalid_workout_card_style');
+  const cardImageKey = String(body.cardImageKey ?? source.cardImageKey ?? 'brand').trim().toLowerCase();
+  if (!FRIEND_WORKOUT_CARD_IMAGES.has(cardImageKey)) throw httpError(400, 'invalid_workout_card_image');
+  return { sourceWorkoutId, name, startedAt, completedAt: completed, durationSeconds, volumeKg, effectiveSets, completionRate, exercises, caption, cardStyle, cardImageKey };
 }
 
 function parseWorkoutExercises(value) {
@@ -681,6 +687,8 @@ function publicWorkoutPost(row, db, viewerId, { includeComments = false } = {}) 
     commentCount: Number(row.comment_count || 0),
     emojiCounts,
     commentCounts: emojiCounts,
+    cardStyle: FRIEND_WORKOUT_CARD_STYLES.has(row.card_style) ? row.card_style : 'coral',
+    cardImageKey: FRIEND_WORKOUT_CARD_IMAGES.has(row.card_image_key) ? row.card_image_key : 'brand',
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -2429,11 +2437,11 @@ async function handleRequest(req, res, ctx) {
       ctx.db.prepare(`INSERT INTO friend_workout_posts
         (id, owner_user_id, source_workout_id, name, started_at, completed_at,
          duration_seconds, volume_kg, effective_sets, completion_rate, exercises_json,
-         caption, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+         caption, card_style, card_image_key, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
         .run(id, user.id, snapshot.sourceWorkoutId, snapshot.name, snapshot.startedAt, snapshot.completedAt,
           snapshot.durationSeconds, snapshot.volumeKg, snapshot.effectiveSets, snapshot.completionRate,
-          JSON.stringify(snapshot.exercises), snapshot.caption, stamp, stamp);
+          JSON.stringify(snapshot.exercises), snapshot.caption, snapshot.cardStyle, snapshot.cardImageKey, stamp, stamp);
     } catch (error) {
       if (String(error?.message || '').includes('UNIQUE')) throw httpError(409, 'workout_already_published');
       throw error;

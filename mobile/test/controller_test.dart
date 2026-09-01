@@ -84,6 +84,27 @@ class _StreamingAgentCoachApi
 }
 
 void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+  });
+
+  test(
+    'statistics exercise and metric choices persist per local profile',
+    () async {
+      final exerciseId = catalog.first.id;
+      final first = AppController();
+      addTearDown(first.dispose);
+      await first.setTrackedExercises([exerciseId, exerciseId, 'missing']);
+      await first.setTrackedExerciseMetric('reps');
+
+      final restored = AppController();
+      addTearDown(restored.dispose);
+      await restored.hydratePersonalAgentData();
+      expect(restored.trackedExerciseIds, [exerciseId]);
+      expect(restored.trackedExerciseMetric, 'reps');
+    },
+  );
+
   test(
     'exercise numbers stay one-based and searchable after soft deletion',
     () {

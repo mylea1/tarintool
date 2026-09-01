@@ -5,6 +5,12 @@ import Database from 'better-sqlite3';
 import { nowIso, hashPassword, randomId } from './security.mjs';
 
 const migrationPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'migrations', '001_init.sql');
+const workoutPostCardMigrationPath = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '..',
+  'migrations',
+  '002_workout_post_card.sql',
+);
 
 export function normalizeUsername(value) {
   const normalized = String(value || '').normalize('NFKC').trim().toLowerCase();
@@ -97,6 +103,29 @@ export function openDatabase(databasePath) {
   db.pragma('foreign_keys = ON');
   db.pragma('busy_timeout = 5000');
   db.exec(fs.readFileSync(migrationPath, 'utf8'));
+  // Card appearance is an additive migration. Keep the SQL in a numbered
+  // file for release review while checking columns first so old installations
+  // and repeated test boots remain safe and idempotent.
+  const workoutPostColumns = db.prepare('PRAGMA table_info(friend_workout_posts)').all();
+  const workoutPostColumnNames = new Set(workoutPostColumns.map((column) => column.name));
+  if (workoutPostColumns.length > 0) {
+    const missingCardStyle = !workoutPostColumnNames.has('card_style');
+    const missingCardImageKey = !workoutPostColumnNames.has('card_image_key');
+    if (missingCardStyle && missingCardImageKey) {
+      db.exec(fs.readFileSync(workoutPostCardMigrationPath, 'utf8'));
+    } else {
+      if (missingCardStyle) {
+        db.exec(
+          "ALTER TABLE friend_workout_posts ADD COLUMN card_style TEXT NOT NULL DEFAULT 'coral'",
+        );
+      }
+      if (missingCardImageKey) {
+        db.exec(
+          "ALTER TABLE friend_workout_posts ADD COLUMN card_image_key TEXT NOT NULL DEFAULT 'brand'",
+        );
+      }
+    }
+  }
   // The original schema only allowed the prototype plans (oneMonth,
   // threeMonths, forever). Keep those values readable while widening the
   // check constraint for the current yearly subscription. SQLite cannot
