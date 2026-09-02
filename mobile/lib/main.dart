@@ -58,8 +58,8 @@ const setNoteColor = Color(0xFF176B4A);
 const setNoteContainer = Color(0xFFE5F5ED);
 const workoutNoteColor = Color(0xFF5F6673);
 const workoutNoteContainer = Color(0xFFF0F2F5);
-const kiloAppVersion = '1.0.28';
-const kiloAppBuild = '29';
+const kiloAppVersion = '1.0.29';
+const kiloAppBuild = '30';
 const kiloAppVersionLabel = '$kiloAppVersion ($kiloAppBuild)';
 const kiloSourceCommit = String.fromEnvironment(
   'KILO_SOURCE_COMMIT',

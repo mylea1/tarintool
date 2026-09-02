@@ -94,7 +94,7 @@ void main() {
   });
 
   test(
-    'membership client refreshes entitlements and creates a quarterly order',
+    'membership client refreshes entitlements and creates a yearly order',
     () async {
       final requests = <String, Map<String, dynamic>>{};
       final client = MockClient((request) async {
@@ -112,10 +112,10 @@ void main() {
           return http.Response(
             jsonEncode({
               'order': {
-                'id': 'order-quarterly',
+                'id': 'order-yearly',
                 'userId': 'user-1',
-                'plan': 'threeMonths',
-                'productId': 'com.kilostrength.pro.quarterly',
+                'plan': 'yearly',
+                'productId': 'com.kilostrength.pro.yearly',
                 'provider': 'app_store',
                 'status': 'pending',
               },
@@ -137,21 +137,74 @@ void main() {
 
       await api.signIn(identifier: '13800138000', password: '1234');
       final order = await api.createMembershipOrder(
-        productId: 'com.kilostrength.pro.quarterly',
-        plan: 'threeMonths',
-        amountMinor: 3800,
+        productId: 'com.kilostrength.pro.yearly',
+        plan: 'yearly',
+        amountMinor: 12800,
       );
       final entitlement = await api.fetchEntitlements();
 
       expect(requests['/v1/membership/orders'], {
-        'productId': 'com.kilostrength.pro.quarterly',
-        'plan': 'threeMonths',
+        'productId': 'com.kilostrength.pro.yearly',
+        'plan': 'yearly',
         'provider': 'app_store',
         'currency': 'CNY',
-        'amountMinor': 3800,
+        'amountMinor': 12800,
       });
       expect(order['order'], isA<Map<String, dynamic>>());
       expect(entitlement['membership'], 'yearly');
+    },
+  );
+
+  test(
+    'membership client submits strict workout trial activation payload',
+    () async {
+      final requests = <String, dynamic>{};
+      final client = MockClient((request) async {
+        if (request.url.path == '/v1/auth/phone/login') {
+          return http.Response(
+            jsonEncode({
+              'session': {'token': 'trial-session'},
+            }),
+            200,
+          );
+        }
+        expect(request.url.path, '/v1/membership/trial/activate');
+        expect(request.headers['authorization'], 'Bearer trial-session');
+        requests.addAll(jsonDecode(request.body) as Map<String, dynamic>);
+        return http.Response(
+          jsonEncode({
+            'activated': true,
+            'idempotent': false,
+            'reason': 'activated',
+            'entitlement': {
+              'membership': 'free',
+              'trialStartedAt': '2026-09-02T00:00:00.000Z',
+              'trialExpiresAt': '2026-09-05T00:00:00.000Z',
+              'trialWorkoutId': 'history-1',
+              'trialActive': true,
+              'trialEligible': false,
+              'trialClaimed': true,
+            },
+          }),
+          200,
+        );
+      });
+      final api = HttpCoachApi(
+        baseUrl: 'https://api.example.test',
+        client: client,
+      );
+      await api.signIn(identifier: '13800138000', password: '1234');
+      final payload = await api.activateMembershipTrial(
+        workoutId: 'history-1',
+        durationSeconds: 1800,
+        effectiveSets: 1,
+      );
+      expect(requests, {
+        'workoutId': 'history-1',
+        'durationSeconds': 1800,
+        'effectiveSets': 1,
+      });
+      expect(payload['reason'], 'activated');
     },
   );
 

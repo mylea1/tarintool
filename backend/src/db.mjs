@@ -220,6 +220,20 @@ export function openDatabase(databasePath) {
         ON membership_orders(user_id, product_id, provider) WHERE status = 'pending';
     `);
   }
+  // One-time PRO trial state is additive and intentionally nullable.  Add the
+  // columns individually so this remains safe for both fresh databases and
+  // installations that were upgraded through an older entitlement schema.
+  const entitlementColumns = db.prepare('PRAGMA table_info(entitlements)').all();
+  const entitlementColumnNames = new Set(entitlementColumns.map((column) => column.name));
+  if (!entitlementColumnNames.has('trial_started_at')) {
+    db.exec('ALTER TABLE entitlements ADD COLUMN trial_started_at TEXT');
+  }
+  if (!entitlementColumnNames.has('trial_expires_at')) {
+    db.exec('ALTER TABLE entitlements ADD COLUMN trial_expires_at TEXT');
+  }
+  if (!entitlementColumnNames.has('trial_workout_id')) {
+    db.exec('ALTER TABLE entitlements ADD COLUMN trial_workout_id TEXT');
+  }
   // These tables were added after the first release. CREATE IF NOT EXISTS is
   // deliberately used so existing production databases remain untouched.
   db.exec(`
@@ -324,11 +338,21 @@ export function publicCheckinState(db, userId, at = new Date()) {
 }
 
 export function membershipActive(row, at = new Date()) {
-  return row.membership === 'forever' || (row.membership !== 'free' && row.membership_expires_at && new Date(row.membership_expires_at) > at);
+  const paid = row?.membership === 'forever' || (
+    row?.membership !== 'free' &&
+    row?.membership_expires_at &&
+    !Number.isNaN(new Date(row.membership_expires_at).getTime()) &&
+    new Date(row.membership_expires_at) > at
+  );
+  const trial = row?.trial_expires_at &&
+    !Number.isNaN(new Date(row.trial_expires_at).getTime()) &&
+    new Date(row.trial_expires_at) > at;
+  return Boolean(paid || trial);
 }
 
 export function refreshEntitlement(db, row, at = new Date()) {
   const stamp = at.toISOString();
+  const wasMember = membershipActive(row, at);
   let membership = row.membership;
   let expires = row.membership_expires_at;
   if (membership !== 'free' && membership !== 'forever' && (!expires || new Date(expires) <= at)) {
@@ -346,6 +370,10 @@ export function refreshEntitlement(db, row, at = new Date()) {
   let recognitionWeekKey = row.recognition_week_key;
   if (aiDayKey !== day) {
     aiDayKey = day;
+    aiRemaining = aiLimit;
+  } else if (member && !wasMember && aiRemaining < aiLimit) {
+    // A newly activated trial receives the same quota treatment as a paid
+    // entitlement. Existing paid usage is never reset while still active.
     aiRemaining = aiLimit;
   } else if (aiRemaining > aiLimit && !member) {
     aiRemaining = aiLimit;
@@ -379,11 +407,25 @@ export function publicUser(row) {
 }
 
 export function publicEntitlement(row) {
+  const at = new Date();
+  const trialExpiresAt = row.trial_expires_at || null;
+  const trialActive = Boolean(
+    trialExpiresAt &&
+    !Number.isNaN(new Date(trialExpiresAt).getTime()) &&
+    new Date(trialExpiresAt) > at,
+  );
+  const trialClaimed = Boolean(row.trial_started_at || row.trial_expires_at || row.trial_workout_id);
   return {
     membership: row.membership,
     membershipExpiresAt: row.membership_expires_at,
+    trialStartedAt: row.trial_started_at || null,
+    trialExpiresAt,
+    trialWorkoutId: row.trial_workout_id || null,
+    trialActive,
+    trialEligible: !trialClaimed,
+    trialClaimed,
     aiRemaining: Number(row.ai_remaining),
-    aiDailyLimit: row.membership === 'free' ? 3 : 20,
+    aiDailyLimit: membershipActive(row, at) ? 20 : 3,
     recognitionRemaining: Number(row.recognition_remaining),
     recognitionWeeklyGrant: Number(row.recognition_weekly_grant),
     aiDayKey: row.ai_day_key,

@@ -600,13 +600,12 @@ test('membership products are public but orders and verification are protected',
     products.body.products.map((item) => item.productId),
     [
       'com.kilostrength.pro.monthly',
-      'com.kilostrength.pro.quarterly',
       'com.kilostrength.pro.yearly',
     ],
   );
   assert.deepEqual(
     products.body.products.map((item) => item.amountMinor),
-    [1200, 3800, 12800],
+    [1200, 12800],
   );
   assert.equal((await api('/v1/membership/orders')).response.status, 401);
   const androidCapabilities = await api('/v1/membership/android/capabilities');
@@ -675,9 +674,8 @@ test('membership orders are server-owned, idempotent and cancellable only while 
       provider: 'app_store',
     }),
   });
-  assert.equal(quarterly.response.status, 201);
-  assert.equal(quarterly.body.order.plan, 'threeMonths');
-  assert.equal(quarterly.body.order.amountMinor, 3800);
+  assert.equal(quarterly.response.status, 400);
+  assert.equal(quarterly.body.error, 'unknown_membership_product');
 
   const yearly = await api('/v1/membership/orders', {
     method: 'POST',
@@ -709,6 +707,79 @@ test('membership orders are server-owned, idempotent and cancellable only while 
   });
   assert.equal(repeatedCancel.response.status, 409);
   assert.equal(repeatedCancel.body.error, 'membership_order_not_cancellable');
+});
+
+test('membership trial requires one qualifying workout and is one-time server-authoritative', async () => {
+  const registered = await api('/v1/auth/register', {
+    method: 'POST',
+    body: JSON.stringify({ identifier: `trial-${Date.now()}`, password: 'abcd' }),
+  });
+  assert.equal(registered.response.status, 201);
+  const token = registered.body.session.token;
+  const headers = { authorization: `Bearer ${token}` };
+
+  const initial = await api('/v1/me/entitlements', { headers });
+  assert.equal(initial.response.status, 200);
+  assert.equal(initial.body.trialEligible, true);
+  assert.equal(initial.body.trialActive, false);
+
+  const invalidType = await api('/v1/membership/trial/activate', {
+    method: 'POST', headers,
+    body: JSON.stringify({ workoutId: 'short', durationSeconds: '1800', effectiveSets: 1 }),
+  });
+  assert.equal(invalidType.response.status, 400);
+  assert.equal(invalidType.body.error, 'duration_seconds_required');
+
+  const short = await api('/v1/membership/trial/activate', {
+    method: 'POST', headers,
+    body: JSON.stringify({ workoutId: 'short', durationSeconds: 1799, effectiveSets: 1 }),
+  });
+  assert.equal(short.response.status, 200);
+  assert.equal(short.body.activated, false);
+  assert.equal(short.body.reason, 'duration_too_short');
+  assert.equal(short.body.entitlement.trialEligible, true);
+
+  const empty = await api('/v1/membership/trial/activate', {
+    method: 'POST', headers,
+    body: JSON.stringify({ workoutId: 'empty', durationSeconds: 1800, effectiveSets: 0 }),
+  });
+  assert.equal(empty.response.status, 200);
+  assert.equal(empty.body.activated, false);
+  assert.equal(empty.body.reason, 'no_effective_sets');
+  assert.equal(empty.body.entitlement.trialEligible, true);
+
+  const activated = await api('/v1/membership/trial/activate', {
+    method: 'POST', headers,
+    body: JSON.stringify({ workoutId: 'qualified-1', durationSeconds: 1800, effectiveSets: 1 }),
+  });
+  assert.equal(activated.response.status, 200);
+  assert.equal(activated.body.activated, true);
+  assert.equal(activated.body.idempotent, false);
+  assert.equal(activated.body.reason, 'activated');
+  assert.equal(activated.body.entitlement.trialActive, true);
+  assert.equal(activated.body.entitlement.trialEligible, false);
+  assert.equal(Date.parse(activated.body.entitlement.trialExpiresAt) - Date.parse(activated.body.entitlement.trialStartedAt), 72 * 60 * 60 * 1000);
+  assert.equal(activated.body.entitlement.aiDailyLimit, 20);
+
+  const repeated = await api('/v1/membership/trial/activate', {
+    method: 'POST', headers,
+    body: JSON.stringify({ workoutId: 'qualified-2', durationSeconds: 3600, effectiveSets: 10 }),
+  });
+  assert.equal(repeated.response.status, 200);
+  assert.equal(repeated.body.activated, false);
+  assert.equal(repeated.body.idempotent, true);
+  assert.equal(repeated.body.reason, 'already_claimed');
+  assert.equal(repeated.body.entitlement.trialStartedAt, activated.body.entitlement.trialStartedAt);
+  assert.equal(repeated.body.entitlement.trialExpiresAt, activated.body.entitlement.trialExpiresAt);
+
+  const user = server.context.db.prepare('SELECT id FROM users WHERE identifier = ?').get(registered.body.user.identifier);
+  server.context.db.prepare("UPDATE entitlements SET trial_expires_at = '2020-01-01T00:00:00.000Z' WHERE user_id = ?").run(user.id);
+  const expired = await api('/v1/me/entitlements', { headers });
+  assert.equal(expired.body.trialActive, false);
+  assert.equal(expired.body.trialClaimed, true);
+  assert.equal(expired.body.trialEligible, false);
+  assert.equal(expired.body.aiDailyLimit, 3);
+  assert.equal(expired.body.membership, 'free');
 });
 
 test('legacy check-in endpoints are disabled after removing the reward feature', async () => {

@@ -114,9 +114,9 @@ function aiClientTimeInstruction(body) {
 }
 const ALLOWED_ENTITIES = new Set(['workout', 'plan', 'template', 'settings']);
 const PLANS = new Set(['oneMonth', 'yearly', 'threeMonths', 'forever']);
-// Three current subscription products are displayed to customers. Legacy
-// product IDs remain verifiable so a previously purchased prototype product
-// is not silently lost during migration.
+// Only these two products are available for new orders. Legacy product IDs
+// remain verifiable so a previously purchased prototype product is not
+// silently lost during migration.
 const APPLE_MEMBERSHIP_PRODUCTS = new Map([
   ['com.kilostrength.pro.monthly', 'oneMonth'],
   ['com.kilostrength.pro.quarterly', 'threeMonths'],
@@ -125,7 +125,6 @@ const APPLE_MEMBERSHIP_PRODUCTS = new Map([
 ]);
 const PUBLIC_MEMBERSHIP_PRODUCTS = new Map([
   ['com.kilostrength.pro.monthly', { plan: 'oneMonth', amountMinor: 1200, currency: 'CNY', duration: '1个月' }],
-  ['com.kilostrength.pro.quarterly', { plan: 'threeMonths', amountMinor: 3800, currency: 'CNY', duration: '3个月' }],
   ['com.kilostrength.pro.yearly', { plan: 'yearly', amountMinor: 12800, currency: 'CNY', duration: '12个月' }],
 ]);
 const JOB_STATES = new Set(['created', 'uploading', 'queued', 'processing', 'completed', 'failed', 'cancelled', 'expired']);
@@ -552,6 +551,13 @@ function optionalFiniteNumber(value, code, { min = 0, max = Number.MAX_SAFE_INTE
     throw httpError(400, code);
   }
   return number;
+}
+
+function requiredFiniteInteger(value, code, { min = 0, max = Number.MAX_SAFE_INTEGER } = {}) {
+  if (typeof value !== 'number' || !Number.isFinite(value) || !Number.isInteger(value) || value < min || value > max) {
+    throw httpError(400, code);
+  }
+  return value;
 }
 
 function optionalIsoTimestamp(value, code) {
@@ -1080,6 +1086,54 @@ function membershipFor(db, userId, plan) {
   // the existing expiry, but it cannot remove higher-tier benefits.
   const membership = currentActive && rank[current.membership] > rank[plan] ? current.membership : plan;
   return { membership, membershipExpiresAt: addMonths(start, months).toISOString() };
+}
+
+function activateMembershipTrial(db, userId, { workoutId, durationSeconds, effectiveSets }) {
+  const current = ensureEntitlement(db, userId);
+  const claimed = Boolean(current.trial_started_at || current.trial_expires_at || current.trial_workout_id);
+  if (claimed) {
+    return {
+      activated: false,
+      idempotent: true,
+      reason: 'already_claimed',
+      entitlement: publicEntitlement(current),
+    };
+  }
+  // A paid entitlement always wins. Leave its expiry and all trial columns
+  // untouched; the one-time trial remains unclaimed for a future account
+  // state only when no paid membership is currently active.
+  if (membershipActive(current)) {
+    return {
+      activated: false,
+      idempotent: false,
+      reason: 'membership_active',
+      entitlement: publicEntitlement(current),
+    };
+  }
+  if (durationSeconds < 1800 || effectiveSets < 1) {
+    return {
+      activated: false,
+      idempotent: false,
+      reason: durationSeconds < 1800 ? 'duration_too_short' : 'no_effective_sets',
+      entitlement: publicEntitlement(current),
+    };
+  }
+  const startedAt = new Date();
+  const startedAtIso = startedAt.toISOString();
+  const expiresAt = new Date(startedAt.getTime() + 72 * 60 * 60 * 1000).toISOString();
+  db.prepare(`UPDATE entitlements SET trial_started_at = ?, trial_expires_at = ?,
+    trial_workout_id = ?, recognition_weekly_grant = 3,
+    ai_remaining = CASE WHEN ai_remaining < 20 THEN 20 ELSE ai_remaining END,
+    updated_at = ? WHERE user_id = ? AND trial_started_at IS NULL
+      AND trial_expires_at IS NULL AND trial_workout_id IS NULL`)
+    .run(startedAtIso, expiresAt, workoutId, startedAtIso, userId);
+  const updated = ensureEntitlement(db, userId, startedAt);
+  return {
+    activated: true,
+    idempotent: false,
+    reason: 'activated',
+    entitlement: publicEntitlement(updated),
+  };
 }
 
 function grantMembership(db, userId, plan) {
@@ -2098,6 +2152,21 @@ async function handleRequest(req, res, ctx) {
 
   if (req.method === 'GET' && url.pathname === '/v1/me/entitlements') {
     const user = authenticate(req, ctx); writeJson(res, 200, publicEntitlement(entitlementRow(ctx.db, user.id)), req, ctx.cfg); return;
+  }
+  if (req.method === 'POST' && url.pathname === '/v1/membership/trial/activate') {
+    const user = authenticate(req, ctx);
+    const body = await readBody(req, ctx.cfg.maxJsonBytes);
+    const workoutId = requireString(body.workoutId, 'workout_id_required', 200);
+    const durationSeconds = requiredFiniteInteger(body.durationSeconds, 'duration_seconds_required', { min: 0, max: 7 * 24 * 60 * 60 });
+    const effectiveSets = requiredFiniteInteger(body.effectiveSets, 'effective_sets_required', { min: 0, max: 1000 });
+    const result = transaction(ctx.db, () => {
+      const activated = activateMembershipTrial(ctx.db, user.id, { workoutId, durationSeconds, effectiveSets });
+      if (activated.activated) {
+        audit(ctx.db, user.id, 'activate_membership_trial', workoutId, { durationSeconds, effectiveSets });
+      }
+      return activated;
+    });
+    writeJson(res, 200, result, req, ctx.cfg); return;
   }
   // Daily check-in rewards were removed from the product. Keep the legacy
   // database tables for migration/audit compatibility, but intentionally do

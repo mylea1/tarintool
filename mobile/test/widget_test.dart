@@ -169,12 +169,12 @@ void main() {
     await tester.drag(find.byType(ListView), const Offset(0, -760));
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('月度会员'), findsOneWidget);
-    expect(find.text('季度会员'), findsOneWidget);
     expect(find.text('年度会员'), findsOneWidget);
     expect(find.text('¥12'), findsOneWidget);
-    expect(find.text('¥38'), findsOneWidget);
     expect(find.text('¥128'), findsOneWidget);
     expect(find.text('最受欢迎'), findsOneWidget);
+    expect(find.text('季度会员'), findsNothing);
+    expect(find.text('¥38'), findsNothing);
     expect(find.byKey(const Key('membership-plan-comparison')), findsOneWidget);
     expect(find.text('永久会员'), findsNothing);
     expect(find.text('订单'), findsOneWidget);

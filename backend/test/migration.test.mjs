@@ -71,11 +71,31 @@ test('legacy membership tables migrate to yearly plans without losing orders', (
     assert.match(entitlementSql, /'yearly'/);
     assert.match(orderSql, /'yearly'/);
     assert.equal(upgraded.prepare('SELECT COUNT(*) AS count FROM membership_orders').get().count, 1);
+    const entitlementColumns = upgraded
+      .prepare('PRAGMA table_info(entitlements)')
+      .all()
+      .map((column) => column.name);
+    assert.ok(entitlementColumns.includes('trial_started_at'));
+    assert.ok(entitlementColumns.includes('trial_expires_at'));
+    assert.ok(entitlementColumns.includes('trial_workout_id'));
     assert.doesNotThrow(() => upgraded
       .prepare("UPDATE entitlements SET membership = 'yearly' WHERE user_id = 'user-1'")
       .run());
   } finally {
     closeDatabase(upgraded);
+  }
+
+  // Re-opening an already-upgraded database must keep the additive migration idempotent.
+  const reopened = openDatabase(databasePath);
+  try {
+    const columns = reopened
+      .prepare('PRAGMA table_info(entitlements)')
+      .all()
+      .map((column) => column.name);
+    assert.ok(columns.includes('trial_started_at'));
+    assert.equal(reopened.prepare('SELECT membership FROM entitlements WHERE user_id = ?').get('user-1').membership, 'yearly');
+  } finally {
+    closeDatabase(reopened);
     fs.rmSync(directory, { recursive: true, force: true });
   }
 });

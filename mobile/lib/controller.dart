@@ -329,6 +329,9 @@ class AppController extends ChangeNotifier {
     required String displayPrice,
     required MembershipOrderProvider provider,
   }) async {
+    if (plan == MembershipPlan.threeMonths) {
+      throw const CoachApiException('invalid_membership_plan');
+    }
     final api = await _activeCoachApi();
     if (api is! HttpCoachApi) {
       throw const CoachApiException('membership_order_unavailable');
@@ -447,6 +450,36 @@ class AppController extends ChangeNotifier {
     unawaited(backupUserData());
   }
 
+  Future<void> _activateMembershipTrialAfterWorkout(
+    WorkoutRecord record,
+  ) async {
+    // A local record is useful offline, but it must never mint local PRO
+    // access. Only an authenticated server response can activate the trial.
+    if (!accountService.isAuthenticated) return;
+    try {
+      final api = await _activeCoachApi();
+      if (api is! HttpCoachApi) return;
+      final payload = await api.activateMembershipTrial(
+        workoutId: record.id,
+        durationSeconds: record.durationSeconds,
+        effectiveSets: record.effectiveSets,
+      );
+      final raw = payload['entitlement'];
+      if (raw is! Map || accountService.currentUser == null) return;
+      accountService.replaceCurrentEntitlement(
+        EntitlementSnapshot.fromMap(Map<String, dynamic>.from(raw)),
+      );
+      _remoteEntitlementsFresh = true;
+      if (accountService.entitlements?.isMember == true) {
+        _scheduleCloudBackup();
+      }
+    } catch (_) {
+      // Trial activation is best-effort after completing a workout. A
+      // timeout, offline device, or missing session must not interrupt the
+      // finished-workout flow or create a local entitlement.
+    }
+  }
+
   void _handleAccountChanged() {
     final userId = currentUser?.id;
     if (_observedAccountUserId != userId) {
@@ -520,6 +553,9 @@ class AppController extends ChangeNotifier {
     required MembershipPlan plan,
     required MembershipOrderProvider provider,
   }) async {
+    if (plan == MembershipPlan.threeMonths) {
+      throw const CoachApiException('invalid_membership_plan');
+    }
     final api = await _activeCoachApi();
     if (api is! HttpCoachApi) {
       throw const CoachApiException('android_payment_unavailable');
@@ -3222,6 +3258,9 @@ class AppController extends ChangeNotifier {
     // twice. Empty sessions do not count as valid training.
     if (record.effectiveSets > 0) {
       accountService.rewardWorkoutCompleted(record.id, valid: true);
+    }
+    if (record.durationSeconds >= 1800 && record.effectiveSets >= 1) {
+      unawaited(_activateMembershipTrialAfterWorkout(record));
     }
     if (wasFreeWorkout && saveAsRoutine && workout.isNotEmpty) {
       final baseName = routineName?.trim().isNotEmpty == true

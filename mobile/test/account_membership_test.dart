@@ -535,9 +535,9 @@ void main() {
     final service = AccountService(persistence: persistence);
     service.loginWithPhone('13800138000');
     final order = service.createMembershipOrder(
-      plan: MembershipPlan.threeMonths,
-      productId: 'com.kilostrength.pro.quarterly',
-      displayPrice: '¥36',
+      plan: MembershipPlan.yearly,
+      productId: 'com.kilostrength.pro.yearly',
+      displayPrice: '¥128',
       provider: MembershipOrderProvider.appStore,
     );
     expect(order, isNotNull);
@@ -555,6 +555,52 @@ void main() {
     restored.loginWithPhone('13900139000');
     expect(restored.membershipOrders, isEmpty);
   });
+
+  test('quarterly orders are not created by the current client', () {
+    final service = AccountService();
+    service.loginWithPhone('13800138001');
+    expect(
+      service.createMembershipOrder(
+        plan: MembershipPlan.threeMonths,
+        productId: 'com.kilostrength.pro.quarterly',
+        displayPrice: '¥38',
+        provider: MembershipOrderProvider.appStore,
+      ),
+      isNull,
+    );
+  });
+
+  test(
+    'entitlement snapshot treats an active trial as PRO and persists trial state',
+    () {
+      final started = DateTime.now();
+      final active = EntitlementSnapshot.free().copyWith(
+        trialStartedAt: started,
+        trialExpiresAt: started.add(const Duration(hours: 72)),
+        trialWorkoutId: 'history-trial',
+        aiDailyLimit: 20,
+        aiRemaining: 20,
+        recognitionWeeklyGrant: 3,
+      );
+      expect(active.trialActive, isTrue);
+      expect(active.trialClaimed, isTrue);
+      expect(active.trialEligible, isFalse);
+      expect(active.isMember, isTrue);
+
+      final restored = EntitlementSnapshot.fromMap(
+        Map<String, dynamic>.from(active.toMap()),
+      );
+      expect(restored.trialWorkoutId, 'history-trial');
+      expect(restored.isMember, isTrue);
+
+      final expired = active.copyWith(
+        trialExpiresAt: started.subtract(const Duration(minutes: 1)),
+      );
+      expect(expired.trialActive, isFalse);
+      expect(expired.isMember, isFalse);
+      expect(expired.trialClaimed, isTrue);
+    },
+  );
 
   test('server yearly and refunded order fields remain terminal locally', () {
     final order = MembershipOrder.fromMap({

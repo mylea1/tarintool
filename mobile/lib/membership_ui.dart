@@ -29,19 +29,16 @@ enum MembershipPaywallReason {
 
 const Map<MembershipPlan, String> membershipProductIds = {
   MembershipPlan.oneMonth: 'com.kilostrength.pro.monthly',
-  MembershipPlan.threeMonths: 'com.kilostrength.pro.quarterly',
   MembershipPlan.yearly: 'com.kilostrength.pro.yearly',
 };
 
 const Map<MembershipPlan, String> _fallbackPrices = {
   MembershipPlan.oneMonth: '¥12',
-  MembershipPlan.threeMonths: '¥38',
   MembershipPlan.yearly: '¥128',
 };
 
 const Map<MembershipPlan, double> _fallbackRawPrices = {
   MembershipPlan.oneMonth: 12,
-  MembershipPlan.threeMonths: 38,
   MembershipPlan.yearly: 128,
 };
 
@@ -544,7 +541,7 @@ class _MembershipCenterPageState extends State<MembershipCenterPage>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _planScrollController = ScrollController(initialScrollOffset: 576);
+    _planScrollController = ScrollController();
     purchase = MembershipPurchaseCoordinator(widget.controller)
       ..addListener(_refresh);
     unawaited(purchase.initialize());
@@ -599,6 +596,8 @@ class _MembershipCenterPageState extends State<MembershipCenterPage>
         children: [
           _MemberHero(entitlement: entitlement),
           const SizedBox(height: 12),
+          _TrialStatus(entitlement: entitlement),
+          const SizedBox(height: 12),
           _CloudSyncStatus(isEnabled: widget.controller.cloudSyncAllowed),
           const SizedBox(height: 16),
           const Text(
@@ -646,7 +645,7 @@ class _MembershipCenterPageState extends State<MembershipCenterPage>
           ),
           Text(
             Platform.isIOS || Platform.isMacOS
-                ? '付款由 App Store 安全处理。月度、季度和年度方案会按 Apple 规则自动续订，可在 Apple ID 中管理或恢复。'
+                ? '付款由 App Store 安全处理。月度和年度方案会按 Apple 规则自动续订，可在 Apple ID 中管理或恢复。'
                 : '微信或支付宝完成支付后，由服务端回调确认订单并发放会员；不要重复支付同一订单。',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 11, height: 1.45, color: _muted),
@@ -790,6 +789,12 @@ class _MemberHero extends StatelessWidget {
   }
 
   static String _memberValidity(EntitlementSnapshot value) {
+    if (value.trialActive) {
+      final date = value.trialExpiresAt;
+      return date == null
+          ? '3 天 PRO 试用中'
+          : '3 天 PRO 试用中 · 至 ${date.month}.${date.day}';
+    }
     if (value.membership == MembershipPlan.forever) return '永久会员 · 所有权益持续有效';
     final date = value.membershipExpiresAt;
     return date == null
@@ -817,6 +822,75 @@ class _HeroPill extends StatelessWidget {
       ),
     ),
   );
+}
+
+class _TrialStatus extends StatelessWidget {
+  const _TrialStatus({required this.entitlement});
+
+  final EntitlementSnapshot? entitlement;
+
+  @override
+  Widget build(BuildContext context) {
+    final value = entitlement;
+    if (value == null ||
+        (value.membership != MembershipPlan.free && !value.trialActive)) {
+      return const SizedBox.shrink();
+    }
+    final String title;
+    final String detail;
+    final IconData icon;
+    final Color color;
+    if (value.trialActive) {
+      title = 'PRO 试用中';
+      final expires = value.trialExpiresAt;
+      detail = expires == null
+          ? '首次训练解锁的 3 天权益已生效。'
+          : '到期时间：${expires.year}.${expires.month.toString().padLeft(2, '0')}.${expires.day.toString().padLeft(2, '0')} ${expires.hour.toString().padLeft(2, '0')}:${expires.minute.toString().padLeft(2, '0')}';
+      icon = Icons.bolt_rounded;
+      color = _success;
+    } else if (value.trialClaimed) {
+      title = '3 天 PRO 试用已使用';
+      detail = '试用期已结束，开通会员即可继续使用高级能力。';
+      icon = Icons.lock_clock_outlined;
+      color = _muted;
+    } else {
+      title = '完成训练，解锁 3 天 PRO';
+      detail = '完成首次至少 30 分钟且含有效组的训练后自动解锁。';
+      icon = Icons.lock_open_rounded;
+      color = _ember;
+    }
+    return Container(
+      key: const Key('membership-trial-status'),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: .08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: .25)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(color: color, fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  detail,
+                  style: const TextStyle(color: _muted, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _CloudSyncStatus extends StatelessWidget {
@@ -868,11 +942,7 @@ class _PlanComparison extends StatelessWidget {
   final ScrollController scrollController;
   final ValueChanged<MembershipPlan> onSelected;
 
-  static const plans = [
-    MembershipPlan.oneMonth,
-    MembershipPlan.threeMonths,
-    MembershipPlan.yearly,
-  ];
+  static const plans = [MembershipPlan.oneMonth, MembershipPlan.yearly];
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
@@ -962,14 +1032,14 @@ class _PlanCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final title = switch (plan) {
       MembershipPlan.oneMonth => '月度会员',
-      MembershipPlan.threeMonths => '季度会员',
+      MembershipPlan.threeMonths => '历史方案',
       MembershipPlan.yearly => '年度会员',
       MembershipPlan.forever => '永久会员',
       MembershipPlan.free => '免费账号',
     };
     final caption = switch (plan) {
       MembershipPlan.oneMonth => '按月自动续订',
-      MembershipPlan.threeMonths => '每 3 个月自动续订',
+      MembershipPlan.threeMonths => '',
       MembershipPlan.yearly => '每 12 个月自动续订',
       MembershipPlan.forever => '一次购买，长期使用',
       MembershipPlan.free => '',
@@ -980,11 +1050,7 @@ class _PlanCard extends StatelessWidget {
         '适合先体验 AI 训练闭环',
         '可在应用商店管理订阅',
       ],
-      MembershipPlan.threeMonths => const [
-        '完整 PRO 权益',
-        '覆盖一个完整训练周期',
-        '技术与力量趋势连续记录',
-      ],
+      MembershipPlan.threeMonths => const <String>[],
       MembershipPlan.yearly => const [
         '完整 PRO 权益',
         '长期训练记忆与云同步',
@@ -1308,7 +1374,7 @@ class _OrderCard extends StatelessWidget {
     };
     final plan = switch (order.plan) {
       MembershipPlan.oneMonth => '月度会员',
-      MembershipPlan.threeMonths => '季度会员',
+      MembershipPlan.threeMonths => '历史方案',
       MembershipPlan.yearly => '年度会员',
       MembershipPlan.forever => '永久会员',
       MembershipPlan.free => '免费账号',

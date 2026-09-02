@@ -118,6 +118,9 @@ class EntitlementSnapshot {
   const EntitlementSnapshot({
     required this.membership,
     required this.membershipExpiresAt,
+    this.trialStartedAt,
+    this.trialExpiresAt,
+    this.trialWorkoutId,
     required this.aiRemaining,
     required this.aiDailyLimit,
     required this.recognitionRemaining,
@@ -144,6 +147,9 @@ class EntitlementSnapshot {
 
   final MembershipPlan membership;
   final DateTime? membershipExpiresAt;
+  final DateTime? trialStartedAt;
+  final DateTime? trialExpiresAt;
+  final String? trialWorkoutId;
   final int aiRemaining;
   final int aiDailyLimit;
   final int recognitionRemaining;
@@ -151,12 +157,26 @@ class EntitlementSnapshot {
   final String aiPeriodKey;
   final String recognitionWeekKey;
 
-  bool get isMember => membership != MembershipPlan.free;
+  bool isTrialActiveAt(DateTime at) => trialExpiresAt?.isAfter(at) == true;
+
+  bool get trialActive => isTrialActiveAt(DateTime.now());
+
+  bool get trialClaimed =>
+      trialStartedAt != null ||
+      trialExpiresAt != null ||
+      trialWorkoutId != null;
+
+  bool get trialEligible => !trialClaimed;
+
+  bool get isMember => membership != MembershipPlan.free || trialActive;
 
   EntitlementSnapshot copyWith({
     MembershipPlan? membership,
     DateTime? membershipExpiresAt,
     bool clearMembershipExpiresAt = false,
+    DateTime? trialStartedAt,
+    DateTime? trialExpiresAt,
+    String? trialWorkoutId,
     int? aiRemaining,
     int? aiDailyLimit,
     int? recognitionRemaining,
@@ -168,6 +188,9 @@ class EntitlementSnapshot {
     membershipExpiresAt: clearMembershipExpiresAt
         ? null
         : membershipExpiresAt ?? this.membershipExpiresAt,
+    trialStartedAt: trialStartedAt ?? this.trialStartedAt,
+    trialExpiresAt: trialExpiresAt ?? this.trialExpiresAt,
+    trialWorkoutId: trialWorkoutId ?? this.trialWorkoutId,
     aiRemaining: aiRemaining ?? this.aiRemaining,
     aiDailyLimit: aiDailyLimit ?? this.aiDailyLimit,
     recognitionRemaining: recognitionRemaining ?? this.recognitionRemaining,
@@ -180,6 +203,9 @@ class EntitlementSnapshot {
   Map<String, Object?> toMap() => {
     'membership': membership.name,
     'membershipExpiresAt': membershipExpiresAt?.toIso8601String(),
+    'trialStartedAt': trialStartedAt?.toIso8601String(),
+    'trialExpiresAt': trialExpiresAt?.toIso8601String(),
+    'trialWorkoutId': trialWorkoutId,
     'aiRemaining': aiRemaining,
     'aiDailyLimit': aiDailyLimit,
     'recognitionRemaining': recognitionRemaining,
@@ -197,23 +223,30 @@ class EntitlementSnapshot {
       (item) => item.name == rawMembership,
       orElse: () => MembershipPlan.free,
     );
+    final trialStartedAt = DateTime.tryParse(
+      (map['trialStartedAt'] ?? '').toString(),
+    );
+    final trialExpiresAt = DateTime.tryParse(
+      (map['trialExpiresAt'] ?? '').toString(),
+    );
+    final trialActive = trialExpiresAt?.isAfter(DateTime.now()) == true;
+    final member = membership != MembershipPlan.free || trialActive;
     return EntitlementSnapshot(
       membership: membership,
       membershipExpiresAt: DateTime.tryParse(
         (map['membershipExpiresAt'] ?? '').toString(),
       ),
-      aiRemaining: _asInt(
-        map['aiRemaining'],
-        membership == MembershipPlan.free ? 3 : 20,
-      ),
-      aiDailyLimit: _asInt(
-        map['aiDailyLimit'],
-        membership == MembershipPlan.free ? 3 : 20,
-      ),
+      trialStartedAt: trialStartedAt,
+      trialExpiresAt: trialExpiresAt,
+      trialWorkoutId: (map['trialWorkoutId'] ?? '').toString().trim().isEmpty
+          ? null
+          : (map['trialWorkoutId'] ?? '').toString(),
+      aiRemaining: _asInt(map['aiRemaining'], member ? 20 : 3),
+      aiDailyLimit: _asInt(map['aiDailyLimit'], member ? 20 : 3),
       recognitionRemaining: _asInt(map['recognitionRemaining'], 5),
       recognitionWeeklyGrant: _asInt(
         map['recognitionWeeklyGrant'],
-        membership == MembershipPlan.free ? 1 : 3,
+        member ? 3 : 1,
       ),
       aiPeriodKey: (map['aiPeriodKey'] ?? '').toString(),
       recognitionWeekKey: (map['recognitionWeekKey'] ?? '').toString(),
@@ -520,7 +553,14 @@ class AccountService extends ChangeNotifier {
     required MembershipOrderProvider provider,
   }) {
     final user = currentUser;
-    if (user == null || plan == MembershipPlan.free) return null;
+    // Quarterly subscriptions are retained only for historical orders and
+    // entitlements. They must not be created by a current client.
+    if (user == null ||
+        plan == MembershipPlan.free ||
+        plan == MembershipPlan.threeMonths ||
+        productId == 'com.kilostrength.pro.quarterly') {
+      return null;
+    }
     final now = _clock();
     final order = MembershipOrder(
       id: 'order-${now.microsecondsSinceEpoch.toRadixString(36)}',
@@ -954,6 +994,11 @@ class AccountService extends ChangeNotifier {
     final week = _weekKey(now);
     for (final userId in _users.keys) {
       var current = _entitlements[userId] ?? _newEntitlements();
+      final wasMember =
+          current.membership != MembershipPlan.free &&
+              (current.membership == MembershipPlan.forever ||
+                  current.membershipExpiresAt?.isAfter(now) == true) ||
+          current.isTrialActiveAt(now);
       if (current.membership != MembershipPlan.free &&
           current.membershipExpiresAt != null &&
           !current.membershipExpiresAt!.isAfter(now)) {
@@ -965,9 +1010,27 @@ class AccountService extends ChangeNotifier {
           recognitionWeeklyGrant: 1,
         );
       }
+      final member =
+          current.membership != MembershipPlan.free &&
+              (current.membership == MembershipPlan.forever ||
+                  current.membershipExpiresAt?.isAfter(now) == true) ||
+          current.isTrialActiveAt(now);
+      if (member && !wasMember) {
+        current = current.copyWith(
+          aiRemaining: current.aiRemaining < 20 ? 20 : current.aiRemaining,
+          aiDailyLimit: 20,
+          recognitionWeeklyGrant: 3,
+        );
+      } else if (!member && current.aiDailyLimit > 3) {
+        current = current.copyWith(
+          aiRemaining: current.aiRemaining.clamp(0, 3).toInt(),
+          aiDailyLimit: 3,
+          recognitionWeeklyGrant: 1,
+        );
+      }
       if (current.aiPeriodKey != day) {
         current = current.copyWith(
-          aiRemaining: current.aiDailyLimit,
+          aiRemaining: member ? 20 : current.aiDailyLimit,
           aiPeriodKey: day,
         );
       }
