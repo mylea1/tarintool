@@ -586,14 +586,20 @@ class AppController extends ChangeNotifier {
     return uri;
   }
 
-  static String membershipProductIdForPlan(MembershipPlan plan) =>
-      switch (plan) {
-        MembershipPlan.oneMonth => 'com.kilostrength.pro.monthly',
-        MembershipPlan.threeMonths => 'com.kilostrength.pro.quarterly',
-        MembershipPlan.yearly => 'com.kilostrength.pro.yearly',
-        MembershipPlan.forever => 'com.kilostrength.pro.lifetime',
-        MembershipPlan.free => 'com.kilostrength.pro.monthly',
-      };
+  static String membershipProductIdForPlan(MembershipPlan plan) {
+    switch (plan) {
+      case MembershipPlan.oneMonth:
+        return 'com.kilostrength.pro.monthly';
+      case MembershipPlan.yearly:
+        return 'com.kilostrength.pro.yearly';
+      case MembershipPlan.threeMonths:
+      case MembershipPlan.forever:
+      case MembershipPlan.free:
+        // These plans remain readable for historical entitlements/orders, but
+        // they are not current subscription products and cannot be purchased.
+        throw const CoachApiException('invalid_membership_plan');
+    }
+  }
 
   Future<AuthResult> loginWithPhoneRemote(
     String identifier, {

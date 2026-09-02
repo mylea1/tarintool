@@ -619,14 +619,21 @@ void main() {
     expect(order.provider, MembershipOrderProvider.appStore);
   });
 
-  test('membership plans map to the three subscription products', () {
+  test('current membership plans map to the two subscription products', () {
     expect(
       AppController.membershipProductIdForPlan(MembershipPlan.oneMonth),
       'com.kilostrength.pro.monthly',
     );
     expect(
-      AppController.membershipProductIdForPlan(MembershipPlan.threeMonths),
-      'com.kilostrength.pro.quarterly',
+      () =>
+          AppController.membershipProductIdForPlan(MembershipPlan.threeMonths),
+      throwsA(
+        isA<CoachApiException>().having(
+          (error) => error.code,
+          'code',
+          'invalid_membership_plan',
+        ),
+      ),
     );
     expect(
       AppController.membershipProductIdForPlan(MembershipPlan.yearly),

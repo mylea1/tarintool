@@ -855,7 +855,7 @@ class _TrialStatus extends StatelessWidget {
       color = _muted;
     } else {
       title = '完成训练，解锁 3 天 PRO';
-      detail = '完成首次至少 30 分钟且含有效组的训练后自动解锁。';
+      detail = '登录后完成首次至少 30 分钟且含有效组的训练后自动解锁。';
       icon = Icons.lock_open_rounded;
       color = _ember;
     }

@@ -1,9 +1,15 @@
 import 'package:flutter/services.dart';
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:kilo_strength/account_membership.dart';
 import 'package:kilo_strength/ai_api.dart';
 import 'package:kilo_strength/controller.dart';
 import 'package:kilo_strength/models.dart';
+import 'package:kilo_strength/secure_session_store.dart';
 import 'package:kilo_strength/workout_history_persistence.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -899,6 +905,84 @@ void main() {
       controller.dispose();
     }
   });
+
+  test(
+    'workout trial activation observes duration and effective-set boundaries',
+    () async {
+      Future<List<http.Request>> finishAndCapture({
+        required int durationSeconds,
+        required bool completeSet,
+      }) async {
+        final requests = <http.Request>[];
+        final firstRequest = Completer<void>();
+        final identifier = 'trial-boundary-$durationSeconds-$completeSet';
+        final api = HttpCoachApi(
+          baseUrl: 'https://api.example.test',
+          client: MockClient((request) async {
+            requests.add(request);
+            if (!firstRequest.isCompleted) firstRequest.complete();
+            return http.Response('{"error":"trial_test"}', 500);
+          }),
+        );
+        api.restoreSession(
+          RemoteSession(
+            token: 'trial-session',
+            accountIdentifier: identifier,
+            apiOrigin: 'https://api.example.test',
+          ),
+          accountIdentifier: identifier,
+        );
+        final account = AccountService(
+          persistence: InMemoryAccountPersistence(),
+        )..loginWithPhone(identifier);
+        final controller = AppController(
+          accountService: account,
+          coachApi: api,
+        );
+        try {
+          controller.startWorkout(name: '试用边界训练', autoStartTimer: false);
+          controller.addExercise('bench_press');
+          final exercise = controller.workout.single;
+          controller.addSet(exercise);
+          exercise.sets.single.completed = completeSet;
+          controller.workoutElapsedSeconds = durationSeconds;
+          controller.finishWorkout();
+          if (durationSeconds >= 1800 && completeSet) {
+            await firstRequest.future.timeout(const Duration(seconds: 1));
+          } else {
+            await Future<void>.delayed(const Duration(milliseconds: 30));
+          }
+          // A second finish call has no active workout and must not enqueue a
+          // duplicate activation request.
+          controller.finishWorkout();
+          await Future<void>.delayed(const Duration(milliseconds: 10));
+          return requests;
+        } finally {
+          controller.dispose();
+        }
+      }
+
+      expect(
+        await finishAndCapture(durationSeconds: 1799, completeSet: true),
+        isEmpty,
+      );
+      expect(
+        await finishAndCapture(durationSeconds: 1800, completeSet: false),
+        isEmpty,
+      );
+      final qualifying = await finishAndCapture(
+        durationSeconds: 1800,
+        completeSet: true,
+      );
+      expect(qualifying, hasLength(1));
+      expect(qualifying.single.url.path, '/v1/membership/trial/activate');
+      expect(jsonDecode(qualifying.single.body), {
+        'workoutId': isA<String>(),
+        'durationSeconds': 1800,
+        'effectiveSets': 1,
+      });
+    },
+  );
 
   test('previous value action is available only for matching history', () {
     final controller = AppController();
