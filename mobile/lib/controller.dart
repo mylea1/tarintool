@@ -1670,6 +1670,11 @@ class AppController extends ChangeNotifier {
 
   PageId page = PageId.today;
   TrainView trainView = TrainView.workout;
+
+  /// Optional one-shot intent consumed by [RecordsPage] when a surface asks
+  /// to open a specific record sub-view. Keeping it on the controller avoids
+  /// a second top-level route while preserving the existing train shell.
+  String? recordsInitialMode;
   AiView aiView = AiView.chat;
   bool workoutStarted = false;
   bool workoutTimerStarted = false;
@@ -2677,6 +2682,23 @@ class AppController extends ChangeNotifier {
       liveWorkoutVisible = false;
     }
     notifyListeners();
+  }
+
+  /// Opens the existing training records surface directly on statistics.
+  /// [RecordsPage] consumes the intent once during construction, so ordinary
+  /// visits to the records tab still start on the calendar view.
+  void openTrainingStatistics() {
+    recordsInitialMode = 'statistics';
+    page = PageId.train;
+    trainView = TrainView.history;
+    liveWorkoutVisible = false;
+    notifyListeners();
+  }
+
+  String consumeRecordsInitialMode() {
+    final value = recordsInitialMode ?? 'training';
+    recordsInitialMode = null;
+    return value;
   }
 
   void selectAiView(AiView next) {

@@ -14,6 +14,30 @@ const exercise = Exercise(
   cue: '稳定完成',
 );
 
+const backExercise = Exercise(
+  id: 'barbell_row',
+  name: '杠铃划船',
+  englishName: 'Barbell row',
+  family: '背部',
+  muscle: '背部',
+  secondary: '肱二头、后束',
+  equipment: '杠铃',
+  camera: '侧面',
+  cue: '保持躯干稳定',
+);
+
+const legExercise = Exercise(
+  id: 'barbell_squat',
+  name: '杠铃深蹲',
+  englishName: 'Barbell squat',
+  family: '腿部',
+  muscle: '股四头',
+  secondary: '臀、腘绳肌',
+  equipment: '杠铃',
+  camera: '侧面',
+  cue: '保持膝盖轨迹稳定',
+);
+
 WorkoutRecord record({
   required String id,
   required DateTime date,
@@ -22,20 +46,22 @@ WorkoutRecord record({
   double? rir,
   double? rpe,
   String? gymId,
+  String exerciseId = 'bench_press',
+  String name = 'Push',
 }) => WorkoutRecord(
   id: id,
-  name: 'Push',
+  name: name,
   date: date,
   startTime: '18:00',
   durationSeconds: 3600,
   volume: reps.fold(0, (sum, value) => sum + value * weight),
   effectiveSets: reps.length,
-  exerciseIds: const ['bench_press'],
+  exerciseIds: [exerciseId],
   gymId: gymId,
   exercises: [
     WorkoutExercise(
       id: 'workout-$id',
-      exerciseId: 'bench_press',
+      exerciseId: exerciseId,
       sets: [
         for (var index = 0; index < reps.length; index++)
           WorkoutSet(
@@ -48,6 +74,32 @@ WorkoutRecord record({
             rir: rir,
             rpe: rpe,
           ),
+      ],
+    ),
+  ],
+);
+
+Routine routine({
+  required String id,
+  required String name,
+  required String exerciseId,
+}) => Routine(
+  id: id,
+  name: name,
+  folder: '测试',
+  updatedAt: DateTime(2026, 8, 1),
+  exercises: [
+    WorkoutExercise(
+      id: 'plan-$id',
+      exerciseId: exerciseId,
+      sets: [
+        WorkoutSet(
+          id: 'plan-set-$id',
+          weight: 80,
+          reps: 8,
+          targetMin: 8,
+          targetMax: 10,
+        ),
       ],
     ),
   ],
@@ -181,5 +233,57 @@ void main() {
       machineExercise: true,
     );
     expect(result.weight, 55);
+  });
+
+  test(
+    'does not invent a personalised recommendation without completed data',
+    () {
+      final result = engine.calculate(
+        history: const [],
+        exercises: const [exercise],
+        routines: [
+          routine(id: 'push', name: 'Push', exerciseId: 'bench_press'),
+        ],
+        techniques: const [],
+        profile: const TrainingProfile(),
+        now: DateTime(2026, 9, 2, 12),
+      );
+
+      expect(result.today.hasTrainingData, isFalse);
+      expect(result.today.title, '暂无训练数据');
+      expect(result.today.muscles, isEmpty);
+      expect(result.today.routineId, isNull);
+    },
+  );
+
+  test('does not recommend back again when back was trained yesterday', () {
+    final now = DateTime(2026, 9, 2, 12);
+    final result = engine.calculate(
+      history: [
+        record(
+          id: 'yesterday-pull',
+          name: 'Pull',
+          exerciseId: 'barbell_row',
+          date: DateTime(2026, 9, 1, 20),
+          reps: [8, 8, 8],
+          rir: 2,
+        ),
+      ],
+      exercises: const [backExercise, legExercise],
+      routines: [
+        routine(id: 'pull', name: 'Pull', exerciseId: 'barbell_row'),
+        routine(id: 'legs', name: 'Legs', exerciseId: 'barbell_squat'),
+      ],
+      techniques: const [],
+      profile: const TrainingProfile(),
+      scheduledRoutineName: 'Pull',
+      now: now,
+    );
+
+    expect(result.today.hasTrainingData, isTrue);
+    expect(result.today.routineId, 'legs');
+    expect(result.today.title, isNot('Pull'));
+    expect(result.today.muscles, isNot(contains('背')));
+    expect(result.today.reason, contains('恢复'));
   });
 }

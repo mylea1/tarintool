@@ -323,6 +323,22 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('home explains that the first recommendation needs real data', (
+    tester,
+  ) async {
+    final controller = AppController();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(KiloApp(initialController: controller));
+    await tester.pumpAndSettle();
+
+    expect(find.text('暂无训练数据'), findsOneWidget);
+    expect(find.text('暂无训练数据，是否使用推荐计划完成第一次训练？'), findsOneWidget);
+    expect(find.text('使用推荐计划完成第一次训练'), findsOneWidget);
+    expect(find.text('胸'), findsNothing);
+    expect(find.text('背'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('nutrition advice stays inline for free and member users', (
     tester,
   ) async {
@@ -2249,6 +2265,105 @@ void main() {
     expect(find.textContaining('72.5 kg × 8'), findsOneWidget);
     expect(find.textContaining('组备注 · 肩胛保持稳定'), findsOneWidget);
     expect(find.text('训练次数'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('home muscle card exposes volume and recovery modes', (
+    tester,
+  ) async {
+    final controller = AppController();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(KiloApp(initialController: controller));
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('home-muscle-card')),
+      220,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('home-muscle-volume-tab')), findsOneWidget);
+    expect(find.byKey(const Key('home-muscle-recovery-tab')), findsOneWidget);
+    expect(find.byKey(const Key('home-muscle-map')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('home-muscle-recovery-tab')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('home-recovery-muscle-map')), findsOneWidget);
+    expect(find.text('本周肌群恢复'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('home muscle metrics route to the matching training surface', (
+    tester,
+  ) async {
+    final volumeController = AppController();
+    addTearDown(volumeController.dispose);
+    await tester.pumpWidget(KiloApp(initialController: volumeController));
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('home-muscle-open-volume')),
+      220,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byKey(const Key('home-muscle-open-volume')));
+    await tester.pumpAndSettle();
+    expect(volumeController.page, PageId.train);
+    expect(volumeController.trainView, TrainView.history);
+    expect(find.byKey(const Key('records-statistics-tabs')), findsOneWidget);
+    expect(find.text('训练概况'), findsOneWidget);
+  });
+
+  testWidgets(
+    'recovery details uses a selectable body map and one detail card',
+    (tester) async {
+      final controller = AppController();
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        MaterialApp(home: RecoveryDetailsPage(controller: controller)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('recovery-muscle-map-card')), findsOneWidget);
+      expect(find.byKey(const Key('recovery-muscle-map')), findsOneWidget);
+      expect(
+        find.byKey(const Key('interactive-muscle-map-recovery')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('recovery-selected-detail')), findsOneWidget);
+      expect(find.byType(LinearProgressIndicator), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('member analytics modules stay collapsed until opened', (
+    tester,
+  ) async {
+    final account = AccountService()..loginWithPhone('13800138082');
+    account.replaceCurrentEntitlement(
+      account.entitlements!.copyWith(
+        membership: MembershipPlan.forever,
+        clearMembershipExpiresAt: true,
+      ),
+    );
+    final controller = AppController(accountService: account);
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: RecordsPage(controller: controller)),
+      ),
+    );
+    await tester.tap(find.text('统计'));
+    await tester.pumpAndSettle();
+
+    final collapsed = tester.getSize(
+      find.byKey(const Key('analytics-content-AI训练发现')),
+    );
+    expect(collapsed.height, 0);
+    await tester.tap(find.byKey(const Key('analytics-toggle-AI训练发现')));
+    await tester.pumpAndSettle();
+    final expanded = tester.getSize(
+      find.byKey(const Key('analytics-content-AI训练发现')),
+    );
+    expect(expanded.height, greaterThan(0));
+    expect(find.byKey(const Key('stats-ai-insight')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

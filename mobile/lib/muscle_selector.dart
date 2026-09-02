@@ -15,6 +15,13 @@ enum MuscleMapGender { male, female }
 
 enum MuscleMapSide { front, back }
 
+/// Determines which semantic scale colours the same body map.
+///
+/// [volume] preserves the original orange training-volume heat map. [recovery]
+/// uses the recovery scale (green → amber → red) while keeping the same hit
+/// masks and tap behaviour.
+enum MuscleMapMode { volume, recovery }
+
 class InteractiveMuscleMap extends StatefulWidget {
   const InteractiveMuscleMap({
     super.key,
@@ -23,6 +30,7 @@ class InteractiveMuscleMap extends StatefulWidget {
     this.gender = MuscleMapGender.male,
     this.onMuscleTap,
     this.showSideToggle = true,
+    this.mode = MuscleMapMode.volume,
   });
 
   final Map<String, int> muscleSets;
@@ -30,6 +38,7 @@ class InteractiveMuscleMap extends StatefulWidget {
   final MuscleMapGender gender;
   final ValueChanged<String>? onMuscleTap;
   final bool showSideToggle;
+  final MuscleMapMode mode;
 
   @override
   State<InteractiveMuscleMap> createState() => _InteractiveMuscleMapState();
@@ -153,19 +162,31 @@ class _InteractiveMuscleMapState extends State<InteractiveMuscleMap> {
 
   Color _heat(String group, {bool selected = false}) {
     final value = widget.muscleSets[group] ?? 0;
-    // Use categorical heat colors so the body map communicates volume at a
-    // glance. This is intentionally aligned with the home-card legend rather
-    // than scaling every muscle to the current maximum (which made one small
-    // set look as intense as a high-volume muscle).
-    final base = switch (value) {
+    final base = widget.mode == MuscleMapMode.recovery
+        ? _recoveryColor(value)
+        : _volumeColor(value);
+    return selected
+        ? Color.alphaBlend(Colors.white.withValues(alpha: .2), base)
+        : base;
+  }
+
+  static Color _volumeColor(int value) {
+    // Categorical colours keep one small set visibly distinct from no
+    // training and avoid scaling every muscle to the current maximum.
+    return switch (value) {
       <= 0 => const Color(0xFFD7D0CB),
       <= 4 => const Color(0xFFFFC766),
       <= 9 => const Color(0xFFF28A3B),
       _ => const Color(0xFFD94B25),
     };
-    return selected
-        ? Color.alphaBlend(Colors.white.withValues(alpha: .2), base)
-        : base;
+  }
+
+  static Color _recoveryColor(int value) {
+    if (value <= 0) return const Color(0xFFD7D0CB);
+    if (value >= 80) return const Color(0xFF42A85F);
+    if (value >= 60) return const Color(0xFFF2B233);
+    if (value >= 40) return const Color(0xFFE8793D);
+    return const Color(0xFFE0523D);
   }
 
   void _toggle(String slug) {
@@ -262,7 +283,8 @@ class _InteractiveMuscleMapState extends State<InteractiveMuscleMap> {
         .toList();
     return Semantics(
       container: true,
-      label: '可互动肌群图，当前为${side == MuscleMapSide.front ? '正面' : '背面'}',
+      label:
+          '可互动${widget.mode == MuscleMapMode.recovery ? '恢复' : '训练量'}肌群图，当前为${side == MuscleMapSide.front ? '正面' : '背面'}',
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

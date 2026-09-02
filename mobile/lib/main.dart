@@ -2151,7 +2151,29 @@ String _homeDisplayMuscle(String muscle) {
   return '其他';
 }
 
-class _HomeMuscleCard extends StatelessWidget {
+Map<String, int> _homeRecoveryValues(List<MuscleRecovery> recovery) {
+  final values = {for (final item in recovery) item.muscle: item.percent};
+
+  int lowest(Iterable<String> names) {
+    final matching = names
+        .map((name) => values[name])
+        .whereType<int>()
+        .toList(growable: false);
+    if (matching.isEmpty) return 100;
+    return matching.reduce((a, b) => a < b ? a : b);
+  }
+
+  return {
+    '胸': lowest(const ['胸']),
+    '背': lowest(const ['背']),
+    '肩': lowest(const ['肩']),
+    '手臂': lowest(const ['二头', '三头']),
+    '腿': lowest(const ['股四头', '腘绳肌', '臀', '小腿']),
+    '核心': lowest(const ['核心']),
+  };
+}
+
+class _HomeMuscleCard extends StatefulWidget {
   const _HomeMuscleCard({
     required this.controller,
     required this.muscleSets,
@@ -2161,34 +2183,87 @@ class _HomeMuscleCard extends StatelessWidget {
   final Map<String, int> muscleSets;
   final Map<String, int> displaySets;
 
+  @override
+  State<_HomeMuscleCard> createState() => _HomeMuscleCardState();
+}
+
+class _HomeMuscleCardState extends State<_HomeMuscleCard> {
   static const _groups = <String>['胸', '背', '肩', '二头', '三头', '腿', '核心'];
+  late final PageController _pageController;
+  Timer? _rotationTimer;
+  var _page = 0;
+  var _manualSwipe = false;
+  var _programmaticPageChange = false;
+
+  AppController get controller => widget.controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+    _rotationTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (!mounted || _manualSwipe || !_pageController.hasClients) return;
+      final next = (_page + 1) % 2;
+      _programmaticPageChange = true;
+      _pageController
+          .animateToPage(
+            next,
+            duration: const Duration(milliseconds: 360),
+            curve: Curves.easeOutCubic,
+          )
+          .whenComplete(() => _programmaticPageChange = false);
+    });
+  }
+
+  @override
+  void dispose() {
+    _rotationTimer?.cancel();
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _stopAutoRotation() {
+    if (_manualSwipe) return;
+    _manualSwipe = true;
+    _rotationTimer?.cancel();
+    _rotationTimer = null;
+  }
+
+  void _selectPage(int page) {
+    _stopAutoRotation();
+    if (!_pageController.hasClients || page == _page) return;
+    _programmaticPageChange = true;
+    _pageController
+        .animateToPage(
+          page,
+          duration: const Duration(milliseconds: 260),
+          curve: Curves.easeOutCubic,
+        )
+        .whenComplete(() => _programmaticPageChange = false);
+  }
+
+  void _openMetric(int page) {
+    if (page == 0) {
+      controller.openTrainingStatistics();
+    } else {
+      controller.selectTrainView(TrainView.plans);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final compact = MediaQuery.sizeOf(context).width <= 360;
     final ranked = _groups
-        .map((group) => MapEntry(group, displaySets[group] ?? 0))
+        .map((group) => MapEntry(group, widget.displaySets[group] ?? 0))
         .toList(growable: false);
-    final initialMuscle = const [
-      '胸',
-      '背',
-      '肩',
-      '手臂',
-      '腿',
-      '核心',
-    ].where((group) => (muscleSets[group] ?? 0) > 0).firstOrNull;
+    final recoveryValues = _homeRecoveryValues(
+      controller.trainingIntelligence.recovery,
+    );
     return Card(
+      key: const Key('home-muscle-card'),
       child: InkWell(
-        key: const Key('home-muscle-card'),
         borderRadius: BorderRadius.circular(16),
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => MuscleDetailsPage(
-              controller: controller,
-              initialMuscle: initialMuscle,
-            ),
-          ),
-        ),
+        onTap: () => _openMetric(_page),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
           child: Column(
@@ -2196,24 +2271,22 @@ class _HomeMuscleCard extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      '本周肌群训练量',
-                      style: TextStyle(
+                      _page == 0 ? '本周肌群训练量' : '本周肌群恢复',
+                      style: const TextStyle(
                         fontSize: 17,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
                   ),
                   TextButton.icon(
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => MuscleDetailsPage(
-                          controller: controller,
-                          initialMuscle: initialMuscle,
-                        ),
-                      ),
+                    key: Key(
+                      _page == 0
+                          ? 'home-muscle-open-volume'
+                          : 'home-muscle-open-recovery',
                     ),
+                    onPressed: () => _openMetric(_page),
                     icon: const Icon(Icons.chevron_right_rounded, size: 18),
                     label: const Text('详情'),
                     style: TextButton.styleFrom(
@@ -2228,48 +2301,99 @@ class _HomeMuscleCard extends StatelessWidget {
                 child: Text('本周肌群', style: TextStyle(fontSize: 0, height: 0)),
               ),
               const SizedBox(height: 3),
-              const Text(
-                '颜色越深，代表本周有效训练组越多',
-                style: TextStyle(color: quiet, fontSize: 11),
+              Row(
+                children: [
+                  _HomeMetricTab(
+                    key: const Key('home-muscle-volume-tab'),
+                    label: '训练量',
+                    selected: _page == 0,
+                    onTap: () => _selectPage(0),
+                  ),
+                  const SizedBox(width: 6),
+                  _HomeMetricTab(
+                    key: const Key('home-muscle-recovery-tab'),
+                    label: '恢复',
+                    selected: _page == 1,
+                    onTap: () => _selectPage(1),
+                  ),
+                  const Spacer(),
+                  Text(
+                    _manualSwipe ? '手动查看' : '自动轮切',
+                    style: const TextStyle(color: quiet, fontSize: 10),
+                  ),
+                ],
               ),
-              const SizedBox(height: 9),
-              LayoutBuilder(
-                builder: (context, _) => Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      flex: 5,
-                      child: _MuscleBodyMap(
-                        muscleSets: muscleSets,
-                        height: compact ? 178 : 196,
-                        key: const Key('home-muscle-map'),
+              const SizedBox(height: 6),
+              SizedBox(
+                key: const Key('home-muscle-page-view'),
+                height: compact ? 248 : 266,
+                child: NotificationListener<ScrollNotification>(
+                  onNotification: (notification) {
+                    if (notification is ScrollStartNotification &&
+                        notification.dragDetails != null) {
+                      _stopAutoRotation();
+                    }
+                    return false;
+                  },
+                  child: PageView(
+                    controller: _pageController,
+                    onPageChanged: (value) {
+                      if (!mounted) return;
+                      setState(() => _page = value);
+                      // A page selected by a touch gesture has already
+                      // cancelled the timer in the scroll notification. The
+                      // flag only documents that a timer transition should
+                      // never be treated as a user interaction.
+                      if (!_programmaticPageChange && _manualSwipe) return;
+                    },
+                    children: [
+                      _HomeMuscleMetricPage(
+                        metric: MuscleMapMode.volume,
+                        muscleSets: widget.muscleSets,
+                        ranked: ranked,
+                        height: compact ? 158 : 174,
+                        mapKey: const Key('home-muscle-map'),
+                        onTap: () => _openMetric(0),
                       ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      flex: compact ? 6 : 7,
-                      child: Column(
-                        children: [
-                          for (final item in ranked)
-                            _HomeMuscleVolumeRow(
-                              muscle: item.key,
-                              sets: item.value,
-                            ),
+                      _HomeMuscleMetricPage(
+                        metric: MuscleMapMode.recovery,
+                        muscleSets: recoveryValues,
+                        ranked: [
+                          for (final muscle in const [
+                            '胸',
+                            '背',
+                            '肩',
+                            '手臂',
+                            '腿',
+                            '核心',
+                          ])
+                            MapEntry(muscle, recoveryValues[muscle] ?? 100),
                         ],
+                        height: compact ? 158 : 174,
+                        mapKey: const Key('home-recovery-muscle-map'),
+                        onTap: () => _openMetric(1),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-              const SizedBox(height: 7),
-              const Wrap(
-                spacing: 10,
-                runSpacing: 6,
+              const SizedBox(height: 3),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  _HomeVolumeLegend(color: _volumeNone, label: '未训练'),
-                  _HomeVolumeLegend(color: _volumeLow, label: '较少'),
-                  _HomeVolumeLegend(color: _volumeMedium, label: '适中'),
-                  _HomeVolumeLegend(color: _volumeHigh, label: '较多'),
+                  for (var index = 0; index < 2; index++)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 3),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        width: _page == index ? 18 : 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: _page == index ? primary : hairline,
+                          borderRadius: BorderRadius.circular(99),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ],
@@ -2278,6 +2402,123 @@ class _HomeMuscleCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _HomeMuscleMetricPage extends StatelessWidget {
+  const _HomeMuscleMetricPage({
+    required this.metric,
+    required this.muscleSets,
+    required this.ranked,
+    required this.height,
+    required this.mapKey,
+    required this.onTap,
+  });
+
+  final MuscleMapMode metric;
+  final Map<String, int> muscleSets;
+  final List<MapEntry<String, int>> ranked;
+  final double height;
+  final Key mapKey;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final recovery = metric == MuscleMapMode.recovery;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Column(
+        children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              recovery ? '颜色越绿，恢复越充分' : '颜色越深，本周有效训练组越多',
+              style: const TextStyle(color: quiet, fontSize: 11),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex: 5,
+                  child: _MuscleBodyMap(
+                    key: mapKey,
+                    muscleSets: muscleSets,
+                    mode: metric,
+                    height: height,
+                    onMuscleTap: (_) => onTap(),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 7,
+                  child: Column(
+                    children: [
+                      for (final item in ranked)
+                        recovery
+                            ? _HomeMuscleRecoveryRow(
+                                muscle: item.key,
+                                percent: item.value,
+                              )
+                            : _HomeMuscleVolumeRow(
+                                muscle: item.key,
+                                sets: item.value,
+                              ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 3),
+          recovery ? const _HomeRecoveryLegend() : const _HomeVolumeLegendRow(),
+        ],
+      ),
+    );
+  }
+}
+
+class _HomeMetricTab extends StatelessWidget {
+  const _HomeMetricTab({
+    super.key,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    selected: selected,
+    label: '首页肌群$label',
+    child: InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(99),
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 30),
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+        decoration: BoxDecoration(
+          color: selected ? primaryContainer : Colors.transparent,
+          borderRadius: BorderRadius.circular(99),
+          border: Border.all(color: selected ? primary : hairline),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? primary : quiet,
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 const _volumeNone = Color(0xFFD7D0CB);
@@ -2301,8 +2542,8 @@ class _HomeMuscleVolumeRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = _homeVolumeColor(sets);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
+    return SizedBox(
+      height: 25,
       child: Row(
         children: [
           Container(
@@ -2312,10 +2553,18 @@ class _HomeMuscleVolumeRow extends StatelessWidget {
           ),
           const SizedBox(width: 7),
           SizedBox(
-            width: 32,
-            child: Text(
-              muscle,
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+            width: 36,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                muscle,
+                maxLines: 1,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
             ),
           ),
           const SizedBox(width: 5),
@@ -2333,13 +2582,93 @@ class _HomeMuscleVolumeRow extends StatelessWidget {
           const SizedBox(width: 6),
           SizedBox(
             width: 30,
-            child: Text(
-              '$sets组',
-              textAlign: TextAlign.right,
-              style: TextStyle(
-                color: sets == 0 ? quiet : color.withValues(alpha: .95),
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: Text(
+                '$sets组',
+                textAlign: TextAlign.right,
+                style: TextStyle(
+                  color: sets == 0 ? quiet : color.withValues(alpha: .95),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+Color _homeRecoveryColor(int percent) {
+  if (percent >= 80) return success;
+  if (percent >= 60) return const Color(0xFFE29A00);
+  if (percent >= 40) return const Color(0xFFE8793D);
+  return danger;
+}
+
+class _HomeMuscleRecoveryRow extends StatelessWidget {
+  const _HomeMuscleRecoveryRow({required this.muscle, required this.percent});
+
+  final String muscle;
+  final int percent;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _homeRecoveryColor(percent);
+    return SizedBox(
+      height: 25,
+      child: Row(
+        children: [
+          Container(
+            width: 9,
+            height: 9,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 7),
+          SizedBox(
+            width: 36,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                muscle,
+                maxLines: 1,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 5),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(99),
+              child: LinearProgressIndicator(
+                value: (percent / 100).clamp(0.0, 1.0),
+                minHeight: 7,
+                backgroundColor: const Color(0xFFF2E8E1),
+                valueColor: AlwaysStoppedAnimation<Color>(color),
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          SizedBox(
+            width: 32,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: Text(
+                '$percent%',
+                textAlign: TextAlign.right,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ),
           ),
@@ -2366,6 +2695,37 @@ class _HomeVolumeLegend extends StatelessWidget {
       ),
       const SizedBox(width: 4),
       Text(label, style: const TextStyle(color: quiet, fontSize: 10)),
+    ],
+  );
+}
+
+class _HomeVolumeLegendRow extends StatelessWidget {
+  const _HomeVolumeLegendRow();
+
+  @override
+  Widget build(BuildContext context) => const Wrap(
+    spacing: 10,
+    runSpacing: 5,
+    children: [
+      _HomeVolumeLegend(color: _volumeNone, label: '未训练'),
+      _HomeVolumeLegend(color: _volumeLow, label: '较少'),
+      _HomeVolumeLegend(color: _volumeMedium, label: '适中'),
+      _HomeVolumeLegend(color: _volumeHigh, label: '较多'),
+    ],
+  );
+}
+
+class _HomeRecoveryLegend extends StatelessWidget {
+  const _HomeRecoveryLegend();
+
+  @override
+  Widget build(BuildContext context) => const Wrap(
+    spacing: 10,
+    runSpacing: 5,
+    children: [
+      _HomeVolumeLegend(color: success, label: '恢复良好'),
+      _HomeVolumeLegend(color: Color(0xFFE29A00), label: '基本恢复'),
+      _HomeVolumeLegend(color: danger, label: '仍有疲劳'),
     ],
   );
 }
@@ -2907,14 +3267,79 @@ class _RecoveryMiniPill extends StatelessWidget {
   }
 }
 
-class RecoveryDetailsPage extends StatelessWidget {
+class RecoveryDetailsPage extends StatefulWidget {
   const RecoveryDetailsPage({super.key, required this.controller});
 
   final AppController controller;
 
   @override
+  State<RecoveryDetailsPage> createState() => _RecoveryDetailsPageState();
+}
+
+class _RecoveryDetailsPageState extends State<RecoveryDetailsPage> {
+  String? _selectedMuscle;
+
+  AppController get controller => widget.controller;
+
+  @override
+  void initState() {
+    super.initState();
+    final recovery = controller.trainingIntelligence.recovery;
+    if (recovery.isNotEmpty) {
+      _selectedMuscle = recovery
+          .reduce(
+            (current, item) => item.percent < current.percent ? item : current,
+          )
+          .muscle;
+    }
+  }
+
+  static const _slugToMuscle = <String, String>{
+    'abs': '核心',
+    'adductors': '股四头',
+    'biceps': '二头',
+    'calves': '小腿',
+    'chest': '胸',
+    'deltoids': '肩',
+    'forearm': '二头',
+    'gluteal': '臀',
+    'hamstring': '腘绳肌',
+    'lower-back': '背',
+    'obliques': '核心',
+    'quadriceps': '股四头',
+    'tibialis': '小腿',
+    'trapezius': '背',
+    'triceps': '三头',
+    'upper-back': '背',
+  };
+
+  MuscleRecovery _selectedRecovery(List<MuscleRecovery> recovery) {
+    if (recovery.isEmpty) {
+      return const MuscleRecovery('胸', 100, '暂无近期训练刺激，按充分恢复处理。');
+    }
+    final selected = _selectedMuscle;
+    if (selected != null) {
+      for (final item in recovery) {
+        if (item.muscle == selected) return item;
+      }
+    }
+    return recovery.reduce(
+      (current, item) => item.percent < current.percent ? item : current,
+    );
+  }
+
+  void _selectSlug(String slug, List<MuscleRecovery> recovery) {
+    final muscle = _slugToMuscle[slug];
+    if (muscle == null) return;
+    if (!recovery.any((item) => item.muscle == muscle)) return;
+    setState(() => _selectedMuscle = muscle);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final recovery = controller.trainingIntelligence.recovery;
+    final selected = _selectedRecovery(recovery);
+    final mapValues = _homeRecoveryValues(recovery);
     return Scaffold(
       key: const Key('recovery-details-page'),
       appBar: AppBar(title: const Text('肌群恢复')),
@@ -2932,57 +3357,107 @@ class RecoveryDetailsPage extends StatelessWidget {
               style: TextStyle(color: quiet, fontSize: 12),
             ),
             const SizedBox(height: 12),
-            for (final item in recovery)
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              item.muscle,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
+            Card(
+              key: const Key('recovery-muscle-map-card'),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 11),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            '人体恢复图',
+                            style: TextStyle(fontWeight: FontWeight.w900),
                           ),
-                          Text(
-                            '${item.percent}%',
+                        ),
+                        Text(
+                          recovery.isEmpty ? '等待训练数据' : '点击部位查看',
+                          style: const TextStyle(color: quiet, fontSize: 11),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      '颜色越绿代表恢复越充分；红色区域优先安排休息。',
+                      style: TextStyle(color: quiet, fontSize: 11),
+                    ),
+                    const SizedBox(height: 5),
+                    SizedBox(
+                      key: const Key('recovery-muscle-map'),
+                      height: 300,
+                      child: _MuscleBodyMap(
+                        key: const Key('recovery-muscle-map-body'),
+                        muscleSets: mapValues,
+                        mode: MuscleMapMode.recovery,
+                        height: 226,
+                        onMuscleTap: (slug) => _selectSlug(slug, recovery),
+                      ),
+                    ),
+                    const _HomeRecoveryLegend(),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Card(
+              key: const Key('recovery-selected-detail'),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 13, 14, 14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            selected.muscle,
                             style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w900,
                             ),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 7),
-                      LinearProgressIndicator(
-                        value: item.percent / 100,
-                        minHeight: 8,
-                        borderRadius: BorderRadius.circular(99),
-                        backgroundColor: primaryContainer,
-                        color: item.percent >= 80
-                            ? success
-                            : item.percent >= 60
-                            ? const Color(0xFFE29A00)
-                            : danger,
-                      ),
-                      const SizedBox(height: 7),
-                      Text(
-                        '${item.status} · ${item.reason}',
-                        style: const TextStyle(
-                          color: quiet,
-                          fontSize: 12,
-                          height: 1.35,
                         ),
+                        Text(
+                          '${selected.percent}%',
+                          style: TextStyle(
+                            color: _homeRecoveryColor(selected.percent),
+                            fontSize: 20,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    LinearProgressIndicator(
+                      value: (selected.percent / 100).clamp(0.0, 1.0),
+                      minHeight: 9,
+                      borderRadius: BorderRadius.circular(99),
+                      backgroundColor: primaryContainer,
+                      color: _homeRecoveryColor(selected.percent),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      selected.status,
+                      style: TextStyle(
+                        color: _homeRecoveryColor(selected.percent),
+                        fontWeight: FontWeight.w800,
                       ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      selected.reason,
+                      style: const TextStyle(
+                        color: quiet,
+                        fontSize: 12,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
                 ),
               ),
+            ),
           ],
         ),
       ),
@@ -6039,6 +6514,12 @@ class _RecordsPageState extends State<RecordsPage> {
   DateTimeRange? customStatisticsRange;
   AppController get controller => widget.controller;
 
+  @override
+  void initState() {
+    super.initState();
+    mode = controller.consumeRecordsInitialMode();
+  }
+
   Widget _modeSwitch() => SingleChildScrollView(
     scrollDirection: Axis.horizontal,
     child: Center(
@@ -7326,9 +7807,19 @@ class _MemberAnalyticsPanel extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          _InlineMuscleVolumeSection(rows: volumeRows),
+          _AnalyticsPeerSection(
+            key: const Key('stats-muscle-volume-section'),
+            icon: Icons.account_tree_outlined,
+            title: '肌群训练量',
+            child: _InlineMuscleVolumeSection(rows: volumeRows),
+          ),
           const SizedBox(height: 10),
-          _InlineWeeklyReportSection(report: report),
+          _AnalyticsPeerSection(
+            key: const Key('stats-ai-weekly-report-section'),
+            icon: Icons.auto_graph_rounded,
+            title: 'AI周报',
+            child: _InlineWeeklyReportSection(report: report),
+          ),
         ],
       ),
     );
@@ -7362,7 +7853,7 @@ class _MemberAnalyticsPanel extends StatelessWidget {
   }
 }
 
-class _LockedAnalyticsModule extends StatelessWidget {
+class _LockedAnalyticsModule extends StatefulWidget {
   const _LockedAnalyticsModule({
     super.key,
     required this.controller,
@@ -7377,84 +7868,136 @@ class _LockedAnalyticsModule extends StatelessWidget {
   final Key? actionKey;
 
   @override
+  State<_LockedAnalyticsModule> createState() => _LockedAnalyticsModuleState();
+}
+
+class _LockedAnalyticsModuleState extends State<_LockedAnalyticsModule> {
+  var _expanded = false;
+
+  @override
   Widget build(BuildContext context) => Card(
     child: Padding(
-      padding: const EdgeInsets.fromLTRB(13, 12, 13, 11),
+      padding: const EdgeInsets.fromLTRB(13, 10, 13, 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(Icons.lock_outline_rounded, size: 18, color: primary),
-              const SizedBox(width: 7),
-              Expanded(
-                child: Text(
-                  title,
-                  softWrap: true,
-                  style: const TextStyle(fontWeight: FontWeight.w900),
+          Semantics(
+            button: true,
+            expanded: _expanded,
+            label: '展开${widget.title}',
+            child: InkWell(
+              key: const Key('member-analytics-locked-toggle'),
+              borderRadius: BorderRadius.circular(10),
+              onTap: () => setState(() => _expanded = !_expanded),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 3),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(
+                      Icons.lock_outline_rounded,
+                      size: 18,
+                      color: primary,
+                    ),
+                    const SizedBox(width: 7),
+                    Expanded(
+                      child: Text(
+                        widget.title,
+                        softWrap: true,
+                        style: const TextStyle(fontWeight: FontWeight.w900),
+                      ),
+                    ),
+                    const SizedBox(width: 7),
+                    const _ProPill(),
+                    const SizedBox(width: 3),
+                    Icon(
+                      _expanded
+                          ? Icons.keyboard_arrow_up_rounded
+                          : Icons.keyboard_arrow_down_rounded,
+                      color: quiet,
+                      size: 20,
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(width: 7),
-              const _ProPill(),
-            ],
+            ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
           Text(
-            description,
+            widget.description,
             style: const TextStyle(color: quiet, fontSize: 12, height: 1.35),
           ),
-          const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsets.fromLTRB(10, 9, 10, 8),
-            decoration: BoxDecoration(
-              color: primaryContainer.withValues(alpha: .28),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: hairline),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Text(
-                  '本周期的下一步建议',
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 6),
-                ClipRect(
-                  child: ImageFiltered(
-                    imageFilter: ui.ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-                    child: const ExcludeSemantics(
-                      child: Text(
-                        '恢复状态与近期训练量正在综合计算，下一周将优先安排需要补足的部位。',
-                        maxLines: 2,
-                        overflow: TextOverflow.clip,
-                        style: TextStyle(fontSize: 12, height: 1.35),
-                      ),
+          const SizedBox(height: 4),
+          ClipRect(
+            child: AnimatedSize(
+              duration: const Duration(milliseconds: 180),
+              alignment: Alignment.topCenter,
+              child: Align(
+                key: const Key('locked-analytics-preview'),
+                alignment: Alignment.topCenter,
+                heightFactor: _expanded ? 1 : 0,
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(10, 9, 10, 8),
+                    decoration: BoxDecoration(
+                      color: primaryContainer.withValues(alpha: .28),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: hairline),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Text(
+                          '本周期的下一步建议',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        ClipRect(
+                          child: ImageFiltered(
+                            imageFilter: ui.ImageFilter.blur(
+                              sigmaX: 5,
+                              sigmaY: 5,
+                            ),
+                            child: const ExcludeSemantics(
+                              child: Text(
+                                '恢复状态与近期训练量正在综合计算，下一周将优先安排需要补足的部位。',
+                                maxLines: 2,
+                                overflow: TextOverflow.clip,
+                                style: TextStyle(fontSize: 12, height: 1.35),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 7),
+                        const Wrap(
+                          spacing: 6,
+                          runSpacing: 5,
+                          children: [
+                            _LockedPreviewPill(label: 'AI训练发现'),
+                            _LockedPreviewPill(label: '训练 × 饮食'),
+                            _LockedPreviewPill(label: '肌群训练量'),
+                            _LockedPreviewPill(label: 'AI周报'),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
                 ),
-                const SizedBox(height: 7),
-                const Wrap(
-                  spacing: 6,
-                  runSpacing: 5,
-                  children: [
-                    _LockedPreviewPill(label: 'AI训练发现'),
-                    _LockedPreviewPill(label: '训练 × 饮食'),
-                    _LockedPreviewPill(label: '肌群训练量'),
-                    _LockedPreviewPill(label: 'AI周报'),
-                  ],
-                ),
-              ],
+              ),
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
           Align(
             alignment: Alignment.centerLeft,
             child: OutlinedButton.icon(
-              key: actionKey,
+              key: widget.actionKey,
               onPressed: () => showMembershipPaywall(
                 context,
-                controller: controller,
+                controller: widget.controller,
                 reason: MembershipPaywallReason.advancedStatistics,
               ),
               icon: const Icon(Icons.lock_open_outlined, size: 17),
@@ -7500,7 +8043,7 @@ class _LockedPreviewPill extends StatelessWidget {
   );
 }
 
-class _AnalyticsPeerSection extends StatelessWidget {
+class _AnalyticsPeerSection extends StatefulWidget {
   const _AnalyticsPeerSection({
     super.key,
     required this.icon,
@@ -7513,27 +8056,68 @@ class _AnalyticsPeerSection extends StatelessWidget {
   final Widget child;
 
   @override
+  State<_AnalyticsPeerSection> createState() => _AnalyticsPeerSectionState();
+}
+
+class _AnalyticsPeerSectionState extends State<_AnalyticsPeerSection> {
+  var _expanded = false;
+
+  @override
   Widget build(BuildContext context) => Card(
     child: Padding(
-      padding: const EdgeInsets.fromLTRB(13, 12, 13, 13),
+      padding: const EdgeInsets.fromLTRB(13, 9, 13, 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Icon(icon, size: 19, color: primary),
-              const SizedBox(width: 7),
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(fontWeight: FontWeight.w900),
+          Semantics(
+            button: true,
+            expanded: _expanded,
+            label: '展开${widget.title}',
+            child: InkWell(
+              key: Key('analytics-toggle-${widget.title}'),
+              borderRadius: BorderRadius.circular(10),
+              onTap: () => setState(() => _expanded = !_expanded),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 3),
+                child: Row(
+                  children: [
+                    Icon(widget.icon, size: 19, color: primary),
+                    const SizedBox(width: 7),
+                    Expanded(
+                      child: Text(
+                        widget.title,
+                        style: const TextStyle(fontWeight: FontWeight.w900),
+                      ),
+                    ),
+                    const _ProPill(),
+                    const SizedBox(width: 3),
+                    Icon(
+                      _expanded
+                          ? Icons.keyboard_arrow_up_rounded
+                          : Icons.keyboard_arrow_down_rounded,
+                      color: quiet,
+                      size: 20,
+                    ),
+                  ],
                 ),
               ),
-              const _ProPill(),
-            ],
+            ),
           ),
-          const SizedBox(height: 9),
-          child,
+          ClipRect(
+            child: AnimatedSize(
+              duration: const Duration(milliseconds: 180),
+              alignment: Alignment.topCenter,
+              child: Align(
+                key: Key('analytics-content-${widget.title}'),
+                alignment: Alignment.topCenter,
+                heightFactor: _expanded ? 1 : 0,
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: widget.child,
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     ),
@@ -8015,20 +8599,25 @@ class _MuscleBodyMap extends StatelessWidget {
     required this.muscleSets,
     this.height = 250,
     this.onMuscleTap,
+    this.mode = MuscleMapMode.volume,
   });
   final Map<String, int> muscleSets;
   final double height;
   final ValueChanged<String>? onMuscleTap;
+  final MuscleMapMode mode;
 
   @override
   Widget build(BuildContext context) => SizedBox(
     key: key == null ? const Key('statistics-muscle-map') : null,
     width: double.infinity,
     child: InteractiveMuscleMap(
-      key: const Key('interactive-muscle-map'),
+      key: mode == MuscleMapMode.recovery
+          ? const Key('interactive-muscle-map-recovery')
+          : const Key('interactive-muscle-map'),
       muscleSets: muscleSets,
       height: height,
       onMuscleTap: onMuscleTap,
+      mode: mode,
     ),
   );
 }

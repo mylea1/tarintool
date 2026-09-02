@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'models.dart';
+import 'training_knowledge_rules.dart';
 
 /// One location owns its machine history. Standard free weights are compared
 /// globally by [TrainingIntelligenceEngine.strengthHistoryKey].
@@ -157,6 +158,7 @@ class DailyTrainingRecommendation {
     required this.estimatedMinutes,
     required this.exerciseCount,
     this.routineId,
+    this.hasTrainingData = true,
   });
   final String title;
   final List<String> muscles;
@@ -164,6 +166,10 @@ class DailyTrainingRecommendation {
   final int estimatedMinutes;
   final int exerciseCount;
   final String? routineId;
+
+  /// False means the engine intentionally withheld a personalised suggestion
+  /// because there is no completed set to use as evidence yet.
+  final bool hasTrainingData;
 }
 
 class WeeklyTrainingReport {
@@ -258,6 +264,7 @@ class TrainingIntelligenceEngine {
         volume: volume,
         profile: profile,
         preferredRoutineName: scheduledRoutineName,
+        now: clock,
       ),
       weeklyReport: weeklyReport(
         history: history,
@@ -464,11 +471,31 @@ class TrainingIntelligenceEngine {
     required List<MuscleVolume> volume,
     required TrainingProfile profile,
     String? preferredRoutineName,
+    DateTime? now,
   }) {
+    final clock = now ?? DateTime.now();
+    if (!TrainingKnowledgeRules.hasCompletedSet(history)) {
+      return const DailyTrainingRecommendation(
+        title: '暂无训练数据',
+        muscles: [],
+        reason: '完成第一次训练后，系统会根据真实重量、次数、组数和恢复状态生成建议。',
+        estimatedMinutes: 0,
+        exerciseCount: 0,
+        hasTrainingData: false,
+      );
+    }
     final recoveryMap = {
       for (final item in recovery) item.muscle: item.percent,
     };
     final volumeMap = {for (final item in volume) item.muscle: item};
+    final exerciseMap = {for (final item in exercises) item.id: item};
+    final recentMuscles = _recentMuscles(history, exerciseMap, now: clock);
+    final recentRoutineIds = <String>{};
+    for (final routine in routines) {
+      if (_wasRoutineRecentlyPerformed(routine, history, now: clock)) {
+        recentRoutineIds.add(routine.id);
+      }
+    }
     final ranked = [...muscles]
       ..sort((a, b) {
         final ar = recoveryMap[a] ?? 100;
@@ -476,16 +503,26 @@ class TrainingIntelligenceEngine {
         final av =
             (volumeMap[a]?.status == '训练不足' ? 15 : 0) +
             (profile.focusMuscles.contains(a) ? 12 : 0) -
-            (profile.reducedMuscles.contains(a) ? 12 : 0);
+            (profile.reducedMuscles.contains(a) ? 12 : 0) -
+            (_isRecent(recentMuscles[a], clock) ? 100 : 0);
         final bv =
             (volumeMap[b]?.status == '训练不足' ? 15 : 0) +
             (profile.focusMuscles.contains(b) ? 12 : 0) -
-            (profile.reducedMuscles.contains(b) ? 12 : 0);
+            (profile.reducedMuscles.contains(b) ? 12 : 0) -
+            (_isRecent(recentMuscles[b], clock) ? 100 : 0);
         return (br + bv).compareTo(ar + av);
       });
-    final selected = ranked
+    final recovered = ranked
         .where((item) => (recoveryMap[item] ?? 100) >= 60)
-        .take(2)
+        .toList();
+    // A recently trained muscle is excluded whenever another recovered
+    // candidate exists. Only if every recovered option is recent do we allow
+    // continuity, and the reason below makes that trade-off explicit.
+    final fresh = recovered
+        .where((item) => !_isRecent(recentMuscles[item], clock))
+        .toList();
+    final selected = (fresh.isNotEmpty ? fresh : recovered)
+        .take(TrainingKnowledgeRules.maxPrimaryMuscles)
         .toList();
     Routine? best;
     if (preferredRoutineName != null) {
@@ -493,32 +530,35 @@ class TrainingIntelligenceEngine {
           .where((item) => item.name == preferredRoutineName)
           .firstOrNull;
       if (best != null) {
-        final plannedMuscles = best.exercises
-            .map(
-              (item) => exercises
-                  .where((definition) => definition.id == item.exerciseId)
-                  .firstOrNull,
-            )
-            .whereType<Exercise>()
-            .map(
-              (item) => muscles
-                  .where((muscle) => _muscleFactor(item, muscle) >= 1)
-                  .firstOrNull,
-            )
-            .whereType<String>()
-            .toSet();
-        final recovered = plannedMuscles.every(
-          (muscle) => (recoveryMap[muscle] ?? 100) >= 60,
+        final plannedMuscles = _routineMuscles(best, exerciseMap);
+        final recoveredPlan = plannedMuscles.every(
+          (muscle) =>
+              (recoveryMap[muscle] ?? 100) >=
+              TrainingKnowledgeRules.minimumRecoveryForPrimary,
         );
-        if (!recovered) best = null;
+        final recentPlan = plannedMuscles.any(
+          (muscle) => _isRecent(recentMuscles[muscle], clock),
+        );
+        if (!recoveredPlan || (recentPlan && fresh.isNotEmpty)) best = null;
+        if (best != null && recentRoutineIds.contains(best.id)) best = null;
       }
     }
     var bestHits = -1;
     for (final routine in best == null ? routines : const <Routine>[]) {
+      if (recentRoutineIds.contains(routine.id)) continue;
+      final plannedMuscles = _routineMuscles(routine, exerciseMap);
+      final hasFatiguedPrimary = plannedMuscles.any(
+        (muscle) =>
+            (recoveryMap[muscle] ?? 100) <
+            TrainingKnowledgeRules.minimumRecoveryForPrimary,
+      );
+      if (hasFatiguedPrimary) continue;
+      final hasRecentPrimary = plannedMuscles.any(
+        (muscle) => _isRecent(recentMuscles[muscle], clock),
+      );
+      if (hasRecentPrimary && fresh.isNotEmpty) continue;
       final hits = routine.exercises.where((performed) {
-        final definition = exercises
-            .where((item) => item.id == performed.exerciseId)
-            .firstOrNull;
+        final definition = exerciseMap[performed.exerciseId];
         return definition != null &&
             selected.any((m) => _muscleFactor(definition, m) >= 1);
       }).length;
@@ -530,11 +570,7 @@ class TrainingIntelligenceEngine {
     final recommendedMuscles = best == null
         ? selected
         : best.exercises
-              .map(
-                (performed) => exercises
-                    .where((item) => item.id == performed.exerciseId)
-                    .firstOrNull,
-              )
+              .map((performed) => exerciseMap[performed.exerciseId])
               .whereType<Exercise>()
               .expand(
                 (definition) => muscles.where(
@@ -544,13 +580,18 @@ class TrainingIntelligenceEngine {
               .toSet()
               .take(3)
               .toList();
-    final title = best?.name ?? '${selected.join(' + ')}训练';
-    final count = best?.exercises.length ?? 5;
+    final title =
+        best?.name ??
+        (selected.isEmpty ? '今天先恢复' : '${selected.join(' + ')}训练');
+    final count = best?.exercises.length ?? (selected.isEmpty ? 0 : 5);
+    final recentFallback = fresh.isEmpty && recovered.isNotEmpty;
     return DailyTrainingRecommendation(
       title: title,
       muscles: recommendedMuscles,
       reason:
-          '${recommendedMuscles.map((m) => '$m恢复 ${recoveryMap[m] ?? 100}%').join('，')}；'
+          '${recommendedMuscles.map((m) => '$m恢复 ${recoveryMap[m] ?? 100}%').join('，')}'
+          '${recentFallback ? '；近期主要肌群均在冷却窗口内，已优先延续可恢复计划' : ''}'
+          '；'
           '${preferredRoutineName == best?.name ? '已承接今天或最近漏掉的计划，' : ''}'
           '同时优先补足近4周训练量较低的肌群。',
       estimatedMinutes: best == null
@@ -565,6 +606,82 @@ class TrainingIntelligenceEngine {
       exerciseCount: count,
       routineId: best?.id,
     );
+  }
+
+  Map<String, DateTime> _recentMuscles(
+    List<WorkoutRecord> history,
+    Map<String, Exercise> exerciseMap, {
+    required DateTime now,
+  }) {
+    final result = <String, DateTime>{};
+    for (final record in history) {
+      final ageHours = now.difference(record.date).inMinutes / 60;
+      if (ageHours < 0 ||
+          ageHours > TrainingKnowledgeRules.recentStimulusCooldownHours) {
+        continue;
+      }
+      for (final performed in record.exercises) {
+        if (!performed.sets.any((set) => set.completed)) continue;
+        final definition = exerciseMap[performed.exerciseId];
+        if (definition == null) continue;
+        for (final muscle in muscles) {
+          if (_muscleFactor(definition, muscle) < 1) continue;
+          final previous = result[muscle];
+          if (previous == null || record.date.isAfter(previous)) {
+            result[muscle] = record.date;
+          }
+        }
+      }
+    }
+    return result;
+  }
+
+  bool _wasRoutineRecentlyPerformed(
+    Routine routine,
+    List<WorkoutRecord> history, {
+    required DateTime now,
+  }) {
+    final routineExercises = routine.exercises
+        .map((item) => item.exerciseId)
+        .toSet();
+    if (routineExercises.isEmpty) return false;
+    for (final record in history) {
+      final ageHours = now.difference(record.date).inMinutes / 60;
+      if (ageHours < 0 ||
+          ageHours > TrainingKnowledgeRules.recentStimulusCooldownHours ||
+          !TrainingKnowledgeRules.hasCompletedSet([record])) {
+        continue;
+      }
+      if (record.name.trim() == routine.name.trim()) return true;
+      final performed = record.exercises
+          .where((item) => item.sets.any((set) => set.completed))
+          .map((item) => item.exerciseId)
+          .toSet();
+      if (performed.isEmpty) continue;
+      final overlap = routineExercises.intersection(performed).length;
+      final denominator = math.min(routineExercises.length, performed.length);
+      if (denominator > 0 && overlap / denominator >= .75) return true;
+    }
+    return false;
+  }
+
+  Set<String> _routineMuscles(
+    Routine routine,
+    Map<String, Exercise> exerciseMap,
+  ) => routine.exercises
+      .map((item) => exerciseMap[item.exerciseId])
+      .whereType<Exercise>()
+      .expand(
+        (definition) =>
+            muscles.where((muscle) => _muscleFactor(definition, muscle) >= 1),
+      )
+      .toSet();
+
+  bool _isRecent(DateTime? value, DateTime now) {
+    if (value == null) return false;
+    final ageHours = now.difference(value).inMinutes / 60;
+    return ageHours >= 0 &&
+        ageHours <= TrainingKnowledgeRules.recentStimulusCooldownHours;
   }
 
   WeeklyTrainingReport weeklyReport({

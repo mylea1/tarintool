@@ -23,10 +23,17 @@ class AiTrainingHomeCard extends StatelessWidget {
         : controller.routines
               .where((item) => item.name == scheduled)
               .firstOrNull;
-    final todayRoutine = routine ?? scheduledRoutine;
+    // A plan stored in the calendar is not training evidence. Until at least
+    // one completed set exists, keep the card honest and route the user to a
+    // first-session plan flow instead of presenting a pseudo-personalised
+    // recommendation.
+    final hasTrainingData = today.hasTrainingData;
+    final todayRoutine = hasTrainingData ? (routine ?? scheduledRoutine) : null;
     final planned = todayRoutine != null;
     final title = active
         ? (controller.workoutName == '自由训练' ? '本次训练' : controller.workoutName)
+        : !hasTrainingData
+        ? '暂无训练数据'
         : todayRoutine != null
         ? todayRoutine.name
         : '今天尚未安排训练';
@@ -114,6 +121,8 @@ class AiTrainingHomeCard extends StatelessWidget {
               Text(
                 active
                     ? '训练进行中，记录完成情况后会更新下一次建议。'
+                    : !hasTrainingData
+                    ? '暂无训练数据，是否使用推荐计划完成第一次训练？'
                     : planned
                     ? '按当前计划准备动作，训练后会结合实际表现继续调整。'
                     : '先选择或生成一节训练，之后这里会显示动作和时间。',
@@ -137,8 +146,9 @@ class AiTrainingHomeCard extends StatelessWidget {
                     icon: Icons.schedule_rounded,
                     label: minutes == 0 ? '时间待定' : '约 $minutes 分钟',
                   ),
-                  for (final muscle in today.muscles.take(2))
-                    _MetricPill(icon: Icons.bolt_rounded, label: muscle),
+                  if (hasTrainingData)
+                    for (final muscle in today.muscles.take(2))
+                      _MetricPill(icon: Icons.bolt_rounded, label: muscle),
                 ],
               ),
               const SizedBox(height: 10),
@@ -174,7 +184,9 @@ class AiTrainingHomeCard extends StatelessWidget {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              _conciseMemberReason(today),
+                              hasTrainingData
+                                  ? _conciseMemberReason(today)
+                                  : '完成第一次训练后，AI 才会根据你的真实记录给出安排理由。',
                               style: TextStyle(
                                 color: Theme.of(
                                   context,
@@ -209,7 +221,7 @@ class AiTrainingHomeCard extends StatelessWidget {
                   key: const Key('home-start-today-workout'),
                   onPressed: active
                       ? controller.openLiveWorkout
-                      : todayRoutine == null
+                      : !hasTrainingData || todayRoutine == null
                       ? () => _openPlanEntry(context, controller)
                       : () => controller.startRoutine(todayRoutine),
                   icon: Icon(
@@ -222,8 +234,8 @@ class AiTrainingHomeCard extends StatelessWidget {
                   label: Text(
                     active
                         ? '继续今日训练'
-                        : todayRoutine == null
-                        ? '选择或生成训练计划'
+                        : !hasTrainingData || todayRoutine == null
+                        ? '使用推荐计划完成第一次训练'
                         : '开始今日训练',
                   ),
                 ),
