@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import 'muscle_palette.dart';
+
 /// The SVG body map used by the mini-program muscle selector.
 ///
 /// The source files keep a 660.46 × 1206.46 viewBox.  Keeping the same aspect
@@ -161,32 +163,12 @@ class _InteractiveMuscleMapState extends State<InteractiveMuscleMap> {
   }
 
   Color _heat(String group, {bool selected = false}) {
-    final value = widget.muscleSets[group] ?? 0;
     final base = widget.mode == MuscleMapMode.recovery
-        ? _recoveryColor(value)
-        : _volumeColor(value);
+        ? MusclePalette.recoveryColorFor(widget.muscleSets, group)
+        : MusclePalette.volumeColorFor(widget.muscleSets, group);
     return selected
         ? Color.alphaBlend(Colors.white.withValues(alpha: .2), base)
         : base;
-  }
-
-  static Color _volumeColor(int value) {
-    // Categorical colours keep one small set visibly distinct from no
-    // training and avoid scaling every muscle to the current maximum.
-    return switch (value) {
-      <= 0 => const Color(0xFFD7D0CB),
-      <= 4 => const Color(0xFFFFC766),
-      <= 9 => const Color(0xFFF28A3B),
-      _ => const Color(0xFFD94B25),
-    };
-  }
-
-  static Color _recoveryColor(int value) {
-    if (value <= 0) return const Color(0xFFD7D0CB);
-    if (value >= 80) return const Color(0xFF42A85F);
-    if (value >= 60) return const Color(0xFFF2B233);
-    if (value >= 40) return const Color(0xFFE8793D);
-    return const Color(0xFFE0523D);
   }
 
   void _toggle(String slug) {

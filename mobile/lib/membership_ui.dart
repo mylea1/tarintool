@@ -534,14 +534,12 @@ class MembershipCenterPage extends StatefulWidget {
 class _MembershipCenterPageState extends State<MembershipCenterPage>
     with WidgetsBindingObserver {
   late final MembershipPurchaseCoordinator purchase;
-  late final ScrollController _planScrollController;
   MembershipPlan selected = MembershipPlan.yearly;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _planScrollController = ScrollController();
     purchase = MembershipPurchaseCoordinator(widget.controller)
       ..addListener(_refresh);
     unawaited(purchase.initialize());
@@ -558,7 +556,6 @@ class _MembershipCenterPageState extends State<MembershipCenterPage>
     purchase
       ..removeListener(_refresh)
       ..dispose();
-    _planScrollController.dispose();
     super.dispose();
   }
 
@@ -575,35 +572,16 @@ class _MembershipCenterPageState extends State<MembershipCenterPage>
     final entitlement = widget.controller.entitlements;
     return Scaffold(
       backgroundColor: _paper,
-      appBar: AppBar(
-        backgroundColor: _paper,
-        title: const Text('会员中心'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute<void>(
-                builder: (_) =>
-                    MembershipOrdersPage(controller: widget.controller),
-              ),
-            ),
-            child: const Text('订单'),
-          ),
-        ],
-      ),
+      appBar: AppBar(backgroundColor: _paper, title: const Text('会员中心')),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 118),
         children: [
           _MemberHero(entitlement: entitlement),
-          const SizedBox(height: 12),
-          _TrialStatus(entitlement: entitlement),
-          const SizedBox(height: 12),
-          _CloudSyncStatus(isEnabled: widget.controller.cloudSyncAllowed),
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
           const Text(
             '选择适合你的方案',
             style: TextStyle(
-              fontSize: 20,
+              fontSize: 18,
               fontWeight: FontWeight.w900,
               color: _ink,
             ),
@@ -613,14 +591,17 @@ class _MembershipCenterPageState extends State<MembershipCenterPage>
             '所有方案均解锁完整 PRO 能力，区别仅在订阅周期。',
             style: TextStyle(fontSize: 12, color: _muted),
           ),
-          const SizedBox(height: 12),
-          _PlanComparison(
+          const SizedBox(height: 8),
+          MembershipPlanComparison(
             selected: selected,
             purchase: purchase,
-            scrollController: _planScrollController,
             onSelected: (plan) => setState(() => selected = plan),
           ),
           const SizedBox(height: 8),
+          _TrialStatus(entitlement: entitlement),
+          const SizedBox(height: 8),
+          _CloudSyncStatus(isEnabled: widget.controller.cloudSyncAllowed),
+          const SizedBox(height: 12),
           const _BenefitsCard(),
           if (purchase.errorMessage != null) ...[
             const SizedBox(height: 12),
@@ -730,12 +711,12 @@ class _MemberHero extends StatelessWidget {
   Widget build(BuildContext context) {
     final member = entitlement?.isMember == true;
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [Color(0xFF2E211B), Color(0xFF17110E)],
         ),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: const [
           BoxShadow(
             color: Color(0x33241A15),
@@ -861,10 +842,10 @@ class _TrialStatus extends StatelessWidget {
     }
     return Container(
       key: const Key('membership-trial-status'),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: color.withValues(alpha: .08),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: color.withValues(alpha: .25)),
       ),
       child: Row(
@@ -901,10 +882,10 @@ class _CloudSyncStatus extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     key: const Key('membership-cloud-sync-status'),
-    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
     decoration: BoxDecoration(
       color: isEnabled ? const Color(0xFFEAF5EF) : Colors.white,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(14),
       border: Border.all(color: isEnabled ? const Color(0xFFB9DDC8) : _line),
     ),
     child: Row(
@@ -920,26 +901,29 @@ class _CloudSyncStatus extends StatelessWidget {
             style: const TextStyle(fontWeight: FontWeight.w800, color: _ink),
           ),
         ),
-        Text(
-          isEnabled ? '登录后自动同步' : '会员权益',
-          style: const TextStyle(fontSize: 11, color: _muted),
+        Flexible(
+          child: Text(
+            isEnabled ? '登录后自动同步' : '会员权益',
+            textAlign: TextAlign.end,
+            softWrap: true,
+            style: const TextStyle(fontSize: 11, color: _muted),
+          ),
         ),
       ],
     ),
   );
 }
 
-class _PlanComparison extends StatelessWidget {
-  const _PlanComparison({
+class MembershipPlanComparison extends StatelessWidget {
+  const MembershipPlanComparison({
+    super.key,
     required this.selected,
     required this.purchase,
-    required this.scrollController,
     required this.onSelected,
   });
 
   final MembershipPlan selected;
   final MembershipPurchaseCoordinator purchase;
-  final ScrollController scrollController;
   final ValueChanged<MembershipPlan> onSelected;
 
   static const plans = [MembershipPlan.oneMonth, MembershipPlan.yearly];
@@ -947,6 +931,11 @@ class _PlanComparison extends StatelessWidget {
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
+      final textScale = MediaQuery.textScalerOf(context).scale(1);
+      // Keep both plans visible at common phone widths. At very narrow or
+      // enlarged text layouts, stack the same compact cards instead of
+      // forcing a horizontal scroll target that hides the second plan.
+      final stackCards = constraints.maxWidth < 336 || textScale > 1.4;
       final cards = [
         for (final plan in plans)
           _PlanCard(
@@ -957,37 +946,29 @@ class _PlanComparison extends StatelessWidget {
             onTap: () => onSelected(plan),
           ),
       ];
-      if (constraints.maxWidth >= 760) {
-        return IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              for (var index = 0; index < cards.length; index++) ...[
-                Expanded(child: cards[index]),
-                if (index != cards.length - 1) const SizedBox(width: 12),
-              ],
-            ],
-          ),
-        );
-      }
-      final cardWidth = (constraints.maxWidth - 18).clamp(248.0, 304.0);
       return Semantics(
-        label: '会员方案，可横向滑动比较',
-        child: SingleChildScrollView(
-          key: const Key('membership-plan-comparison'),
-          controller: scrollController,
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.only(right: 6),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              for (var index = 0; index < cards.length; index++) ...[
-                SizedBox(width: cardWidth, child: cards[index]),
-                if (index != cards.length - 1) const SizedBox(width: 12),
-              ],
-            ],
-          ),
-        ),
+        key: key ?? const Key('membership-plan-comparison'),
+        container: true,
+        label: stackCards ? '会员方案，分两行显示' : '会员方案，月度和年度方案',
+        child: stackCards
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (var index = 0; index < cards.length; index++) ...[
+                    cards[index],
+                    if (index != cards.length - 1) const SizedBox(height: 8),
+                  ],
+                ],
+              )
+            : Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (var index = 0; index < cards.length; index++) ...[
+                    Expanded(child: cards[index]),
+                    if (index != cards.length - 1) const SizedBox(width: 8),
+                  ],
+                ],
+              ),
       );
     },
   );
@@ -1044,123 +1025,88 @@ class _PlanCard extends StatelessWidget {
       MembershipPlan.forever => '一次购买，长期使用',
       MembershipPlan.free => '',
     };
-    final features = switch (plan) {
-      MembershipPlan.oneMonth => const [
-        '完整 PRO 权益',
-        '适合先体验 AI 训练闭环',
-        '可在应用商店管理订阅',
-      ],
-      MembershipPlan.threeMonths => const <String>[],
-      MembershipPlan.yearly => const [
-        '完整 PRO 权益',
-        '长期训练记忆与云同步',
-        '全年技术、力量与饮食趋势',
-      ],
-      _ => const <String>[],
-    };
-    return Material(
-      key: Key('membership-plan-${plan.name}'),
-      color: selected ? const Color(0xFFFFEEE2) : Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
-        side: BorderSide(
-          color: selected ? _ember : _line,
-          width: selected ? 1.7 : 1,
-        ),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
-        child: Padding(
-          padding: const EdgeInsets.all(18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+    return Semantics(
+      container: true,
+      button: true,
+      selected: selected,
+      label: '$title，$caption，$price',
+      onTap: onTap,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 140),
+        child: Material(
+          key: Key('membership-plan-${plan.name}'),
+          color: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(
+              color: selected ? const Color(0xFFF0A16F) : _line,
+              width: selected ? 1.5 : 1,
+            ),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(16),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 11, 12, 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w900,
+                            color: _ink,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(
+                        selected
+                            ? Icons.radio_button_checked_rounded
+                            : Icons.radio_button_unchecked_rounded,
+                        size: 18,
+                        color: selected ? _ember : _muted,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 9),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
                     child: Text(
-                      title,
+                      price,
+                      maxLines: 1,
+                      softWrap: false,
                       style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
                         color: _ink,
+                        fontSize: 28,
+                        fontWeight: FontWeight.w900,
                       ),
                     ),
                   ),
-                  if (plan == MembershipPlan.yearly)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _ember,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Text(
-                        '最受欢迎',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
+                  const SizedBox(height: 3),
+                  Text(
+                    caption,
+                    style: const TextStyle(color: _muted, fontSize: 11),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    monthlyEquivalent,
+                    style: const TextStyle(
+                      color: _ember,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
                     ),
+                  ),
                 ],
               ),
-              const SizedBox(height: 22),
-              Text(
-                price,
-                style: const TextStyle(
-                  color: _ink,
-                  fontSize: 34,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                caption,
-                style: const TextStyle(color: _muted, fontSize: 12),
-              ),
-              Text(
-                monthlyEquivalent,
-                style: const TextStyle(
-                  color: _ember,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 18),
-              SizedBox(
-                width: double.infinity,
-                child: selected
-                    ? FilledButton.icon(
-                        onPressed: onTap,
-                        icon: const Icon(Icons.check_rounded, size: 18),
-                        label: const Text('已选择'),
-                        style: FilledButton.styleFrom(backgroundColor: _ink),
-                      )
-                    : OutlinedButton(onPressed: onTap, child: Text('选择$title')),
-              ),
-              const SizedBox(height: 18),
-              for (final feature in features) ...[
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(Icons.check_rounded, color: _success, size: 18),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        feature,
-                        style: const TextStyle(fontSize: 12, height: 1.35),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-              ],
-            ],
+            ),
           ),
         ),
       ),
@@ -1284,7 +1230,23 @@ class _MembershipOrdersPageState extends State<MembershipOrdersPage> {
   @override
   void initState() {
     super.initState();
-    unawaited(widget.controller.hydrateMembershipOrders());
+    widget.controller.addListener(_refresh);
+    unawaited(_hydrate());
+  }
+
+  void _refresh() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _hydrate() async {
+    await widget.controller.hydrateMembershipOrders();
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_refresh);
+    super.dispose();
   }
 
   Future<void> _cancel(String id) async {

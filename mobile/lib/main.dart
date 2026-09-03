@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
@@ -19,9 +20,11 @@ import 'app_localizations.dart';
 import 'ai_api.dart';
 import 'controller.dart';
 import 'exercise_media.dart';
+import 'exercise_growth.dart';
 import 'link_utils.dart';
 import 'membership_ui.dart';
 import 'models.dart';
+import 'muscle_palette.dart';
 import 'muscle_selector.dart';
 import 'recognition_api.dart';
 import 'ai_training_ui.dart';
@@ -58,8 +61,8 @@ const setNoteColor = Color(0xFF176B4A);
 const setNoteContainer = Color(0xFFE5F5ED);
 const workoutNoteColor = Color(0xFF5F6673);
 const workoutNoteContainer = Color(0xFFF0F2F5);
-const kiloAppVersion = '1.0.31';
-const kiloAppBuild = '32';
+const kiloAppVersion = '1.0.32';
+const kiloAppBuild = '33';
 const kiloAppVersionLabel = '$kiloAppVersion ($kiloAppBuild)';
 const kiloSourceCommit = String.fromEnvironment(
   'KILO_SOURCE_COMMIT',
@@ -2632,7 +2635,7 @@ class _HomeMuscleMetricPage extends StatelessWidget {
           Align(
             alignment: Alignment.centerLeft,
             child: Text(
-              recovery ? '颜色越绿，恢复越充分' : '颜色越深，本周有效训练组越多',
+              recovery ? '训练负荷估算，非医学测量' : '本周有效组数',
               style: const TextStyle(color: quiet, fontSize: 11),
             ),
           ),
@@ -2643,12 +2646,24 @@ class _HomeMuscleMetricPage extends StatelessWidget {
               children: [
                 Expanded(
                   flex: 5,
-                  child: _MuscleBodyMap(
-                    key: mapKey,
-                    muscleSets: muscleSets,
-                    mode: metric,
-                    height: height,
-                    onMuscleTap: (_) => onTap(),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      // InteractiveMuscleMap reserves room for its front/back
+                      // controls (and an optional selected-label line) in
+                      // addition to the SVG itself. Derive the SVG height
+                      // from the row's actual budget so the home card stays
+                      // bounded when the legend wraps on narrow screens.
+                      final bodyHeight = (constraints.maxHeight - 56)
+                          .clamp(0.0, height)
+                          .toDouble();
+                      return _MuscleBodyMap(
+                        key: mapKey,
+                        muscleSets: muscleSets,
+                        mode: metric,
+                        height: bodyHeight,
+                        onMuscleTap: (_) => onTap(),
+                      );
+                    },
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -2729,16 +2744,58 @@ class _HomeMetricTab extends StatelessWidget {
   );
 }
 
-const _volumeNone = Color(0xFFD7D0CB);
-const _volumeLow = Color(0xFFFFC766);
-const _volumeMedium = Color(0xFFF28A3B);
-const _volumeHigh = Color(0xFFD94B25);
-
 Color _homeVolumeColor(int sets) {
-  if (sets <= 0) return _volumeNone;
-  if (sets <= 4) return _volumeLow;
-  if (sets <= 9) return _volumeMedium;
-  return _volumeHigh;
+  return MusclePalette.volumeColor(sets);
+}
+
+Color _homeRecoveryColor(int percent) => MusclePalette.recoveryColor(percent);
+
+class _MusclePaletteProgressBar extends StatelessWidget {
+  const _MusclePaletteProgressBar({
+    required this.fraction,
+    required this.metricValue,
+    required this.mode,
+    this.minHeight = 7,
+  });
+
+  final double fraction;
+  final num? metricValue;
+  final MuscleMapMode mode;
+  final double minHeight;
+
+  @override
+  Widget build(BuildContext context) {
+    final safeFraction = fraction.isFinite
+        ? fraction.clamp(0.0, 1.0).toDouble()
+        : 0.0;
+    final gradient = mode == MuscleMapMode.recovery
+        ? MusclePalette.recoveryGradient(metricValue)
+        : MusclePalette.volumeGradient(metricValue ?? 0);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(99),
+      child: SizedBox(
+        height: minHeight,
+        child: LayoutBuilder(
+          builder: (_, _) => Stack(
+            fit: StackFit.expand,
+            children: [
+              const ColoredBox(color: Color(0xFFF2E8E1)),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: FractionallySizedBox(
+                  widthFactor: safeFraction,
+                  heightFactor: 1,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(gradient: gradient),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _HomeMuscleVolumeRow extends StatelessWidget {
@@ -2779,11 +2836,10 @@ class _HomeMuscleVolumeRow extends StatelessWidget {
           Expanded(
             child: ClipRRect(
               borderRadius: BorderRadius.circular(99),
-              child: LinearProgressIndicator(
-                value: (sets / 16).clamp(0.0, 1.0),
-                minHeight: 7,
-                backgroundColor: const Color(0xFFF2E8E1),
-                valueColor: AlwaysStoppedAnimation<Color>(color),
+              child: _MusclePaletteProgressBar(
+                fraction: sets / 16,
+                metricValue: sets,
+                mode: MuscleMapMode.volume,
               ),
             ),
           ),
@@ -2808,13 +2864,6 @@ class _HomeMuscleVolumeRow extends StatelessWidget {
       ),
     );
   }
-}
-
-Color _homeRecoveryColor(int percent) {
-  if (percent >= 80) return success;
-  if (percent >= 60) return const Color(0xFFE29A00);
-  if (percent >= 40) return const Color(0xFFE8793D);
-  return danger;
 }
 
 class _HomeMuscleRecoveryRow extends StatelessWidget {
@@ -2855,11 +2904,10 @@ class _HomeMuscleRecoveryRow extends StatelessWidget {
           Expanded(
             child: ClipRRect(
               borderRadius: BorderRadius.circular(99),
-              child: LinearProgressIndicator(
-                value: (percent / 100).clamp(0.0, 1.0),
-                minHeight: 7,
-                backgroundColor: const Color(0xFFF2E8E1),
-                valueColor: AlwaysStoppedAnimation<Color>(color),
+              child: _MusclePaletteProgressBar(
+                fraction: percent / 100,
+                metricValue: percent,
+                mode: MuscleMapMode.recovery,
               ),
             ),
           ),
@@ -2911,14 +2959,21 @@ class _HomeVolumeLegendRow extends StatelessWidget {
   const _HomeVolumeLegendRow();
 
   @override
-  Widget build(BuildContext context) => const Wrap(
+  Widget build(BuildContext context) => Wrap(
     spacing: 10,
     runSpacing: 5,
     children: [
-      _HomeVolumeLegend(color: _volumeNone, label: '未训练'),
-      _HomeVolumeLegend(color: _volumeLow, label: '较少'),
-      _HomeVolumeLegend(color: _volumeMedium, label: '适中'),
-      _HomeVolumeLegend(color: _volumeHigh, label: '较多'),
+      for (
+        var index = 0;
+        index < MusclePalette.volumeLegendLabels.length;
+        index++
+      )
+        _HomeVolumeLegend(
+          color: MusclePalette.volumeColor(
+            MusclePalette.volumeLegendValues[index],
+          ),
+          label: MusclePalette.volumeLegendLabels[index],
+        ),
     ],
   );
 }
@@ -2927,13 +2982,21 @@ class _HomeRecoveryLegend extends StatelessWidget {
   const _HomeRecoveryLegend();
 
   @override
-  Widget build(BuildContext context) => const Wrap(
+  Widget build(BuildContext context) => Wrap(
     spacing: 10,
     runSpacing: 5,
     children: [
-      _HomeVolumeLegend(color: success, label: '恢复良好'),
-      _HomeVolumeLegend(color: Color(0xFFE29A00), label: '基本恢复'),
-      _HomeVolumeLegend(color: danger, label: '仍有疲劳'),
+      for (
+        var index = 0;
+        index < MusclePalette.recoveryLegendLabels.length;
+        index++
+      )
+        _HomeVolumeLegend(
+          color: MusclePalette.recoveryColor(
+            MusclePalette.recoveryLegendValues[index],
+          ),
+          label: MusclePalette.recoveryLegendLabels[index],
+        ),
     ],
   );
 }
@@ -3588,7 +3651,7 @@ class _RecoveryDetailsPageState extends State<RecoveryDetailsPage> {
                     ),
                     const SizedBox(height: 4),
                     const Text(
-                      '颜色越绿代表恢复越充分；红色区域优先安排休息。',
+                      '训练负荷估算，非医学测量。',
                       style: TextStyle(color: quiet, fontSize: 11),
                     ),
                     const SizedBox(height: 5),
@@ -7234,7 +7297,7 @@ class _TrainingStatisticsView extends StatelessWidget {
             child: Column(
               children: [
                 const Text(
-                  '颜色越深，代表该时段完成的有效训练组越多',
+                  '本周期有效组',
                   style: TextStyle(color: quiet, fontSize: 12),
                 ),
                 const SizedBox(height: 8),
@@ -7260,11 +7323,11 @@ class _TrainingStatisticsView extends StatelessWidget {
                     ),
                   ),
                   Expanded(
-                    child: LinearProgressIndicator(
-                      value: item.value / muscles.first.value,
+                    child: _MusclePaletteProgressBar(
+                      fraction: item.value / 22,
+                      metricValue: item.value,
+                      mode: MuscleMapMode.volume,
                       minHeight: 9,
-                      borderRadius: BorderRadius.circular(99),
-                      backgroundColor: primaryContainer,
                     ),
                   ),
                   SizedBox(
@@ -7285,57 +7348,17 @@ class _TrainingStatisticsView extends StatelessWidget {
   }
 }
 
-class _ExerciseGrowthPoint {
-  const _ExerciseGrowthPoint({required this.date, required this.value});
-
-  final DateTime date;
-  final double value;
-}
-
-List<_ExerciseGrowthPoint> _exerciseGrowthSeries(
-  List<WorkoutRecord> records,
-  String exerciseId, {
-  required String metric,
-}) {
-  final points = <_ExerciseGrowthPoint>[];
-  final ordered = records.toList()..sort((a, b) => a.date.compareTo(b.date));
-  for (final record in ordered) {
-    final performed = record.exercises
-        .where((item) => item.exerciseId == exerciseId)
-        .toList(growable: false);
-    if (performed.isEmpty) continue;
-    final completed = performed
-        .expand((item) => item.sets)
-        .where((set) => set.completed)
-        .toList(growable: false);
-    if (completed.isEmpty) continue;
-    final value = metric == 'reps'
-        ? completed
-              .map((set) => set.reps.toDouble())
-              .reduce((a, b) => a > b ? a : b)
-        : completed
-              .map(
-                (set) => set.reps <= 0
-                    ? set.weight
-                    : set.weight * (1 + set.reps / 30),
-              )
-              .reduce((a, b) => a > b ? a : b);
-    if (value > 0) {
-      points.add(_ExerciseGrowthPoint(date: record.date, value: value));
-    }
-  }
-  return points;
-}
-
 class _TrackedStrengthSection extends StatelessWidget {
   const _TrackedStrengthSection({
     required this.controller,
     required this.records,
-    required this.metric,
+    this.metric = 'estimated1rm',
   });
 
   final AppController controller;
   final List<WorkoutRecord> records;
+  // Kept for compatibility with persisted preferences and older callers. The
+  // visible overview is now always the paired weight × reps growth view.
   final String metric;
 
   Future<void> _manage(BuildContext context) async {
@@ -7353,9 +7376,7 @@ class _TrackedStrengthSection extends StatelessWidget {
   );
 
   Widget _buildContent(BuildContext context) {
-    final metric = controller.trackedExerciseMetric;
     final tracked = controller.trackedExerciseIds;
-    final title = metric == 'reps' ? '动作次数增长' : '动作力量增长';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -7364,40 +7385,23 @@ class _TrackedStrengthSection extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                title,
+                '动作成长',
                 style: const TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w900,
                 ),
               ),
             ),
+            const Tooltip(
+              message: '每次训练只选一个真实完成工作组；重量与次数来自同一组。',
+              child: Icon(Icons.info_outline_rounded, size: 17, color: quiet),
+            ),
+            const SizedBox(width: 3),
             TextButton.icon(
               key: const Key('manage-tracked-exercises'),
               onPressed: () => _manage(context),
               icon: const Icon(Icons.tune_rounded, size: 18),
               label: const Text('管理'),
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Wrap(
-          spacing: 8,
-          runSpacing: 6,
-          children: [
-            ChoiceChip(
-              key: const Key('tracked-metric-strength'),
-              label: const Text('力量 / 1RM'),
-              selected: metric != 'reps',
-              onSelected: (_) => unawaited(
-                controller.setTrackedExerciseMetric('estimated1rm'),
-              ),
-            ),
-            ChoiceChip(
-              key: const Key('tracked-metric-reps'),
-              label: const Text('次数'),
-              selected: metric == 'reps',
-              onSelected: (_) =>
-                  unawaited(controller.setTrackedExerciseMetric('reps')),
             ),
           ],
         ),
@@ -7432,16 +7436,16 @@ class _TrackedStrengthSection extends StatelessWidget {
           )
         else
           for (final exerciseId in tracked.take(3))
-            _TrackedExerciseChartCard(
+            _TrackedExerciseGrowthCard(
               key: Key('tracked-exercise-card-$exerciseId'),
               controller: controller,
               exerciseId: exerciseId,
-              points: _exerciseGrowthSeries(
+              points: buildExerciseGrowthSeries(
                 records,
                 exerciseId,
-                metric: metric,
+                definition: controller.exerciseFor(exerciseId),
+                engine: controller.intelligenceEngine,
               ),
-              metric: metric,
             ),
         if (tracked.length > 3) ...[
           const SizedBox(height: 4),
@@ -7450,233 +7454,430 @@ class _TrackedStrengthSection extends StatelessWidget {
             child: Text('查看全部 ${tracked.length} 个关注动作'),
           ),
         ],
-        const SizedBox(height: 13),
-        const Text(
-          '最大重量与 PR',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
-        ),
-        const SizedBox(height: 5),
-        if (tracked.isEmpty)
-          const Text(
-            '添加关注动作后，这里只显示你主动选择的动作。',
-            style: TextStyle(color: quiet, fontSize: 12),
-          )
-        else
-          for (final exerciseId in tracked.take(3))
-            _TrackedPrCard(
-              controller: controller,
-              exerciseId: exerciseId,
-              records: records,
-            ),
-        const SizedBox(height: 4),
-        TextButton.icon(
-          key: const Key('tracked-pr-manage'),
-          onPressed: () => _manage(context),
-          icon: const Icon(Icons.edit_outlined, size: 18),
-          label: const Text('管理关注动作'),
-        ),
       ],
     );
   }
 }
 
-class _TrackedExerciseChartCard extends StatelessWidget {
-  const _TrackedExerciseChartCard({
+class _TrackedExerciseGrowthCard extends StatefulWidget {
+  const _TrackedExerciseGrowthCard({
     super.key,
     required this.controller,
     required this.exerciseId,
     required this.points,
-    required this.metric,
   });
 
   final AppController controller;
   final String exerciseId;
-  final List<_ExerciseGrowthPoint> points;
-  final String metric;
+  final List<ExerciseGrowthPoint> points;
+
+  @override
+  State<_TrackedExerciseGrowthCard> createState() =>
+      _TrackedExerciseGrowthCardState();
+}
+
+class _TrackedExerciseGrowthCardState
+    extends State<_TrackedExerciseGrowthCard> {
+  var expanded = false;
+  int? selectedPointIndex;
+
+  List<ExerciseGrowthPoint> get points =>
+      comparableExerciseGrowthSeries(widget.points);
+
+  String _dateLabel(DateTime value) => '${value.month}/${value.day}';
+
+  String _pair(ExerciseGrowthPoint point) => point.pairLabel;
+
+  String _changeText(List<ExerciseGrowthPoint> values) {
+    if (values.isEmpty) return '所选时间段暂无有效工作组记录';
+    if (values.length == 1) return '已记录 1 次，再完成同器械训练后显示变化';
+    final first = values.first;
+    final latest = values.last;
+    if (first.isBodyweight && latest.isBodyweight) {
+      final repsDelta = latest.reps - first.reps;
+      if (repsDelta == 0) return '次数保持 ${latest.reps} 次';
+      return '次数 ${repsDelta > 0 ? '+' : ''}$repsDelta 次（重量均为自重）';
+    }
+    final weightDelta = latest.weight - first.weight;
+    final repsDelta = latest.reps - first.reps;
+    final parts = <String>[];
+    if (weightDelta.abs() >= .05) {
+      parts.add(
+        '重量 ${weightDelta > 0 ? '+' : ''}${formatGrowthNumber(weightDelta)} kg',
+      );
+    }
+    if (repsDelta != 0) {
+      parts.add('次数 ${repsDelta > 0 ? '+' : ''}$repsDelta 次');
+    }
+    return parts.isEmpty ? '重量与次数保持 ${_pair(latest)}' : parts.join(' · ');
+  }
+
+  void _toggleExpanded() => setState(() {
+    expanded = !expanded;
+    if (!expanded) selectedPointIndex = null;
+  });
+
+  void _selectPoint(TapUpDetails details, Size size) {
+    final values = points;
+    if (values.isEmpty || size.width <= 0) return;
+    const left = 34.0;
+    final right = math.max(left + 1, size.width - 28).toDouble();
+    final firstDate = values.first.date;
+    final lastDate = values.last.date;
+    final span = lastDate.difference(firstDate).inMilliseconds;
+    final tapX = details.localPosition.dx.clamp(left, right).toDouble();
+    var nearest = 0;
+    var nearestDistance = double.infinity;
+    for (var index = 0; index < values.length; index++) {
+      final ratio = span <= 0
+          ? .5
+          : values[index].date.difference(firstDate).inMilliseconds / span;
+      final x = left + (right - left) * ratio;
+      final distance = (tapX - x).abs();
+      if (distance < nearestDistance) {
+        nearest = index;
+        nearestDistance = distance;
+      }
+    }
+    setState(() => selectedPointIndex = nearest);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final exercise = controller.exerciseFor(exerciseId);
-    final name = controller.displayExerciseName(exercise);
-    final latest = points.lastOrNull?.value;
-    final first = points.firstOrNull?.value;
-    final delta = latest != null && first != null ? latest - first : null;
-    final unit = metric == 'reps' ? '次' : 'kg 估算 1RM';
+    final exercise = widget.controller.exerciseFor(widget.exerciseId);
+    final name = widget.controller.displayExerciseName(exercise);
+    final allPoints = widget.points;
+    final values = points;
+    final latest = values.lastOrNull;
+    final mixedHistory = hasMixedExerciseGrowthHistory(allPoints);
+    final selected =
+        selectedPointIndex == null ||
+            selectedPointIndex! < 0 ||
+            selectedPointIndex! >= values.length
+        ? null
+        : values[selectedPointIndex!];
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 10, 12, 9),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                _ExerciseThumb(exerciseId: exerciseId, size: 38),
-                const SizedBox(width: 9),
-                Expanded(
-                  child: Text(
-                    name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w900),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          InkWell(
+            key: Key('tracked-exercise-toggle-${widget.exerciseId}'),
+            onTap: _toggleExpanded,
+            borderRadius: BorderRadius.circular(14),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 9),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _ExerciseThumb(exerciseId: widget.exerciseId, size: 42),
+                  const SizedBox(width: 9),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.w900),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          latest == null
+                              ? '暂无真实完成工作组'
+                              : '最近 ${_dateLabel(latest.date)} · ${_pair(latest)}',
+                          style: const TextStyle(color: quiet, fontSize: 11),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                if (latest != null)
-                  Text(
-                    '${latest.toStringAsFixed(latest % 1 == 0 ? 0 : 1)} $unit',
-                    style: const TextStyle(fontWeight: FontWeight.w900),
+                  const SizedBox(width: 8),
+                  Icon(
+                    expanded
+                        ? Icons.keyboard_arrow_up_rounded
+                        : Icons.keyboard_arrow_down_rounded,
+                    color: quiet,
                   ),
-              ],
+                ],
+              ),
             ),
-            const SizedBox(height: 3),
-            Text(
-              delta == null
-                  ? '完成更多记录后显示增长'
-                  : '${delta >= 0 ? '+' : ''}${delta.toStringAsFixed(delta % 1 == 0 ? 0 : 1)} $unit',
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+            child: Text(
+              _changeText(values),
               style: TextStyle(
-                color: delta == null
-                    ? quiet
-                    : delta >= 0
-                    ? success
-                    : danger,
+                color: values.length < 2 ? quiet : primary,
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
               ),
             ),
-            const SizedBox(height: 6),
-            SizedBox(
-              key: Key('statistics-strength-chart-$exerciseId'),
-              height: 136,
-              child: points.isEmpty
-                  ? const Center(
-                      child: Text('所选时间段暂无数据', style: TextStyle(color: quiet)),
+          ),
+          if (mixedHistory)
+            const Padding(
+              padding: EdgeInsets.fromLTRB(12, 0, 12, 8),
+              child: Text(
+                '检测到不同训练地点，当前趋势已按最近地点分开；不同器械/场地不直接比较。',
+                style: TextStyle(color: quiet, fontSize: 11, height: 1.35),
+              ),
+            ),
+          if (expanded)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+              child: values.isEmpty
+                  ? SizedBox(
+                      key: Key(
+                        'statistics-strength-chart-empty-${widget.exerciseId}',
+                      ),
+                      height: 76,
+                      child: const Center(
+                        child: Text(
+                          '所选时间段暂无可比较数据',
+                          style: TextStyle(color: quiet),
+                        ),
+                      ),
                     )
-                  : CustomPaint(
-                      painter: _StrengthGrowthPainter(points: points),
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        LayoutBuilder(
+                          builder: (context, constraints) => GestureDetector(
+                            key: Key(
+                              'statistics-strength-chart-${widget.exerciseId}',
+                            ),
+                            behavior: HitTestBehavior.opaque,
+                            onTapUp: (details) => _selectPoint(
+                              details,
+                              Size(constraints.maxWidth, 190),
+                            ),
+                            child: Semantics(
+                              label: '重量和次数双轴趋势图，点击数据点查看同组配对',
+                              child: SizedBox(
+                                height: 190,
+                                child: CustomPaint(
+                                  painter: _DualAxisGrowthPainter(
+                                    points: values,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        const Wrap(
+                          spacing: 14,
+                          runSpacing: 4,
+                          children: [
+                            _GrowthLegend(color: primary, label: '重量（左轴 kg）'),
+                            _GrowthLegend(
+                              color: Color(0xFF428F9B),
+                              label: '同组次数（右轴 次）',
+                            ),
+                          ],
+                        ),
+                        if (selected != null) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            '详情 · ${_dateLabel(selected.date)} · ${_pair(selected)}',
+                            key: Key(
+                              'statistics-strength-point-${widget.exerciseId}',
+                            ),
+                            style: const TextStyle(
+                              color: secondaryInk,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
             ),
-          ],
-        ),
+        ],
       ),
     );
   }
 }
 
-class _StrengthGrowthPainter extends CustomPainter {
-  const _StrengthGrowthPainter({required this.points});
+class _GrowthLegend extends StatelessWidget {
+  const _GrowthLegend({required this.color, required this.label});
 
-  final List<_ExerciseGrowthPoint> points;
+  final Color color;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Container(
+        width: 8,
+        height: 8,
+        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+      ),
+      const SizedBox(width: 4),
+      Text(label, style: const TextStyle(color: quiet, fontSize: 10)),
+    ],
+  );
+}
+
+class _DualAxisGrowthPainter extends CustomPainter {
+  const _DualAxisGrowthPainter({required this.points});
+
+  final List<ExerciseGrowthPoint> points;
 
   @override
   void paint(Canvas canvas, Size size) {
     if (points.isEmpty || size.width <= 0 || size.height <= 0) return;
-    final values = points.map((point) => point.value).toList(growable: false);
-    final minValue = values.reduce((a, b) => a < b ? a : b);
-    final maxValue = values.reduce((a, b) => a > b ? a : b);
-    final spread = (maxValue - minValue).abs();
-    final low = minValue - (spread == 0 ? 1 : spread * .16);
-    final high = maxValue + (spread == 0 ? 1 : spread * .16);
+    const leftPad = 34.0;
+    const rightPad = 28.0;
+    const topPad = 17.0;
+    const bottomPad = 29.0;
+    final chartWidth = math
+        .max(1.0, size.width - leftPad - rightPad)
+        .toDouble();
+    final chartHeight = math
+        .max(1.0, size.height - topPad - bottomPad)
+        .toDouble();
+    final firstDate = points.first.date;
+    final lastDate = points.last.date;
+    final dateSpan = lastDate.difference(firstDate).inMilliseconds;
+    final weights = points.map((point) => point.weight).toList(growable: false);
+    final repetitions = points
+        .map((point) => point.reps.toDouble())
+        .toList(growable: false);
+    final weightRange = _axisRange(weights);
+    final repsRange = _axisRange(repetitions);
     final grid = Paint()
       ..color = hairline
       ..strokeWidth = 1;
     for (var index = 0; index < 3; index++) {
-      final y = size.height * index / 2;
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), grid);
+      final y = topPad + chartHeight * index / 2;
+      canvas.drawLine(
+        Offset(leftPad, y),
+        Offset(size.width - rightPad, y),
+        grid,
+      );
     }
-    final pointsOnCanvas = <Offset>[];
-    for (var index = 0; index < values.length; index++) {
-      final x = values.length == 1
-          ? size.width / 2
-          : size.width * index / (values.length - 1);
-      final ratio = ((values[index] - low) / (high - low)).clamp(0.0, 1.0);
-      pointsOnCanvas.add(Offset(x, size.height * (1 - ratio)));
+
+    Offset pointAt(int index, double value, _AxisRange range) {
+      final dateRatio = dateSpan <= 0
+          ? .5
+          : points[index].date.difference(firstDate).inMilliseconds / dateSpan;
+      final x = leftPad + chartWidth * dateRatio;
+      final valueRatio = ((value - range.low) / (range.high - range.low)).clamp(
+        0.0,
+        1.0,
+      );
+      final y = topPad + chartHeight * (1 - valueRatio);
+      return Offset(x, y);
     }
+
+    final weightPoints = [
+      for (var index = 0; index < points.length; index++)
+        pointAt(index, weights[index], weightRange),
+    ];
+    final repsPoints = [
+      for (var index = 0; index < points.length; index++)
+        pointAt(index, repetitions[index], repsRange),
+    ];
+    _drawSeries(canvas, weightPoints, primary);
+    _drawSeries(canvas, repsPoints, const Color(0xFF428F9B));
+    _drawAxisLabels(canvas, size, weightRange, repsRange);
+    for (var index = 0; index < points.length; index++) {
+      canvas.drawCircle(weightPoints[index], 4, Paint()..color = primary);
+      canvas.drawCircle(weightPoints[index], 2, Paint()..color = Colors.white);
+      canvas.drawCircle(
+        repsPoints[index],
+        3.5,
+        Paint()..color = const Color(0xFF428F9B),
+      );
+    }
+  }
+
+  _AxisRange _axisRange(List<double> values) {
+    final minValue = values.reduce((a, b) => math.min(a, b).toDouble());
+    final maxValue = values.reduce((a, b) => math.max(a, b).toDouble());
+    final spread = maxValue - minValue;
+    final padding = spread == 0
+        ? math.max(1.0, minValue.abs() * .12).toDouble()
+        : spread * .16;
+    return _AxisRange(
+      low: math.max(0, minValue - padding).toDouble(),
+      high: maxValue + padding,
+    );
+  }
+
+  void _drawSeries(Canvas canvas, List<Offset> points, Color color) {
+    if (points.length < 2) return;
     final line = Paint()
-      ..color = primary
+      ..color = color
       ..strokeWidth = 3
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round
       ..style = PaintingStyle.stroke;
-    if (pointsOnCanvas.length == 1) {
-      canvas.drawCircle(pointsOnCanvas.first, 5, Paint()..color = primary);
-      return;
-    }
-    final path = Path()
-      ..moveTo(pointsOnCanvas.first.dx, pointsOnCanvas.first.dy);
-    for (final point in pointsOnCanvas.skip(1)) {
+    final path = Path()..moveTo(points.first.dx, points.first.dy);
+    for (final point in points.skip(1)) {
       path.lineTo(point.dx, point.dy);
     }
     canvas.drawPath(path, line);
-    for (final point in pointsOnCanvas) {
-      canvas.drawCircle(point, 4, Paint()..color = primary);
-      canvas.drawCircle(point, 2, Paint()..color = Colors.white);
+  }
+
+  void _drawAxisLabels(
+    Canvas canvas,
+    Size size,
+    _AxisRange weightRange,
+    _AxisRange repsRange,
+  ) {
+    const style = TextStyle(color: quiet, fontSize: 9);
+    void draw(String text, Offset offset, {TextAlign align = TextAlign.left}) {
+      final painter = TextPainter(
+        text: TextSpan(text: text, style: style),
+        textDirection: TextDirection.ltr,
+        textAlign: align,
+      )..layout();
+      painter.paint(canvas, offset);
+    }
+
+    draw('kg', const Offset(2, 0));
+    draw('次', Offset(size.width - 18, 0));
+    for (var index = 0; index < 3; index++) {
+      final ratio = 1 - index / 2;
+      final y = 17 + (size.height - 17 - 29) * index / 2 - 5;
+      draw(
+        formatGrowthNumber(
+          weightRange.low + (weightRange.high - weightRange.low) * ratio,
+        ),
+        Offset(0, y),
+      );
+      draw(
+        formatGrowthNumber(
+          repsRange.low + (repsRange.high - repsRange.low) * ratio,
+        ),
+        Offset(size.width - 25, y),
+        align: TextAlign.right,
+      );
+    }
+    final first = points.first;
+    final last = points.last;
+    draw('${first.date.month}/${first.date.day}', Offset(27, size.height - 17));
+    if (last != first) {
+      draw(
+        '${last.date.month}/${last.date.day}',
+        Offset(size.width - 52, size.height - 17),
+      );
     }
   }
 
   @override
-  bool shouldRepaint(covariant _StrengthGrowthPainter oldDelegate) =>
+  bool shouldRepaint(covariant _DualAxisGrowthPainter oldDelegate) =>
       oldDelegate.points != points;
 }
 
-class _TrackedPrCard extends StatelessWidget {
-  const _TrackedPrCard({
-    required this.controller,
-    required this.exerciseId,
-    required this.records,
-  });
+class _AxisRange {
+  const _AxisRange({required this.low, required this.high});
 
-  final AppController controller;
-  final String exerciseId;
-  final List<WorkoutRecord> records;
-
-  @override
-  Widget build(BuildContext context) {
-    final completed = records
-        .expand((record) => record.exercises)
-        .where((item) => item.exerciseId == exerciseId)
-        .expand((item) => item.sets)
-        .where((set) => set.completed && set.weight > 0)
-        .toList(growable: false);
-    if (completed.isEmpty) {
-      return Card(
-        margin: const EdgeInsets.only(bottom: 7),
-        child: ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 10),
-          leading: _ExerciseThumb(exerciseId: exerciseId, size: 38),
-          title: Text(
-            controller.displayExerciseName(controller.exerciseFor(exerciseId)),
-          ),
-          subtitle: const Text('所选时间段暂无带重量的记录'),
-        ),
-      );
-    }
-    final maxWeight = completed
-        .map((set) => set.weight)
-        .reduce((a, b) => a > b ? a : b);
-    final oneRm = completed
-        .map(
-          (set) =>
-              set.reps <= 0 ? set.weight : set.weight * (1 + set.reps / 30),
-        )
-        .reduce((a, b) => a > b ? a : b);
-    return Card(
-      margin: const EdgeInsets.only(bottom: 7),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 10),
-        leading: _ExerciseThumb(exerciseId: exerciseId, size: 38),
-        title: Text(
-          controller.displayExerciseName(controller.exerciseFor(exerciseId)),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        subtitle: Text('最大重量 ${maxWeight.toStringAsFixed(1)} kg'),
-        trailing: Text(
-          '1RM ${oneRm.toStringAsFixed(1)}',
-          style: const TextStyle(fontWeight: FontWeight.w900),
-        ),
-      ),
-    );
-  }
+  final double low;
+  final double high;
 }
 
 class _StrengthTrackingPage extends StatefulWidget {
@@ -8395,11 +8596,11 @@ class _InlineMuscleVolumeSection extends StatelessWidget {
                   ),
                   const SizedBox(width: 6),
                   Expanded(
-                    child: LinearProgressIndicator(
-                      value: (item.effectiveSets / 22).clamp(0.0, 1.0),
+                    child: _MusclePaletteProgressBar(
+                      fraction: item.effectiveSets / 22,
+                      metricValue: item.effectiveSets,
+                      mode: MuscleMapMode.volume,
                       minHeight: 7,
-                      borderRadius: BorderRadius.circular(99),
-                      backgroundColor: primaryContainer,
                     ),
                   ),
                   const SizedBox(width: 7),
@@ -8993,10 +9194,7 @@ class _MuscleDetailsPageState extends State<MuscleDetailsPage> {
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
             ),
             const SizedBox(height: 4),
-            const Text(
-              '颜色越深，代表当前周期完成的有效组越多。',
-              style: TextStyle(color: quiet, fontSize: 12),
-            ),
+            const Text('本周期有效组', style: TextStyle(color: quiet, fontSize: 12)),
             const SizedBox(height: 8),
             Card(
               child: Padding(
@@ -14497,6 +14695,19 @@ class ProfilePage extends StatelessWidget {
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
                     builder: (_) => UnifiedCalendarPage(controller: controller),
+                  ),
+                ),
+              ),
+              const Divider(height: 1),
+              _ProfileSettingRow(
+                key: const Key('profile-orders-entry'),
+                icon: Icons.receipt_long_outlined,
+                title: '我的订单',
+                caption: '查看会员购买与订单状态',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) =>
+                        MembershipOrdersPage(controller: controller),
                   ),
                 ),
               ),
@@ -20026,6 +20237,14 @@ class _RoutineEditorPageState extends State<_RoutineEditorPage> {
   );
 }
 
+enum _RoutineExerciseAction {
+  moveUp,
+  moveDown,
+  replace,
+  toggleSuperset,
+  delete,
+}
+
 class _RoutineExerciseEditor extends StatelessWidget {
   const _RoutineExerciseEditor({
     required this.controller,
@@ -20045,6 +20264,38 @@ class _RoutineExerciseEditor extends StatelessWidget {
     final title = controller.displayExerciseName(
       controller.exerciseFor(exercise.exerciseId),
     );
+    void applyAction(_RoutineExerciseAction action) {
+      switch (action) {
+        case _RoutineExerciseAction.moveUp:
+          if (index <= 0) return;
+          final item = routine.exercises.removeAt(index);
+          routine.exercises.insert(index - 1, item);
+          routine.updatedAt = DateTime.now();
+          controller.refresh();
+          onChanged();
+        case _RoutineExerciseAction.moveDown:
+          if (index >= routine.exercises.length - 1) return;
+          final item = routine.exercises.removeAt(index);
+          routine.exercises.insert(index + 1, item);
+          routine.updatedAt = DateTime.now();
+          controller.refresh();
+          onChanged();
+        case _RoutineExerciseAction.replace:
+          _showRoutineReplacePicker(context, controller, routine, exercise);
+        case _RoutineExerciseAction.toggleSuperset:
+          exercise.supersetId = exercise.supersetId == null
+              ? 'routine-superset-${DateTime.now().microsecondsSinceEpoch}'
+              : null;
+          controller.refresh();
+          onChanged();
+        case _RoutineExerciseAction.delete:
+          routine.exercises.removeAt(index);
+          routine.updatedAt = DateTime.now();
+          controller.refresh();
+          onChanged();
+      }
+    }
+
     return Card(
       margin: const EdgeInsets.only(bottom: 9),
       child: ExpansionTile(
@@ -20065,72 +20316,73 @@ class _RoutineExerciseEditor extends StatelessWidget {
         ),
         childrenPadding: const EdgeInsets.fromLTRB(10, 0, 10, 9),
         children: [
-          Wrap(
-            spacing: 4,
-            children: [
-              IconButton(
-                tooltip: '上移',
-                onPressed: index == 0
-                    ? null
-                    : () {
-                        final item = routine.exercises.removeAt(index);
-                        routine.exercises.insert(index - 1, item);
-                        routine.updatedAt = DateTime.now();
-                        controller.refresh();
-                        onChanged();
-                      },
-                icon: const Icon(Icons.arrow_upward),
-              ),
-              IconButton(
-                tooltip: '下移',
-                onPressed: index == routine.exercises.length - 1
-                    ? null
-                    : () {
-                        final item = routine.exercises.removeAt(index);
-                        routine.exercises.insert(index + 1, item);
-                        routine.updatedAt = DateTime.now();
-                        controller.refresh();
-                        onChanged();
-                      },
-                icon: const Icon(Icons.arrow_downward),
-              ),
-              IconButton(
-                tooltip: '替换',
-                onPressed: () => _showRoutineReplacePicker(
-                  context,
-                  controller,
-                  routine,
-                  exercise,
-                ),
-                icon: const Icon(Icons.swap_horiz),
-              ),
-              IconButton(
-                tooltip: exercise.supersetId == null ? '加入超级组' : '取消超级组',
-                onPressed: () {
-                  exercise.supersetId = exercise.supersetId == null
-                      ? 'routine-superset-${DateTime.now().microsecondsSinceEpoch}'
-                      : null;
-                  controller.refresh();
-                  onChanged();
-                },
-                icon: Icon(
-                  exercise.supersetId == null ? Icons.link : Icons.link_off,
+          Align(
+            alignment: Alignment.centerRight,
+            child: PopupMenuButton<_RoutineExerciseAction>(
+              key: Key('routine-exercise-actions-${exercise.id}'),
+              tooltip: '更多动作操作',
+              icon: const Icon(Icons.more_horiz_rounded),
+              style: IconButton.styleFrom(
+                backgroundColor: primaryContainer,
+                foregroundColor: primary,
+                minimumSize: const Size(44, 44),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              IconButton(
-                tooltip: '删除',
-                onPressed: () {
-                  routine.exercises.removeAt(index);
-                  routine.updatedAt = DateTime.now();
-                  controller.refresh();
-                  onChanged();
-                },
-                icon: const Icon(
-                  Icons.delete_outline,
-                  color: Color(0xFFB83A3A),
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: _RoutineExerciseAction.moveUp,
+                  enabled: index > 0,
+                  child: const _RoutineActionMenuLabel(
+                    icon: Icons.arrow_upward_rounded,
+                    label: '上移',
+                  ),
                 ),
-              ),
-            ],
+                PopupMenuItem(
+                  value: _RoutineExerciseAction.moveDown,
+                  enabled: index < routine.exercises.length - 1,
+                  child: const _RoutineActionMenuLabel(
+                    icon: Icons.arrow_downward_rounded,
+                    label: '下移',
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: _RoutineExerciseAction.replace,
+                  child: _RoutineActionMenuLabel(
+                    icon: Icons.swap_horiz_rounded,
+                    label: '替换',
+                  ),
+                ),
+                PopupMenuItem(
+                  value: _RoutineExerciseAction.toggleSuperset,
+                  child: _RoutineActionMenuLabel(
+                    icon: exercise.supersetId == null
+                        ? Icons.link_rounded
+                        : Icons.link_off_rounded,
+                    label: exercise.supersetId == null ? '加入超级组' : '取消超级组',
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: _RoutineExerciseAction.delete,
+                  child: _RoutineActionMenuLabel(
+                    icon: Icons.delete_outline_rounded,
+                    label: '删除动作',
+                    destructive: true,
+                  ),
+                ),
+              ],
+              onSelected: applyAction,
+            ),
+          ),
+          const SizedBox(height: 3),
+          const Text(
+            '动作设置',
+            style: TextStyle(
+              color: quiet,
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+            ),
           ),
           TextFormField(
             initialValue: _editableCount(exercise.restSeconds),
@@ -20146,6 +20398,14 @@ class _RoutineExerciseEditor extends StatelessWidget {
             },
           ),
           const SizedBox(height: 6),
+          const Text(
+            '组设置',
+            style: TextStyle(
+              color: quiet,
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
           for (var setIndex = 0; setIndex < exercise.sets.length; setIndex++)
             _RoutineSetEditor(
               controller: controller,
@@ -20184,6 +20444,28 @@ class _RoutineExerciseEditor extends StatelessWidget {
       ),
     );
   }
+}
+
+class _RoutineActionMenuLabel extends StatelessWidget {
+  const _RoutineActionMenuLabel({
+    required this.icon,
+    required this.label,
+    this.destructive = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool destructive;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Icon(icon, size: 18, color: destructive ? danger : null),
+      const SizedBox(width: 8),
+      Text(label, style: destructive ? const TextStyle(color: danger) : null),
+    ],
+  );
 }
 
 class _RoutineSetEditorBase extends StatelessWidget {
@@ -20457,11 +20739,10 @@ void _showRoutineReplacePicker(
 }
 
 void _showPlanBuilder(BuildContext context, AppController controller) {
-  showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    builder: (context) => _DraftPlanComposer(controller: controller),
+  Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) => _DraftPlanComposer(controller: controller),
+    ),
   );
 }
 
@@ -20519,44 +20800,53 @@ class _DraftPlanComposerState extends State<_DraftPlanComposer> {
   }
 
   @override
-  Widget build(BuildContext context) => SafeArea(
-    child: SizedBox(
-      height: MediaQuery.sizeOf(context).height * .94,
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(
+      leading: IconButton(
+        key: const Key('draft-cancel-icon'),
+        tooltip: '取消并返回',
+        onPressed: () => Navigator.pop(context),
+        icon: const Icon(Icons.arrow_back_rounded),
+      ),
+      title: const Text('新建计划'),
+      actions: [
+        IconButton(
+          key: const Key('draft-save-icon'),
+          tooltip: '保存计划',
+          onPressed: save,
+          icon: const Icon(Icons.save_outlined),
+        ),
+      ],
+    ),
+    body: SafeArea(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    key: const Key('draft-name'),
-                    controller: name,
-                    onChanged: (value) => draft.name = value,
-                    decoration: const InputDecoration(
-                      labelText: '\u8BAD\u7EC3\u540D\u79F0',
-                      isDense: true,
-                      contentPadding: EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
-                      ),
-                    ),
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
+            TextField(
+              key: const Key('draft-name'),
+              controller: name,
+              onChanged: (value) => setState(() {
+                draft.name = value;
+                error = null;
+              }),
+              onTapOutside: (_) =>
+                  FocusManager.instance.primaryFocus?.unfocus(),
+              decoration: const InputDecoration(
+                labelText: '训练名称',
+                isDense: true,
+                prefixIcon: Icon(Icons.edit_outlined),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
                 ),
-                IconButton(
-                  tooltip: '\u5173\u95ED',
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close),
-                ),
-              ],
+              ),
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
             ),
+            const SizedBox(height: 5),
             Text(
-              '${draft.exercises.length} \u4E2A\u52A8\u4F5C',
+              '${draft.exercises.length} 个动作 · 保存后才会加入我的计划',
               style: const TextStyle(color: quiet, fontSize: 12),
             ),
             if (error != null)
@@ -20570,6 +20860,8 @@ class _DraftPlanComposerState extends State<_DraftPlanComposer> {
             const SizedBox(height: 8),
             Expanded(
               child: ListView(
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
                 padding: const EdgeInsets.only(bottom: 8),
                 children: [
                   for (var index = 0; index < draft.exercises.length; index++)
@@ -20588,37 +20880,39 @@ class _DraftPlanComposerState extends State<_DraftPlanComposer> {
                       draft,
                       onChanged: () => setState(() => error = null),
                     ),
-                    icon: const Icon(Icons.add),
-                    label: const Text('\u6DFB\u52A0\u52A8\u4F5C'),
+                    icon: const Icon(Icons.add_rounded),
+                    label: const Text('添加动作'),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    key: const Key('draft-cancel-button'),
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('\u53D6\u6D88'),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: KeyedSubtree(
-                    key: const Key('draft-save-button'),
-                    child: FilledButton(
-                      key: const Key('template-save-button'),
-                      onPressed: draft.exercises.isEmpty ? null : save,
-                      child: const Text('保存计划'),
-                    ),
-                  ),
-                ),
-              ],
-            ),
           ],
         ),
+      ),
+    ),
+    bottomNavigationBar: SafeArea(
+      minimum: const EdgeInsets.fromLTRB(14, 8, 14, 12),
+      child: Row(
+        children: [
+          Expanded(
+            child: OutlinedButton(
+              key: const Key('draft-cancel-button'),
+              onPressed: () => Navigator.pop(context),
+              child: const Text('取消'),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: KeyedSubtree(
+              key: const Key('draft-save-button'),
+              child: FilledButton(
+                key: const Key('template-save-button'),
+                onPressed: save,
+                child: const Text('保存计划'),
+              ),
+            ),
+          ),
+        ],
       ),
     ),
   );

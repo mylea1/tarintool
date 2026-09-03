@@ -172,12 +172,12 @@ void main() {
     expect(find.text('年度会员'), findsOneWidget);
     expect(find.text('¥12'), findsOneWidget);
     expect(find.text('¥128'), findsOneWidget);
-    expect(find.text('最受欢迎'), findsOneWidget);
+    expect(find.text('最受欢迎'), findsNothing);
     expect(find.text('季度会员'), findsNothing);
     expect(find.text('¥38'), findsNothing);
     expect(find.byKey(const Key('membership-plan-comparison')), findsOneWidget);
     expect(find.text('永久会员'), findsNothing);
-    expect(find.text('订单'), findsOneWidget);
+    expect(find.text('订单'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -601,16 +601,43 @@ void main() {
       find.byKey(const Key('draft-name')),
     );
     expect(nameField.style?.fontSize, 20);
+    expect(
+      ModalRoute.of(tester.element(find.byKey(const Key('draft-name')))),
+      isA<PageRoute<dynamic>>(),
+      reason: 'new plan uses a full page route, not a modal bottom sheet',
+    );
+    expect(controller.routines, isEmpty);
+    await tester.tap(find.byKey(const Key('draft-cancel-button')));
+    await tester.pumpAndSettle();
+    expect(controller.routines, isEmpty);
+    expect(find.byKey(const Key('draft-name')), findsNothing);
+
+    await tester.tap(find.text('新建计划'));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('draft-add-exercise')));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull, reason: 'exercise picker');
     final first = selectableCatalog.first;
     await tester.tap(find.byKey(Key('exercise-picker-add-${first.id}')));
+    await tester.pump();
     await tester.tap(find.byKey(const Key('exercise-picker-add-selected')));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull, reason: 'plan with exercise');
-    expect(find.text(controller.displayExerciseName(first)), findsWidgets);
+    expect(
+      find.textContaining(controller.displayExerciseName(first)),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('exercise-picker-add-selected')),
+      findsNothing,
+    );
     expect(find.text('保存计划'), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('draft-name')), '可保存计划');
+    await tester.tap(find.byKey(const Key('draft-save-button')));
+    await tester.pumpAndSettle();
+    expect(controller.routines, hasLength(1));
+    expect(controller.routines.single.name, '可保存计划');
+    expect(find.byKey(const Key('draft-name')), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -709,11 +736,27 @@ void main() {
       find.byKey(const Key('tracked-exercise-card-lat_pulldown')),
       findsOneWidget,
     );
-    await tester.ensureVisible(find.byKey(const Key('tracked-metric-reps')));
-    await tester.pump();
-    await tester.tap(find.byKey(const Key('tracked-metric-reps')));
+    expect(find.byKey(const Key('tracked-metric-reps')), findsNothing);
+    expect(find.text('最大重量与 PR'), findsNothing);
+    expect(find.byKey(const Key('tracked-pr-manage')), findsNothing);
+    expect(
+      find.byKey(const Key('statistics-strength-chart-bench_press')),
+      findsNothing,
+    );
+    expect(find.textContaining('82.5 kg × 6 次'), findsOneWidget);
+    final trackedToggle = find.byKey(
+      const Key('tracked-exercise-toggle-bench_press'),
+    );
+    await tester.drag(find.byType(ListView).first, const Offset(0, -700));
     await tester.pumpAndSettle();
-    expect(controller.trackedExerciseMetric, 'reps');
+    expect(tester.getRect(trackedToggle).center.dy, lessThan(600));
+    await tester.tap(trackedToggle);
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('statistics-strength-chart-bench_press')),
+      findsOneWidget,
+    );
+    expect(find.textContaining('82.5 kg × 6 次'), findsOneWidget);
   });
 
   testWidgets('warm orange theme tokens reach shell navigation and inputs', (
