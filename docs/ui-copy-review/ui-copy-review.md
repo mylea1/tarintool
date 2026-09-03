@@ -3,7 +3,7 @@
 > 本表由 `mobile/tool/export_ui_copy.dart` 生成。仅盘点，不会自动删除或修改 app 文案。
 
 扫描范围：`mobile/lib` 中与 UI 相关的 Dart 文件（本次扫描文件数：15）。
-总条目：`13480`（按源码出现位置保留重复使用点）；每条都有稳定 ID、原文模板、locale、类型与源码行号。
+总条目：`13482`（按源码出现位置保留重复使用点）；每条都有稳定 ID、原文模板、locale、类型与源码行号。
 
 ## 使用与边界
 
@@ -17,7 +17,7 @@
 
 | 页面/分组 | 条目数 |
 | --- | ---: |
-| AI | 89 |
+| AI | 90 |
 | 主应用/未归类 | 380 |
 | 主页 | 5 |
 | 主题设置 | 3 |
@@ -28,7 +28,7 @@
 | 全局本地化 | 377 |
 | 动作库 | 133 |
 | 动作库·目录附录 | 11391 |
-| 动作识别 | 68 |
+| 动作识别 | 69 |
 | 动作识别/能力目录 | 454 |
 | 动作趋势 | 4 |
 | 控制器用户反馈 | 71 |
@@ -68,71 +68,72 @@
 | [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 正在生成… | `lib/main.dart:6145:58` | 否 |
 | [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 生成训练计划 | `lib/main.dart:6145:68` | 否 |
 | [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 停止回答 · 已等待 {{widget.controller.aiWaitingSeconds}} 秒 | `lib/main.dart:6178:21` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN | 工具提示 | 对话列表 | `lib/main.dart:12652:32` | 否 |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | AI Coach | `lib/main.dart:12666:33` | 否 |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN | 工具提示 | AI 设置 | `lib/main.dart:12681:32` | 否 |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 尚无对话。发送一个问题开始。 | `lib/main.dart:12719:25` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN | 工具提示 | 移除 | `lib/main.dart:12772:48` | 否 |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 直接发送给 AI | `lib/main.dart:12793:51` | 否 |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN | 输入提示 | 询问训练、恢复或计划安排 | `lib/main.dart:12821:41` | 否 |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | Skill {{controller.enabledAiSkills.length}}/3 | `lib/main.dart:12923:23` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 选择训练资料 | `lib/main.dart:13034:25` | 否 |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 可多选，AI 会按日期比较变化 | `lib/main.dart:13040:28` | 否 |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN | 工具提示 | 关闭 | `lib/main.dart:13045:28` | 否 |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 还没有可发送的训练数据 | `lib/main.dart:13054:44` | 否 |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 这次不添加训练资料 | `lib/main.dart:13119:25` | 否 |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 使用已选的 {{selected.length}} 项资料 | `lib/main.dart:13120:25` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | AI 对话 | `lib/main.dart:13146:21` | 否 |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN | 工具提示 | 关闭 | `lib/main.dart:13151:28` | 否 |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 新建对话 | `lib/main.dart:13170:35` | 否 |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN | 工具提示 | 删除对话 | `lib/main.dart:13200:32` | 否 |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 服务与训练授权 | `lib/main.dart:13213:31` | 否 |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | URL、授权、场景 | `lib/main.dart:13214:34` | 否 |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 备注：{{recordNote}} | `lib/main.dart:13474:19` | 否 |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | AI 设置 | `lib/main.dart:13503:38` | 否 |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 自定义 Skill | `lib/main.dart:13516:23` | 否 |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 设定 AI 的回答方法、关注点或输出格式。 | `lib/main.dart:13523:23` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 新增 | `lib/main.dart:13535:35` | 否 |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 还没有 Skill。新增后可在聊天输入框上方快速启用。 | `lib/main.dart:13544:17` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 弹窗文本 | 删除 Skill？ | `lib/main.dart:13575:45` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 弹窗文本 | “{{skill.name}}”将被永久删除{{skill.enabled ? '，并立即停止使用' : ''}}。 | `lib/main.dart:13577:29` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 弹窗文本 | 取消 | `lib/main.dart:13582:49` | 否 |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 弹窗文本 | 删除 | `lib/main.dart:13586:49` | 否 |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 修改 | `lib/main.dart:13595:62` | 否 |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 删除 | `lib/main.dart:13596:64` | 否 |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN | 文本 | 最多同时启用 3 个 Skill | `lib/main.dart:13601:44` | 否 |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 服务与训练授权 | `lib/main.dart:13609:31` | 否 |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 服务地址、训练摘要授权 | `lib/main.dart:13610:34` | 否 |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | {{plan.weeks}} 周 | `lib/main.dart:13986:15` | 否 |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 第 {{session.dayOffset + 1}} 天 · {{session.name}} · {{session.effectiveExerciseIds.length}} 个动作 | `lib/main.dart:14004:25` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | {{totalExercises}} 个动作 · {{totalSets}} 组 · 已含重量/次数/休息 | `lib/main.dart:14020:17` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | {{totalExercises}} 个动作 · 旧计划未包含组次处方 | `lib/main.dart:14021:17` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 查看详情 | `lib/main.dart:14032:33` | 否 |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 保存计划 | `lib/main.dart:14037:33` | 否 |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 保存并安排日历 | `lib/main.dart:14042:33` | 否 |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 训练计划详情 | `lib/main.dart:14061:25` | 否 |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | {{plan.weeks}} 周 · {{plan.sessions.length}} 个训练日 | `lib/main.dart:14071:11` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 第 {{session.dayOffset + 1}} 天 · {{session.name}} | `lib/main.dart:14084:21` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | {{session.totalSets}} 组 · 计划容量 {{session.plannedVolume.toStringAsFixed(0)}} kg | `lib/main.dart:14093:23` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 这份旧计划只保存了动作。请重新生成一次，即可获得每组重量、次数和休息安排。 | `lib/main.dart:14100:23` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | {{index}}. {{exercise.name}} | `lib/main.dart:14155:21` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | {{exercise.muscle}} · {{exercise.equipment}} | `lib/main.dart:14159:21` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 动作提醒 · {{note}} | `lib/main.dart:14188:21` | 否 |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | {{setIndex + 1}} · {{draft.sets[setIndex].type == 'warmup' ? '热身' : '正式'}} | `lib/main.dart:14216:21` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | {{draft.sets[setIndex].weight.toStringAsFixed(draft.sets[setIndex].weight % 1 =…}} kg × {{draft.sets[setIndex].reps}} 次 | `lib/main.dart:14222:21` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 休 {{draft.sets[setIndex].restSeconds}}s | `lib/main.dart:14227:19` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | AI 训练评价 | `lib/main.dart:18755:21` | 否 |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 正在思考本次训练的整体安排… | `lib/main.dart:18772:40` | 否 |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 收起 | `lib/main.dart:18821:44` | 否 |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 展开全文 | `lib/main.dart:18821:51` | 否 |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 训练记录已经保存，但 AI 评价暂时没有生成，不影响本次数据。 | `lib/main.dart:18834:21` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 重新生成评价 | `lib/main.dart:18841:39` | 否 |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | AI 训练评价 | `lib/main.dart:18878:25` | 否 |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 训练结构  ·  主要肌群覆盖与动作模式安排 | `lib/main.dart:18885:28` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 本次表现  ·  训练量分配与组间完成情况 | `lib/main.dart:18887:28` | 否 |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 下次调整  ·  一项可以直接执行的建议 | `lib/main.dart:18889:28` | 否 |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 解锁训练后的 AI 评价 | `lib/main.dart:18904:23` | 否 |
-| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 开通形域 PRO | `lib/main.dart:18914:41` | 否 |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN | 工具提示 | 对话列表 | `lib/main.dart:12660:32` | 否 |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | AI Coach | `lib/main.dart:12674:33` | 否 |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN | 工具提示 | AI 设置 | `lib/main.dart:12689:32` | 否 |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 动作识别 | `lib/main.dart:12723:37` | 否 |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 尚无对话。发送一个问题开始。 | `lib/main.dart:12757:25` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN | 工具提示 | 移除 | `lib/main.dart:12810:48` | 否 |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 直接发送给 AI | `lib/main.dart:12831:51` | 否 |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN | 输入提示 | 询问训练、恢复或计划安排 | `lib/main.dart:12859:41` | 否 |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | Skill {{controller.enabledAiSkills.length}}/3 | `lib/main.dart:12977:23` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 选择训练资料 | `lib/main.dart:13088:25` | 否 |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 可多选，AI 会按日期比较变化 | `lib/main.dart:13094:28` | 否 |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN | 工具提示 | 关闭 | `lib/main.dart:13099:28` | 否 |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 还没有可发送的训练数据 | `lib/main.dart:13108:44` | 否 |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 这次不添加训练资料 | `lib/main.dart:13173:25` | 否 |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 使用已选的 {{selected.length}} 项资料 | `lib/main.dart:13174:25` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | AI 对话 | `lib/main.dart:13200:21` | 否 |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN | 工具提示 | 关闭 | `lib/main.dart:13205:28` | 否 |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 新建对话 | `lib/main.dart:13224:35` | 否 |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN | 工具提示 | 删除对话 | `lib/main.dart:13254:32` | 否 |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 服务与训练授权 | `lib/main.dart:13267:31` | 否 |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | URL、授权、场景 | `lib/main.dart:13268:34` | 否 |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 备注：{{recordNote}} | `lib/main.dart:13528:19` | 否 |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | AI 设置 | `lib/main.dart:13557:38` | 否 |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 自定义 Skill | `lib/main.dart:13570:23` | 否 |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 设定 AI 的回答方法、关注点或输出格式。 | `lib/main.dart:13577:23` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 新增 | `lib/main.dart:13589:35` | 否 |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 还没有 Skill。新增后可在聊天输入框上方快速启用。 | `lib/main.dart:13598:17` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 弹窗文本 | 删除 Skill？ | `lib/main.dart:13629:45` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 弹窗文本 | “{{skill.name}}”将被永久删除{{skill.enabled ? '，并立即停止使用' : ''}}。 | `lib/main.dart:13631:29` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 弹窗文本 | 取消 | `lib/main.dart:13636:49` | 否 |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 弹窗文本 | 删除 | `lib/main.dart:13640:49` | 否 |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 修改 | `lib/main.dart:13649:62` | 否 |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 删除 | `lib/main.dart:13650:64` | 否 |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN | 文本 | 最多同时启用 3 个 Skill | `lib/main.dart:13655:44` | 否 |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 服务与训练授权 | `lib/main.dart:13663:31` | 否 |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 服务地址、训练摘要授权 | `lib/main.dart:13664:34` | 否 |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | {{plan.weeks}} 周 | `lib/main.dart:14040:15` | 否 |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 第 {{session.dayOffset + 1}} 天 · {{session.name}} · {{session.effectiveExerciseIds.length}} 个动作 | `lib/main.dart:14058:25` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | {{totalExercises}} 个动作 · {{totalSets}} 组 · 已含重量/次数/休息 | `lib/main.dart:14074:17` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | {{totalExercises}} 个动作 · 旧计划未包含组次处方 | `lib/main.dart:14075:17` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 查看详情 | `lib/main.dart:14086:33` | 否 |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 保存计划 | `lib/main.dart:14091:33` | 否 |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 保存并安排日历 | `lib/main.dart:14096:33` | 否 |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 训练计划详情 | `lib/main.dart:14115:25` | 否 |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | {{plan.weeks}} 周 · {{plan.sessions.length}} 个训练日 | `lib/main.dart:14125:11` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 第 {{session.dayOffset + 1}} 天 · {{session.name}} | `lib/main.dart:14138:21` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | {{session.totalSets}} 组 · 计划容量 {{session.plannedVolume.toStringAsFixed(0)}} kg | `lib/main.dart:14147:23` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 这份旧计划只保存了动作。请重新生成一次，即可获得每组重量、次数和休息安排。 | `lib/main.dart:14154:23` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | {{index}}. {{exercise.name}} | `lib/main.dart:14209:21` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | {{exercise.muscle}} · {{exercise.equipment}} | `lib/main.dart:14213:21` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 动作提醒 · {{note}} | `lib/main.dart:14242:21` | 否 |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | {{setIndex + 1}} · {{draft.sets[setIndex].type == 'warmup' ? '热身' : '正式'}} | `lib/main.dart:14270:21` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | {{draft.sets[setIndex].weight.toStringAsFixed(draft.sets[setIndex].weight % 1 =…}} kg × {{draft.sets[setIndex].reps}} 次 | `lib/main.dart:14276:21` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 休 {{draft.sets[setIndex].restSeconds}}s | `lib/main.dart:14281:19` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | AI 训练评价 | `lib/main.dart:18809:21` | 否 |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 正在思考本次训练的整体安排… | `lib/main.dart:18826:40` | 否 |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 收起 | `lib/main.dart:18875:44` | 否 |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 展开全文 | `lib/main.dart:18875:51` | 否 |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 训练记录已经保存，但 AI 评价暂时没有生成，不影响本次数据。 | `lib/main.dart:18888:21` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 重新生成评价 | `lib/main.dart:18895:39` | 否 |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | AI 训练评价 | `lib/main.dart:18932:25` | 否 |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 训练结构  ·  主要肌群覆盖与动作模式安排 | `lib/main.dart:18939:28` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 本次表现  ·  训练量分配与组间完成情况 | `lib/main.dart:18941:28` | 否 |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 下次调整  ·  一项可以直接执行的建议 | `lib/main.dart:18943:28` | 否 |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 解锁训练后的 AI 评价 | `lib/main.dart:18958:23` | 否 |
+| [ ] | `Instance of '_Entry'.id` | AI | zh-CN + en | 文本 | 开通形域 PRO | `lib/main.dart:18968:41` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文案辅助函数 | 主页 | `lib/main.dart:1339:25` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文案辅助函数 | 训练 | `lib/main.dart:1340:25` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文案辅助函数 | 记录 | `lib/main.dart:1341:27` | 否 |
@@ -314,205 +315,205 @@
 | [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 轻提示正文 | 已保存到“好友分享”文件夹 | `lib/main.dart:10062:52` | 是（状态反馈（轻提示）） |
 | [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 保存计划 | `lib/main.dart:10066:37` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 工具提示 | 关闭 | `lib/main.dart:12508:24` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 本次对话 Skill | `lib/main.dart:12957:17` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 按钮/选项文本 | 管理 | `lib/main.dart:12966:33` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 最多同时启用 3 个，开关会立即作用于下一条消息。 | `lib/main.dart:12970:20` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | AI 服务设置 | `lib/main.dart:13233:27` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | en | 输入框标签 | Base URL | `lib/main.dart:13248:30` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 本机服务 | `lib/main.dart:13257:39` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 允许 AI 按需读取训练资料 | `lib/main.dart:13269:35` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 开启后，AI 只在回答需要时读取计划、历史或当前训练；不会修改资料。 | `lib/main.dart:13270:38` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 取消 | `lib/main.dart:13278:31` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 弹窗文本 | AI 设置已保存 | `lib/main.dart:13286:38` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 保存 | `lib/main.dart:13288:31` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 新增 Skill | `lib/main.dart:13630:35` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 修改 Skill | `lib/main.dart:13630:48` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 输入框标签 | 名称 | `lib/main.dart:13640:28` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 输入提示 | 例如：力量训练教练 | `lib/main.dart:13641:27` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 输入框标签 | Skill 指令 | `lib/main.dart:13652:28` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 输入提示 | 说明回答时应关注什么、采用什么方法，以及希望的输出格式。 | `lib/main.dart:13653:27` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 取消 | `lib/main.dart:13663:29` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 弹窗文本 | 请填写 Skill 名称和指令 | `lib/main.dart:13673:38` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 保存 | `lib/main.dart:13678:29` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 参考文献 | `lib/main.dart:13770:27` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 复制全部 | `lib/main.dart:13786:43` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 工具提示 | 复制此参考文献 | `lib/main.dart:13808:38` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 按钮/选项文本 | 第 {{index + 1}} 条参考文献已复制 | `lib/main.dart:13814:54` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 已等待 {{widget.controller.aiWaitingSeconds}} 秒 | `lib/main.dart:13894:13` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 停止回答 | `lib/main.dart:13905:31` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 为用户开通会员 | `lib/main.dart:14936:27` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 输入框标签 | 用户标识 | `lib/main.dart:14943:28` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 1 个月 | `lib/main.dart:14952:31` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 3 个月 | `lib/main.dart:14956:31` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 1 年 | `lib/main.dart:14960:31` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 永久 | `lib/main.dart:14964:31` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 输入框标签 | 会员时长 | `lib/main.dart:14969:28` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 取消 | `lib/main.dart:14977:31` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 弹窗文本 | 已为用户开通会员 | `lib/main.dart:14991:19` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 弹窗文本 | 没有找到该手机号账号 | `lib/main.dart:14998:25` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 弹窗文本 | 开通失败：{{error.code}} | `lib/main.dart:14999:25` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 确认开通 | `lib/main.dart:15004:31` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 创建会员账号 | `lib/main.dart:15067:27` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 账号仅在服务端创建，不会切换当前管理员登录。 | `lib/main.dart:15074:27` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 输入框标签 | 手机号 | `lib/main.dart:15089:30` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 输入提示 | 11 位中国大陆手机号 | `lib/main.dart:15091:29` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 输入框标签 | 用户昵称（可选） | `lib/main.dart:15099:30` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 输入框标签 | 初始密码 | `lib/main.dart:15109:30` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 辅助说明 | 默认 1234，请提醒用户首次登录后妥善保管。 | `lib/main.dart:15111:31` | 是（表单辅助说明） |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 创建时开通会员 | `lib/main.dart:15117:35` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 关闭后创建为免费账号，可稍后单独开通。 | `lib/main.dart:15118:38` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 输入框标签 | 会员时长 | `lib/main.dart:15128:32` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 1 个月 | `lib/main.dart:15134:35` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 3 个月 | `lib/main.dart:15138:35` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 1 年 | `lib/main.dart:15142:35` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 永久 | `lib/main.dart:15146:35` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 正在创建… | `lib/main.dart:15218:42` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 创建账号 | `lib/main.dart:15218:52` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 生成一次性兑换码 | `lib/main.dart:15238:27` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 1 个月 | `lib/main.dart:15244:27` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 3 个月 | `lib/main.dart:15248:27` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 1 年 | `lib/main.dart:15252:27` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 永久 | `lib/main.dart:15256:27` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 输入框标签 | 会员时长 | `lib/main.dart:15261:24` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 取消 | `lib/main.dart:15267:31` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 兑换码已生成 | `lib/main.dart:15278:39` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 关闭 | `lib/main.dart:15283:43` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 生成 | `lib/main.dart:15292:31` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 语言与地区 | `lib/main.dart:15308:25` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 切换导航、训练流程、动作名称和 AI 回答语言 | `lib/main.dart:15309:28` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 简体中文 | `lib/main.dart:15316:31` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 休息 {{controller.restRemainingSeconds}} 秒 | `lib/main.dart:15350:25` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 按钮/选项文本 | 跳过 | `lib/main.dart:15353:33` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 批量修改 {{controller.selectedSetIds.length}} 组 | `lib/main.dart:15379:17` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 输入框标签 | 组别类型 | `lib/main.dart:15388:62` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 输入框标签 | 重量（kg，可选） | `lib/main.dart:15413:36` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 输入框标签 | 次数（可选） | `lib/main.dart:15423:68` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 进步分析 | `lib/main.dart:16483:20` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 把最近训练的变化放在同一条线上，看懂下一步该加什么。 | `lib/main.dart:16485:17` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 还没有足够的训练数据。完成一次训练后，这里会显示趋势和动作表现。 | `lib/main.dart:16493:33` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 训练量趋势 | `lib/main.dart:16498:19` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | {{records.first.date.month}}/{{records.first.date.day}} · {{records.first.volume.toStringAsFixed(0)}} kg | `lib/main.dart:16527:23` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | {{records.last.date.month}}/{{records.last.date.day}} · {{records.last.volume.toStringAsFixed(0)}} kg | `lib/main.dart:16531:23` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 关键动作表现 | `lib/main.dart:16571:19` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 最近一次完成 · 结合组别类型和重量复盘 | `lib/main.dart:16585:42` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 你的训练量正在上升。下一次优先保持动作质量，再让正式组增加 1–2 次或小幅加重。 | `lib/main.dart:16591:25` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 训练量暂时回落，不必急着追重量。先检查恢复、有效组和最近动作完成质量。 | `lib/main.dart:16592:25` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 设置组间休息 | `lib/main.dart:16661:25` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 输入框标签 | 休息时间（秒） | `lib/main.dart:16668:22` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 输入提示 | 默认 180 秒（3 分钟） | `lib/main.dart:16669:21` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 稍后设置 | `lib/main.dart:16680:29` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 弹窗文本 | 请输入 0–600 秒 | `lib/main.dart:16687:38` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 应用到本次训练 | `lib/main.dart:16693:29` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 请输入 0–600 秒 | `lib/main.dart:16737:64` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 修改组间休息 | `lib/main.dart:16760:28` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 保存后立即更新当前倒计时，并默认应用于本次训练后续所有动作和未完成组。 | `lib/main.dart:16765:28` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 表单文案 | 休息秒数 | `lib/main.dart:16776:41` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 关闭 | `lib/main.dart:16788:59` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | {{value}} s | `lib/main.dart:16788:67` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | en | 文本 | {{value}} | `lib/main.dart:16789:54` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 按钮/选项文本 | 取消 | `lib/main.dart:16800:46` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 按钮/选项文本 | 应用到当前及后续 | `lib/main.dart:16809:46` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 设置动作休息 | `lib/main.dart:16888:16` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 0–600 秒；设置为 0 时完成组不启动休息通知。 | `lib/main.dart:16891:13` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 输入框标签 | 休息秒数 | `lib/main.dart:16902:26` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 关闭 | `lib/main.dart:16914:44` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | {{value}} s | `lib/main.dart:16914:51` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 按钮/选项文本 | 取消 | `lib/main.dart:16927:37` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 按钮/选项文本 | 保存休息时间 | `lib/main.dart:16936:37` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 替换动作 | `lib/main.dart:17373:29` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 上移动作 | `lib/main.dart:17381:29` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 下移动作 | `lib/main.dart:17389:29` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 加入超级组 | `lib/main.dart:17397:53` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 取消超级组 | `lib/main.dart:17397:63` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 移除动作 | `lib/main.dart:17405:29` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 中止本次训练 | `lib/main.dart:17440:13` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 当前已完成 {{controller.completedSets}}/{{controller.totalSets}} 组， | `lib/main.dart:17445:13` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 训练 {{controller.currentElapsed ~/ 60}} 分钟。中止后不会生成训练记录，已有计划不会被删除。 | `lib/main.dart:17446:13` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 长按中止，不保存记录 | `lib/main.dart:17466:33` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 按钮/选项文本 | 继续训练 | `lib/main.dart:17474:33` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 日期详情 | `lib/main.dart:19595:38` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | {{date.year}} 年 {{date.month}} 月 {{date.day}} 日 | `lib/main.dart:19597:25` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 已完成 {{record.name}} | `lib/main.dart:19600:21` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 已安排训练 | `lib/main.dart:19602:56` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 未安排训练 | `lib/main.dart:19603:21` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 查看训练记录 | `lib/main.dart:19609:33` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 改期 | `lib/main.dart:19618:33` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 移除排程 | `lib/main.dart:19632:33` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 文本 | 排程已移除 | `lib/main.dart:19636:40` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 安排训练 | `lib/main.dart:19642:33` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 新增排程 | `lib/main.dart:19675:39` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 改期排程 | `lib/main.dart:19675:48` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 快速选择训练部位 | `lib/main.dart:19681:15` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 弹窗文本 | 全身 | `lib/main.dart:19696:44` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 弹窗文本 | 全身训练 | `lib/main.dart:19696:51` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 弹窗文本 | {{part}}部训练 | `lib/main.dart:19696:60` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 输入框标签 | 训练名称 | `lib/main.dart:19704:60` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | {{selected.year}}-{{selected.month.toString().padLeft(2, '0')}}-{{selected.day.toString().padLeft(2, '0')}} | `lib/main.dart:19719:17` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 取消 | `lib/main.dart:19727:31` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 弹窗文本 | 训练安排 | `lib/main.dart:19734:45` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 弹窗文本 | 排程已添加 | `lib/main.dart:19737:56` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 弹窗文本 | 排程已改期 | `lib/main.dart:19737:66` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 保存 | `lib/main.dart:19739:31` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 官方单日计划 | `lib/main.dart:19759:20` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 每个入口都是一节可直接执行的训练。先看详情，再决定使用。 | `lib/main.dart:19761:17` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | {{plan.title}} · {{session.exercises}} 个动作 · {{session.duration}} | `lib/main.dart:19803:17` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 单日训练详情 | `lib/main.dart:19808:17` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 3 组 · 8 次 · 组间休息 120 秒 | `lib/main.dart:19824:46` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 使用此计划 | `lib/main.dart:19845:39` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 开始训练 | `lib/main.dart:19854:39` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | {{exercise.restSeconds}}s | `lib/main.dart:19923:37` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | {{index + 1}}. {{setTypeLabels[set.type] ?? set.type}} · {{weight}} · {{set.reps}} 次 · 休息 {{set.restSeconds}}s | `lib/main.dart:19947:41` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 这个计划还没有动作 | `lib/main.dart:19959:25` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 开始训练 | `lib/main.dart:19982:41` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 编辑计划 | `lib/main.dart:19994:41` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 模板信息 | `lib/main.dart:20016:25` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 输入框标签 | 训练名称 | `lib/main.dart:20022:58` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 取消 | `lib/main.dart:20029:29` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 弹窗文本 | 训练名称已保存 | `lib/main.dart:20035:36` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 保存 | `lib/main.dart:20037:29` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 编辑计划 | `lib/main.dart:20058:31` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 重命名 | `lib/main.dart:20067:31` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 删除计划 | `lib/main.dart:20076:31` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 文本 | 计划已删除 | `lib/main.dart:20080:38` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 替换模板动作 | `lib/main.dart:20718:17` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | {{item.muscle}} · {{item.equipment}} | `lib/main.dart:20726:32` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | {{records.length}} 次历史 · 点击查看当时完整备注 | `lib/main.dart:20955:27` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 工具提示 | 关闭 | `lib/main.dart:20962:30` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | {{record.date.month}}月{{record.date.day}}日 · {{record.name}} | `lib/main.dart:21021:37` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | {{completed.length}} 组完成 | `lib/main.dart:21039:37` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | {{completed.length}} 组 · 最佳 {{_displayWeight(best.weight)}} kg × {{best.reps}} | `lib/main.dart:21040:37` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | {{record.date.year}}-{{record.date.month.toString().padLeft(2, '0')}}-{{record.date.day.toString().padLeft(2, '0')}} · {{record.startTime}} | `lib/main.dart:21167:23` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 动作与每组数据 | `lib/main.dart:21195:17` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 这条记录没有保存动作明细。 | `lib/main.dart:21200:28` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 计划重量未记录（旧记录未保存组明细） | `lib/main.dart:21246:31` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 编辑备注 | `lib/main.dart:21288:41` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 工具提示 | 删除记录 | `lib/main.dart:21293:30` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | AI动作分析 | `lib/main.dart:21406:21` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 视频证据不足，未生成可靠评分。 | `lib/main.dart:21423:23` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | ROM {{assessment.rom}} | `lib/main.dart:21432:24` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 稳定 {{assessment.stability}} | `lib/main.dart:21433:24` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 对称 {{assessment.symmetry}} | `lib/main.dart:21434:24` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 节奏 {{assessment.tempo}} | `lib/main.dart:21435:24` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 最需改善：{{assessment.issues.take(2).join('；')}} | `lib/main.dart:21441:19` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 下一次重点：{{assessment.nextFocus}} | `lib/main.dart:21450:19` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 全部训练历史 | `lib/main.dart:21480:20` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | {{controller.history.length}} 次训练 · 点击查看动作与每组数据 | `lib/main.dart:21482:17` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 新建自定义动作 | `lib/main.dart:21519:25` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 输入框标签 | 动作名称 * | `lib/main.dart:21527:60` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 输入框标签 | 英文名称 | `lib/main.dart:21533:60` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 输入框标签 | 器械 | `lib/main.dart:21539:60` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 输入框标签 | 主要肌群 | `lib/main.dart:21545:60` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 输入框标签 | 动作提示 | `lib/main.dart:21552:60` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 取消 | `lib/main.dart:21560:29` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 保存动作 | `lib/main.dart:21576:29` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 器械筛选 | `lib/main.dart:21596:15` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 文本 | 全部 | `lib/main.dart:21614:33` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 文本 | 已清除器械筛选 | `lib/main.dart:21614:40` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 文本 | 已筛选 {{item}} | `lib/main.dart:21614:52` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 编辑训练备注 | `lib/main.dart:21637:25` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 输入提示 | 记录本次训练的感受、PR 或异常 | `lib/main.dart:21641:53` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 取消 | `lib/main.dart:21646:29` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 保存 | `lib/main.dart:21653:29` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 本次对话 Skill | `lib/main.dart:13011:17` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 按钮/选项文本 | 管理 | `lib/main.dart:13020:33` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 最多同时启用 3 个，开关会立即作用于下一条消息。 | `lib/main.dart:13024:20` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | AI 服务设置 | `lib/main.dart:13287:27` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | en | 输入框标签 | Base URL | `lib/main.dart:13302:30` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 本机服务 | `lib/main.dart:13311:39` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 允许 AI 按需读取训练资料 | `lib/main.dart:13323:35` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 开启后，AI 只在回答需要时读取计划、历史或当前训练；不会修改资料。 | `lib/main.dart:13324:38` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 取消 | `lib/main.dart:13332:31` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 弹窗文本 | AI 设置已保存 | `lib/main.dart:13340:38` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 保存 | `lib/main.dart:13342:31` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 新增 Skill | `lib/main.dart:13684:35` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 修改 Skill | `lib/main.dart:13684:48` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 输入框标签 | 名称 | `lib/main.dart:13694:28` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 输入提示 | 例如：力量训练教练 | `lib/main.dart:13695:27` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 输入框标签 | Skill 指令 | `lib/main.dart:13706:28` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 输入提示 | 说明回答时应关注什么、采用什么方法，以及希望的输出格式。 | `lib/main.dart:13707:27` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 取消 | `lib/main.dart:13717:29` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 弹窗文本 | 请填写 Skill 名称和指令 | `lib/main.dart:13727:38` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 保存 | `lib/main.dart:13732:29` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 参考文献 | `lib/main.dart:13824:27` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 复制全部 | `lib/main.dart:13840:43` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 工具提示 | 复制此参考文献 | `lib/main.dart:13862:38` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 按钮/选项文本 | 第 {{index + 1}} 条参考文献已复制 | `lib/main.dart:13868:54` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 已等待 {{widget.controller.aiWaitingSeconds}} 秒 | `lib/main.dart:13948:13` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 停止回答 | `lib/main.dart:13959:31` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 为用户开通会员 | `lib/main.dart:14990:27` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 输入框标签 | 用户标识 | `lib/main.dart:14997:28` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 1 个月 | `lib/main.dart:15006:31` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 3 个月 | `lib/main.dart:15010:31` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 1 年 | `lib/main.dart:15014:31` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 永久 | `lib/main.dart:15018:31` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 输入框标签 | 会员时长 | `lib/main.dart:15023:28` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 取消 | `lib/main.dart:15031:31` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 弹窗文本 | 已为用户开通会员 | `lib/main.dart:15045:19` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 弹窗文本 | 没有找到该手机号账号 | `lib/main.dart:15052:25` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 弹窗文本 | 开通失败：{{error.code}} | `lib/main.dart:15053:25` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 确认开通 | `lib/main.dart:15058:31` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 创建会员账号 | `lib/main.dart:15121:27` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 账号仅在服务端创建，不会切换当前管理员登录。 | `lib/main.dart:15128:27` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 输入框标签 | 手机号 | `lib/main.dart:15143:30` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 输入提示 | 11 位中国大陆手机号 | `lib/main.dart:15145:29` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 输入框标签 | 用户昵称（可选） | `lib/main.dart:15153:30` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 输入框标签 | 初始密码 | `lib/main.dart:15163:30` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 辅助说明 | 默认 1234，请提醒用户首次登录后妥善保管。 | `lib/main.dart:15165:31` | 是（表单辅助说明） |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 创建时开通会员 | `lib/main.dart:15171:35` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 关闭后创建为免费账号，可稍后单独开通。 | `lib/main.dart:15172:38` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 输入框标签 | 会员时长 | `lib/main.dart:15182:32` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 1 个月 | `lib/main.dart:15188:35` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 3 个月 | `lib/main.dart:15192:35` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 1 年 | `lib/main.dart:15196:35` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 永久 | `lib/main.dart:15200:35` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 正在创建… | `lib/main.dart:15272:42` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 创建账号 | `lib/main.dart:15272:52` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 生成一次性兑换码 | `lib/main.dart:15292:27` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 1 个月 | `lib/main.dart:15298:27` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 3 个月 | `lib/main.dart:15302:27` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 1 年 | `lib/main.dart:15306:27` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 永久 | `lib/main.dart:15310:27` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 输入框标签 | 会员时长 | `lib/main.dart:15315:24` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 取消 | `lib/main.dart:15321:31` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 兑换码已生成 | `lib/main.dart:15332:39` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 关闭 | `lib/main.dart:15337:43` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 生成 | `lib/main.dart:15346:31` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 语言与地区 | `lib/main.dart:15362:25` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 切换导航、训练流程、动作名称和 AI 回答语言 | `lib/main.dart:15363:28` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 简体中文 | `lib/main.dart:15370:31` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 休息 {{controller.restRemainingSeconds}} 秒 | `lib/main.dart:15404:25` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 按钮/选项文本 | 跳过 | `lib/main.dart:15407:33` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 批量修改 {{controller.selectedSetIds.length}} 组 | `lib/main.dart:15433:17` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 输入框标签 | 组别类型 | `lib/main.dart:15442:62` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 输入框标签 | 重量（kg，可选） | `lib/main.dart:15467:36` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 输入框标签 | 次数（可选） | `lib/main.dart:15477:68` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 进步分析 | `lib/main.dart:16537:20` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 把最近训练的变化放在同一条线上，看懂下一步该加什么。 | `lib/main.dart:16539:17` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 还没有足够的训练数据。完成一次训练后，这里会显示趋势和动作表现。 | `lib/main.dart:16547:33` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 训练量趋势 | `lib/main.dart:16552:19` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | {{records.first.date.month}}/{{records.first.date.day}} · {{records.first.volume.toStringAsFixed(0)}} kg | `lib/main.dart:16581:23` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | {{records.last.date.month}}/{{records.last.date.day}} · {{records.last.volume.toStringAsFixed(0)}} kg | `lib/main.dart:16585:23` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 关键动作表现 | `lib/main.dart:16625:19` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 最近一次完成 · 结合组别类型和重量复盘 | `lib/main.dart:16639:42` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 你的训练量正在上升。下一次优先保持动作质量，再让正式组增加 1–2 次或小幅加重。 | `lib/main.dart:16645:25` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 训练量暂时回落，不必急着追重量。先检查恢复、有效组和最近动作完成质量。 | `lib/main.dart:16646:25` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 设置组间休息 | `lib/main.dart:16715:25` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 输入框标签 | 休息时间（秒） | `lib/main.dart:16722:22` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 输入提示 | 默认 180 秒（3 分钟） | `lib/main.dart:16723:21` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 稍后设置 | `lib/main.dart:16734:29` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 弹窗文本 | 请输入 0–600 秒 | `lib/main.dart:16741:38` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 应用到本次训练 | `lib/main.dart:16747:29` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 请输入 0–600 秒 | `lib/main.dart:16791:64` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 修改组间休息 | `lib/main.dart:16814:28` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 保存后立即更新当前倒计时，并默认应用于本次训练后续所有动作和未完成组。 | `lib/main.dart:16819:28` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 表单文案 | 休息秒数 | `lib/main.dart:16830:41` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 关闭 | `lib/main.dart:16842:59` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | {{value}} s | `lib/main.dart:16842:67` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | en | 文本 | {{value}} | `lib/main.dart:16843:54` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 按钮/选项文本 | 取消 | `lib/main.dart:16854:46` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 按钮/选项文本 | 应用到当前及后续 | `lib/main.dart:16863:46` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 设置动作休息 | `lib/main.dart:16942:16` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 0–600 秒；设置为 0 时完成组不启动休息通知。 | `lib/main.dart:16945:13` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 输入框标签 | 休息秒数 | `lib/main.dart:16956:26` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 关闭 | `lib/main.dart:16968:44` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | {{value}} s | `lib/main.dart:16968:51` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 按钮/选项文本 | 取消 | `lib/main.dart:16981:37` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 按钮/选项文本 | 保存休息时间 | `lib/main.dart:16990:37` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 替换动作 | `lib/main.dart:17427:29` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 上移动作 | `lib/main.dart:17435:29` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 下移动作 | `lib/main.dart:17443:29` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 加入超级组 | `lib/main.dart:17451:53` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 取消超级组 | `lib/main.dart:17451:63` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 移除动作 | `lib/main.dart:17459:29` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 中止本次训练 | `lib/main.dart:17494:13` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 当前已完成 {{controller.completedSets}}/{{controller.totalSets}} 组， | `lib/main.dart:17499:13` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 训练 {{controller.currentElapsed ~/ 60}} 分钟。中止后不会生成训练记录，已有计划不会被删除。 | `lib/main.dart:17500:13` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 长按中止，不保存记录 | `lib/main.dart:17520:33` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 按钮/选项文本 | 继续训练 | `lib/main.dart:17528:33` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 日期详情 | `lib/main.dart:19649:38` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | {{date.year}} 年 {{date.month}} 月 {{date.day}} 日 | `lib/main.dart:19651:25` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 已完成 {{record.name}} | `lib/main.dart:19654:21` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 已安排训练 | `lib/main.dart:19656:56` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 未安排训练 | `lib/main.dart:19657:21` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 查看训练记录 | `lib/main.dart:19663:33` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 改期 | `lib/main.dart:19672:33` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 移除排程 | `lib/main.dart:19686:33` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 文本 | 排程已移除 | `lib/main.dart:19690:40` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 安排训练 | `lib/main.dart:19696:33` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 新增排程 | `lib/main.dart:19729:39` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 改期排程 | `lib/main.dart:19729:48` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 快速选择训练部位 | `lib/main.dart:19735:15` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 弹窗文本 | 全身 | `lib/main.dart:19750:44` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 弹窗文本 | 全身训练 | `lib/main.dart:19750:51` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 弹窗文本 | {{part}}部训练 | `lib/main.dart:19750:60` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 输入框标签 | 训练名称 | `lib/main.dart:19758:60` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | {{selected.year}}-{{selected.month.toString().padLeft(2, '0')}}-{{selected.day.toString().padLeft(2, '0')}} | `lib/main.dart:19773:17` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 取消 | `lib/main.dart:19781:31` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 弹窗文本 | 训练安排 | `lib/main.dart:19788:45` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 弹窗文本 | 排程已添加 | `lib/main.dart:19791:56` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 弹窗文本 | 排程已改期 | `lib/main.dart:19791:66` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 保存 | `lib/main.dart:19793:31` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 官方单日计划 | `lib/main.dart:19813:20` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 每个入口都是一节可直接执行的训练。先看详情，再决定使用。 | `lib/main.dart:19815:17` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | {{plan.title}} · {{session.exercises}} 个动作 · {{session.duration}} | `lib/main.dart:19857:17` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 单日训练详情 | `lib/main.dart:19862:17` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 3 组 · 8 次 · 组间休息 120 秒 | `lib/main.dart:19878:46` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 使用此计划 | `lib/main.dart:19899:39` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 开始训练 | `lib/main.dart:19908:39` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | {{exercise.restSeconds}}s | `lib/main.dart:19977:37` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | {{index + 1}}. {{setTypeLabels[set.type] ?? set.type}} · {{weight}} · {{set.reps}} 次 · 休息 {{set.restSeconds}}s | `lib/main.dart:20001:41` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 这个计划还没有动作 | `lib/main.dart:20013:25` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 开始训练 | `lib/main.dart:20036:41` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 编辑计划 | `lib/main.dart:20048:41` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 模板信息 | `lib/main.dart:20070:25` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 输入框标签 | 训练名称 | `lib/main.dart:20076:58` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 取消 | `lib/main.dart:20083:29` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 弹窗文本 | 训练名称已保存 | `lib/main.dart:20089:36` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 保存 | `lib/main.dart:20091:29` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 编辑计划 | `lib/main.dart:20112:31` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 重命名 | `lib/main.dart:20121:31` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 删除计划 | `lib/main.dart:20130:31` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 文本 | 计划已删除 | `lib/main.dart:20134:38` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 替换模板动作 | `lib/main.dart:20772:17` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | {{item.muscle}} · {{item.equipment}} | `lib/main.dart:20780:32` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | {{records.length}} 次历史 · 点击查看当时完整备注 | `lib/main.dart:21009:27` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 工具提示 | 关闭 | `lib/main.dart:21016:30` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | {{record.date.month}}月{{record.date.day}}日 · {{record.name}} | `lib/main.dart:21075:37` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | {{completed.length}} 组完成 | `lib/main.dart:21093:37` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | {{completed.length}} 组 · 最佳 {{_displayWeight(best.weight)}} kg × {{best.reps}} | `lib/main.dart:21094:37` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | {{record.date.year}}-{{record.date.month.toString().padLeft(2, '0')}}-{{record.date.day.toString().padLeft(2, '0')}} · {{record.startTime}} | `lib/main.dart:21221:23` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 动作与每组数据 | `lib/main.dart:21249:17` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 这条记录没有保存动作明细。 | `lib/main.dart:21254:28` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 计划重量未记录（旧记录未保存组明细） | `lib/main.dart:21300:31` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 编辑备注 | `lib/main.dart:21342:41` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 工具提示 | 删除记录 | `lib/main.dart:21347:30` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | AI动作分析 | `lib/main.dart:21460:21` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 视频证据不足，未生成可靠评分。 | `lib/main.dart:21477:23` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | ROM {{assessment.rom}} | `lib/main.dart:21486:24` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 稳定 {{assessment.stability}} | `lib/main.dart:21487:24` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 对称 {{assessment.symmetry}} | `lib/main.dart:21488:24` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 节奏 {{assessment.tempo}} | `lib/main.dart:21489:24` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 最需改善：{{assessment.issues.take(2).join('；')}} | `lib/main.dart:21495:19` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 下一次重点：{{assessment.nextFocus}} | `lib/main.dart:21504:19` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 全部训练历史 | `lib/main.dart:21534:20` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | {{controller.history.length}} 次训练 · 点击查看动作与每组数据 | `lib/main.dart:21536:17` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 新建自定义动作 | `lib/main.dart:21573:25` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 输入框标签 | 动作名称 * | `lib/main.dart:21581:60` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 输入框标签 | 英文名称 | `lib/main.dart:21587:60` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 输入框标签 | 器械 | `lib/main.dart:21593:60` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 输入框标签 | 主要肌群 | `lib/main.dart:21599:60` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 输入框标签 | 动作提示 | `lib/main.dart:21606:60` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 取消 | `lib/main.dart:21614:29` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 保存动作 | `lib/main.dart:21630:29` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 文本 | 器械筛选 | `lib/main.dart:21650:15` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 文本 | 全部 | `lib/main.dart:21668:33` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 文本 | 已清除器械筛选 | `lib/main.dart:21668:40` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 文本 | 已筛选 {{item}} | `lib/main.dart:21668:52` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 编辑训练备注 | `lib/main.dart:21691:25` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN | 输入提示 | 记录本次训练的感受、PR 或异常 | `lib/main.dart:21695:53` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 取消 | `lib/main.dart:21700:29` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 主应用/未归类 | zh-CN + en | 弹窗文本 | 保存 | `lib/main.dart:21707:29` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 主页 | zh-CN + en | 文本 | 饮食与热量 | `lib/main.dart:2039:27` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 主页 | zh-CN + en | 文本 | {{controller.todayCalories.toStringAsFixed(0)}} kcal · 蛋白质 {{controller.todayProtein.toStringAsFixed(0)}} g | `lib/main.dart:2044:27` | 是（较长句子候选） |
 | [ ] | `Instance of '_Entry'.id` | 主页 | zh-CN + en | 文本 | {{controller.estimatedDailyCalories == null ? '' : ' / 目标约 ${controller.estimat…}} | `lib/main.dart:2045:27` | 是（较长句子候选） |
@@ -1035,71 +1036,71 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | {{localizeExerciseMetadata(exercise.family, english: true)}} · {{localizeExerciseMetadata(exercise.equipment, english: true)}} | `lib/main.dart:10353:47` | 是（较长句子候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | {{exercise.muscle}} · {{exercise.equipment}} | `lib/main.dart:10354:47` | 是（较长句子候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 加载更多（已显示 {{displayedItems.length}} / {{items.length}}） | `lib/main.dart:10385:27` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 动作分析 | `lib/main.dart:15580:44` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 分析一组动作 | `lib/main.dart:15726:21` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 解锁 PRO 动作分析 | `lib/main.dart:15727:21` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN | 输入框标签 | 动作备注 | `lib/main.dart:15748:30` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN | 输入提示 | 例如：回程控制 2 秒，保持胸口支撑 | `lib/main.dart:15749:29` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN | 输入框标签 | 教学链接（可选） | `lib/main.dart:15763:30` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 打开中… | `lib/main.dart:15782:47` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 打开链接 | `lib/main.dart:15782:56` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 保存备注与链接 | `lib/main.dart:15802:35` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | PRO 技术评分与成长曲线 | `lib/main.dart:15832:21` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 上传动作视频后，查看 ROM、稳定性、对称性、节奏和历史趋势。 | `lib/main.dart:15841:15` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 解锁技术成长 | `lib/main.dart:15855:35` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 上传一次完整动作视频后，这里会记录 ROM、稳定性、对称性、节奏和轨迹。 | `lib/main.dart:15874:17` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 最近视频未进入评分曲线：{{unavailable.qualityReason}}。请完整拍到身体并录制至少一个完整动作周期。 | `lib/main.dart:15875:17` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 该时间范围暂无评分记录，切换“全部”可查看完整历史。 | `lib/main.dart:15933:15` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | {{visible[index].overall}} | `lib/main.dart:15947:25` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | ROM {{visibleLatest.rom}} · 稳定 {{visibleLatest.stability}} · 对称 {{visibleLatest.symmetry}} · 节奏 {{visibleLatest.tempo}} · 轨迹 {{visibleLatest.trajectory}} | `lib/main.dart:15969:15` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 下一次重点：{{visibleLatest.nextFocus}} | `lib/main.dart:15975:17` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 最近分析 | `lib/main.dart:15983:24` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | {{assessment.overall}}/100 | `lib/main.dart:16007:27` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | ROM {{assessment.rom}} · 稳定 {{assessment.stability}} · 对称 {{assessment.symmetry}} · 节奏 {{assessment.tempo}} · 轨迹 {{assessment.trajectory}} | `lib/main.dart:16017:23` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 下一次重点：{{assessment.nextFocus}} | `lib/main.dart:16023:25` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | {{index + 1}} | `lib/main.dart:16067:37` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 数据集：{{media!.datasetId}} · {{media!.attribution}} | `lib/main.dart:16084:13` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 还没有该动作的训练记录。加入一次训练并完成组后，这里会按日期显示真实数据。 | `lib/main.dart:16097:11` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 这条旧记录未保存该动作的组明细，仅保留训练日期。 | `lib/main.dart:16147:25` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | {{_weight(set.weight)}} × {{set.reps}} | `lib/main.dart:16155:29` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | {{set.rir == null ? '' : ' · RIR ${set.rir}'}} | `lib/main.dart:16156:29` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | {{set.rpe == null ? '' : ' · RPE ${set.rpe}'}} | `lib/main.dart:16157:29` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN | 工具提示 | 关闭动作详情 | `lib/main.dart:16201:20` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 按钮/选项文本 | 概览 | `lib/main.dart:16298:43` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 按钮/选项文本 | 教学 | `lib/main.dart:16299:43` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 按钮/选项文本 | 记录 | `lib/main.dart:16300:43` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 添加动作 | `lib/main.dart:17098:48` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 替换动作 | `lib/main.dart:17098:57` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 自定义 | `lib/main.dart:17106:37` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN | 工具提示 | 关闭动作选择 | `lib/main.dart:17109:28` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN | 输入提示 | 搜索动作 | `lib/main.dart:17172:39` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | {{muscleLabels[muscle]}} · {{items.length}} 个动作 | `lib/main.dart:17179:27` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 没有匹配动作 | `lib/main.dart:17187:37` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | {{exercise.muscle}} · {{exercise.equipment}} | `lib/main.dart:17234:41` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN | 文本 | 替换动作 | `lib/main.dart:17253:47` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN | 文本 | 取消选择 | `lib/main.dart:17255:47` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN | 文本 | 选择动作 | `lib/main.dart:17256:47` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 选择动作 | `lib/main.dart:17290:27` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 添加 {{selectedIds.length}} 个动作 | `lib/main.dart:17291:27` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 本次完成动作 | `lib/main.dart:18991:19` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | {{exercises.length}} 个动作 | `lib/main.dart:19000:17` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 本次记录没有可展示的动作明细。 | `lib/main.dart:19011:29` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 收起动作 | `lib/main.dart:19049:40` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 查看全部 {{exercises.length}} 个动作 | `lib/main.dart:19049:49` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | {{completedSets.length}} 组 · {{_displayWeight(volume)}} kg | `lib/main.dart:19109:23` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | {{controller.exerciseNumberFor(controller.exerciseFor(exercise.exerciseId))}}  {{title}} | `lib/main.dart:20308:11` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | {{exercise.sets.length}} 组 · 休息 {{exercise.restSeconds}}s{{exercise.supersetId == null ? '' : ' · 超级组'}} | `lib/main.dart:20314:11` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN | 工具提示 | 更多动作操作 | `lib/main.dart:20323:24` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN | 按钮/选项标签 | 上移 | `lib/main.dart:20339:28` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN | 按钮/选项标签 | 下移 | `lib/main.dart:20347:28` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN | 按钮/选项标签 | 替换 | `lib/main.dart:20354:28` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN | 文本 | 加入超级组 | `lib/main.dart:20363:58` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN | 文本 | 取消超级组 | `lib/main.dart:20363:68` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN | 按钮/选项标签 | 删除动作 | `lib/main.dart:20370:28` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 动作设置 | `lib/main.dart:20380:13` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN | 输入框标签 | 动作休息（秒） | `lib/main.dart:20392:26` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 组设置 | `lib/main.dart:20402:13` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 添加一组 | `lib/main.dart:20440:33` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 动作分析 | `lib/main.dart:15634:44` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 分析一组动作 | `lib/main.dart:15780:21` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 解锁 PRO 动作分析 | `lib/main.dart:15781:21` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN | 输入框标签 | 动作备注 | `lib/main.dart:15802:30` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN | 输入提示 | 例如：回程控制 2 秒，保持胸口支撑 | `lib/main.dart:15803:29` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN | 输入框标签 | 教学链接（可选） | `lib/main.dart:15817:30` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 打开中… | `lib/main.dart:15836:47` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 打开链接 | `lib/main.dart:15836:56` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 保存备注与链接 | `lib/main.dart:15856:35` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | PRO 技术评分与成长曲线 | `lib/main.dart:15886:21` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 上传动作视频后，查看 ROM、稳定性、对称性、节奏和历史趋势。 | `lib/main.dart:15895:15` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 解锁技术成长 | `lib/main.dart:15909:35` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 上传一次完整动作视频后，这里会记录 ROM、稳定性、对称性、节奏和轨迹。 | `lib/main.dart:15928:17` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 最近视频未进入评分曲线：{{unavailable.qualityReason}}。请完整拍到身体并录制至少一个完整动作周期。 | `lib/main.dart:15929:17` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 该时间范围暂无评分记录，切换“全部”可查看完整历史。 | `lib/main.dart:15987:15` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | {{visible[index].overall}} | `lib/main.dart:16001:25` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | ROM {{visibleLatest.rom}} · 稳定 {{visibleLatest.stability}} · 对称 {{visibleLatest.symmetry}} · 节奏 {{visibleLatest.tempo}} · 轨迹 {{visibleLatest.trajectory}} | `lib/main.dart:16023:15` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 下一次重点：{{visibleLatest.nextFocus}} | `lib/main.dart:16029:17` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 最近分析 | `lib/main.dart:16037:24` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | {{assessment.overall}}/100 | `lib/main.dart:16061:27` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | ROM {{assessment.rom}} · 稳定 {{assessment.stability}} · 对称 {{assessment.symmetry}} · 节奏 {{assessment.tempo}} · 轨迹 {{assessment.trajectory}} | `lib/main.dart:16071:23` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 下一次重点：{{assessment.nextFocus}} | `lib/main.dart:16077:25` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | {{index + 1}} | `lib/main.dart:16121:37` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 数据集：{{media!.datasetId}} · {{media!.attribution}} | `lib/main.dart:16138:13` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 还没有该动作的训练记录。加入一次训练并完成组后，这里会按日期显示真实数据。 | `lib/main.dart:16151:11` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 这条旧记录未保存该动作的组明细，仅保留训练日期。 | `lib/main.dart:16201:25` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | {{_weight(set.weight)}} × {{set.reps}} | `lib/main.dart:16209:29` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | {{set.rir == null ? '' : ' · RIR ${set.rir}'}} | `lib/main.dart:16210:29` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | {{set.rpe == null ? '' : ' · RPE ${set.rpe}'}} | `lib/main.dart:16211:29` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN | 工具提示 | 关闭动作详情 | `lib/main.dart:16255:20` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 按钮/选项文本 | 概览 | `lib/main.dart:16352:43` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 按钮/选项文本 | 教学 | `lib/main.dart:16353:43` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 按钮/选项文本 | 记录 | `lib/main.dart:16354:43` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 添加动作 | `lib/main.dart:17152:48` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 替换动作 | `lib/main.dart:17152:57` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 自定义 | `lib/main.dart:17160:37` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN | 工具提示 | 关闭动作选择 | `lib/main.dart:17163:28` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN | 输入提示 | 搜索动作 | `lib/main.dart:17226:39` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | {{muscleLabels[muscle]}} · {{items.length}} 个动作 | `lib/main.dart:17233:27` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 没有匹配动作 | `lib/main.dart:17241:37` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | {{exercise.muscle}} · {{exercise.equipment}} | `lib/main.dart:17288:41` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN | 文本 | 替换动作 | `lib/main.dart:17307:47` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN | 文本 | 取消选择 | `lib/main.dart:17309:47` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN | 文本 | 选择动作 | `lib/main.dart:17310:47` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 选择动作 | `lib/main.dart:17344:27` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 添加 {{selectedIds.length}} 个动作 | `lib/main.dart:17345:27` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 本次完成动作 | `lib/main.dart:19045:19` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | {{exercises.length}} 个动作 | `lib/main.dart:19054:17` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 本次记录没有可展示的动作明细。 | `lib/main.dart:19065:29` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 收起动作 | `lib/main.dart:19103:40` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 查看全部 {{exercises.length}} 个动作 | `lib/main.dart:19103:49` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | {{completedSets.length}} 组 · {{_displayWeight(volume)}} kg | `lib/main.dart:19163:23` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | {{controller.exerciseNumberFor(controller.exerciseFor(exercise.exerciseId))}}  {{title}} | `lib/main.dart:20362:11` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | {{exercise.sets.length}} 组 · 休息 {{exercise.restSeconds}}s{{exercise.supersetId == null ? '' : ' · 超级组'}} | `lib/main.dart:20368:11` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN | 工具提示 | 更多动作操作 | `lib/main.dart:20377:24` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN | 按钮/选项标签 | 上移 | `lib/main.dart:20393:28` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN | 按钮/选项标签 | 下移 | `lib/main.dart:20401:28` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN | 按钮/选项标签 | 替换 | `lib/main.dart:20408:28` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN | 文本 | 加入超级组 | `lib/main.dart:20417:58` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN | 文本 | 取消超级组 | `lib/main.dart:20417:68` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN | 按钮/选项标签 | 删除动作 | `lib/main.dart:20424:28` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 动作设置 | `lib/main.dart:20434:13` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN | 输入框标签 | 动作休息（秒） | `lib/main.dart:20446:26` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 组设置 | `lib/main.dart:20456:13` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 | 添加一组 | `lib/main.dart:20494:33` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库 | zh-CN + en | 文本 |  ·  | `lib/muscle_selector.dart:298:37` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | 3/4 sit-up | `lib/exercise_dataset.generated.dart:37:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 四分之三仰卧起坐 | `lib/exercise_dataset.generated.dart:37:1` | 否 |
@@ -1181,8 +1182,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 收紧核心并将膝盖抬向胸部，尽可能靠近肘部。 | `lib/exercise_dataset.generated.dart:236:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 慢慢地将双腿放回起始位置。 | `lib/exercise_dataset.generated.dart:237:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:238:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | arm slingers hanging straight legs | `lib/exercise_dataset.generated.dart:247:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 手臂·悬垂·直腿 | `lib/exercise_dataset.generated.dart:247:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | arm slingers hanging straight legs | `lib/exercise_dataset.generated.dart:247:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 悬挂在引体向上杆上，双臂完全伸展，双腿伸直向下。 启动你的核心并将双腿抬起到你面前，直到它们与地面平行。 在顶部保持片刻，然后慢慢将双腿放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:253:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 悬挂在引体向上杆上，双臂完全伸展，双腿伸直向下。 | `lib/exercise_dataset.generated.dart:255:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 启动你的核心并将双腿抬起到你面前，直到它们与地面平行。 | `lib/exercise_dataset.generated.dart:256:1` | 是（动作教学说明候选） |
@@ -1251,8 +1252,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 用双手抓住左大腿，轻轻地将其拉向胸部。 | `lib/exercise_dataset.generated.dart:423:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持拉伸 20-30 秒。 | `lib/exercise_dataset.generated.dart:424:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 松开拉伸并在另一侧重复。 | `lib/exercise_dataset.generated.dart:425:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 辅助·卧姿·举腿·侧向 | `lib/exercise_dataset.generated.dart:434:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | assisted lying leg raise with lateral throw down | `lib/exercise_dataset.generated.dart:434:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 辅助·卧姿·举腿·侧向 | `lib/exercise_dataset.generated.dart:434:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 平躺，双腿伸展，双臂放在身体两侧。 将双手放在臀部下方以获得支撑。 收紧腹肌，将双腿抬离地面，保持伸直。 双腿并拢的同时，将它们降低到一侧，直到离地几英寸。 暂停片刻，然后抬起双腿回到起始位置。 到另一侧重复该动作。 继续交替进行所需的重复次数。 | `lib/exercise_dataset.generated.dart:440:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 平躺，双腿伸展，双臂放在身体两侧。 | `lib/exercise_dataset.generated.dart:442:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将双手放在臀部下方以获得支撑。 | `lib/exercise_dataset.generated.dart:443:1` | 是（动作教学说明候选） |
@@ -1291,8 +1292,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 继续拉，直到下巴高于杠铃。 | `lib/exercise_dataset.generated.dart:515:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部停顿片刻，然后慢慢将身体放回起始位置。 | `lib/exercise_dataset.generated.dart:516:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:517:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | assisted prone hamstring | `lib/exercise_dataset.generated.dart:526:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 辅助·俯卧·腘绳肌 | `lib/exercise_dataset.generated.dart:526:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | assisted prone hamstring | `lib/exercise_dataset.generated.dart:526:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 脸朝下躺在垫子或长凳上，双腿完全伸展。 找一个伙伴或使用阻力带来固定脚踝。 收紧腿筋，将双腿抬向臀肌，保持膝盖伸直。 在顶部暂停片刻，然后慢慢将双腿放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:532:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 脸朝下躺在垫子或长凳上，双腿完全伸展。 | `lib/exercise_dataset.generated.dart:534:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 找一个伙伴或使用阻力带来固定脚踝。 | `lib/exercise_dataset.generated.dart:535:1` | 是（动作教学说明候选） |
@@ -1361,8 +1362,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 继续拉，直到下巴位于杠铃上方。 | `lib/exercise_dataset.generated.dart:689:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部停顿片刻，然后慢慢将身体放回起始位置。 | `lib/exercise_dataset.generated.dart:690:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:691:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | assisted standing pull-up | `lib/exercise_dataset.generated.dart:700:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 辅助·站姿·引体向上 | `lib/exercise_dataset.generated.dart:700:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | assisted standing pull-up | `lib/exercise_dataset.generated.dart:700:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 将机器调整至您所需的体重和高度设置。 面向机器站立，双脚分开与肩同宽。 正手握住手柄，握距略宽于肩宽。 启动你的背阔肌和二头肌，并将自己拉向手柄。 在顶部暂停片刻，挤压背部肌肉。 慢慢地将自己放回到起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:706:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将机器调整至您所需的体重和高度设置。 | `lib/exercise_dataset.generated.dart:708:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 面向机器站立，双脚分开与肩同宽。 | `lib/exercise_dataset.generated.dart:709:1` | 是（动作教学说明候选） |
@@ -1387,8 +1388,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 弯曲肘部降低身体，保持背部挺直并靠近机器。 | `lib/exercise_dataset.generated.dart:754:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在底部暂停片刻，然后将自己推回到起始位置。 | `lib/exercise_dataset.generated.dart:755:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:756:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | assisted wide-grip chest dip (kneeling) | `lib/exercise_dataset.generated.dart:765:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 辅助·宽距·胸部·双杠臂屈伸·跪姿 | `lib/exercise_dataset.generated.dart:765:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | assisted wide-grip chest dip (kneeling) | `lib/exercise_dataset.generated.dart:765:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 将机器调整到您想要的高度，并将膝盖固定在垫子上。 宽握手柄并保持肘部稍微弯曲。 弯曲肘部降低身体，直到上臂与地板平行。 伸展双臂，将自己推回到起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:771:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将机器调整到您想要的高度，并将膝盖固定在垫子上。 | `lib/exercise_dataset.generated.dart:773:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 宽握手柄并保持肘部稍微弯曲。 | `lib/exercise_dataset.generated.dart:774:1` | 是（动作教学说明候选） |
@@ -1404,8 +1405,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在空中时，将双腿分开，并将双臂向两侧伸出。 | `lib/exercise_dataset.generated.dart:797:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开与肩同宽，轻轻落地，弯曲膝盖以吸收冲击力。 | `lib/exercise_dataset.generated.dart:798:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:799:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | back and forth step | `lib/exercise_dataset.generated.dart:808:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 前后踏步 | `lib/exercise_dataset.generated.dart:808:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | back and forth step | `lib/exercise_dataset.generated.dart:808:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 双脚分开与肩同宽站立。 右脚向前迈出一步，弯曲膝盖，将身体降低到弓步位置。 用右脚蹬地，然后回到起始位置。 用左脚重复该动作，每一步交替双腿。 继续来回走动，保持稳定的步伐。 重复所需的持续时间或重复次数。 | `lib/exercise_dataset.generated.dart:814:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开与肩同宽站立。 | `lib/exercise_dataset.generated.dart:816:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 右脚向前迈出一步，弯曲膝盖，将身体降低到弓步位置。 | `lib/exercise_dataset.generated.dart:817:1` | 是（动作教学说明候选） |
@@ -1430,8 +1431,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 慢慢抬起双腿，保持伸直，直到身体与地面平行。 | `lib/exercise_dataset.generated.dart:862:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持这个姿势几秒钟，然后慢慢地将双腿放回起始位置。 | `lib/exercise_dataset.generated.dart:863:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:864:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | back pec stretch | `lib/exercise_dataset.generated.dart:873:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 背部·拉伸 | `lib/exercise_dataset.generated.dart:873:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | back pec stretch | `lib/exercise_dataset.generated.dart:873:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 站直，双脚分开与肩同宽。 将双臂伸直在身前，与地面平行。 双臂交叉在身体前方，右臂放在左臂上方。 手指交叉，手掌旋转远离身体。 慢慢抬起手臂并远离身体，感觉背部和胸部有拉伸感。 保持拉伸 15-30 秒，然后放松。 在另一侧重复。 | `lib/exercise_dataset.generated.dart:879:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 站直，双脚分开与肩同宽。 | `lib/exercise_dataset.generated.dart:881:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将双臂伸直在身前，与地面平行。 | `lib/exercise_dataset.generated.dart:882:1` | 是（动作教学说明候选） |
@@ -1462,8 +1463,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持肘部靠近身体两侧，慢慢地将一只手臂向肩膀弯曲，在顶部挤压二头肌。 | `lib/exercise_dataset.generated.dart:945:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将手臂放回起始位置，然后用另一只手臂重复此动作。 | `lib/exercise_dataset.generated.dart:946:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 继续交替手臂进行所需的重复次数。 | `lib/exercise_dataset.generated.dart:947:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 弹力带·交替·字卷腹 | `lib/exercise_dataset.generated.dart:956:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | band alternating v-up | `lib/exercise_dataset.generated.dart:956:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 弹力带·交替·字卷腹 | `lib/exercise_dataset.generated.dart:956:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 平躺，双腿伸直，手臂伸过头顶，握住弹力带。 收紧腹肌，同时将双腿和上半身抬离地面，将双手伸向脚趾。 当你降低双腿和上半身时，交换双腿的位置，将一条腿交叉在另一条腿上。 重复该动作，每次重复时交替变换双腿的位置。 继续进行所需的重复次数。 | `lib/exercise_dataset.generated.dart:962:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 平躺，双腿伸直，手臂伸过头顶，握住弹力带。 | `lib/exercise_dataset.generated.dart:964:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 收紧腹肌，同时将双腿和上半身抬离地面，将双手伸向脚趾。 | `lib/exercise_dataset.generated.dart:965:1` | 是（动作教学说明候选） |
@@ -1505,8 +1506,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将右腿向后伸直，在顶部挤压臀部。 | `lib/exercise_dataset.generated.dart:1053:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将右腿放回原位，然后换左腿重复此动作。 | `lib/exercise_dataset.generated.dart:1054:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 继续交替双腿达到所需的重复次数。 | `lib/exercise_dataset.generated.dart:1055:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 弹力带·卷腹 | `lib/exercise_dataset.generated.dart:1064:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | band bicycle crunch | `lib/exercise_dataset.generated.dart:1064:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 弹力带·卷腹 | `lib/exercise_dataset.generated.dart:1064:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 平躺，双手放在脑后，膝盖弯曲。 将脚抬离地面，将右膝盖靠近胸部，同时扭转躯干，将左肘靠近右膝盖。 伸直右腿，同时将左膝靠近胸部，并扭转躯干，使右肘靠近左膝。 继续交替扭转运动，就像踩自行车一样，同时在整个运动过程中保持核心参与。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:1070:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 平躺，双手放在脑后，膝盖弯曲。 | `lib/exercise_dataset.generated.dart:1072:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将脚抬离地面，将右膝盖靠近胸部，同时扭转躯干，将左肘靠近右膝盖。 | `lib/exercise_dataset.generated.dart:1073:1` | 是（动作教学说明候选） |
@@ -1530,8 +1531,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 弯曲肘部，将胸部降低到地面，保持肘部靠近身体两侧。 | `lib/exercise_dataset.generated.dart:1117:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 推动手掌以伸展手臂并返回到起始位置。 | `lib/exercise_dataset.generated.dart:1118:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:1119:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | band concentration curl | `lib/exercise_dataset.generated.dart:1128:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 弹力带·集中式·弯举 | `lib/exercise_dataset.generated.dart:1128:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | band concentration curl | `lib/exercise_dataset.generated.dart:1128:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 坐在长凳或椅子上，双腿分开，双脚平放在地上。 用手握住带子的一端，用脚踩在另一端上，同时将脚放在同一侧。 稍微向前倾，将肘部放在大腿内侧，膝盖上方。 手掌朝上，慢慢地将手向肩膀弯曲，保持上臂静止。 在顶部暂停片刻，然后慢慢将手放回起始位置。 重复所需的重复次数，然后换边。 | `lib/exercise_dataset.generated.dart:1134:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在长凳或椅子上，双腿分开，双脚平放在地上。 | `lib/exercise_dataset.generated.dart:1136:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 用手握住带子的一端，用脚踩在另一端上，同时将脚放在同一侧。 | `lib/exercise_dataset.generated.dart:1137:1` | 是（动作教学说明候选） |
@@ -1604,8 +1605,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 收紧腹肌，同时抬起双腿和上半身，将双手移向脚部。 | `lib/exercise_dataset.generated.dart:1295:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部停顿片刻，然后慢慢放下双腿和上半身回到起始位置。 | `lib/exercise_dataset.generated.dart:1296:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:1297:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | band kneeling one arm pulldown | `lib/exercise_dataset.generated.dart:1306:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 弹力带·跪姿·单臂·下拉 | `lib/exercise_dataset.generated.dart:1306:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | band kneeling one arm pulldown | `lib/exercise_dataset.generated.dart:1306:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 将带子固定在头顶上方坚固的锚点上。 跪下，用一只手握住弹力带，手掌朝下。 将手臂完全伸过头顶，保持肘部稍微弯曲。 调动你的背阔肌，将弹力带拉向你的一侧，使你的肘部靠近你的胸腔。 在底部停顿片刻，然后慢慢释放张力，回到起始位置。 重复所需的重复次数，然后换边。 | `lib/exercise_dataset.generated.dart:1312:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将带子固定在头顶上方坚固的锚点上。 | `lib/exercise_dataset.generated.dart:1314:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 跪下，用一只手握住弹力带，手掌朝下。 | `lib/exercise_dataset.generated.dart:1315:1` | 是（动作教学说明候选） |
@@ -1646,8 +1647,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持上臂静止，将前臂向肩膀弯曲，挤压二头肌。 | `lib/exercise_dataset.generated.dart:1402:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部停顿片刻，然后慢慢将前臂放回起始位置。 | `lib/exercise_dataset.generated.dart:1403:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数，然后换臂。 | `lib/exercise_dataset.generated.dart:1404:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | band one arm single leg split squat | `lib/exercise_dataset.generated.dart:1413:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 弹力带·单臂·单腿·分腿蹲 | `lib/exercise_dataset.generated.dart:1413:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | band one arm single leg split squat | `lib/exercise_dataset.generated.dart:1413:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 双脚分开站立，与臀部同宽，将阻力带绕在脚踝上。 向前伸出一条腿，将脚尖放在长凳上或身后的一步上。 用一只手握住支撑物以保持平衡。 弯曲站立的腿，将身体降低到蹲姿，保持膝盖与脚趾在一条直线上。 推动脚后跟返回到起始位置。 重复所需的重复次数，然后换腿。 | `lib/exercise_dataset.generated.dart:1419:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开站立，与臀部同宽，将阻力带绕在脚踝上。 | `lib/exercise_dataset.generated.dart:1421:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 向前伸出一条腿，将脚尖放在长凳上或身后的一步上。 | `lib/exercise_dataset.generated.dart:1422:1` | 是（动作教学说明候选） |
@@ -1676,8 +1677,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在保持弹力带张力的同时，将手向前推离身体，伸展手臂。 | `lib/exercise_dataset.generated.dart:1471:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 慢慢回到起始位置并重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:1472:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 换边并用另一只手重复练习。 | `lib/exercise_dataset.generated.dart:1473:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 弹力带·单臂·转体·坐姿划船 | `lib/exercise_dataset.generated.dart:1482:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | band one arm twisting seated row | `lib/exercise_dataset.generated.dart:1482:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 弹力带·单臂·转体·坐姿划船 | `lib/exercise_dataset.generated.dart:1482:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 坐在长凳或椅子上，双脚平放在地上，背部挺直。 用一只手握住弹力带，并将手臂完全伸到身前。 保持背部挺直，弯曲肘部并将肩胛骨挤压在一起，将弹力带拉向身体。 同时，将躯干向拉动手臂的一侧扭转。 在顶部暂停片刻，然后慢慢释放弹力带的张力并返回到起始位置。 重复所需的重复次数，然后换到另一只手臂。 | `lib/exercise_dataset.generated.dart:1488:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在长凳或椅子上，双脚平放在地上，背部挺直。 | `lib/exercise_dataset.generated.dart:1490:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 用一只手握住弹力带，并将手臂完全伸到身前。 | `lib/exercise_dataset.generated.dart:1491:1` | 是（动作教学说明候选） |
@@ -1704,8 +1705,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 收紧腹肌，慢慢将上半身抬离地面，向前卷曲，直到躯干呈 45 度角。 | `lib/exercise_dataset.generated.dart:1538:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部停顿片刻，然后慢慢将上半身放回起始位置。 | `lib/exercise_dataset.generated.dart:1539:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:1540:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | band reverse fly | `lib/exercise_dataset.generated.dart:1549:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 弹力带·反向飞鸟 | `lib/exercise_dataset.generated.dart:1549:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | band reverse fly | `lib/exercise_dataset.generated.dart:1549:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 将带子固定在胸部高度的固定物体上。 双脚分开与肩同宽站立，双手握住弹力带放在身前。 保持手臂伸直并将其向两侧抬起，直到与地面平行。 在动作的最高点将肩胛骨挤压在一起。 慢慢地将手臂放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:1555:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将带子固定在胸部高度的固定物体上。 | `lib/exercise_dataset.generated.dart:1557:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开与肩同宽站立，双手握住弹力带放在身前。 | `lib/exercise_dataset.generated.dart:1558:1` | 是（动作教学说明候选） |
@@ -1772,8 +1773,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 慢慢地将左脚跟抬离地面，将身体重量转移到脚掌上。 | `lib/exercise_dataset.generated.dart:1710:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部暂停片刻，然后慢慢将左脚跟放回起始位置。 | `lib/exercise_dataset.generated.dart:1711:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数，然后换右腿。 | `lib/exercise_dataset.generated.dart:1712:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 弹力带·单腿·反向·提踵 | `lib/exercise_dataset.generated.dart:1721:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | band single leg reverse calf raise | `lib/exercise_dataset.generated.dart:1721:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 弹力带·单腿·反向·提踵 | `lib/exercise_dataset.generated.dart:1721:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 双脚分开站立，与臀部同宽，将弹力带放在脚掌周围。 抓住稳定的物体以保持平衡。 慢慢地将脚跟抬离地面，将身体重量转移到脚掌上。 在顶部暂停片刻，然后慢慢将脚跟放回起始位置。 重复所需的重复次数，然后换另一条腿。 | `lib/exercise_dataset.generated.dart:1727:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开站立，与臀部同宽，将弹力带放在脚掌周围。 | `lib/exercise_dataset.generated.dart:1729:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 抓住稳定的物体以保持平衡。 | `lib/exercise_dataset.generated.dart:1730:1` | 是（动作教学说明候选） |
@@ -1788,8 +1789,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 弯曲膝盖并降低身体，直到右大腿与地面平行，保持左膝盖略高于地面。 | `lib/exercise_dataset.generated.dart:1752:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 推动右脚跟回到起始位置。 | `lib/exercise_dataset.generated.dart:1753:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在另一侧重复。 | `lib/exercise_dataset.generated.dart:1754:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | band squat | `lib/exercise_dataset.generated.dart:1763:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 弹力带·深蹲 | `lib/exercise_dataset.generated.dart:1763:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | band squat | `lib/exercise_dataset.generated.dart:1763:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 双脚分开站立，与肩同宽，弹力带放在膝盖上方。 保持挺胸、核心收紧，将臀部向后推，弯曲膝盖，形成下蹲姿势。 确保膝盖位于脚趾上方，并且重量位于脚后跟。 在底部停顿片刻，然后推动脚后跟回到起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:1769:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开站立，与肩同宽，弹力带放在膝盖上方。 | `lib/exercise_dataset.generated.dart:1771:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持挺胸、核心收紧，将臀部向后推，弯曲膝盖，形成下蹲姿势。 | `lib/exercise_dataset.generated.dart:1772:1` | 是（动作教学说明候选） |
@@ -1833,8 +1834,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 暂停片刻，然后回到起始位置。 | `lib/exercise_dataset.generated.dart:1862:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在另一侧重复。 | `lib/exercise_dataset.generated.dart:1863:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 继续交替进行所需的重复次数。 | `lib/exercise_dataset.generated.dart:1864:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 弹力带·踏步 | `lib/exercise_dataset.generated.dart:1873:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | band step-up | `lib/exercise_dataset.generated.dart:1873:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 弹力带·踏步 | `lib/exercise_dataset.generated.dart:1873:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 将一条带子绕在大腿上，就在膝盖上方。 面向台阶或平台站立，双脚分开与臀部同宽。 用右脚踩上平台，用脚后跟推动。 将左腿伸到身后，保持伸直。 将左脚放回地面。 重复左脚踩上平台的动作。 继续交替双腿达到所需的重复次数。 | `lib/exercise_dataset.generated.dart:1879:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将一条带子绕在大腿上，就在膝盖上方。 | `lib/exercise_dataset.generated.dart:1881:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 面向台阶或平台站立，双脚分开与臀部同宽。 | `lib/exercise_dataset.generated.dart:1882:1` | 是（动作教学说明候选） |
@@ -1843,8 +1844,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将左脚放回地面。 | `lib/exercise_dataset.generated.dart:1885:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复左脚踩上平台的动作。 | `lib/exercise_dataset.generated.dart:1886:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 继续交替双腿达到所需的重复次数。 | `lib/exercise_dataset.generated.dart:1887:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | band stiff leg deadlift | `lib/exercise_dataset.generated.dart:1896:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 弹力带·直腿·硬拉 | `lib/exercise_dataset.generated.dart:1896:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | band stiff leg deadlift | `lib/exercise_dataset.generated.dart:1896:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 双脚分开站立，与肩同宽，将弹力带绕在脚踝上。 用双手将弹力带放在大腿前面，手掌朝向身体。 保持背部挺直，核心收紧，铰接臀部，慢慢将上半身降低到地面。 当你降低时，将臀部向后推，并让膝盖稍微弯曲。 将弹力带降低至地面，感受腿筋的拉伸。 在底部暂停片刻，然后启动臀肌和腿筋，将上半身抬回到起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:1902:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开站立，与肩同宽，将弹力带绕在脚踝上。 | `lib/exercise_dataset.generated.dart:1904:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 用双手将弹力带放在大腿前面，手掌朝向身体。 | `lib/exercise_dataset.generated.dart:1905:1` | 是（动作教学说明候选） |
@@ -1872,8 +1873,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将弹力带降低至地面，同时保持双腿伸直。 | `lib/exercise_dataset.generated.dart:1953:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在底部暂停片刻，然后挤压臀肌和腿筋，回到起始位置。 | `lib/exercise_dataset.generated.dart:1954:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:1955:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | band twisting overhead press | `lib/exercise_dataset.generated.dart:1964:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 弹力带·转体·过顶推举 | `lib/exercise_dataset.generated.dart:1964:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | band twisting overhead press | `lib/exercise_dataset.generated.dart:1964:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 双脚分开与肩同宽站立，将弹力带放在脚下。 将弹力带手柄保持在与肩同高的位置，手掌朝前。 启动你的核心并将弹力带压过头顶，充分伸展你的手臂。 当你按压时，将你的躯干扭转到一侧，保持臀部稳定。 在顶部暂停片刻，然后回到起始位置。 在另一侧重复按压和扭转。 继续交替进行所需的重复次数。 | `lib/exercise_dataset.generated.dart:1970:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开与肩同宽站立，将弹力带放在脚下。 | `lib/exercise_dataset.generated.dart:1972:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将弹力带手柄保持在与肩同高的位置，手掌朝前。 | `lib/exercise_dataset.generated.dart:1973:1` | 是（动作教学说明候选） |
@@ -1917,8 +1918,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 收紧核心肌群，将弹力带压离胸部，充分伸展手臂。 | `lib/exercise_dataset.generated.dart:2063:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持该姿势几秒钟，然后慢慢将弹力带拉回到胸部。 | `lib/exercise_dataset.generated.dart:2064:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数，然后换边。 | `lib/exercise_dataset.generated.dart:2065:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | band wrist curl | `lib/exercise_dataset.generated.dart:2074:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 弹力带·腕弯举 | `lib/exercise_dataset.generated.dart:2074:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | band wrist curl | `lib/exercise_dataset.generated.dart:2074:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 坐在长凳或椅子上，双脚平放在地面上。 双手握住弹力带，手掌朝上，前臂放在大腿上。 慢慢向上弯曲手腕，挤压前臂。 在顶部暂停片刻，然后慢慢将手腕放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:2080:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在长凳或椅子上，双脚平放在地面上。 | `lib/exercise_dataset.generated.dart:2082:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双手握住弹力带，手掌朝上，前臂放在大腿上。 | `lib/exercise_dataset.generated.dart:2083:1` | 是（动作教学说明候选） |
@@ -2347,8 +2348,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持上臂静止，弯曲肘部，慢慢将杠铃降低到前额。 | `lib/exercise_dataset.generated.dart:3130:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在底部停顿片刻，然后将手臂伸回起始位置。 | `lib/exercise_dataset.generated.dart:3131:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:3132:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | barbell lying triceps extension skull crusher | `lib/exercise_dataset.generated.dart:3141:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 杠铃·卧姿·肱三头肌伸展 | `lib/exercise_dataset.generated.dart:3141:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | barbell lying triceps extension skull crusher | `lib/exercise_dataset.generated.dart:3141:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 平躺在长凳上，双脚平放在地上，头放在长凳的末端。 正手握住杠铃，双手与肩同宽，将手臂伸直至胸部上方。 保持上臂静止，弯曲肘部，慢慢将杠铃降低到前额。 当杠铃位于前额上方时暂停片刻，然后将手臂向后伸展至起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:3147:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 平躺在长凳上，双脚平放在地上，头放在长凳的末端。 | `lib/exercise_dataset.generated.dart:3149:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 正手握住杠铃，双手与肩同宽，将手臂伸直至胸部上方。 | `lib/exercise_dataset.generated.dart:3150:1` | 是（动作教学说明候选） |
@@ -2530,8 +2531,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 弯曲双膝降低身体，直到左大腿与地面平行。 | `lib/exercise_dataset.generated.dart:3586:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 推动左脚跟返回到起始位置。 | `lib/exercise_dataset.generated.dart:3587:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 换另一条腿重复上述步骤。 | `lib/exercise_dataset.generated.dart:3588:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 杠铃·腕弯举 | `lib/exercise_dataset.generated.dart:3597:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | barbell revers wrist curl v. 2 | `lib/exercise_dataset.generated.dart:3597:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 杠铃·腕弯举 | `lib/exercise_dataset.generated.dart:3597:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 坐在长凳上，双脚平放在地上，膝盖弯曲。 正手握住杠铃，手掌朝下，双手与肩同宽。 将前臂放在大腿上，让手腕悬在边缘。 保持前臂静止，呼气并尽可能向上弯曲手腕。 保持收缩位置短暂停顿，然后吸气并慢慢将杠铃放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:3603:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在长凳上，双脚平放在地上，膝盖弯曲。 | `lib/exercise_dataset.generated.dart:3605:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 正手握住杠铃，手掌朝下，双手与肩同宽。 | `lib/exercise_dataset.generated.dart:3606:1` | 是（动作教学说明候选） |
@@ -2614,8 +2615,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 挤压二头肌时，保持收缩位置短暂停顿。 | `lib/exercise_dataset.generated.dart:3787:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 吸气并慢慢将杠铃放回起始位置。 | `lib/exercise_dataset.generated.dart:3788:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:3789:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 杠铃·反向·腕弯举 | `lib/exercise_dataset.generated.dart:3798:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | barbell reverse wrist curl | `lib/exercise_dataset.generated.dart:3798:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 杠铃·反向·腕弯举 | `lib/exercise_dataset.generated.dart:3798:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 坐在长凳上，双脚平放在地上，正手握住杠铃，手掌朝下。 将前臂放在大腿上，让手腕悬在边缘。 慢慢向上弯曲手腕，将杠铃拉向身体。 在顶部停顿片刻，然后慢慢将杠铃放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:3804:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在长凳上，双脚平放在地上，正手握住杠铃，手掌朝下。 | `lib/exercise_dataset.generated.dart:3806:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将前臂放在大腿上，让手腕悬在边缘。 | `lib/exercise_dataset.generated.dart:3807:1` | 是（动作教学说明候选） |
@@ -2630,8 +2631,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 继续向前滚动，直到身体完全伸展并且手臂举过头顶。 | `lib/exercise_dataset.generated.dart:3829:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 暂停片刻，然后慢慢将杠铃向膝盖方向滚动，保持控制。 | `lib/exercise_dataset.generated.dart:3830:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:3831:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 杠铃·训练凳 | `lib/exercise_dataset.generated.dart:3840:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | barbell rollerout from bench | `lib/exercise_dataset.generated.dart:3840:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 杠铃·训练凳 | `lib/exercise_dataset.generated.dart:3840:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 首先跪在地板上，将杠铃放在你面前的长凳上。 正手握住杠铃，握距略宽于肩宽。 保持核心收紧，背部挺直，慢慢向前滚动杠铃，将手臂伸到身前。 继续向前滚动杠铃，直到身体完全伸展并且手臂举过头顶。 在完全伸展的位置暂停片刻，然后慢慢地将杠铃向身体方向滚动，回到起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:3846:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 首先跪在地板上，将杠铃放在你面前的长凳上。 | `lib/exercise_dataset.generated.dart:3848:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 正手握住杠铃，握距略宽于肩宽。 | `lib/exercise_dataset.generated.dart:3849:1` | 是（动作教学说明候选） |
@@ -2656,8 +2657,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将杠铃举至肩膀高度，保持肘部稍微弯曲并指向前方。 | `lib/exercise_dataset.generated.dart:3894:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将杠铃推过头顶，充分伸展双臂。 | `lib/exercise_dataset.generated.dart:3895:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将杠铃降低回肩部高度，然后重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:3896:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | barbell seated calf raise | `lib/exercise_dataset.generated.dart:3905:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 杠铃·坐姿·提踵 | `lib/exercise_dataset.generated.dart:3905:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | barbell seated calf raise | `lib/exercise_dataset.generated.dart:3905:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 坐在长凳上，双脚平放在地板上，杠铃放在大腿上。 将脚掌放在升高的平台上，例如木块或台阶。 将杠铃放在大腿上，并用手牢牢握住它。 保持背部挺直，核心收紧，伸展脚踝，将脚后跟抬离地面。 在顶部停顿片刻，然后慢慢降低脚后跟回到起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:3911:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在长凳上，双脚平放在地板上，杠铃放在大腿上。 | `lib/exercise_dataset.generated.dart:3913:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将脚掌放在升高的平台上，例如木块或台阶。 | `lib/exercise_dataset.generated.dart:3914:1` | 是（动作教学说明候选） |
@@ -2731,8 +2732,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将肩膀尽可能高地抬向耳朵，挤压斜方肌顶部。 | `lib/exercise_dataset.generated.dart:4086:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持一会儿，然后慢慢将肩膀放回起始位置。 | `lib/exercise_dataset.generated.dart:4087:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:4088:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | barbell side bent v. 2 | `lib/exercise_dataset.generated.dart:4097:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 杠铃·侧向·屈曲 | `lib/exercise_dataset.generated.dart:4097:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | barbell side bent v. 2 | `lib/exercise_dataset.generated.dart:4097:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 双脚分开与肩同宽站立，双手握住杠铃，掌心朝下。 在整个练习过程中保持背部挺直并保持核心参与。 慢慢地将你的躯干弯曲到右侧，将杠铃向右膝方向降低。 暂停片刻，然后回到起始位置。 在左侧重复该动作。 继续交替进行所需的重复次数。 | `lib/exercise_dataset.generated.dart:4103:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开与肩同宽站立，双手握住杠铃，掌心朝下。 | `lib/exercise_dataset.generated.dart:4105:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在整个练习过程中保持背部挺直并保持核心参与。 | `lib/exercise_dataset.generated.dart:4106:1` | 是（动作教学说明候选） |
@@ -2860,8 +2861,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将杠铃推过头顶，充分伸展双臂。 | `lib/exercise_dataset.generated.dart:4409:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将杠铃降低回到起始位置。 | `lib/exercise_dataset.generated.dart:4410:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:4411:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 杠铃·站姿·提踵 | `lib/exercise_dataset.generated.dart:4420:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | barbell standing calf raise | `lib/exercise_dataset.generated.dart:4420:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 杠铃·站姿·提踵 | `lib/exercise_dataset.generated.dart:4420:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 双脚分开与肩同宽站立，将杠铃放在上背部。 仅用脚趾将脚后跟抬离地面，尽可能高。 在顶部停顿片刻，然后慢慢降低脚后跟回到起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:4426:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开与肩同宽站立，将杠铃放在上背部。 | `lib/exercise_dataset.generated.dart:4428:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 仅用脚趾将脚后跟抬离地面，尽可能高。 | `lib/exercise_dataset.generated.dart:4429:1` | 是（动作教学说明候选） |
@@ -2884,8 +2885,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将杠铃推过头顶，充分伸展双臂。 | `lib/exercise_dataset.generated.dart:4472:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将杠铃降低回肩部高度。 | `lib/exercise_dataset.generated.dart:4473:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:4474:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | barbell standing concentration curl | `lib/exercise_dataset.generated.dart:4483:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 杠铃·站姿·集中式·弯举 | `lib/exercise_dataset.generated.dart:4483:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | barbell standing concentration curl | `lib/exercise_dataset.generated.dart:4483:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 双脚分开与肩同宽站立，一手握住杠铃，掌心朝上。 将另一只手放在大腿上以获得支撑。 保持上臂静止，呼气并将重量向上弯向肩膀。 在顶部暂停片刻，挤压你的二头肌。 吸气并慢慢将重量放回起始位置。 重复所需的重复次数，然后换臂。 | `lib/exercise_dataset.generated.dart:4489:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开与肩同宽站立，一手握住杠铃，掌心朝上。 | `lib/exercise_dataset.generated.dart:4491:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将另一只手放在大腿上以获得支撑。 | `lib/exercise_dataset.generated.dart:4492:1` | 是（动作教学说明候选） |
@@ -2942,8 +2943,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 扭转结束时暂停片刻，然后慢慢回到起始位置。 | `lib/exercise_dataset.generated.dart:4621:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 向左侧重复扭转。 | `lib/exercise_dataset.generated.dart:4622:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 继续交替扭转所需的重复次数。 | `lib/exercise_dataset.generated.dart:4623:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | barbell standing wide grip biceps curl | `lib/exercise_dataset.generated.dart:4632:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 杠铃·站姿·宽握·肱二头肌弯举 | `lib/exercise_dataset.generated.dart:4632:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | barbell standing wide grip biceps curl | `lib/exercise_dataset.generated.dart:4632:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 双脚分开与肩同宽站立，反握握住杠铃，双手分开比肩宽。 保持背部挺直，肘部靠近躯干。 呼气并将杠铃向上弯向肩膀，保持上臂静止。 在顶部暂停片刻，挤压你的二头肌。 吸气，慢慢将杠铃放回起始位置，充分伸展双臂。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:4638:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开与肩同宽站立，反握握住杠铃，双手分开比肩宽。 | `lib/exercise_dataset.generated.dart:4640:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持背部挺直，肘部靠近躯干。 | `lib/exercise_dataset.generated.dart:4641:1` | 是（动作教学说明候选） |
@@ -2986,8 +2987,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 降低躯干直到与地面平行，感觉腿筋被拉伸。 | `lib/exercise_dataset.generated.dart:4730:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 启动臀肌和腿筋以返回起始位置。 | `lib/exercise_dataset.generated.dart:4731:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:4732:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | barbell straight leg deadlift | `lib/exercise_dataset.generated.dart:4741:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 杠铃·直腿·硬拉 | `lib/exercise_dataset.generated.dart:4741:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | barbell straight leg deadlift | `lib/exercise_dataset.generated.dart:4741:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 站立，双脚分开与肩同宽，脚趾指向前方。 正手握住杠铃，双手分开略宽于肩宽。 弯曲臀部，将杠铃放低至地面，保持背部挺直，膝盖稍微弯曲。 降低杠铃，直到感觉到腿筋拉伸。 启动腿筋和臀肌，将杠铃举回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:4747:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 站立，双脚分开与肩同宽，脚趾指向前方。 | `lib/exercise_dataset.generated.dart:4749:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 正手握住杠铃，双手分开略宽于肩宽。 | `lib/exercise_dataset.generated.dart:4750:1` | 是（动作教学说明候选） |
@@ -3029,8 +3030,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持背部挺直，呼气，将杠铃向上举至下巴，用肘部引导。 | `lib/exercise_dataset.generated.dart:4838:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部停顿片刻，然后吸气，慢慢将杠铃放回起始位置。 | `lib/exercise_dataset.generated.dart:4839:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:4840:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 杠铃·直立划船 | `lib/exercise_dataset.generated.dart:4849:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | barbell upright row v. 3 | `lib/exercise_dataset.generated.dart:4849:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 杠铃·直立划船 | `lib/exercise_dataset.generated.dart:4849:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 双脚分开与肩同宽站立，正手握住杠铃，双手分开略宽于肩宽。 让杠铃悬挂在大腿前面，双臂完全伸展。 保持核心收紧，背部挺直，呼气，将杠铃向上举至下巴，用肘部引导。 在顶部暂停片刻，然后吸气，慢慢将杠铃放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:4855:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开与肩同宽站立，正手握住杠铃，双手分开略宽于肩宽。 | `lib/exercise_dataset.generated.dart:4857:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 让杠铃悬挂在大腿前面，双臂完全伸展。 | `lib/exercise_dataset.generated.dart:4858:1` | 是（动作教学说明候选） |
@@ -3072,8 +3073,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持背部挺直，呼气，将杠铃向上举至下巴，用肘部引导。 | `lib/exercise_dataset.generated.dart:4946:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部停顿片刻，然后吸气，慢慢将杠铃放回起始位置。 | `lib/exercise_dataset.generated.dart:4947:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:4948:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 杠铃·腕弯举 | `lib/exercise_dataset.generated.dart:4957:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | barbell wrist curl | `lib/exercise_dataset.generated.dart:4957:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 杠铃·腕弯举 | `lib/exercise_dataset.generated.dart:4957:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 坐在长凳上，双脚平放在地面上，前臂放在大腿上，反握杠铃。 让杠铃向下滚动到指尖，保持手腕伸直。 弯曲手腕，慢慢地将杠铃向上卷向前臂。 在顶部停顿片刻，然后慢慢将杠铃放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:4963:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在长凳上，双脚平放在地面上，前臂放在大腿上，反握杠铃。 | `lib/exercise_dataset.generated.dart:4965:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 让杠铃向下滚动到指尖，保持手腕伸直。 | `lib/exercise_dataset.generated.dart:4966:1` | 是（动作教学说明候选） |
@@ -3114,8 +3115,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将手臂举至肩膀高度，保持肘部稍微弯曲。 | `lib/exercise_dataset.generated.dart:5053:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 快速抬起和放下每只手臂，开始用绳索产生交替的波浪。 | `lib/exercise_dataset.generated.dart:5054:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 继续所需的持续时间或重复次数。 | `lib/exercise_dataset.generated.dart:5055:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | bear crawl | `lib/exercise_dataset.generated.dart:5064:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 自重心肺系统训练 | `lib/exercise_dataset.generated.dart:5064:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | bear crawl | `lib/exercise_dataset.generated.dart:5064:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 从四肢着地开始，双手直接放在肩膀下方，膝盖直接放在臀部下方。 将膝盖稍微抬离地面，保持背部平坦并收紧核心。 同时向前移动右手和左脚，然后是左手和右脚。 继续向前爬行，手脚交替动作。 在整个练习过程中保持稳定的节奏并保持核心紧张。 继续所需的距离或时间。 | `lib/exercise_dataset.generated.dart:5070:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 从四肢着地开始，双手直接放在肩膀下方，膝盖直接放在臀部下方。 | `lib/exercise_dataset.generated.dart:5072:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将膝盖稍微抬离地面，保持背部平坦并收紧核心。 | `lib/exercise_dataset.generated.dart:5073:1` | 是（动作教学说明候选） |
@@ -3155,8 +3156,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 收紧臀肌和腿筋，然后将臀部抬离长凳，直到身体从膝盖到肩膀形成一条直线。 | `lib/exercise_dataset.generated.dart:5159:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部暂停片刻，然后慢慢将臀部放回起始位置。 | `lib/exercise_dataset.generated.dart:5160:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:5161:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | bench pull-ups | `lib/exercise_dataset.generated.dart:5170:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 训练凳·引体向上 | `lib/exercise_dataset.generated.dart:5170:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | bench pull-ups | `lib/exercise_dataset.generated.dart:5170:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 将自己置于与胸部同高的横杆或坚固的水平表面下方。 正手握住杠铃或杠铃表面，握距略宽于肩宽。 双臂完全伸展，身体伸直。 将肩胛骨挤压在一起并弯曲肘部，将胸部拉向杠铃或地面。 继续拉，直到下巴位于杆或表面上方。 有控制地降低自己回到起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:5176:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将自己置于与胸部同高的横杆或坚固的水平表面下方。 | `lib/exercise_dataset.generated.dart:5178:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 正手握住杠铃或杠铃表面，握距略宽于肩宽。 | `lib/exercise_dataset.generated.dart:5179:1` | 是（动作教学说明候选） |
@@ -3182,8 +3183,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 手掌朝上，将哑铃向肩膀弯曲，同时保持上臂静止。 | `lib/exercise_dataset.generated.dart:5225:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在动作的最高点挤压二头肌，然后慢慢将哑铃放回起始位置。 | `lib/exercise_dataset.generated.dart:5226:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数，然后换臂。 | `lib/exercise_dataset.generated.dart:5227:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | biceps narrow pull-ups | `lib/exercise_dataset.generated.dart:5236:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 肱二头肌·窄距·引体向上 | `lib/exercise_dataset.generated.dart:5236:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | biceps narrow pull-ups | `lib/exercise_dataset.generated.dart:5236:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 悬挂在引体向上杆上，手掌朝向自己，双手与肩同宽。 启动你的核心并将自己拉向杠铃，专注于使用二头肌来抬起你的身体。 在最高点暂停片刻，然后慢慢降低回到起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:5242:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 悬挂在引体向上杆上，手掌朝向自己，双手与肩同宽。 | `lib/exercise_dataset.generated.dart:5244:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 启动你的核心并将自己拉向杠铃，专注于使用二头肌来抬起你的身体。 | `lib/exercise_dataset.generated.dart:5245:1` | 是（动作教学说明候选） |
@@ -3269,8 +3270,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将哑铃向上拉向胸部，保持肘部靠近身体并将肩胛骨挤压在一起。 | `lib/exercise_dataset.generated.dart:5455:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部停顿片刻，然后慢慢将哑铃放回起始位置。 | `lib/exercise_dataset.generated.dart:5456:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数，然后换边。 | `lib/exercise_dataset.generated.dart:5457:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 自重·站姿·窄距·划船 | `lib/exercise_dataset.generated.dart:5466:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | bodyweight standing close-grip row | `lib/exercise_dataset.generated.dart:5466:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 自重·站姿·窄距·划船 | `lib/exercise_dataset.generated.dart:5466:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 站立，双脚分开与肩同宽，膝盖稍微弯曲。 腰部向前弯曲，保持背部挺直，核心肌群参与。 将双臂伸直在身前，紧紧抓住杆或手柄。 将杠铃或手柄拉向身体，将肩胛骨挤压在一起。 在动作的最高点停顿片刻，然后慢慢松开并回到起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:5472:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 站立，双脚分开与肩同宽，膝盖稍微弯曲。 | `lib/exercise_dataset.generated.dart:5474:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 腰部向前弯曲，保持背部挺直，核心肌群参与。 | `lib/exercise_dataset.generated.dart:5475:1` | 是（动作教学说明候选） |
@@ -3370,8 +3371,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 轻轻地将膝盖压向地板，感觉大腿内侧有拉伸感。 | `lib/exercise_dataset.generated.dart:5699:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持这个姿势几个呼吸。 | `lib/exercise_dataset.generated.dart:5700:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 要放松，请慢慢抬起膝盖并伸展双腿。 | `lib/exercise_dataset.generated.dart:5701:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | cable alternate shoulder press | `lib/exercise_dataset.generated.dart:5710:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 绳索·交替·肩推 | `lib/exercise_dataset.generated.dart:5710:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | cable alternate shoulder press | `lib/exercise_dataset.generated.dart:5710:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 双脚分开与肩同宽站立，并用正手握住绳索机的手柄。 将双手放在与肩同高的位置，手掌朝前。 保持核心参与并保持背部挺直。 向上并向前按下一个手柄，直到您的手臂完全伸展。 在最高点暂停片刻，然后慢慢将手柄放回起始位置。 用另一只手臂重复上述步骤。 双臂交替进行所需的重复次数。 | `lib/exercise_dataset.generated.dart:5716:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开与肩同宽站立，并用正手握住绳索机的手柄。 | `lib/exercise_dataset.generated.dart:5718:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将双手放在与肩同高的位置，手掌朝前。 | `lib/exercise_dataset.generated.dart:5719:1` | 是（动作教学说明候选） |
@@ -3399,8 +3400,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在动作的最高点暂停片刻，挤压你的腿筋。 | `lib/exercise_dataset.generated.dart:5767:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 吸气并慢慢降低双腿回到起始位置。 | `lib/exercise_dataset.generated.dart:5768:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:5769:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | cable bar lateral pulldown | `lib/exercise_dataset.generated.dart:5778:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 绳索·侧向·下拉 | `lib/exercise_dataset.generated.dart:5778:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | cable bar lateral pulldown | `lib/exercise_dataset.generated.dart:5778:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 将电缆滑轮调整至较高位置并安装直杆。 面向缆绳机坐着，双脚平放在地面上，膝盖稍微弯曲。 正手握住杠铃，握距略宽于肩宽。 稍微向后倾斜，挺胸，保持下背部轻微的拱形。 将杠铃向下拉向胸部，用肘部引导并将肩胛骨挤压在一起。 在动作底部暂停片刻，然后慢慢地将杠铃返回到起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:5784:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将电缆滑轮调整至较高位置并安装直杆。 | `lib/exercise_dataset.generated.dart:5786:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 面向缆绳机坐着，双脚平放在地面上，膝盖稍微弯曲。 | `lib/exercise_dataset.generated.dart:5787:1` | 是（动作教学说明候选） |
@@ -3457,8 +3458,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将手柄向下拉并穿过身体，将肩胛骨挤压在一起。 | `lib/exercise_dataset.generated.dart:5903:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在动作底部暂停片刻，然后慢慢回到起始位置。 | `lib/exercise_dataset.generated.dart:5904:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:5905:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | cable cross-over revers fly | `lib/exercise_dataset.generated.dart:5914:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 绳索·飞鸟 | `lib/exercise_dataset.generated.dart:5914:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | cable cross-over revers fly | `lib/exercise_dataset.generated.dart:5914:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 将 D 形手柄连接到每根低滑轮电缆上，并站在电缆交叉机的中间。 旋前抓住手柄（手掌朝下），向前迈出一步，双脚分开与肩同宽。 稍微弯曲膝盖，腰部前倾，保持背部挺直，腹部收紧。 双臂向两侧伸展，肘部稍微弯曲，呼气并将肩胛骨挤压在一起，同时以反向飞翔动作向后和向上拉动绳索。 在收缩峰值时停顿片刻，然后吸气，慢慢回到起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:5920:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将 D 形手柄连接到每根低滑轮电缆上，并站在电缆交叉机的中间。 | `lib/exercise_dataset.generated.dart:5922:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 旋前抓住手柄（手掌朝下），向前迈出一步，双脚分开与肩同宽。 | `lib/exercise_dataset.generated.dart:5923:1` | 是（动作教学说明候选） |
@@ -3486,8 +3487,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在动作的最高点暂停片刻，挤压你的二头肌。 | `lib/exercise_dataset.generated.dart:5971:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 吸气并缓慢地将电缆附件放回起始位置。 | `lib/exercise_dataset.generated.dart:5972:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:5973:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | cable deadlift | `lib/exercise_dataset.generated.dart:5982:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 绳索·硬拉 | `lib/exercise_dataset.generated.dart:5982:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | cable deadlift | `lib/exercise_dataset.generated.dart:5982:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 面对电缆机站立，双脚与肩同宽。 弯曲臀部和膝盖，降低躯干，直到背部与地面平行。 正手握住电缆手柄，保持手臂伸直，肩膀向后。 调动臀肌和腿筋来抬起拉索手柄，伸展臀部并站直。 在顶部暂停片刻，然后慢慢将缆索手柄放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:5988:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 面对电缆机站立，双脚与肩同宽。 | `lib/exercise_dataset.generated.dart:5990:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 弯曲臀部和膝盖，降低躯干，直到背部与地面平行。 | `lib/exercise_dataset.generated.dart:5991:1` | 是（动作教学说明候选） |
@@ -3504,8 +3505,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持肘部轻微弯曲，以受控的动作向两侧张开双臂。 | `lib/exercise_dataset.generated.dart:6015:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在完全伸展位置停顿片刻，然后慢慢回到起始位置。 | `lib/exercise_dataset.generated.dart:6016:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:6017:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 绳索·下斜·单臂·推举 | `lib/exercise_dataset.generated.dart:6026:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | cable decline one arm press | `lib/exercise_dataset.generated.dart:6026:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 绳索·下斜·单臂·推举 | `lib/exercise_dataset.generated.dart:6026:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 将拉线机调整至下降位置。 背对机器站立，用一只手抓住手柄。 将背部靠在下斜长凳上，手臂伸直在身前。 弯曲肘部，将手柄向胸部方向降低，同时保持上臂静止。 在底部暂停片刻，然后将手柄推回到起始位置。 重复所需的重复次数，然后换臂。 | `lib/exercise_dataset.generated.dart:6032:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将拉线机调整至下降位置。 | `lib/exercise_dataset.generated.dart:6034:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 背对机器站立，用一只手抓住手柄。 | `lib/exercise_dataset.generated.dart:6035:1` | 是（动作教学说明候选） |
@@ -3705,8 +3706,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在动作结束时将肩胛骨挤压在一起并保持短暂的停顿。 | `lib/exercise_dataset.generated.dart:6489:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 慢慢释放张力并回到起始位置。 | `lib/exercise_dataset.generated.dart:6490:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:6491:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | cable kneeling triceps extension | `lib/exercise_dataset.generated.dart:6500:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 绳索·跪姿·肱三头肌伸展 | `lib/exercise_dataset.generated.dart:6500:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | cable kneeling triceps extension | `lib/exercise_dataset.generated.dart:6500:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 将绳索手柄连接到高滑轮上，面向绳索机跪下。 以中立握法（手掌相对）抓住绳子，并将双手放在头的两侧。 在整个练习过程中，保持肘部靠近头部，上臂保持静止。 通过收缩三头肌来伸展前臂，直到手臂完全伸展。 暂停片刻，然后弯曲肘部慢慢回到起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:6506:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将绳索手柄连接到高滑轮上，面向绳索机跪下。 | `lib/exercise_dataset.generated.dart:6508:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 以中立握法（手掌相对）抓住绳子，并将双手放在头的两侧。 | `lib/exercise_dataset.generated.dart:6509:1` | 是（动作教学说明候选） |
@@ -3725,8 +3726,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在动作的底部停顿片刻。 | `lib/exercise_dataset.generated.dart:6535:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 慢慢释放张力，让绳子回到起始位置。 | `lib/exercise_dataset.generated.dart:6536:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:6537:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 绳索·侧向·下拉 | `lib/exercise_dataset.generated.dart:6546:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | cable lateral pulldown with v-bar | `lib/exercise_dataset.generated.dart:6546:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 绳索·侧向·下拉 | `lib/exercise_dataset.generated.dart:6546:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 坐在电缆下拉机上，用正手抓住 V 形杆附件。 调整护膝，使大腿固定在其下方。 保持背部挺直并稍微向后倾斜。 将 V 形杆向下拉至上胸部，同时保持肘部靠近身体。 在动作底部挤压背部肌肉。 慢慢地将 v 形杆返回到起始位置，然后重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:6552:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在电缆下拉机上，用正手抓住 V 形杆附件。 | `lib/exercise_dataset.generated.dart:6554:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 调整护膝，使大腿固定在其下方。 | `lib/exercise_dataset.generated.dart:6555:1` | 是（动作教学说明候选） |
@@ -3783,8 +3784,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持双臂伸直，在保持控制的同时慢慢将绳子放到脑后。 | `lib/exercise_dataset.generated.dart:6671:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在底部停顿片刻，然后慢慢将绳子拉回起始位置。 | `lib/exercise_dataset.generated.dart:6672:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:6673:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 绳索·卧姿·飞鸟 | `lib/exercise_dataset.generated.dart:6682:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | cable lying fly | `lib/exercise_dataset.generated.dart:6682:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 绳索·卧姿·飞鸟 | `lib/exercise_dataset.generated.dart:6682:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 将手柄连接到电缆上，平放在长凳上，双脚平放在地面上。 手掌相对，握住手柄，双臂伸直至胸部上方。 保持肘部轻微弯曲，将手臂以宽弧线向两侧放低，直到感觉到胸部有拉伸感。 暂停片刻，然后挤压胸部肌肉，使手臂回到起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:6688:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将手柄连接到电缆上，平放在长凳上，双脚平放在地面上。 | `lib/exercise_dataset.generated.dart:6690:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 手掌相对，握住手柄，双臂伸直至胸部上方。 | `lib/exercise_dataset.generated.dart:6691:1` | 是（动作教学说明候选） |
@@ -3827,8 +3828,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持肘部靠近身体两侧，慢慢地将前臂向上卷向肩膀。 | `lib/exercise_dataset.generated.dart:6780:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部暂停片刻，然后慢慢将前臂放回起始位置。 | `lib/exercise_dataset.generated.dart:6781:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:6782:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | cable one arm decline chest fly | `lib/exercise_dataset.generated.dart:6791:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 绳索·单臂·下斜·夹胸飞鸟 | `lib/exercise_dataset.generated.dart:6791:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | cable one arm decline chest fly | `lib/exercise_dataset.generated.dart:6791:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 将 D 形手柄连接到低滑轮绳索机器上，并将长凳设置为下降角度。 躺在长凳上，头朝向机器，用右手抓住手柄。 将手臂伸直至胸部上方，保持肘部轻微弯曲。 控制动作，将手臂向一侧放低，直到手与肩膀在一条直线上。 暂停片刻，然后反转动作并将手臂恢复到起始位置。 重复所需的重复次数，然后切换到左臂并重复练习。 | `lib/exercise_dataset.generated.dart:6797:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将 D 形手柄连接到低滑轮绳索机器上，并将长凳设置为下降角度。 | `lib/exercise_dataset.generated.dart:6799:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 躺在长凳上，头朝向机器，用右手抓住手柄。 | `lib/exercise_dataset.generated.dart:6800:1` | 是（动作教学说明候选） |
@@ -3871,8 +3872,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 向前和向上按下电缆手柄，完全伸展手臂。 | `lib/exercise_dataset.generated.dart:6889:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部暂停片刻，然后慢慢将拉索手柄放回起始位置。 | `lib/exercise_dataset.generated.dart:6890:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数，然后换到另一只手臂。 | `lib/exercise_dataset.generated.dart:6891:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | cable one arm lateral bent-over | `lib/exercise_dataset.generated.dart:6900:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 绳索·单臂·侧向·俯身 | `lib/exercise_dataset.generated.dart:6900:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | cable one arm lateral bent-over | `lib/exercise_dataset.generated.dart:6900:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 双脚分开与肩同宽站立，面向缆绳机。 用一只手抓住手柄并向后退一步以在电缆上产生张力。 腰部向前弯曲，保持背部挺直，核心肌群参与。 将手臂向侧面伸展，与地面平行，肘部稍微弯曲。 慢慢地将手臂放回起始位置，在整个运动过程中保持控制。 重复所需的重复次数，然后换边。 | `lib/exercise_dataset.generated.dart:6906:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开与肩同宽站立，面向缆绳机。 | `lib/exercise_dataset.generated.dart:6908:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 用一只手抓住手柄并向后退一步以在电缆上产生张力。 | `lib/exercise_dataset.generated.dart:6909:1` | 是（动作教学说明候选） |
@@ -3932,8 +3933,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 慢慢松开手柄回到起始位置。 | `lib/exercise_dataset.generated.dart:7028:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:7029:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 换边并用另一只手臂重复练习。 | `lib/exercise_dataset.generated.dart:7030:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | cable one arm tricep pushdown | `lib/exercise_dataset.generated.dart:7039:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 绳索·单臂·肱三头肌·下压 | `lib/exercise_dataset.generated.dart:7039:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | cable one arm tricep pushdown | `lib/exercise_dataset.generated.dart:7039:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 面向缆绳机站立，并在胸部高度处安装直杆附件。 正手握住杠铃，然后后退以在绳索上产生张力。 将双脚分开与肩同宽，并稍微弯曲膝盖。 在整个练习过程中保持背部挺直并保持核心参与。 首先，手臂完全伸展并垂直于地板。 保持上臂静止，呼气并将杠铃向下推，直到手臂完全伸展。 暂停片刻，然后吸气，慢慢回到起始位置。 重复所需的重复次数，然后换臂。 | `lib/exercise_dataset.generated.dart:7045:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 面向缆绳机站立，并在胸部高度处安装直杆附件。 | `lib/exercise_dataset.generated.dart:7047:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 正手握住杠铃，然后后退以在绳索上产生张力。 | `lib/exercise_dataset.generated.dart:7048:1` | 是（动作教学说明候选） |
@@ -4038,8 +4039,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在动作底部暂停片刻，挤压二头肌。 | `lib/exercise_dataset.generated.dart:7277:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 吸气，慢慢地将杠铃返回到起始位置，充分伸展双臂。 | `lib/exercise_dataset.generated.dart:7278:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:7279:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | cable pushdown | `lib/exercise_dataset.generated.dart:7288:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 绳索·下压 | `lib/exercise_dataset.generated.dart:7288:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | cable pushdown | `lib/exercise_dataset.generated.dart:7288:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 将直杆连接到高滑轮电缆机上。 面向机器站立，双脚分开与肩同宽，膝盖稍微弯曲。 正手握住杠铃，双手与肩同宽。 保持肘部靠近身体两侧，上臂保持静止。 呼气并将杠铃向下推，直到肘部完全伸展。 暂停片刻，然后吸气，慢慢地将杠铃返回到起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:7294:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将直杆连接到高滑轮电缆机上。 | `lib/exercise_dataset.generated.dart:7296:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 面向机器站立，双脚分开与肩同宽，膝盖稍微弯曲。 | `lib/exercise_dataset.generated.dart:7297:1` | 是（动作教学说明候选） |
@@ -4067,8 +4068,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在动作的最高点暂停片刻，挤压肩胛骨。 | `lib/exercise_dataset.generated.dart:7345:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 慢慢地将手柄释放回起始位置，然后重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:7346:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 换边并用右臂重复练习。 | `lib/exercise_dataset.generated.dart:7347:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | cable rear drive | `lib/exercise_dataset.generated.dart:7356:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 绳索·后侧 | `lib/exercise_dataset.generated.dart:7356:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | cable rear drive | `lib/exercise_dataset.generated.dart:7356:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 将手柄连接到低滑轮电缆机器上，并背对机器站立。 正手握住手柄，并将双臂伸直至身前。 保持肘部不动，将手柄拉回身体，在动作结束时挤压三头肌。 慢慢地将手柄返回到起始位置，然后重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:7362:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将手柄连接到低滑轮电缆机器上，并背对机器站立。 | `lib/exercise_dataset.generated.dart:7364:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 正手握住手柄，并将双臂伸直至身前。 | `lib/exercise_dataset.generated.dart:7365:1` | 是（动作教学说明候选） |
@@ -4114,8 +4115,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 启动你的三头肌，慢慢地向下推杠铃，直到你的手臂完全伸展。 | `lib/exercise_dataset.generated.dart:7457:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在底部暂停片刻，然后慢慢地将杠铃返回到起始位置。 | `lib/exercise_dataset.generated.dart:7458:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:7459:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 绳索·反向·单臂·弯举 | `lib/exercise_dataset.generated.dart:7468:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | cable reverse one arm curl | `lib/exercise_dataset.generated.dart:7468:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 绳索·反向·单臂·弯举 | `lib/exercise_dataset.generated.dart:7468:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 面向缆绳机站立，双脚与肩同宽。 反手握住电缆手柄，手掌朝下。 保持肘部靠近身体两侧，慢慢地将前臂向上卷向肩膀。 在顶部暂停片刻，然后慢慢将前臂放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:7474:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 面向缆绳机站立，双脚与肩同宽。 | `lib/exercise_dataset.generated.dart:7476:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 反手握住电缆手柄，手掌朝下。 | `lib/exercise_dataset.generated.dart:7477:1` | 是（动作教学说明候选） |
@@ -4189,8 +4190,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在动作结束时将肩胛骨挤压在一起。 | `lib/exercise_dataset.generated.dart:7636:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 慢慢释放张力并回到起始位置。 | `lib/exercise_dataset.generated.dart:7637:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:7638:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 绳索·绳索·锤式·牧师凳·弯举 | `lib/exercise_dataset.generated.dart:7647:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | cable rope hammer preacher curl | `lib/exercise_dataset.generated.dart:7647:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 绳索·绳索·锤式·牧师凳·弯举 | `lib/exercise_dataset.generated.dart:7647:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 将绳索附件连接到低滑轮缆绳机上。 面向机器站立，双脚分开与肩同宽。 以中立握法（手掌相对）抓住绳子。 将上臂靠在牧师凳垫上，保持肘部稍微弯曲。 保持上臂静止，呼气并通过收缩二头肌将绳子卷向肩膀。 挤压二头肌时，保持收缩位置短暂停顿。 吸气，慢慢将绳子放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:7653:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将绳索附件连接到低滑轮缆绳机上。 | `lib/exercise_dataset.generated.dart:7655:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 面向机器站立，双脚分开与肩同宽。 | `lib/exercise_dataset.generated.dart:7656:1` | 是（动作教学说明候选） |
@@ -4220,8 +4221,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 弯曲肘部，直到前臂接触二头肌，将绳子降低到头后。 | `lib/exercise_dataset.generated.dart:7706:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 暂停片刻，然后将手臂伸回到起始位置。 | `lib/exercise_dataset.generated.dart:7707:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:7708:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 绳索·绳索·卧姿·地板·肱三头肌伸展 | `lib/exercise_dataset.generated.dart:7717:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | cable rope lying on floor tricep extension | `lib/exercise_dataset.generated.dart:7717:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 绳索·绳索·卧姿·地板·肱三头肌伸展 | `lib/exercise_dataset.generated.dart:7717:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 将绳子连接到缆绳机上并将其设置到最低位置。 面朝上躺在地板上，头朝向电缆机。 双手握住绳子，掌心相对，双臂伸直向上伸向天花板。 保持上臂静止，慢慢地将绳子放低到前额，弯曲肘部。 暂停片刻，然后将手臂伸回到起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:7723:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将绳子连接到缆绳机上并将其设置到最低位置。 | `lib/exercise_dataset.generated.dart:7725:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 面朝上躺在地板上，头朝向电缆机。 | `lib/exercise_dataset.generated.dart:7726:1` | 是（动作教学说明候选） |
@@ -4293,8 +4294,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 通过收缩肩胛骨并挤压背部肌肉，将 V 形杆拉向躯干。 | `lib/exercise_dataset.generated.dart:7883:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在收缩的顶峰停顿片刻，然后慢慢释放张力，回到起始位置。 | `lib/exercise_dataset.generated.dart:7884:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:7885:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 绳索·坐姿·单臂·交替·划船 | `lib/exercise_dataset.generated.dart:7894:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | cable seated one arm alternate row | `lib/exercise_dataset.generated.dart:7894:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 绳索·坐姿·单臂·交替·划船 | `lib/exercise_dataset.generated.dart:7894:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 坐在长凳上，面对缆绳机，双脚平放在地面上，膝盖稍微弯曲。 用一只手抓住手柄，并将手臂完全伸展到身前。 将手柄拉向身体，缩回肩胛骨并保持肘部靠近身体两侧。 在动作的最高点暂停片刻，挤压背部肌肉。 慢慢松开手柄回到起始位置。 用另一只手臂重复上述步骤。 双臂交替进行所需的重复次数。 | `lib/exercise_dataset.generated.dart:7900:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在长凳上，面对缆绳机，双脚平放在地面上，膝盖稍微弯曲。 | `lib/exercise_dataset.generated.dart:7902:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 用一只手抓住手柄，并将手臂完全伸展到身前。 | `lib/exercise_dataset.generated.dart:7903:1` | 是（动作教学说明候选） |
@@ -4312,8 +4313,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在动作的最高点暂停片刻，挤压你的二头肌。 | `lib/exercise_dataset.generated.dart:7928:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 吸气时慢慢将电缆手柄放回起始位置。 | `lib/exercise_dataset.generated.dart:7929:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数，然后换臂。 | `lib/exercise_dataset.generated.dart:7930:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 绳索·坐姿·过顶·弯举 | `lib/exercise_dataset.generated.dart:7939:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | cable seated overhead curl | `lib/exercise_dataset.generated.dart:7939:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 绳索·坐姿·过顶·弯举 | `lib/exercise_dataset.generated.dart:7939:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 坐在长凳上，面向电缆机，双脚平放在地面上。 用手握住电缆附件，手掌朝上，双手与肩同宽。 保持上臂不动，肘部靠近身体两侧。 呼气并将电缆附件卷向肩膀，收缩二头肌。 在动作的最高点暂停片刻，挤压你的二头肌。 吸气并慢慢将电缆附件放回起始位置，充分伸展双臂。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:7945:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在长凳上，面向电缆机，双脚平放在地面上。 | `lib/exercise_dataset.generated.dart:7947:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 用手握住电缆附件，手掌朝上，双手与肩同宽。 | `lib/exercise_dataset.generated.dart:7948:1` | 是（动作教学说明候选） |
@@ -4322,8 +4323,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在动作的最高点暂停片刻，挤压你的二头肌。 | `lib/exercise_dataset.generated.dart:7951:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 吸气并慢慢将电缆附件放回起始位置，充分伸展双臂。 | `lib/exercise_dataset.generated.dart:7952:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:7953:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | cable seated rear lateral raise | `lib/exercise_dataset.generated.dart:7962:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 绳索·坐姿·后侧·侧平举 | `lib/exercise_dataset.generated.dart:7962:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | cable seated rear lateral raise | `lib/exercise_dataset.generated.dart:7962:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 坐在长凳上，面向电缆机，双脚平放在地面上。 正手握住电缆手柄，并将双臂伸直至前方。 保持手臂伸直，慢慢向两侧举起，直到与地板平行。 在顶部停顿片刻，然后慢慢将手臂放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:7968:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在长凳上，面向电缆机，双脚平放在地面上。 | `lib/exercise_dataset.generated.dart:7970:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 正手握住电缆手柄，并将双臂伸直至前方。 | `lib/exercise_dataset.generated.dart:7971:1` | 是（动作教学说明候选） |
@@ -4356,8 +4357,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在动作范围结束时暂停片刻，然后慢慢旋转回到起始位置。 | `lib/exercise_dataset.generated.dart:8037:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在另一侧重复。 | `lib/exercise_dataset.generated.dart:8038:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 继续交替进行所需的重复次数。 | `lib/exercise_dataset.generated.dart:8039:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 绳索·坐姿·宽距·划船 | `lib/exercise_dataset.generated.dart:8048:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | cable seated wide-grip row | `lib/exercise_dataset.generated.dart:8048:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 绳索·坐姿·宽距·划船 | `lib/exercise_dataset.generated.dart:8048:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 坐在电缆划船机上，双脚平放在脚踏板上，膝盖稍微弯曲。 正手宽握握住手柄，手掌朝下。 保持背部挺直，并从臀部稍微向前倾斜。 将手柄拉向下胸部，将肩胛骨挤压在一起。 在收缩高峰时暂停片刻。 慢慢松开手柄回到起始位置，充分伸展双臂。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:8054:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在电缆划船机上，双脚平放在脚踏板上，膝盖稍微弯曲。 | `lib/exercise_dataset.generated.dart:8056:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 正手宽握握住手柄，手掌朝下。 | `lib/exercise_dataset.generated.dart:8057:1` | 是（动作教学说明候选） |
@@ -4366,8 +4367,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在收缩高峰时暂停片刻。 | `lib/exercise_dataset.generated.dart:8060:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 慢慢松开手柄回到起始位置，充分伸展双臂。 | `lib/exercise_dataset.generated.dart:8061:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:8062:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | cable shoulder press | `lib/exercise_dataset.generated.dart:8071:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 绳索·肩推 | `lib/exercise_dataset.generated.dart:8071:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | cable shoulder press | `lib/exercise_dataset.generated.dart:8071:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 调整绳索机，使手柄位于肩部高度。 背对机器站立，双脚与肩同宽。 正手握住手柄，将其提升至肩部水平，肘部弯曲并指向外侧。 向上按压手柄，直到手臂完全伸过头顶。 在顶部暂停片刻，然后慢慢将手柄放回至肩部水平。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:8077:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 调整绳索机，使手柄位于肩部高度。 | `lib/exercise_dataset.generated.dart:8079:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 背对机器站立，双脚与肩同宽。 | `lib/exercise_dataset.generated.dart:8080:1` | 是（动作教学说明候选） |
@@ -4517,8 +4518,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持手臂伸直，呼气并将电缆手柄向另一侧的肩膀向上提起，同时旋转躯干。 | `lib/exercise_dataset.generated.dart:8419:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部暂停片刻，然后吸气并慢慢将拉索手柄放回起始位置。 | `lib/exercise_dataset.generated.dart:8420:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数，然后换边。 | `lib/exercise_dataset.generated.dart:8421:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 绳索·站姿·单臂·肱三头肌伸展 | `lib/exercise_dataset.generated.dart:8430:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | cable standing one arm triceps extension | `lib/exercise_dataset.generated.dart:8430:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 绳索·站姿·单臂·肱三头肌伸展 | `lib/exercise_dataset.generated.dart:8430:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 双脚分开与肩同宽站立，面向绳索机。 用右手握住电缆手柄，掌心朝下，调整手臂位置，使其完全伸展并与地面平行。 保持肘部静止并靠近身体。 慢慢弯曲肘部，将电缆手柄向脑后降低。 在动作底部停顿片刻，然后将手臂伸回起始位置。 重复所需的重复次数，然后换边并用左臂进行练习。 | `lib/exercise_dataset.generated.dart:8436:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开与肩同宽站立，面向绳索机。 | `lib/exercise_dataset.generated.dart:8438:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 用右手握住电缆手柄，掌心朝下，调整手臂位置，使其完全伸展并与地面平行。 | `lib/exercise_dataset.generated.dart:8439:1` | 是（动作教学说明候选） |
@@ -4535,8 +4536,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 慢慢地将脚跟抬离地面，将身体抬起到脚趾上。 | `lib/exercise_dataset.generated.dart:8463:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部暂停片刻，然后慢慢将脚跟放回起始位置。 | `lib/exercise_dataset.generated.dart:8464:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数，然后换腿。 | `lib/exercise_dataset.generated.dart:8465:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 绳索·站姿·下拉·绳索 | `lib/exercise_dataset.generated.dart:8474:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | cable standing pulldown (with rope) | `lib/exercise_dataset.generated.dart:8474:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 绳索·站姿·下拉·绳索 | `lib/exercise_dataset.generated.dart:8474:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 将绳索连接到最高设置的缆绳机上。 面向机器站立，双脚分开与肩同宽。 正手握住绳子，手掌朝下。 在整个练习过程中保持背部挺直并保持核心参与。 将绳子向下拉向大腿，挤压二头肌。 在底部停顿片刻，然后慢慢地将绳子放回原位。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:8480:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将绳索连接到最高设置的缆绳机上。 | `lib/exercise_dataset.generated.dart:8482:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 面向机器站立，双脚分开与肩同宽。 | `lib/exercise_dataset.generated.dart:8483:1` | 是（动作教学说明候选） |
@@ -4593,8 +4594,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在动作的最高点暂停片刻，感受上背部的收缩。 | `lib/exercise_dataset.generated.dart:8599:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 慢慢释放紧张并回到起始位置，松开躯干。 | `lib/exercise_dataset.generated.dart:8600:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复该动作达到所需的重复次数，每次重复交替扭转方向。 | `lib/exercise_dataset.generated.dart:8601:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 绳索·站姿·直臂 | `lib/exercise_dataset.generated.dart:8610:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | cable standing up straight crossovers | `lib/exercise_dataset.generated.dart:8610:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 绳索·站姿·直臂 | `lib/exercise_dataset.generated.dart:8610:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 站在缆绳机中间，双脚分开与肩同宽。 手掌朝下握住电缆手柄，手臂伸直至两侧。 保持双臂伸直，将双手放在身体前面，相互交叉。 暂停片刻，然后慢慢回到起始位置，保持双臂伸展。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:8616:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 站在缆绳机中间，双脚分开与肩同宽。 | `lib/exercise_dataset.generated.dart:8618:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 手掌朝下握住电缆手柄，手臂伸直至两侧。 | `lib/exercise_dataset.generated.dart:8619:1` | 是（动作教学说明候选） |
@@ -4637,8 +4638,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持手臂伸直，将它们向两侧举起，直到与地板平行。 | `lib/exercise_dataset.generated.dart:8708:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部暂停片刻，然后慢慢将手臂放回起始位置。 | `lib/exercise_dataset.generated.dart:8709:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:8710:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | cable thibaudeau kayak row | `lib/exercise_dataset.generated.dart:8719:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 绳索·划船 | `lib/exercise_dataset.generated.dart:8719:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | cable thibaudeau kayak row | `lib/exercise_dataset.generated.dart:8719:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 将电缆手柄连接到低滑轮上，面向机器坐着，双脚平放在地板上。 用右手抓住手柄，完全伸展手臂，保持肘部轻微弯曲。 从臀部开始向前倾斜，保持背部挺直并收紧腹肌。 缩回肩胛骨并弯曲肘部，将手柄拉向躯干，保持手臂靠近身体。 在动作的最高点挤压背部肌肉，然后慢慢回到起始位置。 重复所需的重复次数，然后换边并用左臂执行。 | `lib/exercise_dataset.generated.dart:8725:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将电缆手柄连接到低滑轮上，面向机器坐着，双脚平放在地板上。 | `lib/exercise_dataset.generated.dart:8727:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 用右手抓住手柄，完全伸展手臂，保持肘部轻微弯曲。 | `lib/exercise_dataset.generated.dart:8728:1` | 是（动作教学说明候选） |
@@ -4668,8 +4669,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在动作的底部暂停片刻，挤压你的三头肌。 | `lib/exercise_dataset.generated.dart:8778:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 吸气，同时缓慢地将 V 形杆返回到起始位置，保持控制。 | `lib/exercise_dataset.generated.dart:8779:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:8780:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | cable tuck reverse crunch | `lib/exercise_dataset.generated.dart:8789:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 绳索·反向·卷腹 | `lib/exercise_dataset.generated.dart:8789:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | cable tuck reverse crunch | `lib/exercise_dataset.generated.dart:8789:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 将电缆连接到低滑轮上，然后面朝上躺在垫子上。 用双手握住电缆并将双臂伸直至胸部上方。 弯曲膝盖并抬起双腿，使膝盖靠近胸部。 同时，将骨盆向胸部弯曲，将臀部抬离地面。 在顶部暂停片刻，然后慢慢降低双腿和臀部回到起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:8795:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将电缆连接到低滑轮上，然后面朝上躺在垫子上。 | `lib/exercise_dataset.generated.dart:8797:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 用双手握住电缆并将双臂伸直至胸部上方。 | `lib/exercise_dataset.generated.dart:8798:1` | 是（动作教学说明候选） |
@@ -4696,8 +4697,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 旋转结束时暂停片刻，然后慢慢回到起始位置。 | `lib/exercise_dataset.generated.dart:8845:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 向另一侧重复旋转。 | `lib/exercise_dataset.generated.dart:8846:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 继续交替进行所需的重复次数。 | `lib/exercise_dataset.generated.dart:8847:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | cable twisting pull | `lib/exercise_dataset.generated.dart:8856:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 绳索·转体 | `lib/exercise_dataset.generated.dart:8856:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | cable twisting pull | `lib/exercise_dataset.generated.dart:8856:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 将电缆手柄连接到低滑轮上并面向机器站立。 用左手抓住手柄，离开机器，完全伸展手臂。 双脚分开与肩同宽，膝盖稍微弯曲。 在整个练习过程中保持背部挺直，核心肌群参与其中。 将手柄拉向您的身体，同时将您的躯干向右旋转。 动作结束时挤压背部肌肉。 慢慢回到起始位置，保持绳索的张力。 重复所需的重复次数，然后换边并用右手执行。 | `lib/exercise_dataset.generated.dart:8862:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将电缆手柄连接到低滑轮上并面向机器站立。 | `lib/exercise_dataset.generated.dart:8864:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 用左手抓住手柄，离开机器，完全伸展手臂。 | `lib/exercise_dataset.generated.dart:8865:1` | 是（动作教学说明候选） |
@@ -4716,8 +4717,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在动作的最高点暂停片刻，挤压你的二头肌。 | `lib/exercise_dataset.generated.dart:8891:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 吸气，慢慢将手柄放回起始位置，充分伸展双臂。 | `lib/exercise_dataset.generated.dart:8892:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:8893:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | cable two arm tricep kickback | `lib/exercise_dataset.generated.dart:8902:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 绳索·双臂·肱三头肌·后踢 | `lib/exercise_dataset.generated.dart:8902:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | cable two arm tricep kickback | `lib/exercise_dataset.generated.dart:8902:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 站立，双脚分开与肩同宽，膝盖稍微弯曲。 双手握住电缆手柄，手掌朝内，手臂弯曲成 90 度角。 保持上臂静止，向后伸展前臂，直到手臂完全伸展。 暂停片刻，然后慢慢回到起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:8908:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 站立，双脚分开与肩同宽，膝盖稍微弯曲。 | `lib/exercise_dataset.generated.dart:8910:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双手握住电缆手柄，手掌朝内，手臂弯曲成 90 度角。 | `lib/exercise_dataset.generated.dart:8911:1` | 是（动作教学说明候选） |
@@ -4783,8 +4784,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持前臂静止，呼气并尽可能向上弯曲手腕。 | `lib/exercise_dataset.generated.dart:9049:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部暂停片刻，然后吸气并慢慢将杠铃放回起始位置。 | `lib/exercise_dataset.generated.dart:9050:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:9051:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | calf push stretch with hands against wall | `lib/exercise_dataset.generated.dart:9060:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 小腿·拉伸·靠墙 | `lib/exercise_dataset.generated.dart:9060:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | calf push stretch with hands against wall | `lib/exercise_dataset.generated.dart:9060:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 面向墙壁站立，双脚分开与臀部同宽。 将双手靠在墙上，与肩同高。 一只脚向后退一步，脚跟保持在地面上，腿伸直。 稍微弯曲前膝盖并向前倾斜，感觉小腿有拉伸感。 保持拉伸 20-30 秒。 换腿并重复拉伸。 | `lib/exercise_dataset.generated.dart:9066:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 面向墙壁站立，双脚分开与臀部同宽。 | `lib/exercise_dataset.generated.dart:9068:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将双手靠在墙上，与肩同高。 | `lib/exercise_dataset.generated.dart:9069:1` | 是（动作教学说明候选） |
@@ -4801,8 +4802,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 弯曲左膝并向前倾斜，保持后腿伸直，脚后跟着地。 | `lib/exercise_dataset.generated.dart:9093:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持拉伸 20-30 秒。 | `lib/exercise_dataset.generated.dart:9094:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 换腿并重复拉伸。 | `lib/exercise_dataset.generated.dart:9095:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | calf stretch with rope | `lib/exercise_dataset.generated.dart:9104:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 小腿·拉伸·绳索 | `lib/exercise_dataset.generated.dart:9104:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | calf stretch with rope | `lib/exercise_dataset.generated.dart:9104:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 面向墙壁或坚固物体站立，双脚分开与臀部同宽。 双手握住绳子的两端，将绳子的中间放在右脚掌周围。 左脚向后退一步，脚跟保持在地面上，腿伸直。 身体前倾，保持背部挺直，轻轻拉动绳子以伸展小腿。 保持拉伸 20-30 秒，然后放松。 在另一条腿上重复。 | `lib/exercise_dataset.generated.dart:9110:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 面向墙壁或坚固物体站立，双脚分开与臀部同宽。 | `lib/exercise_dataset.generated.dart:9112:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双手握住绳子的两端，将绳子的中间放在右脚掌周围。 | `lib/exercise_dataset.generated.dart:9113:1` | 是（动作教学说明候选） |
@@ -4921,8 +4922,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 向上推回到起始位置，同时将身体旋转到中心。 | `lib/exercise_dataset.generated.dart:9395:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复俯卧撑，这次将身体向右旋转，并将右臂向侧面伸出。 | `lib/exercise_dataset.generated.dart:9396:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 每次重复时继续交替进行。 | `lib/exercise_dataset.generated.dart:9397:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | close grip chin-up | `lib/exercise_dataset.generated.dart:9406:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 窄握·反握引体向上 | `lib/exercise_dataset.generated.dart:9406:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | close grip chin-up | `lib/exercise_dataset.generated.dart:9406:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 抓住引体向上杆，手掌朝向自己，双手与肩同宽。 悬挂在杠上，双臂完全伸展，双脚离开地面。 收紧背部肌肉，将身体拉向杠铃杆，保持肘部靠近身体。 继续拉，直到下巴位于杠铃上方。 在顶部停顿片刻，然后慢慢将身体放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:9412:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 抓住引体向上杆，手掌朝向自己，双手与肩同宽。 | `lib/exercise_dataset.generated.dart:9414:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 悬挂在杠上，双臂完全伸展，双脚离开地面。 | `lib/exercise_dataset.generated.dart:9415:1` | 是（动作教学说明候选） |
@@ -4930,8 +4931,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 继续拉，直到下巴位于杠铃上方。 | `lib/exercise_dataset.generated.dart:9417:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部停顿片刻，然后慢慢将身体放回起始位置。 | `lib/exercise_dataset.generated.dart:9418:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:9419:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | close-grip push-up | `lib/exercise_dataset.generated.dart:9428:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 窄距·俯卧撑 | `lib/exercise_dataset.generated.dart:9428:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | close-grip push-up | `lib/exercise_dataset.generated.dart:9428:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 从高位平板支撑开始，双手并拢，位于肩膀正下方。 收紧核心，将身体降低到地面，保持肘部靠近身体两侧。 推动手掌以伸展手臂并返回到起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:9434:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 从高位平板支撑开始，双手并拢，位于肩膀正下方。 | `lib/exercise_dataset.generated.dart:9436:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 收紧核心，将身体降低到地面，保持肘部靠近身体两侧。 | `lib/exercise_dataset.generated.dart:9437:1` | 是（动作教学说明候选） |
@@ -4953,8 +4954,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 收紧腹肌，慢慢将上半身抬离地面，向前卷曲，直到躯干呈 45 度角。 | `lib/exercise_dataset.generated.dart:9479:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部停顿片刻，然后慢慢将上半身放回起始位置。 | `lib/exercise_dataset.generated.dart:9480:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:9481:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | crab twist toe touch | `lib/exercise_dataset.generated.dart:9490:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 转体·触足卷腹 | `lib/exercise_dataset.generated.dart:9490:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | crab twist toe touch | `lib/exercise_dataset.generated.dart:9490:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 首先坐在地上，膝盖弯曲，双脚平放在地板上。 将双手放在身后，手指指向脚部，并将臀部抬离地面。 将一条腿伸直到您面前，同时将另一只手伸向脚趾。 返回起始位置并在另一侧重复。 继续交替进行所需的重复次数。 | `lib/exercise_dataset.generated.dart:9496:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 首先坐在地上，膝盖弯曲，双脚平放在地板上。 | `lib/exercise_dataset.generated.dart:9498:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将双手放在身后，手指指向脚部，并将臀部抬离地面。 | `lib/exercise_dataset.generated.dart:9499:1` | 是（动作教学说明候选） |
@@ -4987,8 +4988,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 收紧腹肌，将上身抬向膝盖，躯干向前卷曲。 | `lib/exercise_dataset.generated.dart:9565:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在动作的最高点暂停片刻，然后慢慢将上半身放回起始位置。 | `lib/exercise_dataset.generated.dart:9566:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:9567:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 卷腹·健身球·手臂·直臂 | `lib/exercise_dataset.generated.dart:9576:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | crunch (on stability ball, arms straight) | `lib/exercise_dataset.generated.dart:9576:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 卷腹·健身球·手臂·直臂 | `lib/exercise_dataset.generated.dart:9576:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 坐在稳定球上，双脚平放在地面上，膝盖弯曲成 90 度角。 仰卧在球上，直到下背部得到支撑并且上半身与地板平行。 将双手放在脑后或交叉放在胸前。 收紧腹肌，将上半身抬离球，将肩膀向臀部弯曲。 在顶部停顿片刻，然后慢慢将上半身放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:9582:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在稳定球上，双脚平放在地面上，膝盖弯曲成 90 度角。 | `lib/exercise_dataset.generated.dart:9584:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 仰卧在球上，直到下背部得到支撑并且上半身与地板平行。 | `lib/exercise_dataset.generated.dart:9585:1` | 是（动作教学说明候选） |
@@ -5029,8 +5030,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 开始以平稳且受控的动作踩踏。 | `lib/exercise_dataset.generated.dart:9672:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持稳定的步伐并根据需要增加阻力。 | `lib/exercise_dataset.generated.dart:9673:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 继续踩踏您的有氧运动所需的持续时间。 | `lib/exercise_dataset.generated.dart:9674:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dead bug | `lib/exercise_dataset.generated.dart:9683:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 死虫式 | `lib/exercise_dataset.generated.dart:9683:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dead bug | `lib/exercise_dataset.generated.dart:9683:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 平躺，双臂伸向天花板。 弯曲膝盖，将双腿抬离地面，使臀部和膝盖形成 90 度角。 接合你的核心和下背部，将你的下背部压入地面。 慢慢地将右臂和左腿放低至地面，保持它们伸直并悬停在地板上方。 暂停片刻，然后回到起始位置。 用左臂和右腿重复该动作。 继续交替进行所需的重复次数。 | `lib/exercise_dataset.generated.dart:9689:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 平躺，双臂伸向天花板。 | `lib/exercise_dataset.generated.dart:9691:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 弯曲膝盖，将双腿抬离地面，使臀部和膝盖形成 90 度角。 | `lib/exercise_dataset.generated.dart:9692:1` | 是（动作教学说明候选） |
@@ -5114,8 +5115,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 吸气，慢慢将哑铃放回起始位置。 | `lib/exercise_dataset.generated.dart:9887:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 用另一只手臂重复该动作。 | `lib/exercise_dataset.generated.dart:9888:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 继续交替手臂进行所需的重复次数。 | `lib/exercise_dataset.generated.dart:9889:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell alternate hammer preacher curl | `lib/exercise_dataset.generated.dart:9898:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·交替·锤式·牧师凳·弯举 | `lib/exercise_dataset.generated.dart:9898:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell alternate hammer preacher curl | `lib/exercise_dataset.generated.dart:9898:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 坐在牧师凳上，双手各持一个哑铃，手掌面向躯干，双臂完全伸展。 保持上臂静止，在弯举哑铃时呼气，同时收缩二头肌。 继续举起哑铃，直到二头肌完全收缩并且哑铃与肩部齐平。 挤压二头肌时，保持收缩位置短暂停顿。 吸气并慢慢开始将哑铃放回起始位置。 重复建议的重复次数。 | `lib/exercise_dataset.generated.dart:9904:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在牧师凳上，双手各持一个哑铃，手掌面向躯干，双臂完全伸展。 | `lib/exercise_dataset.generated.dart:9906:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持上臂静止，在弯举哑铃时呼气，同时收缩二头肌。 | `lib/exercise_dataset.generated.dart:9907:1` | 是（动作教学说明候选） |
@@ -5123,8 +5124,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 挤压二头肌时，保持收缩位置短暂停顿。 | `lib/exercise_dataset.generated.dart:9909:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 吸气并慢慢开始将哑铃放回起始位置。 | `lib/exercise_dataset.generated.dart:9910:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复建议的重复次数。 | `lib/exercise_dataset.generated.dart:9911:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell alternate preacher curl | `lib/exercise_dataset.generated.dart:9920:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·交替·牧师凳·弯举 | `lib/exercise_dataset.generated.dart:9920:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell alternate preacher curl | `lib/exercise_dataset.generated.dart:9920:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 坐在牧师凳上，每只手各握一个哑铃，手掌朝上。 将上臂放在牧师凳的垫子上，让手臂完全伸展。 保持上臂静止，呼气并弯曲右手的哑铃，同时收缩二头肌。 继续弯举哑铃，直到二头肌完全收缩并且哑铃与肩部齐平。 暂停片刻，然后吸气，慢慢将哑铃放回起始位置。 用左臂重复该动作。 继续交替手臂进行所需的重复次数。 | `lib/exercise_dataset.generated.dart:9926:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在牧师凳上，每只手各握一个哑铃，手掌朝上。 | `lib/exercise_dataset.generated.dart:9928:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将上臂放在牧师凳的垫子上，让手臂完全伸展。 | `lib/exercise_dataset.generated.dart:9929:1` | 是（动作教学说明候选） |
@@ -5183,8 +5184,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 抬起时旋转手腕，使手掌在动作的最高点朝前。 | `lib/exercise_dataset.generated.dart:10060:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在最高点暂停片刻，然后慢慢将哑铃放回起始位置。 | `lib/exercise_dataset.generated.dart:10061:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:10062:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell around pullover | `lib/exercise_dataset.generated.dart:10071:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·上拉 | `lib/exercise_dataset.generated.dart:10071:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell around pullover | `lib/exercise_dataset.generated.dart:10071:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 平躺在长凳上，头放在一端，双脚牢牢踩在地上。 双手握住哑铃，将手臂伸直至胸部上方。 保持手臂伸直，以弧线动作慢慢将哑铃降低到脑后。 在底部停顿片刻，然后将哑铃举回到起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:10077:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 平躺在长凳上，头放在一端，双脚牢牢踩在地上。 | `lib/exercise_dataset.generated.dart:10079:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双手握住哑铃，将手臂伸直至胸部上方。 | `lib/exercise_dataset.generated.dart:10080:1` | 是（动作教学说明候选） |
@@ -5234,8 +5235,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 反转动作，右脚向后退一步，回到起始位置，同时放下哑铃。 | `lib/exercise_dataset.generated.dart:10189:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复弓步和弯举动作，这次将躯干向左旋转。 | `lib/exercise_dataset.generated.dart:10190:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 继续交替进行所需的重复次数。 | `lib/exercise_dataset.generated.dart:10191:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·肱二头肌弯举·健身球·举腿 | `lib/exercise_dataset.generated.dart:10200:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell bicep curl on exercise ball with leg raised | `lib/exercise_dataset.generated.dart:10200:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·肱二头肌弯举·健身球·举腿 | `lib/exercise_dataset.generated.dart:10200:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 坐在健身球上，双脚平放在地上，背部挺直。 每只手握住一个哑铃，手掌朝前，双臂完全伸展。 慢慢地将哑铃向肩膀弯曲，保持肘部靠近身体两侧。 在动作的最高点暂停片刻，然后慢慢将哑铃放回起始位置。 在进行二头肌弯举时，将一条腿抬离地面，并在整个练习过程中将其保持在空中。 重复所需的重复次数，然后换腿并重复。 | `lib/exercise_dataset.generated.dart:10206:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在健身球上，双脚平放在地上，背部挺直。 | `lib/exercise_dataset.generated.dart:10208:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 每只手握住一个哑铃，手掌朝前，双臂完全伸展。 | `lib/exercise_dataset.generated.dart:10209:1` | 是（动作教学说明候选） |
@@ -5243,8 +5244,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在动作的最高点暂停片刻，然后慢慢将哑铃放回起始位置。 | `lib/exercise_dataset.generated.dart:10211:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在进行二头肌弯举时，将一条腿抬离地面，并在整个练习过程中将其保持在空中。 | `lib/exercise_dataset.generated.dart:10212:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数，然后换腿并重复。 | `lib/exercise_dataset.generated.dart:10213:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell bicep curl with stork stance | `lib/exercise_dataset.generated.dart:10222:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·肱二头肌弯举 | `lib/exercise_dataset.generated.dart:10222:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell bicep curl with stork stance | `lib/exercise_dataset.generated.dart:10222:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 双脚分开与肩同宽站立，双手各握一个哑铃，手掌朝前。 将一条腿伸到身后，用脚趾保持平衡。 保持上臂静止，呼气并弯举哑铃，同时收缩二头肌。 继续举重，直到二头肌完全收缩并且哑铃与肩部齐平。 挤压二头肌时，保持收缩位置短暂停顿。 吸气并慢慢开始将哑铃放回起始位置。 重复所需的重复次数，然后换腿并重复。 | `lib/exercise_dataset.generated.dart:10228:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开与肩同宽站立，双手各握一个哑铃，手掌朝前。 | `lib/exercise_dataset.generated.dart:10230:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将一条腿伸到身后，用脚趾保持平衡。 | `lib/exercise_dataset.generated.dart:10231:1` | 是（动作教学说明候选） |
@@ -5262,8 +5263,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 挤压二头肌时，保持收缩位置短暂停顿。 | `lib/exercise_dataset.generated.dart:10256:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 吸气并慢慢开始将哑铃放回起始位置。 | `lib/exercise_dataset.generated.dart:10257:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:10258:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·肱二头肌弯举·手臂 | `lib/exercise_dataset.generated.dart:10267:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell biceps curl (with arm blaster) | `lib/exercise_dataset.generated.dart:10267:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·肱二头肌弯举·手臂 | `lib/exercise_dataset.generated.dart:10267:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 站直，双手各持一个哑铃，手掌朝前。 保持肘部靠近躯干，上臂保持静止。 呼气并弯举哑铃，同时收缩二头肌。 继续举重，直到二头肌完全收缩并且哑铃与肩部齐平。 挤压二头肌时，保持收缩位置短暂停顿。 吸气并慢慢开始将哑铃放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:10273:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 站直，双手各持一个哑铃，手掌朝前。 | `lib/exercise_dataset.generated.dart:10275:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持肘部靠近躯干，上臂保持静止。 | `lib/exercise_dataset.generated.dart:10276:1` | 是（动作教学说明候选） |
@@ -5272,8 +5273,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 挤压二头肌时，保持收缩位置短暂停顿。 | `lib/exercise_dataset.generated.dart:10279:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 吸气并慢慢开始将哑铃放回起始位置。 | `lib/exercise_dataset.generated.dart:10280:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:10281:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·肱二头肌弯举·反向 | `lib/exercise_dataset.generated.dart:10290:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell biceps curl reverse | `lib/exercise_dataset.generated.dart:10290:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·肱二头肌弯举·反向 | `lib/exercise_dataset.generated.dart:10290:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 站直，双手各握一个哑铃，手掌朝下，双臂完全伸展。 保持上臂静止，呼气并弯举哑铃，同时收缩二头肌。 继续举起哑铃，直到二头肌完全收缩并且哑铃与肩部齐平。 挤压二头肌时，保持收缩位置短暂停顿。 吸气并慢慢开始将哑铃放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:10296:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 站直，双手各握一个哑铃，手掌朝下，双臂完全伸展。 | `lib/exercise_dataset.generated.dart:10298:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持上臂静止，呼气并弯举哑铃，同时收缩二头肌。 | `lib/exercise_dataset.generated.dart:10299:1` | 是（动作教学说明候选） |
@@ -5281,8 +5282,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 挤压二头肌时，保持收缩位置短暂停顿。 | `lib/exercise_dataset.generated.dart:10301:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 吸气并慢慢开始将哑铃放回起始位置。 | `lib/exercise_dataset.generated.dart:10302:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:10303:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·肱二头肌弯举·深蹲 | `lib/exercise_dataset.generated.dart:10312:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell biceps curl squat | `lib/exercise_dataset.generated.dart:10312:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·肱二头肌弯举·深蹲 | `lib/exercise_dataset.generated.dart:10312:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 双脚分开与肩同宽站立，双手各握一个哑铃，手掌朝前。 保持背部挺直，肘部靠近身体两侧，呼气并将哑铃向上弯向肩膀。 在顶部暂停片刻，挤压你的二头肌。 吸气并慢慢将哑铃放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:10318:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开与肩同宽站立，双手各握一个哑铃，手掌朝前。 | `lib/exercise_dataset.generated.dart:10320:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持背部挺直，肘部靠近身体两侧，呼气并将哑铃向上弯向肩膀。 | `lib/exercise_dataset.generated.dart:10321:1` | 是（动作教学说明候选） |
@@ -5367,8 +5368,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 挤压二头肌时，保持收缩位置短暂停顿。 | `lib/exercise_dataset.generated.dart:10504:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 吸气并慢慢开始将哑铃放回起始位置。 | `lib/exercise_dataset.generated.dart:10505:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:10506:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell cross body hammer curl v. 2 | `lib/exercise_dataset.generated.dart:10515:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·锤式·弯举 | `lib/exercise_dataset.generated.dart:10515:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell cross body hammer curl v. 2 | `lib/exercise_dataset.generated.dart:10515:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 站直，双手各持一个哑铃，手掌朝向身体。 保持肘部靠近躯干，上臂保持静止。 呼气并弯举哑铃，同时收缩二头肌，使哑铃尽可能靠近另一侧的肩膀。 挤压二头肌时，保持收缩位置短暂停顿。 吸气并慢慢开始将哑铃放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:10521:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 站直，双手各持一个哑铃，手掌朝向身体。 | `lib/exercise_dataset.generated.dart:10523:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持肘部靠近躯干，上臂保持静止。 | `lib/exercise_dataset.generated.dart:10524:1` | 是（动作教学说明候选） |
@@ -5384,8 +5385,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 旋转手腕，使手掌朝前。 | `lib/exercise_dataset.generated.dart:10547:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 慢慢地将哑铃放回起始位置，同时将手腕旋转回起始位置。 | `lib/exercise_dataset.generated.dart:10548:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:10549:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell cuban press v. 2 | `lib/exercise_dataset.generated.dart:10558:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·推举 | `lib/exercise_dataset.generated.dart:10558:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell cuban press v. 2 | `lib/exercise_dataset.generated.dart:10558:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 双脚分开与肩同宽站立，双手各握一个哑铃，与肩同高，手掌朝下。 保持核心收紧，背部挺直，将哑铃垂直推过头顶，直到手臂完全伸展。 旋转手腕，使手掌朝前。 将哑铃放回至肩膀高度，将手腕旋转回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:10564:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开与肩同宽站立，双手各握一个哑铃，与肩同高，手掌朝下。 | `lib/exercise_dataset.generated.dart:10566:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持核心收紧，背部挺直，将哑铃垂直推过头顶，直到手臂完全伸展。 | `lib/exercise_dataset.generated.dart:10567:1` | 是（动作教学说明候选） |
@@ -5416,16 +5417,16 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将哑铃以宽弧线向两侧放低，直到感觉到胸部有拉伸感。 | `lib/exercise_dataset.generated.dart:10631:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 暂停片刻，然后挤压胸部肌肉，使哑铃回到起始位置。 | `lib/exercise_dataset.generated.dart:10632:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:10633:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·下斜·锤式·推举 | `lib/exercise_dataset.generated.dart:10642:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell decline hammer press | `lib/exercise_dataset.generated.dart:10642:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·下斜·锤式·推举 | `lib/exercise_dataset.generated.dart:10642:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 躺在倾斜的长凳上，双脚固定，头部低于臀部。 双手各握一个哑铃，手掌相对，双臂伸至胸部上方。 将哑铃降低到胸部两侧，保持肘部稍微弯曲。 将哑铃推回到起始位置，充分伸展手臂。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:10648:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 躺在倾斜的长凳上，双脚固定，头部低于臀部。 | `lib/exercise_dataset.generated.dart:10650:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双手各握一个哑铃，手掌相对，双臂伸至胸部上方。 | `lib/exercise_dataset.generated.dart:10651:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将哑铃降低到胸部两侧，保持肘部稍微弯曲。 | `lib/exercise_dataset.generated.dart:10652:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将哑铃推回到起始位置，充分伸展手臂。 | `lib/exercise_dataset.generated.dart:10653:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:10654:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·下斜·单臂·飞鸟 | `lib/exercise_dataset.generated.dart:10663:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell decline one arm fly | `lib/exercise_dataset.generated.dart:10663:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·下斜·单臂·飞鸟 | `lib/exercise_dataset.generated.dart:10663:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 躺在斜凳上，一只手拿着哑铃，将其放在大腿上。 用大腿帮助举起哑铃，将其举至与肩同宽，手掌朝向躯干。 旋转手腕，使手掌朝前。 吸气时，将哑铃慢慢降低到一侧，直到感觉到胸部有拉伸感。 呼气并使用胸部肌肉将哑铃拉回到起始位置。 重复所需的重复次数，然后换臂。 | `lib/exercise_dataset.generated.dart:10669:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 躺在斜凳上，一只手拿着哑铃，将其放在大腿上。 | `lib/exercise_dataset.generated.dart:10671:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 用大腿帮助举起哑铃，将其举至与肩同宽，手掌朝向躯干。 | `lib/exercise_dataset.generated.dart:10672:1` | 是（动作教学说明候选） |
@@ -5433,16 +5434,16 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 吸气时，将哑铃慢慢降低到一侧，直到感觉到胸部有拉伸感。 | `lib/exercise_dataset.generated.dart:10674:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 呼气并使用胸部肌肉将哑铃拉回到起始位置。 | `lib/exercise_dataset.generated.dart:10675:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数，然后换臂。 | `lib/exercise_dataset.generated.dart:10676:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell decline one arm hammer press | `lib/exercise_dataset.generated.dart:10685:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·下斜·单臂·锤式·推举 | `lib/exercise_dataset.generated.dart:10685:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell decline one arm hammer press | `lib/exercise_dataset.generated.dart:10685:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 躺在下斜长凳上，一只手握住哑铃，放在胸前。 将手臂伸直向上，保持肘部稍微弯曲。 将哑铃向肩膀方向降低，保持肘部靠近身体。 将哑铃推回到起始位置。 重复所需的重复次数，然后换臂。 | `lib/exercise_dataset.generated.dart:10691:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 躺在下斜长凳上，一只手握住哑铃，放在胸前。 | `lib/exercise_dataset.generated.dart:10693:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将手臂伸直向上，保持肘部稍微弯曲。 | `lib/exercise_dataset.generated.dart:10694:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将哑铃向肩膀方向降低，保持肘部靠近身体。 | `lib/exercise_dataset.generated.dart:10695:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将哑铃推回到起始位置。 | `lib/exercise_dataset.generated.dart:10696:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数，然后换臂。 | `lib/exercise_dataset.generated.dart:10697:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell decline shrug | `lib/exercise_dataset.generated.dart:10706:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·下斜·耸肩 | `lib/exercise_dataset.generated.dart:10706:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell decline shrug | `lib/exercise_dataset.generated.dart:10706:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 设置一个 45 度角的下斜凳。 脸朝下躺在长凳上，胸部和腹部靠在长凳上。 每只手握住一个哑铃，双臂完全伸向地板。 保持手臂伸直，将肩膀尽可能高地抬向耳朵。 保持收缩一会儿，然后慢慢将哑铃放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:10712:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 设置一个 45 度角的下斜凳。 | `lib/exercise_dataset.generated.dart:10714:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 脸朝下躺在长凳上，胸部和腹部靠在长凳上。 | `lib/exercise_dataset.generated.dart:10715:1` | 是（动作教学说明候选） |
@@ -5467,8 +5468,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将哑铃慢慢降低到脑后，弯曲肘部。 | `lib/exercise_dataset.generated.dart:10760:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 暂停片刻，然后将哑铃举回到起始位置。 | `lib/exercise_dataset.generated.dart:10761:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:10762:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·下斜·转体·飞鸟 | `lib/exercise_dataset.generated.dart:10771:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell decline twist fly | `lib/exercise_dataset.generated.dart:10771:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·下斜·转体·飞鸟 | `lib/exercise_dataset.generated.dart:10771:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 躺在倾斜的长凳上，头部低于臀部。 双手各握一个哑铃，手掌相对，双臂伸直越过胸部。 将哑铃以宽弧线向两侧放低，直到感觉到胸部有拉伸感。 当你降低哑铃时，扭转手腕，使手掌在动作底部朝前。 反转动作，将哑铃拉回到起始位置，在顶部挤压胸部肌肉。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:10777:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 躺在倾斜的长凳上，头部低于臀部。 | `lib/exercise_dataset.generated.dart:10779:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双手各握一个哑铃，手掌相对，双臂伸直越过胸部。 | `lib/exercise_dataset.generated.dart:10780:1` | 是（动作教学说明候选） |
@@ -5533,8 +5534,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将手臂向两侧举起，肘部保持轻微弯曲，直到与地面平行。 | `lib/exercise_dataset.generated.dart:10930:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部暂停片刻，然后慢慢将手臂放回起始位置。 | `lib/exercise_dataset.generated.dart:10931:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:10932:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell hammer curl | `lib/exercise_dataset.generated.dart:10941:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·锤式·弯举 | `lib/exercise_dataset.generated.dart:10941:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell hammer curl | `lib/exercise_dataset.generated.dart:10941:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 站直，双手各持一个哑铃，手掌朝向躯干。 保持肘部靠近躯干，并旋转手掌，直到手掌朝前。 这将是您的起始位置。 现在，保持上臂静止，呼气并卷曲哑铃，同时收缩二头肌。 继续举重，直到二头肌完全收缩并且哑铃与肩部齐平。 挤压二头肌时，保持收缩位置短暂停顿。 然后，吸气并慢慢开始将哑铃放回起始位置。 重复建议的重复次数。 | `lib/exercise_dataset.generated.dart:10947:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 站直，双手各持一个哑铃，手掌朝向躯干。 | `lib/exercise_dataset.generated.dart:10949:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持肘部靠近躯干，并旋转手掌，直到手掌朝前。 | `lib/exercise_dataset.generated.dart:10950:1` | 是（动作教学说明候选） |
@@ -5576,8 +5577,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 挤压二头肌时，保持收缩位置短暂停顿。 | `lib/exercise_dataset.generated.dart:11025:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 然后，吸气并慢慢开始将哑铃放回起始位置。 | `lib/exercise_dataset.generated.dart:11026:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复建议的重复次数。 | `lib/exercise_dataset.generated.dart:11027:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell high curl | `lib/exercise_dataset.generated.dart:11036:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·高位·弯举 | `lib/exercise_dataset.generated.dart:11036:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell high curl | `lib/exercise_dataset.generated.dart:11036:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 站直，双手各持一个哑铃，手掌朝前。 保持上臂静止，将哑铃尽可能高地卷起，同时收缩二头肌。 在最高点暂停片刻，然后慢慢将哑铃放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:11042:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 站直，双手各持一个哑铃，手掌朝前。 | `lib/exercise_dataset.generated.dart:11044:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持上臂静止，将哑铃尽可能高地卷起，同时收缩二头肌。 | `lib/exercise_dataset.generated.dart:11045:1` | 是（动作教学说明候选） |
@@ -5906,8 +5907,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 推动右脚跟回到起始位置。 | `lib/exercise_dataset.generated.dart:11836:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 左腿重复上述动作。 | `lib/exercise_dataset.generated.dart:11837:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 交替腿进行所需的重复次数。 | `lib/exercise_dataset.generated.dart:11838:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell lunge with bicep curl | `lib/exercise_dataset.generated.dart:11847:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·弓步·肱二头肌弯举 | `lib/exercise_dataset.generated.dart:11847:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell lunge with bicep curl | `lib/exercise_dataset.generated.dart:11847:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 双脚分开与肩同宽站立，双手各握一个哑铃，手掌朝前。 右脚向前迈出一步，将身体降低至弓步位置。你的右膝应该弯曲成 90 度角，左膝应该悬停在地面上方。 当你向前弓步时，同时将哑铃向肩膀弯曲，保持肘部靠近身体。 在弓步底部停顿片刻，然后通过右脚跟推动回到起始位置，将哑铃放回身体两侧。 在另一侧重复弓步和二头肌弯举，左脚向前迈出。 继续交替进行所需的重复次数。 | `lib/exercise_dataset.generated.dart:11853:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开与肩同宽站立，双手各握一个哑铃，手掌朝前。 | `lib/exercise_dataset.generated.dart:11855:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 右脚向前迈出一步，将身体降低至弓步位置。你的右膝应该弯曲成 90 度角，左膝应该悬停在地面上方。 | `lib/exercise_dataset.generated.dart:11856:1` | 是（动作教学说明候选） |
@@ -5915,8 +5916,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在弓步底部停顿片刻，然后通过右脚跟推动回到起始位置，将哑铃放回身体两侧。 | `lib/exercise_dataset.generated.dart:11858:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在另一侧重复弓步和二头肌弯举，左脚向前迈出。 | `lib/exercise_dataset.generated.dart:11859:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 继续交替进行所需的重复次数。 | `lib/exercise_dataset.generated.dart:11860:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·卧姿·伸展 | `lib/exercise_dataset.generated.dart:11869:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell lying extension (across face) | `lib/exercise_dataset.generated.dart:11869:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·卧姿·伸展 | `lib/exercise_dataset.generated.dart:11869:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 平躺在长凳上，双脚平放在地上，头放在长凳的末端。 双手握住哑铃，双臂伸直至胸部上方，手掌相对。 保持上臂静止，将哑铃在头后呈弧形缓慢降低，直到前臂与地面平行。 暂停片刻，然后收缩三头肌，将哑铃带回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:11875:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 平躺在长凳上，双脚平放在地上，头放在长凳的末端。 | `lib/exercise_dataset.generated.dart:11877:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双手握住哑铃，双臂伸直至胸部上方，手掌相对。 | `lib/exercise_dataset.generated.dart:11878:1` | 是（动作教学说明候选） |
@@ -5938,23 +5939,23 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 弯曲肘部，将哑铃向肩膀方向降低，保持上臂静止。 | `lib/exercise_dataset.generated.dart:11920:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在底部暂停片刻，然后伸展肘部将哑铃推回到起始位置。 | `lib/exercise_dataset.generated.dart:11921:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:11922:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell lying external shoulder rotation | `lib/exercise_dataset.generated.dart:11931:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·卧姿·外旋·肩部·旋转 | `lib/exercise_dataset.generated.dart:11931:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell lying external shoulder rotation | `lib/exercise_dataset.generated.dart:11931:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 侧躺在平坦的长凳上，上臂靠在身体两侧，肘部弯曲 90 度。 手中握住哑铃，手掌朝下。 保持上臂靠在身体两侧，尽可能缓慢地向上旋转前臂。 在顶部暂停片刻，然后慢慢将前臂放回起始位置。 重复所需的重复次数，然后换边。 | `lib/exercise_dataset.generated.dart:11937:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 侧躺在平坦的长凳上，上臂靠在身体两侧，肘部弯曲 90 度。 | `lib/exercise_dataset.generated.dart:11939:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 手中握住哑铃，手掌朝下。 | `lib/exercise_dataset.generated.dart:11940:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持上臂靠在身体两侧，尽可能缓慢地向上旋转前臂。 | `lib/exercise_dataset.generated.dart:11941:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部暂停片刻，然后慢慢将前臂放回起始位置。 | `lib/exercise_dataset.generated.dart:11942:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数，然后换边。 | `lib/exercise_dataset.generated.dart:11943:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell lying femoral | `lib/exercise_dataset.generated.dart:11952:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·卧姿 | `lib/exercise_dataset.generated.dart:11952:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell lying femoral | `lib/exercise_dataset.generated.dart:11952:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 平躺，双腿伸直，将哑铃放在下腹部。 弯曲膝盖，将哑铃拉向臀部，保持双脚平放在地面上。 在最高点暂停片刻，然后慢慢将哑铃放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:11958:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 平躺，双腿伸直，将哑铃放在下腹部。 | `lib/exercise_dataset.generated.dart:11960:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 弯曲膝盖，将哑铃拉向臀部，保持双脚平放在地面上。 | `lib/exercise_dataset.generated.dart:11961:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在最高点暂停片刻，然后慢慢将哑铃放回起始位置。 | `lib/exercise_dataset.generated.dart:11962:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:11963:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell lying hammer press | `lib/exercise_dataset.generated.dart:11972:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·卧姿·锤式·推举 | `lib/exercise_dataset.generated.dart:11972:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell lying hammer press | `lib/exercise_dataset.generated.dart:11972:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 平躺在长凳上，双手各握一个哑铃，手掌相对，双臂伸直向上。 将哑铃放低至胸部两侧，保持肘部呈 90 度角。 将哑铃推回到起始位置，充分伸展手臂。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:11978:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 平躺在长凳上，双手各握一个哑铃，手掌相对，双臂伸直向上。 | `lib/exercise_dataset.generated.dart:11980:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将哑铃放低至胸部两侧，保持肘部呈 90 度角。 | `lib/exercise_dataset.generated.dart:11981:1` | 是（动作教学说明候选） |
@@ -5976,16 +5977,16 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 向上和向后举起手臂，将肩胛骨挤压向脊柱。 | `lib/exercise_dataset.generated.dart:12023:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部暂停片刻，然后慢慢将手臂放回起始位置。 | `lib/exercise_dataset.generated.dart:12024:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数，然后换臂。 | `lib/exercise_dataset.generated.dart:12025:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·卧姿·单臂·推举 | `lib/exercise_dataset.generated.dart:12034:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell lying one arm press | `lib/exercise_dataset.generated.dart:12034:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·卧姿·单臂·推举 | `lib/exercise_dataset.generated.dart:12034:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 平躺在长凳上，一只手拿着哑铃，双脚平放在地上。 将哑铃举至肩部水平，手掌朝前。 向上推哑铃，直到手臂完全伸展。 在最高点暂停片刻，然后慢慢将哑铃放回起始位置。 重复所需的重复次数，然后换到另一只手臂。 | `lib/exercise_dataset.generated.dart:12040:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 平躺在长凳上，一只手拿着哑铃，双脚平放在地上。 | `lib/exercise_dataset.generated.dart:12042:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将哑铃举至肩部水平，手掌朝前。 | `lib/exercise_dataset.generated.dart:12043:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 向上推哑铃，直到手臂完全伸展。 | `lib/exercise_dataset.generated.dart:12044:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在最高点暂停片刻，然后慢慢将哑铃放回起始位置。 | `lib/exercise_dataset.generated.dart:12045:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数，然后换到另一只手臂。 | `lib/exercise_dataset.generated.dart:12046:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·卧姿·单臂·推举 | `lib/exercise_dataset.generated.dart:12055:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell lying one arm press v. 2 | `lib/exercise_dataset.generated.dart:12055:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·卧姿·单臂·推举 | `lib/exercise_dataset.generated.dart:12055:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 平躺在长凳上，背部支撑，双脚平放在地面上。 一只手握住哑铃，手掌朝向脚部。 将手臂伸向天花板，保持肘部稍微弯曲。 慢慢地将哑铃向胸部方向降低，保持肘部靠近身体。 在底部暂停片刻，然后将哑铃推回到起始位置。 重复所需的重复次数，然后换到另一只手臂。 | `lib/exercise_dataset.generated.dart:12061:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 平躺在长凳上，背部支撑，双脚平放在地面上。 | `lib/exercise_dataset.generated.dart:12063:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 一只手握住哑铃，手掌朝向脚部。 | `lib/exercise_dataset.generated.dart:12064:1` | 是（动作教学说明候选） |
@@ -6016,8 +6017,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持上臂静止，弯曲肘部，慢慢将哑铃降低到脑后。 | `lib/exercise_dataset.generated.dart:12128:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在底部停顿片刻，然后将手臂伸回起始位置。 | `lib/exercise_dataset.generated.dart:12129:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数，然后换臂。 | `lib/exercise_dataset.generated.dart:12130:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell lying pronation | `lib/exercise_dataset.generated.dart:12139:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·卧姿 | `lib/exercise_dataset.generated.dart:12139:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell lying pronation | `lib/exercise_dataset.generated.dart:12139:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 平躺在长凳上，胸部朝下，双臂伸直向下，每只手各握一个哑铃。 旋转手掌，使手掌朝上。 保持上臂静止，呼气并弯曲哑铃，同时将手掌旋转至面朝下。 吸气并慢慢将哑铃放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:12145:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 平躺在长凳上，胸部朝下，双臂伸直向下，每只手各握一个哑铃。 | `lib/exercise_dataset.generated.dart:12147:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 旋转手掌，使手掌朝上。 | `lib/exercise_dataset.generated.dart:12148:1` | 是（动作教学说明候选） |
@@ -6033,16 +6034,16 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 继续举起，直到前臂完全收缩并且哑铃与肩部齐平。 | `lib/exercise_dataset.generated.dart:12171:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持一会儿，然后慢慢将哑铃放回起始位置。 | `lib/exercise_dataset.generated.dart:12172:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:12173:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·卧姿·上拉·健身球 | `lib/exercise_dataset.generated.dart:12182:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell lying pullover on exercise ball | `lib/exercise_dataset.generated.dart:12182:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·卧姿·上拉·健身球 | `lib/exercise_dataset.generated.dart:12182:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 坐在健身球上，向前滚动，直到上背部靠在球上。 双手握住哑铃，将手臂伸直至胸部上方。 慢慢地将哑铃放到脑后，同时保持手臂伸直。 暂停片刻，然后将哑铃举回到起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:12188:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在健身球上，向前滚动，直到上背部靠在球上。 | `lib/exercise_dataset.generated.dart:12190:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双手握住哑铃，将手臂伸直至胸部上方。 | `lib/exercise_dataset.generated.dart:12191:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 慢慢地将哑铃放到脑后，同时保持手臂伸直。 | `lib/exercise_dataset.generated.dart:12192:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 暂停片刻，然后将哑铃举回到起始位置。 | `lib/exercise_dataset.generated.dart:12193:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:12194:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·卧姿·后三角肌·划船 | `lib/exercise_dataset.generated.dart:12203:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell lying rear delt row | `lib/exercise_dataset.generated.dart:12203:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·卧姿·后三角肌·划船 | `lib/exercise_dataset.generated.dart:12203:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 脸朝下躺在平坦的长凳上，每只手各握一个哑铃，手掌朝内。 将手臂伸直向下伸向地板，肘部保持轻微弯曲。 调动背部肌肉，将哑铃举向胸部，将肩胛骨挤压在一起。 在顶部停顿片刻，然后慢慢将哑铃放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:12209:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 脸朝下躺在平坦的长凳上，每只手各握一个哑铃，手掌朝内。 | `lib/exercise_dataset.generated.dart:12211:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将手臂伸直向下伸向地板，肘部保持轻微弯曲。 | `lib/exercise_dataset.generated.dart:12212:1` | 是（动作教学说明候选） |
@@ -6057,8 +6058,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 调动肩部肌肉，将手臂向两侧抬起，直到与地板平行。 | `lib/exercise_dataset.generated.dart:12234:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部暂停片刻，然后慢慢将手臂放回起始位置。 | `lib/exercise_dataset.generated.dart:12235:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:12236:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell lying single extension | `lib/exercise_dataset.generated.dart:12245:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·卧姿·单侧·伸展 | `lib/exercise_dataset.generated.dart:12245:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell lying single extension | `lib/exercise_dataset.generated.dart:12245:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 平躺在长凳上，一只手拿着哑铃，手臂完全伸展到胸部上方。 以受控的方式将哑铃降低到前额，保持上臂静止。 在动作底部短暂暂停，然后将手臂伸展回起始位置。 重复所需的重复次数，然后换臂。 | `lib/exercise_dataset.generated.dart:12251:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 平躺在长凳上，一只手拿着哑铃，手臂完全伸展到胸部上方。 | `lib/exercise_dataset.generated.dart:12253:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 以受控的方式将哑铃降低到前额，保持上臂静止。 | `lib/exercise_dataset.generated.dart:12254:1` | 是（动作教学说明候选） |
@@ -6179,16 +6180,16 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 慢慢地将哑铃向一侧放低，保持肘部轻微弯曲。 | `lib/exercise_dataset.generated.dart:12538:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 暂停片刻，然后挤压胸部肌肉，使哑铃回到起始位置。 | `lib/exercise_dataset.generated.dart:12539:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数，然后换臂。 | `lib/exercise_dataset.generated.dart:12540:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·单臂·推举·健身球 | `lib/exercise_dataset.generated.dart:12549:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell one arm french press on exercise ball | `lib/exercise_dataset.generated.dart:12549:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·单臂·推举·健身球 | `lib/exercise_dataset.generated.dart:12549:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 坐在健身球上，双脚平放在地上，背部挺直。 一只手握住哑铃，手掌朝上，肘部弯曲成 90 度角。 将手臂伸向天花板，保持肘部不动。 慢慢地将哑铃放回起始位置。 重复所需的重复次数，然后换臂。 | `lib/exercise_dataset.generated.dart:12555:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在健身球上，双脚平放在地上，背部挺直。 | `lib/exercise_dataset.generated.dart:12557:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 一只手握住哑铃，手掌朝上，肘部弯曲成 90 度角。 | `lib/exercise_dataset.generated.dart:12558:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将手臂伸向天花板，保持肘部不动。 | `lib/exercise_dataset.generated.dart:12559:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 慢慢地将哑铃放回起始位置。 | `lib/exercise_dataset.generated.dart:12560:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数，然后换臂。 | `lib/exercise_dataset.generated.dart:12561:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell one arm hammer preacher curl | `lib/exercise_dataset.generated.dart:12570:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·单臂·锤式·牧师凳·弯举 | `lib/exercise_dataset.generated.dart:12570:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell one arm hammer preacher curl | `lib/exercise_dataset.generated.dart:12570:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 坐在牧师凳上，一只手拿着哑铃，上臂放在垫子上。 以中立握法握住哑铃（手掌朝向身体）。 保持上臂静止，呼气并将哑铃向上弯向肩膀。 在顶部暂停片刻，挤压你的二头肌。 吸气，慢慢将哑铃放回起始位置。 重复所需的重复次数，然后换臂。 | `lib/exercise_dataset.generated.dart:12576:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在牧师凳上，一只手拿着哑铃，上臂放在垫子上。 | `lib/exercise_dataset.generated.dart:12578:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 以中立握法握住哑铃（手掌朝向身体）。 | `lib/exercise_dataset.generated.dart:12579:1` | 是（动作教学说明候选） |
@@ -6214,8 +6215,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将哑铃向上推离身体，完全伸展手臂。 | `lib/exercise_dataset.generated.dart:12625:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部停顿片刻，然后慢慢将哑铃放回起始位置。 | `lib/exercise_dataset.generated.dart:12626:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数，然后换到另一只手臂。 | `lib/exercise_dataset.generated.dart:12627:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·单臂·后踢 | `lib/exercise_dataset.generated.dart:12636:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell one arm kickback | `lib/exercise_dataset.generated.dart:12636:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·单臂·后踢 | `lib/exercise_dataset.generated.dart:12636:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 双脚分开与肩同宽站立，右手握住哑铃。 稍微弯曲膝盖，髋部向前转动，保持背部挺直。 将右肘举至身体一侧，保持弯曲 90 度角。 将右臂向后伸直，在动作的最高点挤压三头肌。 慢慢地将哑铃放回起始位置。 重复所需的重复次数，然后换边。 | `lib/exercise_dataset.generated.dart:12642:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开与肩同宽站立，右手握住哑铃。 | `lib/exercise_dataset.generated.dart:12644:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 稍微弯曲膝盖，髋部向前转动，保持背部挺直。 | `lib/exercise_dataset.generated.dart:12645:1` | 是（动作教学说明候选） |
@@ -6323,8 +6324,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持上臂静止，通过收缩二头肌将哑铃向肩膀弯曲。 | `lib/exercise_dataset.generated.dart:12903:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在最高点暂停片刻，然后慢慢将哑铃放回起始位置。 | `lib/exercise_dataset.generated.dart:12904:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数，然后换臂。 | `lib/exercise_dataset.generated.dart:12905:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell one arm seated hammer curl | `lib/exercise_dataset.generated.dart:12914:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·单臂·坐姿·锤式·弯举 | `lib/exercise_dataset.generated.dart:12914:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell one arm seated hammer curl | `lib/exercise_dataset.generated.dart:12914:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 坐在长凳上，背部挺直，双脚平放在地上。 一只手握住哑铃，保持中立握姿（手掌相对）。 将肘部放在大腿内侧、膝盖上方。 保持上臂静止，呼气并将哑铃向上弯向肩膀。 在顶部暂停片刻，挤压你的二头肌。 吸气，慢慢将哑铃放回起始位置。 重复所需的重复次数，然后换臂。 | `lib/exercise_dataset.generated.dart:12920:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在长凳上，背部挺直，双脚平放在地上。 | `lib/exercise_dataset.generated.dart:12922:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 一只手握住哑铃，保持中立握姿（手掌相对）。 | `lib/exercise_dataset.generated.dart:12923:1` | 是（动作教学说明候选） |
@@ -6341,8 +6342,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持前臂静止，尽可能向上弯曲手腕。 | `lib/exercise_dataset.generated.dart:12947:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部暂停片刻，然后慢慢将手腕放回起始位置。 | `lib/exercise_dataset.generated.dart:12948:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数，然后换另一只手。 | `lib/exercise_dataset.generated.dart:12949:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell one arm shoulder press | `lib/exercise_dataset.generated.dart:12958:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·单臂·肩推 | `lib/exercise_dataset.generated.dart:12958:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell one arm shoulder press | `lib/exercise_dataset.generated.dart:12958:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 双脚分开与肩同宽站立，一只手握住哑铃，与肩同高，手掌朝前。 向上推哑铃，直到手臂完全伸过头顶。 在最高点暂停片刻，然后慢慢将哑铃放回起始位置。 重复所需的重复次数，然后换到另一只手臂。 | `lib/exercise_dataset.generated.dart:12964:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开与肩同宽站立，一只手握住哑铃，与肩同高，手掌朝前。 | `lib/exercise_dataset.generated.dart:12966:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 向上推哑铃，直到手臂完全伸过头顶。 | `lib/exercise_dataset.generated.dart:12967:1` | 是（动作教学说明候选） |
@@ -6385,8 +6386,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 挤压二头肌时，保持收缩位置短暂停顿。 | `lib/exercise_dataset.generated.dart:13056:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 吸气并慢慢开始将哑铃放回起始位置。 | `lib/exercise_dataset.generated.dart:13057:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:13058:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell one arm triceps extension (on bench) | `lib/exercise_dataset.generated.dart:13067:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·单臂·肱三头肌伸展·训练凳 | `lib/exercise_dataset.generated.dart:13067:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell one arm triceps extension (on bench) | `lib/exercise_dataset.generated.dart:13067:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 坐在长凳上，背部挺直，双脚平放在地上。 一手握住哑铃，另一只手放在长凳上以获得支撑。 将哑铃举过头顶，保持上臂靠近头部，肘部向前。 弯曲肘部，将哑铃降低到头后，保持上臂静止。 将手臂向后伸展至起始位置，完全伸直肘部。 重复所需的重复次数，然后换臂。 | `lib/exercise_dataset.generated.dart:13073:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在长凳上，背部挺直，双脚平放在地上。 | `lib/exercise_dataset.generated.dart:13075:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 一手握住哑铃，另一只手放在长凳上以获得支撑。 | `lib/exercise_dataset.generated.dart:13076:1` | 是（动作教学说明候选） |
@@ -6402,8 +6403,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持背部挺直，核心收紧，呼气，将哑铃笔直向上举至下巴，用肘部引导。 | `lib/exercise_dataset.generated.dart:13099:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部停顿片刻，然后吸气，慢慢将哑铃放回起始位置。 | `lib/exercise_dataset.generated.dart:13100:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数，然后换到另一只手臂。 | `lib/exercise_dataset.generated.dart:13101:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·单臂·腕弯举 | `lib/exercise_dataset.generated.dart:13110:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell one arm wrist curl | `lib/exercise_dataset.generated.dart:13110:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·单臂·腕弯举 | `lib/exercise_dataset.generated.dart:13110:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 坐在长凳或椅子上，双脚平放在地面上。 一只手握住哑铃，反握，将前臂放在大腿上。 让你的手腕伸展，让哑铃向你的手指方向滚动。 慢慢地向后弯曲手腕，将哑铃拉向前臂。 重复所需的重复次数，然后换另一只手。 | `lib/exercise_dataset.generated.dart:13116:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在长凳或椅子上，双脚平放在地面上。 | `lib/exercise_dataset.generated.dart:13118:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 一只手握住哑铃，反握，将前臂放在大腿上。 | `lib/exercise_dataset.generated.dart:13119:1` | 是（动作教学说明候选） |
@@ -6459,8 +6460,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 慢慢向上弯曲手腕，将哑铃拉向前臂。 | `lib/exercise_dataset.generated.dart:13247:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部停顿片刻，然后慢慢将哑铃放回起始位置。 | `lib/exercise_dataset.generated.dart:13248:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数，然后换到另一只手臂。 | `lib/exercise_dataset.generated.dart:13249:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·训练凳·腕弯举 | `lib/exercise_dataset.generated.dart:13258:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell over bench revers wrist curl | `lib/exercise_dataset.generated.dart:13258:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·训练凳·腕弯举 | `lib/exercise_dataset.generated.dart:13258:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 坐在长凳上，双脚平放在地上，双手各握一个哑铃，掌心朝下。 将前臂放在长凳上，让手腕悬在长凳边缘。 慢慢向上弯曲手腕，将哑铃拉向身体。 在顶部停顿片刻，然后慢慢将哑铃放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:13264:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在长凳上，双脚平放在地上，双手各握一个哑铃，掌心朝下。 | `lib/exercise_dataset.generated.dart:13266:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将前臂放在长凳上，让手腕悬在长凳边缘。 | `lib/exercise_dataset.generated.dart:13267:1` | 是（动作教学说明候选） |
@@ -6516,8 +6517,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在空中时，快速改变双脚的位置，落地时另一只脚向前。 | `lib/exercise_dataset.generated.dart:13382:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 立即将身体放回蹲姿，然后重复跳跃，再次换脚。 | `lib/exercise_dataset.generated.dart:13383:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 每次跳跃时继续交替双脚的位置，达到所需的重复次数。 | `lib/exercise_dataset.generated.dart:13384:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·牧师凳·弯举 | `lib/exercise_dataset.generated.dart:13393:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell preacher curl | `lib/exercise_dataset.generated.dart:13393:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·牧师凳·弯举 | `lib/exercise_dataset.generated.dart:13393:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 坐在牧师弯举凳上，上臂放在垫子上，胸部靠在垫子上。 每只手握住一个哑铃，手掌朝上，双臂完全伸展。 保持上臂静止，呼气并弯举哑铃，同时收缩二头肌。 继续举起哑铃，直到二头肌完全收缩并且哑铃与肩部齐平。 挤压二头肌时，保持收缩位置短暂停顿。 吸气并慢慢开始将哑铃放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:13399:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在牧师弯举凳上，上臂放在垫子上，胸部靠在垫子上。 | `lib/exercise_dataset.generated.dart:13401:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 每只手握住一个哑铃，手掌朝上，双臂完全伸展。 | `lib/exercise_dataset.generated.dart:13402:1` | 是（动作教学说明候选） |
@@ -6592,8 +6593,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在保持双臂伸展的同时，将臀部抬离地面，挤压臀肌并启动核心肌群。 | `lib/exercise_dataset.generated.dart:13562:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将臀部放低至起始位置。 | `lib/exercise_dataset.generated.dart:13563:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:13564:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell pullover on exercise ball | `lib/exercise_dataset.generated.dart:13573:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·上拉·健身球 | `lib/exercise_dataset.generated.dart:13573:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell pullover on exercise ball | `lib/exercise_dataset.generated.dart:13573:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 坐在健身球上，双手握住哑铃，置于胸前，双臂伸展。 慢慢地将哑铃放到脑后，同时保持手臂伸直。 暂停片刻，然后将哑铃举回到起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:13579:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在健身球上，双手握住哑铃，置于胸前，双臂伸展。 | `lib/exercise_dataset.generated.dart:13581:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 慢慢地将哑铃放到脑后，同时保持手臂伸直。 | `lib/exercise_dataset.generated.dart:13582:1` | 是（动作教学说明候选） |
@@ -6674,8 +6675,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 挤压二头肌时，保持收缩位置短暂停顿。 | `lib/exercise_dataset.generated.dart:13774:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 吸气并慢慢开始将哑铃放回起始位置。 | `lib/exercise_dataset.generated.dart:13775:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:13776:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·反向·卧推 | `lib/exercise_dataset.generated.dart:13785:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell reverse bench press | `lib/exercise_dataset.generated.dart:13785:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·反向·卧推 | `lib/exercise_dataset.generated.dart:13785:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 平躺在长凳上，双脚平放在地上，膝盖弯曲。 双手各握一个哑铃，正手握住，手掌朝向脚部。 将手臂伸直向上伸向天花板，保持肘部轻微弯曲。 慢慢地将哑铃降低到胸部，让肘部向两侧张开。 在底部暂停片刻，然后将哑铃推回到起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:13791:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 平躺在长凳上，双脚平放在地上，膝盖弯曲。 | `lib/exercise_dataset.generated.dart:13793:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双手各握一个哑铃，正手握住，手掌朝向脚部。 | `lib/exercise_dataset.generated.dart:13794:1` | 是（动作教学说明候选） |
@@ -6683,8 +6684,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 慢慢地将哑铃降低到胸部，让肘部向两侧张开。 | `lib/exercise_dataset.generated.dart:13796:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在底部暂停片刻，然后将哑铃推回到起始位置。 | `lib/exercise_dataset.generated.dart:13797:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:13798:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·反向飞鸟 | `lib/exercise_dataset.generated.dart:13807:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell reverse fly | `lib/exercise_dataset.generated.dart:13807:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·反向飞鸟 | `lib/exercise_dataset.generated.dart:13807:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 双脚分开与肩同宽站立，每只手各握一个哑铃。 稍微弯曲膝盖，髋部向前转动，保持背部挺直。 将双臂伸直在身前，手掌相对。 保持肘部轻微弯曲，将手臂向两侧抬起，直到与地面平行。 在顶部暂停片刻，然后慢慢将手臂放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:13813:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开与肩同宽站立，每只手各握一个哑铃。 | `lib/exercise_dataset.generated.dart:13815:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 稍微弯曲膝盖，髋部向前转动，保持背部挺直。 | `lib/exercise_dataset.generated.dart:13816:1` | 是（动作教学说明候选） |
@@ -6706,8 +6707,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 以受控的方式将哑铃放回起始位置。 | `lib/exercise_dataset.generated.dart:13845:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:13846:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 换边并用左臂重复练习。 | `lib/exercise_dataset.generated.dart:13847:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·反向·上斜·训练凳·双臂·划船 | `lib/exercise_dataset.generated.dart:13856:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell reverse grip incline bench two arm row | `lib/exercise_dataset.generated.dart:13856:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·反向·上斜·训练凳·双臂·划船 | `lib/exercise_dataset.generated.dart:13856:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 设置一个 45 度角的上斜凳。 坐在长凳上，胸部靠在靠背上，双脚平放在地上。 双手各握一个哑铃，反握。 身体前倾，双臂伸直下垂，完全伸展。 将哑铃拉向胸部，将肩胛骨挤压在一起。 在顶部停顿片刻，然后慢慢将哑铃放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:13862:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 设置一个 45 度角的上斜凳。 | `lib/exercise_dataset.generated.dart:13864:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在长凳上，胸部靠在靠背上，双脚平放在地上。 | `lib/exercise_dataset.generated.dart:13865:1` | 是（动作教学说明候选） |
@@ -6716,8 +6717,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将哑铃拉向胸部，将肩胛骨挤压在一起。 | `lib/exercise_dataset.generated.dart:13868:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部停顿片刻，然后慢慢将哑铃放回起始位置。 | `lib/exercise_dataset.generated.dart:13869:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:13870:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·反向·划船 | `lib/exercise_dataset.generated.dart:13879:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell reverse grip row (female) | `lib/exercise_dataset.generated.dart:13879:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·反向·划船 | `lib/exercise_dataset.generated.dart:13879:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 站立，双脚分开与肩同宽，膝盖稍微弯曲。 双手各握一个哑铃，正手握握，手掌朝向身体。 腰部向前弯曲，保持背部挺直，核心肌群参与。 让你的手臂伸直垂下，完全伸展，肘部稍微弯曲。 将哑铃拉向胸部，将肩胛骨挤压在一起。 在顶部停顿片刻，然后慢慢将哑铃放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:13885:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 站立，双脚分开与肩同宽，膝盖稍微弯曲。 | `lib/exercise_dataset.generated.dart:13887:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双手各握一个哑铃，正手握握，手掌朝向身体。 | `lib/exercise_dataset.generated.dart:13888:1` | 是（动作教学说明候选） |
@@ -6736,8 +6737,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 挤压二头肌时，保持收缩位置短暂停顿。 | `lib/exercise_dataset.generated.dart:13914:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 吸气并慢慢将哑铃放回起始位置。 | `lib/exercise_dataset.generated.dart:13915:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:13916:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell reverse spider curl | `lib/exercise_dataset.generated.dart:13925:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·反向·蜘蛛式·弯举 | `lib/exercise_dataset.generated.dart:13925:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell reverse spider curl | `lib/exercise_dataset.generated.dart:13925:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 站直，双手各握一个哑铃，手掌朝向身体，双臂完全伸展。 保持上臂静止，呼气并弯举哑铃，同时收缩二头肌。 继续举起哑铃，直到二头肌完全收缩并且哑铃与肩部齐平。 挤压二头肌时，保持收缩位置短暂停顿。 吸气并慢慢开始将哑铃放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:13931:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 站直，双手各握一个哑铃，手掌朝向身体，双臂完全伸展。 | `lib/exercise_dataset.generated.dart:13933:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持上臂静止，呼气并弯举哑铃，同时收缩二头肌。 | `lib/exercise_dataset.generated.dart:13934:1` | 是（动作教学说明候选） |
@@ -6754,8 +6755,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 慢慢向上弯曲手腕，将哑铃拉向身体。 | `lib/exercise_dataset.generated.dart:13958:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部停顿片刻，然后慢慢将哑铃放回起始位置。 | `lib/exercise_dataset.generated.dart:13959:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:13960:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell rotation reverse fly | `lib/exercise_dataset.generated.dart:13969:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·旋转·反向飞鸟 | `lib/exercise_dataset.generated.dart:13969:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell rotation reverse fly | `lib/exercise_dataset.generated.dart:13969:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 双脚分开与肩同宽站立，双手各握一个哑铃，掌心向内。 稍微弯曲膝盖，臀部向前转动，保持背部挺直，挺胸。 将手臂向两侧举起，肘部保持轻微弯曲，直到与地板平行。 旋转手臂，使手掌朝下。 慢慢地将手臂放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:13975:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开与肩同宽站立，双手各握一个哑铃，掌心向内。 | `lib/exercise_dataset.generated.dart:13977:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 稍微弯曲膝盖，臀部向前转动，保持背部挺直，挺胸。 | `lib/exercise_dataset.generated.dart:13978:1` | 是（动作教学说明候选） |
@@ -6763,16 +6764,16 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 旋转手臂，使手掌朝下。 | `lib/exercise_dataset.generated.dart:13980:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 慢慢地将手臂放回起始位置。 | `lib/exercise_dataset.generated.dart:13981:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:13982:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell scott press | `lib/exercise_dataset.generated.dart:13991:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·推举 | `lib/exercise_dataset.generated.dart:13991:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell scott press | `lib/exercise_dataset.generated.dart:13991:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 坐在长凳上，双手各握一个哑铃，手掌朝前。 将哑铃举至肩部高度，肘部弯曲，手掌朝前。 向上推哑铃，直到手臂完全伸展。 在最高点暂停片刻，然后慢慢将哑铃放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:13997:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在长凳上，双手各握一个哑铃，手掌朝前。 | `lib/exercise_dataset.generated.dart:13999:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将哑铃举至肩部高度，肘部弯曲，手掌朝前。 | `lib/exercise_dataset.generated.dart:14000:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 向上推哑铃，直到手臂完全伸展。 | `lib/exercise_dataset.generated.dart:14001:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在最高点暂停片刻，然后慢慢将哑铃放回起始位置。 | `lib/exercise_dataset.generated.dart:14002:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:14003:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell seated alternate front raise | `lib/exercise_dataset.generated.dart:14012:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·坐姿·交替·前平举 | `lib/exercise_dataset.generated.dart:14012:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell seated alternate front raise | `lib/exercise_dataset.generated.dart:14012:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 坐在长凳上，背部挺直，双脚平放在地上。 每只手握住一个哑铃，手掌朝向身体，手臂向下伸展到身体两侧。 保持双臂伸直，将一只哑铃举至身前，直至其与地面平行。 在顶部停顿片刻，然后慢慢将哑铃放回起始位置。 用另一只手臂重复上述步骤。 双臂交替进行所需的重复次数。 | `lib/exercise_dataset.generated.dart:14018:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在长凳上，背部挺直，双脚平放在地上。 | `lib/exercise_dataset.generated.dart:14020:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 每只手握住一个哑铃，手掌朝向身体，手臂向下伸展到身体两侧。 | `lib/exercise_dataset.generated.dart:14021:1` | 是（动作教学说明候选） |
@@ -6791,8 +6792,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 吸气，慢慢将哑铃放回起始位置。 | `lib/exercise_dataset.generated.dart:14047:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 用另一只手臂重复该动作。 | `lib/exercise_dataset.generated.dart:14048:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 继续交替手臂进行所需的重复次数。 | `lib/exercise_dataset.generated.dart:14049:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·坐姿·交替·推举 | `lib/exercise_dataset.generated.dart:14058:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell seated alternate press | `lib/exercise_dataset.generated.dart:14058:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·坐姿·交替·推举 | `lib/exercise_dataset.generated.dart:14058:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 坐在长凳上，双手各握一个哑铃，手掌朝前。 将哑铃举至肩部高度，肘部弯曲，手掌朝前。 将一只哑铃举过头顶，完全伸展手臂。 将哑铃放回至肩膀高度。 用另一只手臂重复上述步骤。 继续交替手臂进行所需的重复次数。 | `lib/exercise_dataset.generated.dart:14064:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在长凳上，双手各握一个哑铃，手掌朝前。 | `lib/exercise_dataset.generated.dart:14066:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将哑铃举至肩部高度，肘部弯曲，手掌朝前。 | `lib/exercise_dataset.generated.dart:14067:1` | 是（动作教学说明候选） |
@@ -6833,8 +6834,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 暂停片刻，然后慢慢将哑铃放回起始位置。 | `lib/exercise_dataset.generated.dart:14154:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 用另一只手臂重复上述步骤。 | `lib/exercise_dataset.generated.dart:14155:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 继续交替手臂进行所需的重复次数。 | `lib/exercise_dataset.generated.dart:14156:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell seated bent over triceps extension | `lib/exercise_dataset.generated.dart:14165:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·坐姿·俯身·肱三头肌伸展 | `lib/exercise_dataset.generated.dart:14165:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell seated bent over triceps extension | `lib/exercise_dataset.generated.dart:14165:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 坐在长凳上，双脚平放在地上，每只手各握一个哑铃。 腰部向前弯曲，保持背部挺直，头部抬起。 将手臂向后伸直，保持肘部靠近头部。 暂停片刻，然后慢慢将哑铃放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:14171:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在长凳上，双脚平放在地上，每只手各握一个哑铃。 | `lib/exercise_dataset.generated.dart:14173:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 腰部向前弯曲，保持背部挺直，头部抬起。 | `lib/exercise_dataset.generated.dart:14174:1` | 是（动作教学说明候选） |
@@ -6849,8 +6850,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 呼气并将哑铃向上弯向肩膀，收缩二头肌。 | `lib/exercise_dataset.generated.dart:14196:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部停顿片刻，然后吸气，慢慢将哑铃放回起始位置。 | `lib/exercise_dataset.generated.dart:14197:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:14198:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell seated biceps curl (on stability ball) | `lib/exercise_dataset.generated.dart:14207:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·坐姿·肱二头肌弯举·健身球 | `lib/exercise_dataset.generated.dart:14207:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell seated biceps curl (on stability ball) | `lib/exercise_dataset.generated.dart:14207:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 坐在稳定球上，双脚平放在地面上，背部挺直。 每只手握住一个哑铃，手掌朝前，双臂完全伸展。 保持上臂静止，呼气并弯举哑铃，同时收缩二头肌。 继续举起哑铃，直到二头肌完全收缩并且哑铃与肩部齐平。 挤压二头肌时，保持收缩位置短暂停顿。 吸气并慢慢开始将哑铃放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:14213:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在稳定球上，双脚平放在地面上，背部挺直。 | `lib/exercise_dataset.generated.dart:14215:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 每只手握住一个哑铃，手掌朝前，双臂完全伸展。 | `lib/exercise_dataset.generated.dart:14216:1` | 是（动作教学说明候选） |
@@ -6869,8 +6870,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将哑铃推过头顶，直到手臂完全伸展。 | `lib/exercise_dataset.generated.dart:14242:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 通过反向运动将哑铃放回起始位置。 | `lib/exercise_dataset.generated.dart:14243:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:14244:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·坐姿·提踵 | `lib/exercise_dataset.generated.dart:14253:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell seated calf raise | `lib/exercise_dataset.generated.dart:14253:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·坐姿·提踵 | `lib/exercise_dataset.generated.dart:14253:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 坐在长凳或椅子上，双脚平放在地面上，并将哑铃放在大腿上。 将脚掌放在升高的表面（例如台阶或木块）上，脚跟悬在边缘外。 握住哑铃以保持稳定。 尽可能高地抬高脚后跟，将身体重量转移到脚掌上。 在顶部停顿片刻，然后慢慢降低脚后跟回到起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:14259:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在长凳或椅子上，双脚平放在地面上，并将哑铃放在大腿上。 | `lib/exercise_dataset.generated.dart:14261:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将脚掌放在升高的表面（例如台阶或木块）上，脚跟悬在边缘外。 | `lib/exercise_dataset.generated.dart:14262:1` | 是（动作教学说明候选） |
@@ -6894,8 +6895,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将哑铃举到身前，手掌朝下，直到与肩同高。 | `lib/exercise_dataset.generated.dart:14306:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部停顿片刻，然后慢慢将哑铃放回起始位置。 | `lib/exercise_dataset.generated.dart:14307:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:14308:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell seated hammer curl | `lib/exercise_dataset.generated.dart:14317:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·坐姿·锤式·弯举 | `lib/exercise_dataset.generated.dart:14317:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell seated hammer curl | `lib/exercise_dataset.generated.dart:14317:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 坐在长凳上，双手各握一个哑铃，手掌朝向躯干，手臂伸直向下。 保持上臂静止，呼气并弯举哑铃，同时收缩二头肌。 继续举起哑铃，直到二头肌完全收缩并且哑铃与肩部齐平。 挤压二头肌时，保持收缩位置短暂停顿。 吸气并慢慢开始将哑铃放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:14323:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在长凳上，双手各握一个哑铃，手掌朝向躯干，手臂伸直向下。 | `lib/exercise_dataset.generated.dart:14325:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持上臂静止，呼气并弯举哑铃，同时收缩二头肌。 | `lib/exercise_dataset.generated.dart:14326:1` | 是（动作教学说明候选） |
@@ -6911,8 +6912,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持上臂不动，通过收缩二头肌将哑铃向肩膀方向卷曲。 | `lib/exercise_dataset.generated.dart:14349:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部停顿片刻，然后慢慢将哑铃放回起始位置。 | `lib/exercise_dataset.generated.dart:14350:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:14351:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·坐姿·后踢 | `lib/exercise_dataset.generated.dart:14360:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell seated kickback | `lib/exercise_dataset.generated.dart:14360:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·坐姿·后踢 | `lib/exercise_dataset.generated.dart:14360:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 坐在长凳上，双脚平放在地上，每只手各握一个哑铃。 稍微弯曲膝盖，从臀部向前倾斜，保持背部挺直。 将上臂靠近身体两侧，并保持肘部弯曲成 90 度角。 将手臂向后伸直，在动作的最高点挤压三头肌。 暂停片刻，然后慢慢将哑铃放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:14366:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在长凳上，双脚平放在地上，每只手各握一个哑铃。 | `lib/exercise_dataset.generated.dart:14368:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 稍微弯曲膝盖，从臀部向前倾斜，保持背部挺直。 | `lib/exercise_dataset.generated.dart:14369:1` | 是（动作教学说明候选） |
@@ -6920,8 +6921,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将手臂向后伸直，在动作的最高点挤压三头肌。 | `lib/exercise_dataset.generated.dart:14371:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 暂停片刻，然后慢慢将哑铃放回起始位置。 | `lib/exercise_dataset.generated.dart:14372:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:14373:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell seated lateral raise | `lib/exercise_dataset.generated.dart:14382:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·坐姿·侧平举 | `lib/exercise_dataset.generated.dart:14382:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell seated lateral raise | `lib/exercise_dataset.generated.dart:14382:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 坐在长凳上，双脚平放在地上，每只手各拿一个哑铃，放在大腿上。 保持背部挺直，核心参与。 将哑铃举至身体两侧，肘部稍微弯曲，直到手臂与地面平行。 在顶部停顿片刻，然后慢慢将哑铃放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:14388:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在长凳上，双脚平放在地上，每只手各拿一个哑铃，放在大腿上。 | `lib/exercise_dataset.generated.dart:14390:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持背部挺直，核心参与。 | `lib/exercise_dataset.generated.dart:14391:1` | 是（动作教学说明候选） |
@@ -6936,16 +6937,16 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将哑铃举至身体两侧，肘部稍微弯曲，直到手臂与地面平行。 | `lib/exercise_dataset.generated.dart:14413:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部停顿片刻，然后慢慢将哑铃放回起始位置。 | `lib/exercise_dataset.generated.dart:14414:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:14415:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell seated neutral wrist curl | `lib/exercise_dataset.generated.dart:14424:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·坐姿·腕弯举 | `lib/exercise_dataset.generated.dart:14424:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell seated neutral wrist curl | `lib/exercise_dataset.generated.dart:14424:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 坐在长凳上，双脚平放在地上，双手各握一个哑铃，手掌相对。 将前臂放在大腿上，让哑铃垂下。 保持手腕处于中立位置，将哑铃向上弯向肩膀。 在顶部停顿片刻，然后慢慢将哑铃放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:14430:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在长凳上，双脚平放在地上，双手各握一个哑铃，手掌相对。 | `lib/exercise_dataset.generated.dart:14432:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将前臂放在大腿上，让哑铃垂下。 | `lib/exercise_dataset.generated.dart:14433:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持手腕处于中立位置，将哑铃向上弯向肩膀。 | `lib/exercise_dataset.generated.dart:14434:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部停顿片刻，然后慢慢将哑铃放回起始位置。 | `lib/exercise_dataset.generated.dart:14435:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:14436:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell seated one arm bicep curl on exercise ball with leg raised | `lib/exercise_dataset.generated.dart:14445:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·坐姿·单臂·肱二头肌弯举·健身球·举腿 | `lib/exercise_dataset.generated.dart:14445:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell seated one arm bicep curl on exercise ball with leg raised | `lib/exercise_dataset.generated.dart:14445:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 坐在健身球上，双脚平放在地上，背部挺直。 一只手握住哑铃，手掌朝上，手臂完全伸展。 将另一只手放在臀部上以保持稳定。 慢慢地将哑铃向肩膀弯曲，保持上臂静止。 在动作的最高点暂停片刻，挤压你的二头肌。 慢慢地将哑铃放回起始位置。 重复所需的重复次数。 交换手臂并重复练习。 | `lib/exercise_dataset.generated.dart:14451:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在健身球上，双脚平放在地上，背部挺直。 | `lib/exercise_dataset.generated.dart:14453:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 一只手握住哑铃，手掌朝上，手臂完全伸展。 | `lib/exercise_dataset.generated.dart:14454:1` | 是（动作教学说明候选） |
@@ -6989,8 +6990,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持核心收紧，背部挺直，通过脚掌推动，将脚后跟慢慢抬高，尽可能高。 | `lib/exercise_dataset.generated.dart:14544:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部暂停片刻，然后慢慢将脚跟放回起始位置。 | `lib/exercise_dataset.generated.dart:14545:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数，然后换另一条腿。 | `lib/exercise_dataset.generated.dart:14546:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·坐姿·单腿·提踵 | `lib/exercise_dataset.generated.dart:14555:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell seated one leg calf raise - palm up | `lib/exercise_dataset.generated.dart:14555:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·坐姿·单腿·提踵 | `lib/exercise_dataset.generated.dart:14555:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 坐在长凳或椅子上，背部挺直，双脚平放在地面上。 一只手握住哑铃，将其放在大腿上方，掌心朝上。 将一条腿抬离地面并将其延伸到您面前，保持膝盖稍微弯曲。 通过脚掌推动，尽可能高地抬起脚后跟。 在顶部停顿片刻，然后慢慢降低脚跟。 重复所需的重复次数，然后换腿并重复。 | `lib/exercise_dataset.generated.dart:14561:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在长凳或椅子上，背部挺直，双脚平放在地面上。 | `lib/exercise_dataset.generated.dart:14563:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 一只手握住哑铃，将其放在大腿上方，掌心朝上。 | `lib/exercise_dataset.generated.dart:14564:1` | 是（动作教学说明候选） |
@@ -7014,8 +7015,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持上臂静止，呼气并将哑铃向上弯向肩膀。 | `lib/exercise_dataset.generated.dart:14608:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部停顿片刻，然后吸气，慢慢将哑铃放回起始位置。 | `lib/exercise_dataset.generated.dart:14609:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数，然后换臂。 | `lib/exercise_dataset.generated.dart:14610:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell seated revers grip concentration curl | `lib/exercise_dataset.generated.dart:14619:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·坐姿·集中式·弯举 | `lib/exercise_dataset.generated.dart:14619:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell seated revers grip concentration curl | `lib/exercise_dataset.generated.dart:14619:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 坐在长凳上，双脚平放在地上，一手握住哑铃，掌心朝上。 将肘部放在大腿内侧、膝盖上方。 保持上臂静止，呼气并将哑铃向肩膀弯曲。 在顶部暂停片刻，挤压你的二头肌。 吸气，慢慢将哑铃放回起始位置。 重复所需的重复次数，然后换臂。 | `lib/exercise_dataset.generated.dart:14625:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在长凳上，双脚平放在地上，一手握住哑铃，掌心朝上。 | `lib/exercise_dataset.generated.dart:14627:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将肘部放在大腿内侧、膝盖上方。 | `lib/exercise_dataset.generated.dart:14628:1` | 是（动作教学说明候选） |
@@ -7039,8 +7040,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 向上推哑铃，直到手臂完全伸过头顶。 | `lib/exercise_dataset.generated.dart:14672:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部停顿片刻，然后慢慢将哑铃放回肩部高度。 | `lib/exercise_dataset.generated.dart:14673:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:14674:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell seated triceps extension | `lib/exercise_dataset.generated.dart:14683:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·坐姿·肱三头肌伸展 | `lib/exercise_dataset.generated.dart:14683:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell seated triceps extension | `lib/exercise_dataset.generated.dart:14683:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 坐在长凳上，背部挺直，双脚平放在地上。 双手握住哑铃，双臂伸直举过头顶。 弯曲肘部，将哑铃放在脑后，保持上臂靠近耳朵。 暂停片刻，然后伸直手臂，回到起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:14689:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在长凳上，背部挺直，双脚平放在地上。 | `lib/exercise_dataset.generated.dart:14691:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双手握住哑铃，双臂伸直举过头顶。 | `lib/exercise_dataset.generated.dart:14692:1` | 是（动作教学说明候选） |
@@ -7070,8 +7071,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持手臂伸直，将哑铃举至肩膀高度。 | `lib/exercise_dataset.generated.dart:14755:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部停顿片刻，然后慢慢将哑铃放回起始位置。 | `lib/exercise_dataset.generated.dart:14756:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数，然后换边。 | `lib/exercise_dataset.generated.dart:14757:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·侧向·平板支撑·后侧·飞鸟 | `lib/exercise_dataset.generated.dart:14766:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell side plank with rear fly | `lib/exercise_dataset.generated.dart:14766:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·侧向·平板支撑·后侧·飞鸟 | `lib/exercise_dataset.generated.dart:14766:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 首先侧躺，双腿伸展并叠放在一起。 将前臂放在肩膀正下方的地面上，保持肘部弯曲成 90 度角。 用你的上手握住哑铃，手臂垂直向下伸向地面。 收紧核心并将臀部抬离地面，从头部到脚后跟形成一条直线。 在保持侧平板支撑位置的同时，将哑铃向天花板方向举起，将肩胛骨挤压在一起。 将哑铃放回起始位置。 重复所需的重复次数，然后换边。 | `lib/exercise_dataset.generated.dart:14772:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 首先侧躺，双腿伸展并叠放在一起。 | `lib/exercise_dataset.generated.dart:14774:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将前臂放在肩膀正下方的地面上，保持肘部弯曲成 90 度角。 | `lib/exercise_dataset.generated.dart:14775:1` | 是（动作教学说明候选） |
@@ -7080,8 +7081,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在保持侧平板支撑位置的同时，将哑铃向天花板方向举起，将肩胛骨挤压在一起。 | `lib/exercise_dataset.generated.dart:14778:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将哑铃放回起始位置。 | `lib/exercise_dataset.generated.dart:14779:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数，然后换边。 | `lib/exercise_dataset.generated.dart:14780:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell single arm overhead carry | `lib/exercise_dataset.generated.dart:14789:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·单臂·过顶 | `lib/exercise_dataset.generated.dart:14789:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell single arm overhead carry | `lib/exercise_dataset.generated.dart:14789:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 站直，双脚分开与肩同宽，一手握住哑铃。 将哑铃举过头顶，充分伸展手臂。 向前行走时，启动核心肌群并保持背部挺直，将哑铃举过头顶。 继续步行所需的距离或时间。 交换双手并重复练习。 | `lib/exercise_dataset.generated.dart:14795:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 站直，双脚分开与肩同宽，一手握住哑铃。 | `lib/exercise_dataset.generated.dart:14797:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将哑铃举过头顶，充分伸展手臂。 | `lib/exercise_dataset.generated.dart:14798:1` | 是（动作教学说明候选） |
@@ -7115,16 +7116,16 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 当你放下哑铃时，同时将左腿抬起到身后，从头到脚跟保持一条直线。 | `lib/exercise_dataset.generated.dart:14865:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 降低哑铃，直到感觉到右腿筋拉伸，然后回到起始位置。 | `lib/exercise_dataset.generated.dart:14866:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数，然后换边。 | `lib/exercise_dataset.generated.dart:14867:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·单腿·分腿蹲 | `lib/exercise_dataset.generated.dart:14876:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell single leg split squat | `lib/exercise_dataset.generated.dart:14876:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·单腿·分腿蹲 | `lib/exercise_dataset.generated.dart:14876:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 双脚分开与肩同宽站立，每只手各握一个哑铃。 一只脚向前迈出一步，调整双脚的位置，使前脚平放在地面上，后脚抬高在长凳或台阶上。 弯曲前膝盖和臀部，降低身体，保持后膝盖稍微弯曲，后脚跟离开地面。 继续降低，直到大腿前部与地面平行，然后通过前脚跟推回到起始位置。 重复所需的重复次数，然后换腿并重复。 | `lib/exercise_dataset.generated.dart:14882:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开与肩同宽站立，每只手各握一个哑铃。 | `lib/exercise_dataset.generated.dart:14884:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 一只脚向前迈出一步，调整双脚的位置，使前脚平放在地面上，后脚抬高在长凳或台阶上。 | `lib/exercise_dataset.generated.dart:14885:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 弯曲前膝盖和臀部，降低身体，保持后膝盖稍微弯曲，后脚跟离开地面。 | `lib/exercise_dataset.generated.dart:14886:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 继续降低，直到大腿前部与地面平行，然后通过前脚跟推回到起始位置。 | `lib/exercise_dataset.generated.dart:14887:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数，然后换腿并重复。 | `lib/exercise_dataset.generated.dart:14888:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell single leg squat | `lib/exercise_dataset.generated.dart:14897:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·单腿·深蹲 | `lib/exercise_dataset.generated.dart:14897:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell single leg squat | `lib/exercise_dataset.generated.dart:14897:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 双脚分开与肩同宽站立，每只手各握一个哑铃。 向前伸展一条腿，并在整个练习过程中保持其离开地面。 弯曲站立的腿并降低身体，就像坐回椅子上一样。 保持挺胸、背部挺直。 在底部停顿片刻，然后用脚跟推动回到起始位置。 重复所需的重复次数，然后换腿。 | `lib/exercise_dataset.generated.dart:14903:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开与肩同宽站立，每只手各握一个哑铃。 | `lib/exercise_dataset.generated.dart:14905:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 向前伸展一条腿，并在整个练习过程中保持其离开地面。 | `lib/exercise_dataset.generated.dart:14906:1` | 是（动作教学说明候选） |
@@ -7140,8 +7141,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 继续降低，直到大腿与地面平行，或者尽可能低。 | `lib/exercise_dataset.generated.dart:14929:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在底部停顿片刻，然后推动脚后跟回到起始位置。 | `lib/exercise_dataset.generated.dart:14930:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:14931:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·站姿·交替·锤式·弯举·推举 | `lib/exercise_dataset.generated.dart:14940:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell standing alternate hammer curl and press | `lib/exercise_dataset.generated.dart:14940:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·站姿·交替·锤式·弯举·推举 | `lib/exercise_dataset.generated.dart:14940:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 站直，双手各持一个哑铃，手掌朝向身体。 保持肘部靠近躯干，背部挺直。 呼气，将右手的哑铃向肩膀弯曲，保持上臂静止。 继续举起哑铃，直到二头肌完全收缩并且哑铃与肩部齐平。 吸气，慢慢将哑铃放回起始位置。 用左手重复卷发动作。 左手完成弯举后，呼气，将右手的哑铃压过头顶。 完全伸展手臂并在顶部保持片刻。 吸气，慢慢将哑铃放回起始位置。 用左手重复按压。 继续交替进行弯举和推举，达到所需的重复次数。 | `lib/exercise_dataset.generated.dart:14946:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 站直，双手各持一个哑铃，手掌朝向身体。 | `lib/exercise_dataset.generated.dart:14948:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持肘部靠近躯干，背部挺直。 | `lib/exercise_dataset.generated.dart:14949:1` | 是（动作教学说明候选） |
@@ -7154,8 +7155,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 吸气，慢慢将哑铃放回起始位置。 | `lib/exercise_dataset.generated.dart:14956:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 用左手重复按压。 | `lib/exercise_dataset.generated.dart:14957:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 继续交替进行弯举和推举，达到所需的重复次数。 | `lib/exercise_dataset.generated.dart:14958:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·站姿·交替·过顶推举 | `lib/exercise_dataset.generated.dart:14967:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell standing alternate overhead press | `lib/exercise_dataset.generated.dart:14967:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·站姿·交替·过顶推举 | `lib/exercise_dataset.generated.dart:14967:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 双脚分开与肩同宽站立，双手各握一个哑铃，与肩同高，手掌朝前。 将一只哑铃举过头顶，完全伸展手臂。 将哑铃放低至肩部水平。 用另一只手臂重复上述步骤。 继续交替手臂进行所需的重复次数。 | `lib/exercise_dataset.generated.dart:14973:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开与肩同宽站立，双手各握一个哑铃，与肩同高，手掌朝前。 | `lib/exercise_dataset.generated.dart:14975:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将一只哑铃举过头顶，完全伸展手臂。 | `lib/exercise_dataset.generated.dart:14976:1` | 是（动作教学说明候选） |
@@ -7188,8 +7189,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持手臂伸直，慢慢地以圆周运动旋转手臂，将哑铃放在身体前面，然后举过头顶。 | `lib/exercise_dataset.generated.dart:15042:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 继续圆周运动，将哑铃放回起始位置。 | `lib/exercise_dataset.generated.dart:15043:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:15044:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·站姿·俯身·单臂·肱三头肌伸展 | `lib/exercise_dataset.generated.dart:15053:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell standing bent over one arm triceps extension | `lib/exercise_dataset.generated.dart:15053:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·站姿·俯身·单臂·肱三头肌伸展 | `lib/exercise_dataset.generated.dart:15053:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 双脚分开与肩同宽站立，一只手握住哑铃。 腰部向前弯曲，保持背部挺直并与地面平行。 将手臂向后伸直，保持肘部靠近身体。 慢慢地将哑铃放回起始位置。 重复所需的重复次数，然后换臂。 | `lib/exercise_dataset.generated.dart:15059:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开与肩同宽站立，一只手握住哑铃。 | `lib/exercise_dataset.generated.dart:15061:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 腰部向前弯曲，保持背部挺直并与地面平行。 | `lib/exercise_dataset.generated.dart:15062:1` | 是（动作教学说明候选） |
@@ -7213,15 +7214,15 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 挤压二头肌时，保持收缩位置短暂停顿。 | `lib/exercise_dataset.generated.dart:15106:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 吸气并慢慢开始将哑铃放回起始位置。 | `lib/exercise_dataset.generated.dart:15107:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:15108:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·站姿·提踵 | `lib/exercise_dataset.generated.dart:15117:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell standing calf raise | `lib/exercise_dataset.generated.dart:15117:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·站姿·提踵 | `lib/exercise_dataset.generated.dart:15117:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 双脚分开与肩同宽站立，每只手各握一个哑铃。 用小腿将脚跟抬离地面，尽可能高。 在顶部停顿片刻，然后慢慢降低脚后跟回到起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:15123:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开与肩同宽站立，每只手各握一个哑铃。 | `lib/exercise_dataset.generated.dart:15125:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 用小腿将脚跟抬离地面，尽可能高。 | `lib/exercise_dataset.generated.dart:15126:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部停顿片刻，然后慢慢降低脚后跟回到起始位置。 | `lib/exercise_dataset.generated.dart:15127:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:15128:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·站姿·集中式·弯举 | `lib/exercise_dataset.generated.dart:15137:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell standing concentration curl | `lib/exercise_dataset.generated.dart:15137:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·站姿·集中式·弯举 | `lib/exercise_dataset.generated.dart:15137:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 双脚分开与肩同宽站立，一手握住哑铃，手臂完全伸展，手掌朝内。 将另一只手放在大腿上以获得支撑。 保持上臂静止，呼气，通过收缩二头肌将哑铃向肩膀弯曲。 继续举起哑铃，直到二头肌完全收缩并且哑铃与肩部齐平。 挤压二头肌时，保持收缩位置短暂停顿。 吸气，慢慢将哑铃放回起始位置。 重复所需的重复次数，然后换臂。 | `lib/exercise_dataset.generated.dart:15143:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开与肩同宽站立，一手握住哑铃，手臂完全伸展，手掌朝内。 | `lib/exercise_dataset.generated.dart:15145:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将另一只手放在大腿上以获得支撑。 | `lib/exercise_dataset.generated.dart:15146:1` | 是（动作教学说明候选） |
@@ -7230,8 +7231,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 挤压二头肌时，保持收缩位置短暂停顿。 | `lib/exercise_dataset.generated.dart:15149:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 吸气，慢慢将哑铃放回起始位置。 | `lib/exercise_dataset.generated.dart:15150:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数，然后换臂。 | `lib/exercise_dataset.generated.dart:15151:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·站姿·前平举·头部 | `lib/exercise_dataset.generated.dart:15160:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell standing front raise above head | `lib/exercise_dataset.generated.dart:15160:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·站姿·前平举·头部 | `lib/exercise_dataset.generated.dart:15160:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 双脚分开与肩同宽站立，双手各握一个哑铃，正握。 保持双臂伸直，将哑铃举至身前，举过头顶。 在最高点暂停片刻，然后慢慢将哑铃放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:15166:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开与肩同宽站立，双手各握一个哑铃，正握。 | `lib/exercise_dataset.generated.dart:15168:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持双臂伸直，将哑铃举至身前，举过头顶。 | `lib/exercise_dataset.generated.dart:15169:1` | 是（动作教学说明候选） |
@@ -7265,8 +7266,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 挤压二头肌时，保持收缩位置短暂停顿。 | `lib/exercise_dataset.generated.dart:15236:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 吸气，慢慢将哑铃放回起始位置。 | `lib/exercise_dataset.generated.dart:15237:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数，然后换臂。 | `lib/exercise_dataset.generated.dart:15238:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·站姿·单臂·弯举·上斜·训练凳 | `lib/exercise_dataset.generated.dart:15247:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell standing one arm curl (over incline bench) | `lib/exercise_dataset.generated.dart:15247:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·站姿·单臂·弯举·上斜·训练凳 | `lib/exercise_dataset.generated.dart:15247:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 双脚分开与肩同宽站立，一手握住哑铃，手掌朝前。 将另一只手放在倾斜的长凳上以获得支撑。 保持上臂静止，呼气，通过收缩二头肌将哑铃向肩膀弯曲。 在最高点停顿片刻，然后吸气，慢慢将哑铃放回起始位置。 重复所需的重复次数，然后换臂。 | `lib/exercise_dataset.generated.dart:15253:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开与肩同宽站立，一手握住哑铃，手掌朝前。 | `lib/exercise_dataset.generated.dart:15255:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将另一只手放在倾斜的长凳上以获得支撑。 | `lib/exercise_dataset.generated.dart:15256:1` | 是（动作教学说明候选） |
@@ -7330,8 +7331,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 挤压二头肌时，保持收缩位置短暂停顿。 | `lib/exercise_dataset.generated.dart:15405:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 吸气并慢慢开始将哑铃放回起始位置。 | `lib/exercise_dataset.generated.dart:15406:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:15407:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell standing reverse curl | `lib/exercise_dataset.generated.dart:15416:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·站姿·反向·弯举 | `lib/exercise_dataset.generated.dart:15416:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell standing reverse curl | `lib/exercise_dataset.generated.dart:15416:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 站直，双脚分开与肩同宽，双手各握一个哑铃，手掌朝向身体。 保持上臂静止，呼气并弯举哑铃，同时收缩二头肌。继续举重，直到二头肌完全收缩并且哑铃与肩部齐平。 挤压二头肌时，保持收缩位置短暂停顿。 吸气并慢慢开始将哑铃放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:15422:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 站直，双脚分开与肩同宽，双手各握一个哑铃，手掌朝向身体。 | `lib/exercise_dataset.generated.dart:15424:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持上臂静止，呼气并弯举哑铃，同时收缩二头肌。继续举重，直到二头肌完全收缩并且哑铃与肩部齐平。 | `lib/exercise_dataset.generated.dart:15425:1` | 是（动作教学说明候选） |
@@ -7365,8 +7366,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将哑铃放回原处，同时将左脚放回地面。 | `lib/exercise_dataset.generated.dart:15492:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在另一侧重复该动作，左脚向上并弯举哑铃。 | `lib/exercise_dataset.generated.dart:15493:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 继续交替进行所需的重复次数。 | `lib/exercise_dataset.generated.dart:15494:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·踏步 | `lib/exercise_dataset.generated.dart:15503:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell step-up | `lib/exercise_dataset.generated.dart:15503:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·踏步 | `lib/exercise_dataset.generated.dart:15503:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 站在长凳或台阶前，每只手各握一个哑铃，手掌朝向身体。 将右脚放在长凳或台阶上，确保整个脚与表面接触。 推动右脚跟，将身体抬起到长凳或台阶上，伸直右腿。 将左脚放在长凳或台阶上，完全直立。 左脚向后退一步，然后是右脚，回到起始位置。 重复所需的重复次数，然后换腿。 | `lib/exercise_dataset.generated.dart:15509:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 站在长凳或台阶前，每只手各握一个哑铃，手掌朝向身体。 | `lib/exercise_dataset.generated.dart:15511:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将右脚放在长凳或台阶上，确保整个脚与表面接触。 | `lib/exercise_dataset.generated.dart:15512:1` | 是（动作教学说明候选） |
@@ -7441,8 +7442,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将哑铃举至肩膀高度，然后旋转手腕，使手掌背向自己。 | `lib/exercise_dataset.generated.dart:15685:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 向上推哑铃，直到手臂完全伸展，然后将其放回至肩膀高度。 | `lib/exercise_dataset.generated.dart:15686:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将手腕旋转回起始位置，然后重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:15687:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell tricep kickback with stork stance | `lib/exercise_dataset.generated.dart:15696:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·肱三头肌·后踢 | `lib/exercise_dataset.generated.dart:15696:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell tricep kickback with stork stance | `lib/exercise_dataset.generated.dart:15696:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 双脚分开与肩同宽站立，右手握住哑铃。 稍微弯曲膝盖，髋部向前转动，保持背部挺直。 将右肘举至身体一侧，保持弯曲 90 度角。 将右臂向后伸直，挤压三头肌。 暂停片刻，然后慢慢将哑铃放回起始位置。 重复所需的重复次数，然后换边。 | `lib/exercise_dataset.generated.dart:15702:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开与肩同宽站立，右手握住哑铃。 | `lib/exercise_dataset.generated.dart:15704:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 稍微弯曲膝盖，髋部向前转动，保持背部挺直。 | `lib/exercise_dataset.generated.dart:15705:1` | 是（动作教学说明候选） |
@@ -7478,8 +7479,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 继续举起哑铃，直到哑铃与肩同高，肘部指向两侧。 | `lib/exercise_dataset.generated.dart:15774:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部停顿片刻，然后吸气，慢慢将哑铃放回起始位置。 | `lib/exercise_dataset.generated.dart:15775:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:15776:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·肩部·外旋·旋转 | `lib/exercise_dataset.generated.dart:15785:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbell upright shoulder external rotation | `lib/exercise_dataset.generated.dart:15785:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 哑铃·肩部·外旋·旋转 | `lib/exercise_dataset.generated.dart:15785:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 双脚分开与肩同宽站立，双手各握一个哑铃，手掌朝向身体。 将手臂向两侧抬起，直到与地面平行，保持肘部稍微弯曲。 向外旋转手臂，将哑铃举向头部，同时保持肘部处于同一位置。 在最高点暂停片刻，然后慢慢将哑铃放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:15791:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开与肩同宽站立，双手各握一个哑铃，手掌朝向身体。 | `lib/exercise_dataset.generated.dart:15793:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将手臂向两侧抬起，直到与地面平行，保持肘部稍微弯曲。 | `lib/exercise_dataset.generated.dart:15794:1` | 是（动作教学说明候选） |
@@ -7519,16 +7520,16 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在弯举的顶部，旋转手腕，使手掌朝下。 | `lib/exercise_dataset.generated.dart:15880:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 慢慢地将哑铃放回起始位置，同时将手腕旋转回起始位置。 | `lib/exercise_dataset.generated.dart:15881:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:15882:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbells seated triceps extension | `lib/exercise_dataset.generated.dart:15891:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 坐姿·肱三头肌伸展 | `lib/exercise_dataset.generated.dart:15891:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dumbbells seated triceps extension | `lib/exercise_dataset.generated.dart:15891:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 坐在长凳上，背部挺直，双脚平放在地上。 双手握住哑铃，正握，将其举过头顶。 弯曲肘部，将哑铃放在脑后，保持上臂靠近耳朵。 伸展双臂，将哑铃举回到起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:15897:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在长凳上，背部挺直，双脚平放在地上。 | `lib/exercise_dataset.generated.dart:15899:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双手握住哑铃，正握，将其举过头顶。 | `lib/exercise_dataset.generated.dart:15900:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 弯曲肘部，将哑铃放在脑后，保持上臂靠近耳朵。 | `lib/exercise_dataset.generated.dart:15901:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 伸展双臂，将哑铃举回到起始位置。 | `lib/exercise_dataset.generated.dart:15902:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:15903:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dynamic chest stretch (male) | `lib/exercise_dataset.generated.dart:15912:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 胸部·拉伸 | `lib/exercise_dataset.generated.dart:15912:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | dynamic chest stretch (male) | `lib/exercise_dataset.generated.dart:15912:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 站直，双脚分开与肩同宽。 将双臂伸直至两侧，与地面平行。 慢慢地将双臂向前伸，交叉在身体前面。 感受胸部肌肉的伸展。 保持拉伸 10-30 秒。 返回起始位置并重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:15918:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 站直，双脚分开与肩同宽。 | `lib/exercise_dataset.generated.dart:15920:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将双臂伸直至两侧，与地面平行。 | `lib/exercise_dataset.generated.dart:15921:1` | 是（动作教学说明候选） |
@@ -7536,8 +7537,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 感受胸部肌肉的伸展。 | `lib/exercise_dataset.generated.dart:15923:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持拉伸 10-30 秒。 | `lib/exercise_dataset.generated.dart:15924:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 返回起始位置并重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:15925:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | elbow dips | `lib/exercise_dataset.generated.dart:15934:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 双杠臂屈伸 | `lib/exercise_dataset.generated.dart:15934:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | elbow dips | `lib/exercise_dataset.generated.dart:15934:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 坐在长凳或椅子的边缘，双手抓住臀部旁边的边缘。 将臀部向前滑离长凳，伸直双腿，保持脚后跟着地。 弯曲肘部，将身体放低至地面，保持背部靠近长凳。 在底部停顿片刻，然后双手用力伸直手臂，将身体抬回到起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:15940:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在长凳或椅子的边缘，双手抓住臀部旁边的边缘。 | `lib/exercise_dataset.generated.dart:15942:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将臀部向前滑离长凳，伸直双腿，保持脚后跟着地。 | `lib/exercise_dataset.generated.dart:15943:1` | 是（动作教学说明候选） |
@@ -7552,8 +7553,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部暂停片刻，挤压上背部肌肉。 | `lib/exercise_dataset.generated.dart:15965:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 慢慢地将身体放回起始位置。 | `lib/exercise_dataset.generated.dart:15966:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:15967:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 膝部 | `lib/exercise_dataset.generated.dart:15976:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | elbow-to-knee | `lib/exercise_dataset.generated.dart:15976:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 膝部 | `lib/exercise_dataset.generated.dart:15976:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 首先平躺，膝盖弯曲，双脚平放在地上。 将双手放在脑后，肘部朝外。 收紧腹肌，将上半身抬离地面，将右肘靠近左膝盖。 同时，将左膝移向右肘，形成扭转动作。 在顶部停顿片刻，然后慢慢降低上半身并将双腿伸展回到起始位置。 重复该动作，这次将左肘移向右膝，将右膝移向左肘。 继续交替进行所需的重复次数。 | `lib/exercise_dataset.generated.dart:15982:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 首先平躺，膝盖弯曲，双脚平放在地上。 | `lib/exercise_dataset.generated.dart:15984:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将双手放在脑后，肘部朝外。 | `lib/exercise_dataset.generated.dart:15985:1` | 是（动作教学说明候选） |
@@ -7579,8 +7580,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部暂停片刻，然后慢慢将手臂放回起始位置。 | `lib/exercise_dataset.generated.dart:16031:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 用另一只手臂重复该动作。 | `lib/exercise_dataset.generated.dart:16032:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 继续交替手臂进行所需的重复次数。 | `lib/exercise_dataset.generated.dart:16033:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | exercise ball back extension with arms extended | `lib/exercise_dataset.generated.dart:16042:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 健身球·背部·伸展·手臂 | `lib/exercise_dataset.generated.dart:16042:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | exercise ball back extension with arms extended | `lib/exercise_dataset.generated.dart:16042:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 将稳定球放在地上，面朝下躺在上面，臀部放在球上，双脚靠在墙上以保持稳定。 将双臂伸直在身前，手掌朝下。 启动你的核心，慢慢地将上半身抬离球，保持背部挺直，颈部与脊柱成一直线。 在顶部停顿片刻，然后慢慢将上半身放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:16048:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将稳定球放在地上，面朝下躺在上面，臀部放在球上，双脚靠在墙上以保持稳定。 | `lib/exercise_dataset.generated.dart:16050:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将双臂伸直在身前，手掌朝下。 | `lib/exercise_dataset.generated.dart:16051:1` | 是（动作教学说明候选） |
@@ -7596,16 +7597,16 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 启动你的核心，慢慢地将你的上半身抬离球，伸展你的背部，直到你的身体从头部到臀部形成一条直线。 | `lib/exercise_dataset.generated.dart:16074:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在动作的最高点暂停片刻，然后慢慢将上半身放回起始位置。 | `lib/exercise_dataset.generated.dart:16075:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:16076:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | exercise ball back extension with knees off ground | `lib/exercise_dataset.generated.dart:16085:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 健身球·背部·伸展·膝部 | `lib/exercise_dataset.generated.dart:16085:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | exercise ball back extension with knees off ground | `lib/exercise_dataset.generated.dart:16085:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 将稳定球放在地上，面朝下躺在上面，臀部放在球上，双脚靠在墙上以保持稳定。 将双手放在脑后或交叉在胸前。 启动你的核心，慢慢地将你的上半身抬离球，伸展你的背部，直到你的身体从头部到脚后跟形成一条直线。 在顶部停顿片刻，然后慢慢将上半身放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:16091:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将稳定球放在地上，面朝下躺在上面，臀部放在球上，双脚靠在墙上以保持稳定。 | `lib/exercise_dataset.generated.dart:16093:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将双手放在脑后或交叉在胸前。 | `lib/exercise_dataset.generated.dart:16094:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 启动你的核心，慢慢地将你的上半身抬离球，伸展你的背部，直到你的身体从头部到脚后跟形成一条直线。 | `lib/exercise_dataset.generated.dart:16095:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部停顿片刻，然后慢慢将上半身放回起始位置。 | `lib/exercise_dataset.generated.dart:16096:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:16097:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | exercise ball back extension with rotation | `lib/exercise_dataset.generated.dart:16106:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 健身球·背部·伸展·旋转 | `lib/exercise_dataset.generated.dart:16106:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | exercise ball back extension with rotation | `lib/exercise_dataset.generated.dart:16106:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 首先，面朝下躺在稳定球上，臀部放在球上，双脚牢牢踩在地面上。 将双手放在脑后或交叉放在胸前。 启动你的核心，慢慢地将你的上半身抬离球，伸展你的背部，直到你的身体从头部到脚后跟形成一条直线。 在顶部停顿片刻，然后慢慢将躯干旋转到一侧，保持臀部和腿部稳定。 返回中心并重复旋转到另一侧。 将上半身放低至起始位置，然后重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:16112:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 首先，面朝下躺在稳定球上，臀部放在球上，双脚牢牢踩在地面上。 | `lib/exercise_dataset.generated.dart:16114:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将双手放在脑后或交叉放在胸前。 | `lib/exercise_dataset.generated.dart:16115:1` | 是（动作教学说明候选） |
@@ -7613,24 +7614,24 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部停顿片刻，然后慢慢将躯干旋转到一侧，保持臀部和腿部稳定。 | `lib/exercise_dataset.generated.dart:16117:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 返回中心并重复旋转到另一侧。 | `lib/exercise_dataset.generated.dart:16118:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将上半身放低至起始位置，然后重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:16119:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | exercise ball dip | `lib/exercise_dataset.generated.dart:16128:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 健身球·双杠臂屈伸 | `lib/exercise_dataset.generated.dart:16128:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | exercise ball dip | `lib/exercise_dataset.generated.dart:16128:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 坐在稳定球上，双脚平放在地面上，膝盖弯曲成 90 度角。 将双手放在臀部旁边的球上，手指指向前方。 启动你的三头肌并用力推动你的身体，将你的身体抬离球，伸直你的手臂。 弯曲肘部，将身体放低，使其靠近身体两侧。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:16134:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在稳定球上，双脚平放在地面上，膝盖弯曲成 90 度角。 | `lib/exercise_dataset.generated.dart:16136:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将双手放在臀部旁边的球上，手指指向前方。 | `lib/exercise_dataset.generated.dart:16137:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 启动你的三头肌并用力推动你的身体，将你的身体抬离球，伸直你的手臂。 | `lib/exercise_dataset.generated.dart:16138:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 弯曲肘部，将身体放低，使其靠近身体两侧。 | `lib/exercise_dataset.generated.dart:16139:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:16140:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | exercise ball hip flexor stretch | `lib/exercise_dataset.generated.dart:16149:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 健身球·髋部·拉伸 | `lib/exercise_dataset.generated.dart:16149:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | exercise ball hip flexor stretch | `lib/exercise_dataset.generated.dart:16149:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 将稳定球放在地上并跪在其前面。 将右脚放在稳定球上，膝盖弯曲成 90 度角。 将左腿伸到身后，保持伸直。 身体前倾，将臀部推向稳定球，直到感觉到右髋屈肌有拉伸感。 保持拉伸 20-30 秒，然后换边重复。 | `lib/exercise_dataset.generated.dart:16155:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将稳定球放在地上并跪在其前面。 | `lib/exercise_dataset.generated.dart:16157:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将右脚放在稳定球上，膝盖弯曲成 90 度角。 | `lib/exercise_dataset.generated.dart:16158:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将左腿伸到身后，保持伸直。 | `lib/exercise_dataset.generated.dart:16159:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 身体前倾，将臀部推向稳定球，直到感觉到右髋屈肌有拉伸感。 | `lib/exercise_dataset.generated.dart:16160:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持拉伸 20-30 秒，然后换边重复。 | `lib/exercise_dataset.generated.dart:16161:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | exercise ball hug | `lib/exercise_dataset.generated.dart:16170:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 健身球 | `lib/exercise_dataset.generated.dart:16170:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | exercise ball hug | `lib/exercise_dataset.generated.dart:16170:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 坐在稳定球上，双脚平放在地面上，背部挺直。 用双手握住稳定球，将其抱在靠近胸部的位置。 启动你的核心肌肉，慢慢向后倾斜，保持背部挺直，双脚踩在地上。 继续向后倾斜，直到感觉到背部肌肉伸展。 保持该姿势几秒钟，然后慢慢回到起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:16176:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在稳定球上，双脚平放在地面上，背部挺直。 | `lib/exercise_dataset.generated.dart:16178:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 用双手握住稳定球，将其抱在靠近胸部的位置。 | `lib/exercise_dataset.generated.dart:16179:1` | 是（动作教学说明候选） |
@@ -7638,16 +7639,16 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 继续向后倾斜，直到感觉到背部肌肉伸展。 | `lib/exercise_dataset.generated.dart:16181:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持该姿势几秒钟，然后慢慢回到起始位置。 | `lib/exercise_dataset.generated.dart:16182:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:16183:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 健身球·背阔肌·拉伸 | `lib/exercise_dataset.generated.dart:16192:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | exercise ball lat stretch | `lib/exercise_dataset.generated.dart:16192:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 健身球·背阔肌·拉伸 | `lib/exercise_dataset.generated.dart:16192:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 坐在稳定球上，双脚平放在地面上，背部挺直。 一只手握住哑铃，然后将手臂伸直至头顶。 慢慢地向另一侧倾斜，感受背阔肌的拉伸。 保持伸展动作 20-30 秒，然后回到起始位置。 在另一侧重复。 | `lib/exercise_dataset.generated.dart:16198:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在稳定球上，双脚平放在地面上，背部挺直。 | `lib/exercise_dataset.generated.dart:16200:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 一只手握住哑铃，然后将手臂伸直至头顶。 | `lib/exercise_dataset.generated.dart:16201:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 慢慢地向另一侧倾斜，感受背阔肌的拉伸。 | `lib/exercise_dataset.generated.dart:16202:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持伸展动作 20-30 秒，然后回到起始位置。 | `lib/exercise_dataset.generated.dart:16203:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在另一侧重复。 | `lib/exercise_dataset.generated.dart:16204:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | exercise ball lower back stretch (pyramid) | `lib/exercise_dataset.generated.dart:16213:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 健身球·背部·拉伸 | `lib/exercise_dataset.generated.dart:16213:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | exercise ball lower back stretch (pyramid) | `lib/exercise_dataset.generated.dart:16213:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 坐在稳定球上，双脚平放在地面上，膝盖弯曲成 90 度角。 慢慢地向前移动你的脚，将球沿着你的背部滚动，直到你的下背部靠在球上。 将双手放在脑后或交叉放在胸前。 启动你的核心，慢慢地将你的上半身降低到地面，让你的下背部伸展到球上方。 保持伸展几秒钟，然后慢慢回到起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:16219:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在稳定球上，双脚平放在地面上，膝盖弯曲成 90 度角。 | `lib/exercise_dataset.generated.dart:16221:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 慢慢地向前移动你的脚，将球沿着你的背部滚动，直到你的下背部靠在球上。 | `lib/exercise_dataset.generated.dart:16222:1` | 是（动作教学说明候选） |
@@ -7655,8 +7656,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 启动你的核心，慢慢地将你的上半身降低到地面，让你的下背部伸展到球上方。 | `lib/exercise_dataset.generated.dart:16224:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持伸展几秒钟，然后慢慢回到起始位置。 | `lib/exercise_dataset.generated.dart:16225:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:16226:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | exercise ball lying side lat stretch | `lib/exercise_dataset.generated.dart:16235:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 健身球·卧姿·侧向·背阔肌·拉伸 | `lib/exercise_dataset.generated.dart:16235:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | exercise ball lying side lat stretch | `lib/exercise_dataset.generated.dart:16235:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 侧躺，双腿伸展，头部由稳定球支撑。 将上臂放在球上以保持稳定性。 将上臂举过头顶，让躯干稍微旋转。 感受身体一侧背阔肌的拉伸。 保持拉伸 20-30 秒，然后换边重复。 | `lib/exercise_dataset.generated.dart:16241:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 侧躺，双腿伸展，头部由稳定球支撑。 | `lib/exercise_dataset.generated.dart:16243:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将上臂放在球上以保持稳定性。 | `lib/exercise_dataset.generated.dart:16244:1` | 是（动作教学说明候选） |
@@ -7682,8 +7683,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将脚后跟抬离地面，将身体抬起到脚趾上。 | `lib/exercise_dataset.generated.dart:16290:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部停顿片刻，然后慢慢降低脚后跟回到起始位置。 | `lib/exercise_dataset.generated.dart:16291:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:16292:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | exercise ball on the wall calf raise (tennis ball between knees) | `lib/exercise_dataset.generated.dart:16301:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 健身球·靠墙·提踵·膝部 | `lib/exercise_dataset.generated.dart:16301:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | exercise ball on the wall calf raise (tennis ball between knees) | `lib/exercise_dataset.generated.dart:16301:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 背靠墙站立，将健身球放在下背部和墙壁之间。 将双脚分开与肩同宽，并稍微位于您的前方。 每只手握住一个哑铃，双臂伸向身体两侧。 将网球放在膝盖之间。 将脚后跟抬离地面，将身体抬起到脚趾上。 在顶部停顿片刻，然后慢慢降低脚后跟回到起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:16307:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 背靠墙站立，将健身球放在下背部和墙壁之间。 | `lib/exercise_dataset.generated.dart:16309:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将双脚分开与肩同宽，并稍微位于您的前方。 | `lib/exercise_dataset.generated.dart:16310:1` | 是（动作教学说明候选） |
@@ -7692,8 +7693,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将脚后跟抬离地面，将身体抬起到脚趾上。 | `lib/exercise_dataset.generated.dart:16313:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部停顿片刻，然后慢慢降低脚后跟回到起始位置。 | `lib/exercise_dataset.generated.dart:16314:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:16315:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | exercise ball one leg prone lower body rotation | `lib/exercise_dataset.generated.dart:16324:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 健身球·单腿·俯卧·下肢·旋转 | `lib/exercise_dataset.generated.dart:16324:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | exercise ball one leg prone lower body rotation | `lib/exercise_dataset.generated.dart:16324:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 面朝下躺在稳定球上，臀部放在球上，双腿伸直在身后。 将双手放在身前的地面上以获得支撑。 调动你的臀肌和核心肌肉来稳定你的身体。 慢慢地将一条腿抬离地面，保持笔直并与地板平行。 向外旋转腿部，远离身体，同时保持臀部和上半身稳定。 旋转结束时暂停片刻，然后慢慢地将腿放回起始位置。 用另一条腿重复旋转。 继续交替双腿达到所需的重复次数。 | `lib/exercise_dataset.generated.dart:16330:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 面朝下躺在稳定球上，臀部放在球上，双腿伸直在身后。 | `lib/exercise_dataset.generated.dart:16332:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将双手放在身前的地面上以获得支撑。 | `lib/exercise_dataset.generated.dart:16333:1` | 是（动作教学说明候选） |
@@ -7730,8 +7731,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持双腿伸直，慢慢将它们抬离地面，用下背部和臀部将它们尽可能抬高。 | `lib/exercise_dataset.generated.dart:16403:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部暂停片刻，然后慢慢将双腿放回起始位置。 | `lib/exercise_dataset.generated.dart:16404:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:16405:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | exercise ball seated hamstring stretch | `lib/exercise_dataset.generated.dart:16414:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 健身球·坐姿·腘绳肌·拉伸 | `lib/exercise_dataset.generated.dart:16414:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | exercise ball seated hamstring stretch | `lib/exercise_dataset.generated.dart:16414:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 坐在稳定球上，双脚平放在地面上，膝盖弯曲成 90 度角。 慢慢地向前滚动球，双脚向外走，直到上背部靠在球上，双腿在身前伸直。 将双手放在臀部上以获得支撑。 启动你的核心，慢慢地将上半身降低到地面，保持背部挺直，胸部抬起。 当您感觉到腿筋拉伸时停止，并保持该姿势 20-30 秒。 通过推动脚后跟并使用腿筋将自己拉回来，慢慢回到起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:16420:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在稳定球上，双脚平放在地面上，膝盖弯曲成 90 度角。 | `lib/exercise_dataset.generated.dart:16422:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 慢慢地向前滚动球，双脚向外走，直到上背部靠在球上，双腿在身前伸直。 | `lib/exercise_dataset.generated.dart:16423:1` | 是（动作教学说明候选） |
@@ -7740,16 +7741,16 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 当您感觉到腿筋拉伸时停止，并保持该姿势 20-30 秒。 | `lib/exercise_dataset.generated.dart:16426:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 通过推动脚后跟并使用腿筋将自己拉回来，慢慢回到起始位置。 | `lib/exercise_dataset.generated.dart:16427:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:16428:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | exercise ball seated triceps stretch | `lib/exercise_dataset.generated.dart:16437:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 健身球·坐姿·肱三头肌·拉伸 | `lib/exercise_dataset.generated.dart:16437:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | exercise ball seated triceps stretch | `lib/exercise_dataset.generated.dart:16437:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 坐在稳定球上，双脚平放在地面上，背部挺直。 一只手握住哑铃，将手臂伸直至头顶上方。 弯曲肘部，将哑铃放在脑后，保持上臂靠近耳朵。 保持伸展几秒钟，然后回到起始位置。 用另一只手臂重复上述步骤。 | `lib/exercise_dataset.generated.dart:16443:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在稳定球上，双脚平放在地面上，背部挺直。 | `lib/exercise_dataset.generated.dart:16445:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 一只手握住哑铃，将手臂伸直至头顶上方。 | `lib/exercise_dataset.generated.dart:16446:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 弯曲肘部，将哑铃放在脑后，保持上臂靠近耳朵。 | `lib/exercise_dataset.generated.dart:16447:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持伸展几秒钟，然后回到起始位置。 | `lib/exercise_dataset.generated.dart:16448:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 用另一只手臂重复上述步骤。 | `lib/exercise_dataset.generated.dart:16449:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | exercise ball supine triceps extension | `lib/exercise_dataset.generated.dart:16458:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 健身球·仰卧·肱三头肌伸展 | `lib/exercise_dataset.generated.dart:16458:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | exercise ball supine triceps extension | `lib/exercise_dataset.generated.dart:16458:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 坐在健身球上，双脚平放在地上，膝盖弯曲成 90 度角。 双手握住哑铃，双臂伸直向天花板方向伸展。 慢慢地将哑铃放到脑后，保持肘部靠近耳朵。 暂停片刻，然后将哑铃举回到起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:16464:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在健身球上，双脚平放在地上，膝盖弯曲成 90 度角。 | `lib/exercise_dataset.generated.dart:16466:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双手握住哑铃，双臂伸直向天花板方向伸展。 | `lib/exercise_dataset.generated.dart:16467:1` | 是（动作教学说明候选） |
@@ -7764,8 +7765,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 弯曲肘部，慢慢将杠铃降低到脑后。 | `lib/exercise_dataset.generated.dart:16489:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 暂停片刻，然后将手臂伸回到起始位置。 | `lib/exercise_dataset.generated.dart:16490:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:16491:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 卧姿·屈臂·上拉 | `lib/exercise_dataset.generated.dart:16500:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | ez bar lying bent arms pullover | `lib/exercise_dataset.generated.dart:16500:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 卧姿·屈臂·上拉 | `lib/exercise_dataset.generated.dart:16500:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 平躺在长凳上，头放在一端，双脚放在地板上。 旋前握住 EZ 杠铃（手掌背向您），双手与肩同宽。 将手臂伸直至胸部上方，保持肘部轻微弯曲。 以弧线动作将杠铃降低到头后，保持肘部轻微弯曲。 暂停片刻，然后通过反向弧线运动将杠铃返回到起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:16506:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 平躺在长凳上，头放在一端，双脚放在地板上。 | `lib/exercise_dataset.generated.dart:16508:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 旋前握住 EZ 杠铃（手掌背向您），双手与肩同宽。 | `lib/exercise_dataset.generated.dart:16509:1` | 是（动作教学说明候选） |
@@ -7830,16 +7831,16 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将杠铃向上弯向肩膀，收缩二头肌。 | `lib/exercise_dataset.generated.dart:16659:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部停顿片刻，然后慢慢将杠铃放回起始位置。 | `lib/exercise_dataset.generated.dart:16660:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:16661:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | ez barbell curl | `lib/exercise_dataset.generated.dart:16670:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 曲杆杠铃·弯举 | `lib/exercise_dataset.generated.dart:16670:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | ez barbell curl | `lib/exercise_dataset.generated.dart:16670:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 站直，双脚分开与肩同宽，反手握住 ez 杠铃，手掌朝上。 在整个运动过程中，保持肘部靠近躯干，上臂保持静止。 当你将杠铃向肩膀方向卷曲时呼气，收缩二头肌。 在顶部暂停片刻，然后吸气，慢慢将杠铃放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:16676:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 站直，双脚分开与肩同宽，反手握住 ez 杠铃，手掌朝上。 | `lib/exercise_dataset.generated.dart:16678:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在整个运动过程中，保持肘部靠近躯干，上臂保持静止。 | `lib/exercise_dataset.generated.dart:16679:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 当你将杠铃向肩膀方向卷曲时呼气，收缩二头肌。 | `lib/exercise_dataset.generated.dart:16680:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部暂停片刻，然后吸气，慢慢将杠铃放回起始位置。 | `lib/exercise_dataset.generated.dart:16681:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:16682:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | ez barbell decline close grip face press | `lib/exercise_dataset.generated.dart:16691:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 曲杆杠铃·下斜·窄握·推举 | `lib/exercise_dataset.generated.dart:16691:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | ez barbell decline close grip face press | `lib/exercise_dataset.generated.dart:16691:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 躺在倾斜的长凳上，头低于脚。 紧紧抓住 ez 杠铃，手掌相对。 将手臂伸直至胸部上方，保持肘部靠近身体。 弯曲肘部，将杠铃降低到前额。 暂停片刻，然后将杠铃推回到起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:16697:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 躺在倾斜的长凳上，头低于脚。 | `lib/exercise_dataset.generated.dart:16699:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 紧紧抓住 ez 杠铃，手掌相对。 | `lib/exercise_dataset.generated.dart:16700:1` | 是（动作教学说明候选） |
@@ -7856,8 +7857,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将杠铃慢慢降低到前额，弯曲肘部。 | `lib/exercise_dataset.generated.dart:16724:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 暂停片刻，然后将手臂伸回到起始位置。 | `lib/exercise_dataset.generated.dart:16725:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:16726:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | ez barbell incline triceps extension | `lib/exercise_dataset.generated.dart:16735:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 曲杆杠铃·上斜·肱三头肌伸展 | `lib/exercise_dataset.generated.dart:16735:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | ez barbell incline triceps extension | `lib/exercise_dataset.generated.dart:16735:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 设置一个 45 度角的上斜凳。 坐在长凳上，背部靠在垫子上，正手握住 ez 杠铃。 将手臂完全伸过头顶，保持肘部靠近头部。 弯曲肘部，将杠铃降低到头后，保持上臂静止。 暂停片刻，然后将手臂伸回到起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:16741:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 设置一个 45 度角的上斜凳。 | `lib/exercise_dataset.generated.dart:16743:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在长凳上，背部靠在垫子上，正手握住 ez 杠铃。 | `lib/exercise_dataset.generated.dart:16744:1` | 是（动作教学说明候选） |
@@ -7873,8 +7874,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将杠铃降低到胸部，保持肘部靠近身体。 | `lib/exercise_dataset.generated.dart:16767:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将杠铃推回到起始位置，完全伸展双臂。 | `lib/exercise_dataset.generated.dart:16768:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:16769:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 曲杆杠铃·反向·弯举 | `lib/exercise_dataset.generated.dart:16778:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | ez barbell reverse grip curl | `lib/exercise_dataset.generated.dart:16778:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 曲杆杠铃·反向·弯举 | `lib/exercise_dataset.generated.dart:16778:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 站直，双脚分开与肩同宽，反手握住 ez 杠铃。 在整个练习过程中，保持肘部靠近躯干，上臂保持静止。 通过收缩二头肌将杠铃向上卷曲，同时呼气。 继续举起杠铃，直到二头肌完全收缩并且杠铃与肩部齐平。 挤压二头肌时，保持收缩位置短暂停顿。 吸气时慢慢开始将杠铃拉回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:16784:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 站直，双脚分开与肩同宽，反手握住 ez 杠铃。 | `lib/exercise_dataset.generated.dart:16786:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在整个练习过程中，保持肘部靠近躯干，上臂保持静止。 | `lib/exercise_dataset.generated.dart:16787:1` | 是（动作教学说明候选） |
@@ -7902,8 +7903,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部暂停片刻，挤压你的二头肌。 | `lib/exercise_dataset.generated.dart:16835:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 吸气并缓慢地将 ez 杠铃放回起始位置。 | `lib/exercise_dataset.generated.dart:16836:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:16837:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | ez barbell seated triceps extension | `lib/exercise_dataset.generated.dart:16846:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 曲杆杠铃·坐姿·肱三头肌伸展 | `lib/exercise_dataset.generated.dart:16846:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | ez barbell seated triceps extension | `lib/exercise_dataset.generated.dart:16846:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 坐在长凳上，背部挺直，双脚平放在地上。 正手握住 ez 杠铃，双手与肩同宽。 将杠铃举过头顶，充分伸展双臂。 保持上臂静止，弯曲肘部将杠铃降低到脑后。 暂停片刻，然后伸展双臂将杠铃举回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:16852:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在长凳上，背部挺直，双脚平放在地上。 | `lib/exercise_dataset.generated.dart:16854:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 正手握住 ez 杠铃，双手与肩同宽。 | `lib/exercise_dataset.generated.dart:16855:1` | 是（动作教学说明候选） |
@@ -7911,8 +7912,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持上臂静止，弯曲肘部将杠铃降低到脑后。 | `lib/exercise_dataset.generated.dart:16857:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 暂停片刻，然后伸展双臂将杠铃举回起始位置。 | `lib/exercise_dataset.generated.dart:16858:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:16859:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | ez barbell spider curl | `lib/exercise_dataset.generated.dart:16868:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 曲杆杠铃·蜘蛛式·弯举 | `lib/exercise_dataset.generated.dart:16868:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | ez barbell spider curl | `lib/exercise_dataset.generated.dart:16868:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 双脚分开与肩同宽站立，反手握住杠铃，手掌朝上。 将上臂放在牧师凳或稳定球上，让肘部下垂。 保持上臂静止，呼气并将杠铃向上弯向肩膀。 在顶部暂停片刻，挤压你的二头肌。 吸气并慢慢将杠铃放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:16874:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开与肩同宽站立，反手握住杠铃，手掌朝上。 | `lib/exercise_dataset.generated.dart:16876:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将上臂放在牧师凳或稳定球上，让肘部下垂。 | `lib/exercise_dataset.generated.dart:16877:1` | 是（动作教学说明候选） |
@@ -7920,8 +7921,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部暂停片刻，挤压你的二头肌。 | `lib/exercise_dataset.generated.dart:16879:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 吸气并慢慢将杠铃放回起始位置。 | `lib/exercise_dataset.generated.dart:16880:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:16881:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | ez barbell spider curl | `lib/exercise_dataset.generated.dart:16890:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 曲杆杠铃·蜘蛛式·弯举 | `lib/exercise_dataset.generated.dart:16890:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | ez barbell spider curl | `lib/exercise_dataset.generated.dart:16890:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 双脚分开与肩同宽站立，反手握住杠铃，手掌朝上。 将上臂放在牧师凳或稳定球上，让肘部下垂。 保持上臂静止，呼气并将杠铃向上弯向肩膀。 在顶部暂停片刻，挤压你的二头肌。 吸气并慢慢将杠铃放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:16896:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开与肩同宽站立，反手握住杠铃，手掌朝上。 | `lib/exercise_dataset.generated.dart:16898:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将上臂放在牧师凳或稳定球上，让肘部下垂。 | `lib/exercise_dataset.generated.dart:16899:1` | 是（动作教学说明候选） |
@@ -7938,8 +7939,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部暂停片刻，挤压你的二头肌。 | `lib/exercise_dataset.generated.dart:16923:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 吸气，慢慢将杠铃放回起始位置，充分伸展双臂。 | `lib/exercise_dataset.generated.dart:16924:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:16925:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | ez-bar close-grip bench press | `lib/exercise_dataset.generated.dart:16934:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 窄距·卧推 | `lib/exercise_dataset.generated.dart:16934:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | ez-bar close-grip bench press | `lib/exercise_dataset.generated.dart:16934:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 平躺在长凳上，双脚平放在地上，背部紧贴长凳。 紧握杠铃，双手与肩同宽，掌心向前。 将杠铃从架子上提起，并将其直接放在胸部上方，双臂完全伸展。 慢慢地将杠铃降低到胸部，保持肘部靠近身体。 当杠铃触及胸部时暂停片刻。 将杠铃推回到起始位置，完全伸展双臂。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:16940:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 平躺在长凳上，双脚平放在地上，背部紧贴长凳。 | `lib/exercise_dataset.generated.dart:16942:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 紧握杠铃，双手与肩同宽，掌心向前。 | `lib/exercise_dataset.generated.dart:16943:1` | 是（动作教学说明候选） |
@@ -7948,8 +7949,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 当杠铃触及胸部时暂停片刻。 | `lib/exercise_dataset.generated.dart:16946:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将杠铃推回到起始位置，完全伸展双臂。 | `lib/exercise_dataset.generated.dart:16947:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:16948:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 杠铃·站姿·宽握·肱二头肌弯举 | `lib/exercise_dataset.generated.dart:16957:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | ez-barbell standing wide grip biceps curl | `lib/exercise_dataset.generated.dart:16957:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 杠铃·站姿·宽握·肱二头肌弯举 | `lib/exercise_dataset.generated.dart:16957:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 站直，双脚分开与肩同宽，反手握住杠铃，双手分开比肩宽。 在整个运动过程中，保持肘部靠近躯干，上臂保持静止。 收缩二头肌，将杠铃向上弯向肩膀。 在顶部停顿片刻，然后慢慢将杠铃放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:16963:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 站直，双脚分开与肩同宽，反手握住杠铃，双手分开比肩宽。 | `lib/exercise_dataset.generated.dart:16965:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在整个运动过程中，保持肘部靠近躯干，上臂保持静止。 | `lib/exercise_dataset.generated.dart:16966:1` | 是（动作教学说明候选） |
@@ -7990,8 +7991,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 同时，将双腿抬离地面，弯曲膝盖并将其拉向胸部。 | `lib/exercise_dataset.generated.dart:17053:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部停顿片刻，然后慢慢降低上半身和双腿回到起始位置。 | `lib/exercise_dataset.generated.dart:17054:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:17055:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 腿部·仰卧起坐·直臂·手臂 | `lib/exercise_dataset.generated.dart:17064:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | flexion leg sit up (straight arm) | `lib/exercise_dataset.generated.dart:17064:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 腿部·仰卧起坐·直臂·手臂 | `lib/exercise_dataset.generated.dart:17064:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 平躺，双腿伸直，双臂伸直至头顶上方。 收紧腹肌，将上半身抬离地面，同时将双腿抬向胸部。 抬起上半身和腿部时，将双手伸向脚趾。 在顶部停顿片刻，然后慢慢降低上半身和双腿回到起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:17070:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 平躺，双腿伸直，双臂伸直至头顶上方。 | `lib/exercise_dataset.generated.dart:17072:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 收紧腹肌，将上半身抬离地面，同时将双腿抬向胸部。 | `lib/exercise_dataset.generated.dart:17073:1` | 是（动作教学说明候选） |
@@ -9776,8 +9777,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 爆发性伸展臀部和腿部，同时将药球扔过头顶。 | `lib/exercise_dataset.generated.dart:21490:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在动作的最高点释放球并在下降的过程中接住它。 | `lib/exercise_dataset.generated.dart:21491:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将身体放回蹲姿，然后重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:21492:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 药球·胸部 | `lib/exercise_dataset.generated.dart:21501:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | medicine ball chest pass | `lib/exercise_dataset.generated.dart:21501:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 药球·胸部 | `lib/exercise_dataset.generated.dart:21501:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 双脚分开与肩同宽站立，将健身球保持在胸部水平。 向前伸展双臂，用力将药球推离胸部。 当你释放球时，用你的手臂和躯干将球从后脚转移到前脚。 当球从墙壁或伙伴身上反弹时接住球，并立即重复该动作。 继续进行所需的重复次数。 | `lib/exercise_dataset.generated.dart:21507:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开与肩同宽站立，将健身球保持在胸部水平。 | `lib/exercise_dataset.generated.dart:21509:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 向前伸展双臂，用力将药球推离胸部。 | `lib/exercise_dataset.generated.dart:21510:1` | 是（动作教学说明候选） |
@@ -9822,8 +9823,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 弯曲肘部，使肘部靠近身体两侧，将身体降低到地面。 | `lib/exercise_dataset.generated.dart:21614:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 推回起始位置，完全伸展双臂。 | `lib/exercise_dataset.generated.dart:21615:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:21616:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | medicine ball overhead slam | `lib/exercise_dataset.generated.dart:21625:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 药球·过顶 | `lib/exercise_dataset.generated.dart:21625:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | medicine ball overhead slam | `lib/exercise_dataset.generated.dart:21625:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 双脚分开与肩同宽站立，双手握住药球举过头顶。 启动你的核心并保持背部挺直。 稍微弯曲膝盖，用力将药球摔到你面前的地面上。 当你击球时，用你的整个身体来产生力量，包括你的肩膀和核心。 接住球的弹跳并重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:21631:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开与肩同宽站立，双手握住药球举过头顶。 | `lib/exercise_dataset.generated.dart:21633:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 启动你的核心并保持背部挺直。 | `lib/exercise_dataset.generated.dart:21634:1` | 是（动作教学说明候选） |
@@ -9863,8 +9864,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 一旦肘部成 90 度角，将前臂放低至地面，将肘部保持在肩膀正下方。 | `lib/exercise_dataset.generated.dart:21720:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 暂停片刻，然后用手掌推动前臂，使其回到起始位置。 | `lib/exercise_dataset.generated.dart:21721:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:21722:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | monster walk | `lib/exercise_dataset.generated.dart:21731:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 行走 | `lib/exercise_dataset.generated.dart:21731:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | monster walk | `lib/exercise_dataset.generated.dart:21731:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 在脚踝周围放置一根阻力带。 双脚分开与肩同宽站立，稍微弯曲膝盖。 右脚向一侧迈出一步，保持阻力带的张力。 左脚跟随，向一侧迈步以返回起始位置。 重复所需的重复次数，然后换边。 | `lib/exercise_dataset.generated.dart:21737:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在脚踝周围放置一根阻力带。 | `lib/exercise_dataset.generated.dart:21739:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开与肩同宽站立，稍微弯曲膝盖。 | `lib/exercise_dataset.generated.dart:21740:1` | 是（动作教学说明候选） |
@@ -9888,8 +9889,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 继续将自己向上拉，直到胸部位于杠铃上方并且手臂完全弯曲。 | `lib/exercise_dataset.generated.dart:21784:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 通过慢慢降低自己回到起始位置来反转动作。 | `lib/exercise_dataset.generated.dart:21785:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:21786:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | muscle-up (on vertical bar) | `lib/exercise_dataset.generated.dart:21795:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 垂直 | `lib/exercise_dataset.generated.dart:21795:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | muscle-up (on vertical bar) | `lib/exercise_dataset.generated.dart:21795:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 首先悬挂在垂直杆上，手掌背对自己，手臂完全伸展。 启动核心肌群，将身体拉向杠铃杆，以胸部为主导。 当你站起来时，稍微向后倾斜，并将肘部移向身体两侧。 继续拉，直到胸部到达杠铃并且肘部完全弯曲。 在最高点暂停片刻，然后慢慢降低回到起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:21801:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 首先悬挂在垂直杆上，手掌背对自己，手臂完全伸展。 | `lib/exercise_dataset.generated.dart:21803:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 启动核心肌群，将身体拉向杠铃杆，以胸部为主导。 | `lib/exercise_dataset.generated.dart:21804:1` | 是（动作教学说明候选） |
@@ -9905,16 +9906,16 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 弯曲肘部，使胸部靠近球，使胸部靠近球。 | `lib/exercise_dataset.generated.dart:21827:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在底部暂停片刻，然后伸直手臂将自己推回起始位置。 | `lib/exercise_dataset.generated.dart:21828:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:21829:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | neck side stretch | `lib/exercise_dataset.generated.dart:21838:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 颈部·侧向·拉伸 | `lib/exercise_dataset.generated.dart:21838:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | neck side stretch | `lib/exercise_dataset.generated.dart:21838:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 站直或坐直，肩膀放松。 将头向一侧倾斜，将耳朵靠近肩膀。 保持拉伸 15-30 秒。 在另一侧重复。 每侧进行 2-4 组。 | `lib/exercise_dataset.generated.dart:21843:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 站直或坐直，肩膀放松。 | `lib/exercise_dataset.generated.dart:21845:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将头向一侧倾斜，将耳朵靠近肩膀。 | `lib/exercise_dataset.generated.dart:21846:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持拉伸 15-30 秒。 | `lib/exercise_dataset.generated.dart:21847:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在另一侧重复。 | `lib/exercise_dataset.generated.dart:21848:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 每侧进行 2-4 组。 | `lib/exercise_dataset.generated.dart:21849:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | negative crunch | `lib/exercise_dataset.generated.dart:21858:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 卷腹 | `lib/exercise_dataset.generated.dart:21858:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | negative crunch | `lib/exercise_dataset.generated.dart:21858:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 平躺，膝盖弯曲，双脚平放在地上。 将双手放在脑后，肘部朝外。 收紧腹肌，慢慢将上半身抬离地面，向前卷曲，直到躯干呈 45 度角。 在顶部停顿片刻，然后慢慢将上半身放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:21864:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 平躺，膝盖弯曲，双脚平放在地上。 | `lib/exercise_dataset.generated.dart:21866:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将双手放在脑后，肘部朝外。 | `lib/exercise_dataset.generated.dart:21867:1` | 是（动作教学说明候选） |
@@ -9938,8 +9939,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 收紧腹肌，将肩胛骨抬离地面，将躯干旋转到一侧。 | `lib/exercise_dataset.generated.dart:21911:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 暂停片刻，然后将肩胛骨放回到地板上。 | `lib/exercise_dataset.generated.dart:21912:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在另一侧重复，每次重复时交替进行。 | `lib/exercise_dataset.generated.dart:21913:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | olympic barbell hammer curl | `lib/exercise_dataset.generated.dart:21922:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 奥杆·锤式·弯举 | `lib/exercise_dataset.generated.dart:21922:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | olympic barbell hammer curl | `lib/exercise_dataset.generated.dart:21922:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 站直，双脚分开与肩同宽，正手握住奥林匹克杠铃。 让杠铃悬挂在大腿前面，手掌与身体保持一臂距离。 保持上臂静止，呼气并弯举哑铃，同时收缩二头肌。 继续举起杠铃，直到二头肌完全收缩并且杠铃与肩部齐平。 挤压二头肌时，保持收缩位置短暂停顿。 吸气并慢慢开始将杠铃放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:21928:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 站直，双脚分开与肩同宽，正手握住奥林匹克杠铃。 | `lib/exercise_dataset.generated.dart:21930:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 让杠铃悬挂在大腿前面，手掌与身体保持一臂距离。 | `lib/exercise_dataset.generated.dart:21931:1` | 是（动作教学说明候选） |
@@ -9956,8 +9957,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持上臂靠近头部，弯曲肘部，慢慢将杠铃降低到脑后。 | `lib/exercise_dataset.generated.dart:21955:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 暂停片刻，然后将手臂伸回到起始位置。 | `lib/exercise_dataset.generated.dart:21956:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:21957:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | one arm against wall | `lib/exercise_dataset.generated.dart:21966:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 单臂·靠墙 | `lib/exercise_dataset.generated.dart:21966:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | one arm against wall | `lib/exercise_dataset.generated.dart:21966:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 面向墙壁站立，双脚分开与肩同宽。 将一只手臂伸直到身前，将手掌靠在墙上。 启动你的核心，身体向前倾斜，保持手臂伸直，背部平坦。 用手掌慢慢推向墙壁，激活背阔肌。 保持该姿势几秒钟，然后松开并用另一只手臂重复该动作。 | `lib/exercise_dataset.generated.dart:21972:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 面向墙壁站立，双脚分开与肩同宽。 | `lib/exercise_dataset.generated.dart:21974:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将一只手臂伸直到身前，将手掌靠在墙上。 | `lib/exercise_dataset.generated.dart:21975:1` | 是（动作教学说明候选） |
@@ -9973,8 +9974,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 弯曲肘部并挤压背部肌肉，将自己拉向杠铃。 | `lib/exercise_dataset.generated.dart:21998:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 继续拉，直到下巴高于杠铃，然后慢慢降低回到起始位置。 | `lib/exercise_dataset.generated.dart:21999:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数，然后换臂重复。 | `lib/exercise_dataset.generated.dart:22000:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 单臂·双杠臂屈伸 | `lib/exercise_dataset.generated.dart:22009:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | one arm dip | `lib/exercise_dataset.generated.dart:22009:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 单臂·双杠臂屈伸 | `lib/exercise_dataset.generated.dart:22009:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 背对长凳或椅子站立，双脚分开与肩同宽。 将一只手放在身后的长凳或椅子上，手指指向您的身体。 将双腿向前方伸展，脚跟保持在地面上。 弯曲肘部，将身体放低至地面，使背部靠近长凳或椅子。 在底部停顿片刻，然后用手掌推直手臂，回到起始位置。 重复所需的重复次数，然后换边并用另一只手臂重复。 | `lib/exercise_dataset.generated.dart:22015:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 背对长凳或椅子站立，双脚分开与肩同宽。 | `lib/exercise_dataset.generated.dart:22017:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将一只手放在身后的长凳或椅子上，手指指向您的身体。 | `lib/exercise_dataset.generated.dart:22018:1` | 是（动作教学说明候选） |
@@ -9990,8 +9991,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将健身球举过头顶，充分伸展手臂。 | `lib/exercise_dataset.generated.dart:22041:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 用力将药球摔到地上，用你的核心和肩膀产生力量。 | `lib/exercise_dataset.generated.dart:22042:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 抓住弹起的实心球，然后重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:22043:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | one arm towel row | `lib/exercise_dataset.generated.dart:22052:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 单臂·划船 | `lib/exercise_dataset.generated.dart:22052:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | one arm towel row | `lib/exercise_dataset.generated.dart:22052:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 双脚分开与肩同宽站立，膝盖微曲，单手握住毛巾。 腰部向前弯曲，保持背部挺直，核心肌群参与。 完全伸展手臂，让毛巾挂在您面前。 将毛巾拉向胸部，将肩胛骨挤压在一起。 在顶部停顿片刻，然后慢慢将毛巾放回起始位置。 重复所需的重复次数，然后换臂。 | `lib/exercise_dataset.generated.dart:22058:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开与肩同宽站立，膝盖微曲，单手握住毛巾。 | `lib/exercise_dataset.generated.dart:22060:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 腰部向前弯曲，保持背部挺直，核心肌群参与。 | `lib/exercise_dataset.generated.dart:22061:1` | 是（动作教学说明候选） |
@@ -9999,8 +10000,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将毛巾拉向胸部，将肩胛骨挤压在一起。 | `lib/exercise_dataset.generated.dart:22063:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部停顿片刻，然后慢慢将毛巾放回起始位置。 | `lib/exercise_dataset.generated.dart:22064:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数，然后换臂。 | `lib/exercise_dataset.generated.dart:22065:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 单腿·提踵 | `lib/exercise_dataset.generated.dart:22074:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | one leg donkey calf raise | `lib/exercise_dataset.generated.dart:22074:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 单腿·提踵 | `lib/exercise_dataset.generated.dart:22074:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 双脚分开与肩同宽站立，脚趾指向前方。 将双手放在稳定的表面上以获得支撑，例如墙壁或酒吧。 将一条腿抬离地面，保持膝盖稍微弯曲。 使用小腿肌肉，尽可能高地抬高脚跟。 在顶部停顿片刻，然后慢慢降低脚跟。 重复所需的重复次数，然后换腿。 | `lib/exercise_dataset.generated.dart:22080:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开与肩同宽站立，脚趾指向前方。 | `lib/exercise_dataset.generated.dart:22082:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将双手放在稳定的表面上以获得支撑，例如墙壁或酒吧。 | `lib/exercise_dataset.generated.dart:22083:1` | 是（动作教学说明候选） |
@@ -10008,16 +10009,16 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 使用小腿肌肉，尽可能高地抬高脚跟。 | `lib/exercise_dataset.generated.dart:22085:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部停顿片刻，然后慢慢降低脚跟。 | `lib/exercise_dataset.generated.dart:22086:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数，然后换腿。 | `lib/exercise_dataset.generated.dart:22087:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | one leg floor calf raise | `lib/exercise_dataset.generated.dart:22096:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 单腿·地板·提踵 | `lib/exercise_dataset.generated.dart:22096:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | one leg floor calf raise | `lib/exercise_dataset.generated.dart:22096:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 双脚分开与臀部同宽站立，双手放在墙壁或坚固的物体上以保持平衡。 将一只脚抬离地面并用另一只脚保持平衡。 慢慢地将脚跟抬离地面，将身体抬起到脚掌上。 在顶部暂停片刻，然后慢慢将脚跟放回起始位置。 重复所需的重复次数，然后换腿并重复。 | `lib/exercise_dataset.generated.dart:22102:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开与臀部同宽站立，双手放在墙壁或坚固的物体上以保持平衡。 | `lib/exercise_dataset.generated.dart:22104:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将一只脚抬离地面并用另一只脚保持平衡。 | `lib/exercise_dataset.generated.dart:22105:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 慢慢地将脚跟抬离地面，将身体抬起到脚掌上。 | `lib/exercise_dataset.generated.dart:22106:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部暂停片刻，然后慢慢将脚跟放回起始位置。 | `lib/exercise_dataset.generated.dart:22107:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数，然后换腿并重复。 | `lib/exercise_dataset.generated.dart:22108:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | one leg squat | `lib/exercise_dataset.generated.dart:22117:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 单腿·深蹲 | `lib/exercise_dataset.generated.dart:22117:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | one leg squat | `lib/exercise_dataset.generated.dart:22117:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 双脚分开与肩同宽站立。 向前伸出一条腿，使其离开地面。 弯曲站立的腿并降低身体，就像坐回椅子上一样。 保持挺胸、背部挺直。 推动脚后跟返回到起始位置。 换另一条腿重复上述步骤。 | `lib/exercise_dataset.generated.dart:22123:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开与肩同宽站立。 | `lib/exercise_dataset.generated.dart:22125:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 向前伸出一条腿，使其离开地面。 | `lib/exercise_dataset.generated.dart:22126:1` | 是（动作教学说明候选） |
@@ -10230,8 +10231,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 弯曲肘部，调动核心力量，将胸部向球方向降低，保持身体呈一条直线。 | `lib/exercise_dataset.generated.dart:22632:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在底部暂停片刻，然后伸直手臂将自己推回起始位置。 | `lib/exercise_dataset.generated.dart:22633:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:22634:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 俯卧撑·健身球 | `lib/exercise_dataset.generated.dart:22643:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | push-up (on stability ball) | `lib/exercise_dataset.generated.dart:22643:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 俯卧撑·健身球 | `lib/exercise_dataset.generated.dart:22643:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 将稳定球放在地上，面朝下，双手放在球上，与肩同宽。 将双腿伸直在身后，用脚趾保持平衡。 弯曲肘部，调动核心力量，将胸部向球方向降低，保持身体呈一条直线。 在底部暂停片刻，然后伸直手臂将自己推回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:22649:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将稳定球放在地上，面朝下，双手放在球上，与肩同宽。 | `lib/exercise_dataset.generated.dart:22651:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将双腿伸直在身后，用脚趾保持平衡。 | `lib/exercise_dataset.generated.dart:22652:1` | 是（动作教学说明候选） |
@@ -10316,8 +10317,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 降低身体直到大腿与地面平行。 | `lib/exercise_dataset.generated.dart:22848:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 推动脚后跟回到起始位置。 | `lib/exercise_dataset.generated.dart:22849:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:22850:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | quarter sit-up | `lib/exercise_dataset.generated.dart:22859:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 仰卧起坐 | `lib/exercise_dataset.generated.dart:22859:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | quarter sit-up | `lib/exercise_dataset.generated.dart:22859:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 平躺，膝盖弯曲，双脚平放在地上。 将双手放在脑后，肘部朝外。 收紧腹肌，慢慢将上半身抬离地面，向前卷曲，直到躯干呈 45 度角。 在顶部停顿片刻，然后慢慢将上半身放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:22865:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 平躺，膝盖弯曲，双脚平放在地上。 | `lib/exercise_dataset.generated.dart:22867:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将双手放在脑后，肘部朝外。 | `lib/exercise_dataset.generated.dart:22868:1` | 是（动作教学说明候选） |
@@ -10347,8 +10348,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 收紧臀肌和腿筋，将臀部抬离地面，直到身体从膝盖到肩膀形成一条直线。 | `lib/exercise_dataset.generated.dart:22931:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持这个姿势几秒钟，然后慢慢地将臀部放回起始位置。 | `lib/exercise_dataset.generated.dart:22932:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:22933:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | rear deltoid stretch | `lib/exercise_dataset.generated.dart:22942:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 后三角肌·拉伸 | `lib/exercise_dataset.generated.dart:22942:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | rear deltoid stretch | `lib/exercise_dataset.generated.dart:22942:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 站直，双脚分开与肩同宽。 将右臂伸过胸部，将左手放在右肘上。 轻轻地将右臂拉向左肩，感受右肩的拉伸。 保持拉伸 15-30 秒，然后放松。 在另一侧重复。 | `lib/exercise_dataset.generated.dart:22948:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 站直，双脚分开与肩同宽。 | `lib/exercise_dataset.generated.dart:22950:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将右臂伸过胸部，将左手放在右肘上。 | `lib/exercise_dataset.generated.dart:22951:1` | 是（动作教学说明候选） |
@@ -10364,8 +10365,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 继续拉，直到下巴位于杠铃上方。 | `lib/exercise_dataset.generated.dart:22974:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部停顿片刻，然后慢慢将身体放回起始位置。 | `lib/exercise_dataset.generated.dart:22975:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:22976:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 绳索 | `lib/exercise_dataset.generated.dart:22985:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | reclining big toe pose with rope | `lib/exercise_dataset.generated.dart:22985:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 绳索 | `lib/exercise_dataset.generated.dart:22985:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 仰卧，双腿伸展，双臂放在身体两侧。 将绳子绕在右脚掌上，并用手握住绳子的末端。 慢慢地将右腿抬向胸部，保持膝盖伸直，脚弯曲。 保持伸展几秒钟，然后慢慢将腿放回起始位置。 左腿重复上述动作。 继续交替双腿达到所需的重复次数。 | `lib/exercise_dataset.generated.dart:22991:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 仰卧，双腿伸展，双臂放在身体两侧。 | `lib/exercise_dataset.generated.dart:22993:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将绳子绕在右脚掌上，并用手握住绳子的末端。 | `lib/exercise_dataset.generated.dart:22994:1` | 是（动作教学说明候选） |
@@ -10432,8 +10433,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 收缩腹肌，将臀部卷离地板，使膝盖靠近胸部。 | `lib/exercise_dataset.generated.dart:23146:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部暂停片刻，然后慢慢将臀部放回起始位置。 | `lib/exercise_dataset.generated.dart:23147:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:23148:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 反向·双杠臂屈伸 | `lib/exercise_dataset.generated.dart:23157:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | reverse dip | `lib/exercise_dataset.generated.dart:23157:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 反向·双杠臂屈伸 | `lib/exercise_dataset.generated.dart:23157:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 将自己定位在两个双杠之间，双臂完全伸展，身体伸直。 弯曲肘部降低身体，直到上臂与地面平行。 暂停片刻，然后伸直手臂，将自己推回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:23163:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将自己定位在两个双杠之间，双臂完全伸展，身体伸直。 | `lib/exercise_dataset.generated.dart:23165:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 弯曲肘部降低身体，直到上臂与地面平行。 | `lib/exercise_dataset.generated.dart:23166:1` | 是（动作教学说明候选） |
@@ -10490,8 +10491,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 弯曲肘部，降低身体，直到肩膀低于肘部。 | `lib/exercise_dataset.generated.dart:23295:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 伸直手臂，将自己推回起始位置。 | `lib/exercise_dataset.generated.dart:23296:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:23297:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | rocking frog stretch | `lib/exercise_dataset.generated.dart:23306:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 拉伸 | `lib/exercise_dataset.generated.dart:23306:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | rocking frog stretch | `lib/exercise_dataset.generated.dart:23306:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 首先跪在地上，膝盖分开与臀部同宽。 将双手放在身前的地面上以获得支撑。 慢慢向前倾，将重心转移到双手上，并将双腿伸到身后。 当你将臀部向后推向天花板时，保持背部挺直并收紧臀部。 保持这个姿势几秒钟，感受臀部的拉伸。 弯曲膝盖并降低臀部，慢慢回到起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:23312:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 首先跪在地上，膝盖分开与臀部同宽。 | `lib/exercise_dataset.generated.dart:23314:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将双手放在身前的地面上以获得支撑。 | `lib/exercise_dataset.generated.dart:23315:1` | 是（动作教学说明候选） |
@@ -10509,8 +10510,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 调动背部肌肉，将身体拉向杠铃杆，以胸部为主导。 | `lib/exercise_dataset.generated.dart:23340:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部停顿片刻，然后慢慢将身体放回起始位置。 | `lib/exercise_dataset.generated.dart:23341:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:23342:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 滚轮·背部·拉伸 | `lib/exercise_dataset.generated.dart:23351:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | roller back stretch | `lib/exercise_dataset.generated.dart:23351:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 滚轮·背部·拉伸 | `lib/exercise_dataset.generated.dart:23351:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 首先坐在地上，双腿在身前伸展。 将滚轮垂直于您的身体放置，位于臀部下方。 慢慢向后滚动你的身体，让滚轮向上移动你的背部。 继续滚动，直到滚轮到达您的上背部。 暂停片刻，然后慢慢滚回到起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:23357:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 首先坐在地上，双腿在身前伸展。 | `lib/exercise_dataset.generated.dart:23359:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将滚轮垂直于您的身体放置，位于臀部下方。 | `lib/exercise_dataset.generated.dart:23360:1` | 是（动作教学说明候选） |
@@ -10533,8 +10534,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 慢慢地向前滚动滚轮，伸展臀部并伸展臀部。 | `lib/exercise_dataset.generated.dart:23403:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持伸展几秒钟，然后滚回起始位置。 | `lib/exercise_dataset.generated.dart:23404:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:23405:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 滚轮·髋部·拉伸 | `lib/exercise_dataset.generated.dart:23414:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | roller hip stretch | `lib/exercise_dataset.generated.dart:23414:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 滚轮·髋部·拉伸 | `lib/exercise_dataset.generated.dart:23414:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 首先坐在地上，双腿在身前伸展。 将滚轮放在臀部下方、膝盖上方。 向后倾斜，双手放在身后的地面上以获得支撑。 收紧臀部，慢慢向前滚动滚轮，弯曲膝盖并将其拉向胸部。 动作结束时暂停片刻，感受臀部的拉伸。 慢慢地将滚轮滚回起始位置，伸展双腿。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:23420:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 首先坐在地上，双腿在身前伸展。 | `lib/exercise_dataset.generated.dart:23422:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将滚轮放在臀部下方、膝盖上方。 | `lib/exercise_dataset.generated.dart:23423:1` | 是（动作教学说明候选） |
@@ -10576,8 +10577,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 向前伸展双臂，将滚轮向脚部方向滚动，感受背阔肌的拉伸。 | `lib/exercise_dataset.generated.dart:23511:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持拉伸几秒钟，然后慢慢地将滚轮滚动回起始位置。 | `lib/exercise_dataset.generated.dart:23512:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:23513:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | rope climb | `lib/exercise_dataset.generated.dart:23522:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 绳索 | `lib/exercise_dataset.generated.dart:23522:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | rope climb | `lib/exercise_dataset.generated.dart:23522:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 面向绳子站立，双脚分开与肩同宽。 用双手抓住绳子，手掌朝向自己。 稍微弯曲膝盖并启动核心。 开始通过交替的双手动作将自己拉上绳子。 用双腿协助向上运动。 继续攀爬，直到到达所需的高度或绳索的顶部。 要下降，请在控制下降的同时反转双手的动作。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:23528:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 面向绳子站立，双脚分开与肩同宽。 | `lib/exercise_dataset.generated.dart:23530:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 用双手抓住绳子，手掌朝向自己。 | `lib/exercise_dataset.generated.dart:23531:1` | 是（动作教学说明候选） |
@@ -10587,8 +10588,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 继续攀爬，直到到达所需的高度或绳索的顶部。 | `lib/exercise_dataset.generated.dart:23535:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 要下降，请在控制下降的同时反转双手的动作。 | `lib/exercise_dataset.generated.dart:23536:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:23537:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | run | `lib/exercise_dataset.generated.dart:23546:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 自重心肺系统训练 | `lib/exercise_dataset.generated.dart:23546:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | run | `lib/exercise_dataset.generated.dart:23546:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 首先站直，双脚分开与臀部同宽。 启动你的核心并保持上半身放松。 开始原地慢跑，将膝盖抬向胸部，然后轻轻落在脚掌上。 保持稳定的步伐并继续慢跑所需的时间或距离。 记住在整个练习过程中深呼吸并保持良好的姿势。 | `lib/exercise_dataset.generated.dart:23552:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 首先站直，双脚分开与臀部同宽。 | `lib/exercise_dataset.generated.dart:23554:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 启动你的核心并保持上半身放松。 | `lib/exercise_dataset.generated.dart:23555:1` | 是（动作教学说明候选） |
@@ -10603,8 +10604,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 开始原地慢跑，将膝盖抬向胸部，然后轻轻落在脚掌上。 | `lib/exercise_dataset.generated.dart:23577:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持稳定的步伐并继续慢跑所需的时间或距离。 | `lib/exercise_dataset.generated.dart:23578:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 记住在整个练习过程中深呼吸并保持良好的姿势。 | `lib/exercise_dataset.generated.dart:23579:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | runners stretch | `lib/exercise_dataset.generated.dart:23588:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 拉伸 | `lib/exercise_dataset.generated.dart:23588:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | runners stretch | `lib/exercise_dataset.generated.dart:23588:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 双脚分开与臀部同宽站立。 右脚向前迈出一步，保持左脚踩地。 弯曲右膝，降低身体，保持左腿伸直。 将双手放在右大腿上以获得支撑。 保持拉伸 20-30 秒，然后换边重复。 | `lib/exercise_dataset.generated.dart:23594:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开与臀部同宽站立。 | `lib/exercise_dataset.generated.dart:23596:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 右脚向前迈出一步，保持左脚踩地。 | `lib/exercise_dataset.generated.dart:23597:1` | 是（动作教学说明候选） |
@@ -10653,8 +10654,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 落地时，快速换腿，将左腿交叉在右腿前面。 | `lib/exercise_dataset.generated.dart:23705:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 继续交替双腿并尽可能快地跳跃。 | `lib/exercise_dataset.generated.dart:23706:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:23707:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 坐姿·小腿·拉伸 | `lib/exercise_dataset.generated.dart:23716:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | seated calf stretch (male) | `lib/exercise_dataset.generated.dart:23716:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 坐姿·小腿·拉伸 | `lib/exercise_dataset.generated.dart:23716:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 坐在椅子或长凳的边缘，双脚平放在地面上。 将一只腿伸直在身前，脚跟保持在地面上。 稍微向前倾，感受小腿肌肉的拉伸。 保持拉伸 20-30 秒。 换腿并重复拉伸。 | `lib/exercise_dataset.generated.dart:23722:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在椅子或长凳的边缘，双脚平放在地面上。 | `lib/exercise_dataset.generated.dart:23724:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将一只腿伸直在身前，脚跟保持在地面上。 | `lib/exercise_dataset.generated.dart:23725:1` | 是（动作教学说明候选） |
@@ -10714,8 +10715,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持这个姿势几个呼吸。 | `lib/exercise_dataset.generated.dart:23857:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 慢慢释放拉伸并返回到起始位置。 | `lib/exercise_dataset.generated.dart:23858:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:23859:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 辅助·腿弯举 | `lib/exercise_dataset.generated.dart:23868:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | self assisted inverse leg curl | `lib/exercise_dataset.generated.dart:23868:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 辅助·腿弯举 | `lib/exercise_dataset.generated.dart:23868:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 平躺在垫子或长凳上，双腿伸展。 将双手放在身体两侧或臀部下方以获得支撑。 弯曲膝盖，将脚抬离地面，将大腿靠近胸部。 在顶部暂停片刻，然后慢慢将双腿放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:23874:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 平躺在垫子或长凳上，双腿伸展。 | `lib/exercise_dataset.generated.dart:23876:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将双手放在身体两侧或臀部下方以获得支撑。 | `lib/exercise_dataset.generated.dart:23877:1` | 是（动作教学说明候选） |
@@ -10749,8 +10750,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 爆发性跳跃，伸展臀部和膝盖，同时摆动手臂以获得动力。 | `lib/exercise_dataset.generated.dart:23944:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 脚掌轻轻落地，然后立即进入下一个重复动作。 | `lib/exercise_dataset.generated.dart:23945:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:23946:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 自重心肺系统训练 | `lib/exercise_dataset.generated.dart:23955:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | short stride run | `lib/exercise_dataset.generated.dart:23955:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 自重心肺系统训练 | `lib/exercise_dataset.generated.dart:23955:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 找一个空地或跑步机来进行锻炼。 站直，双脚分开与臀部同宽。 开始原地慢跑，抬起膝盖并挥动手臂。 几秒钟后，开始小步前进，保持快速的步伐。 继续小步跑所需的时间或距离。 | `lib/exercise_dataset.generated.dart:23961:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 找一个空地或跑步机来进行锻炼。 | `lib/exercise_dataset.generated.dart:23963:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 站直，双脚分开与臀部同宽。 | `lib/exercise_dataset.generated.dart:23964:1` | 是（动作教学说明候选） |
@@ -10765,8 +10766,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 启动背部肌肉，将身体向上拉向杠铃，直到下巴位于杠铃上方。 | `lib/exercise_dataset.generated.dart:23986:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部停顿片刻，然后慢慢将身体放回起始位置。 | `lib/exercise_dataset.generated.dart:23987:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:23988:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 肩部 | `lib/exercise_dataset.generated.dart:23997:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | shoulder tap | `lib/exercise_dataset.generated.dart:23997:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 肩部 | `lib/exercise_dataset.generated.dart:23997:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 从高平板支撑位置开始，双手直接放在肩膀下方，身体呈一条直线。 启动你的核心并将右手抬离地面，伸手拍打你的左肩。 将右手放回地面，然后用左手轻拍右肩，重复此操作。 继续交替轻拍肩膀，同时保持臀部和躯干稳定。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:24003:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 从高平板支撑位置开始，双手直接放在肩膀下方，身体呈一条直线。 | `lib/exercise_dataset.generated.dart:24005:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 启动你的核心并将右手抬离地面，伸手拍打你的左肩。 | `lib/exercise_dataset.generated.dart:24006:1` | 是（动作教学说明候选） |
@@ -10801,8 +10802,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持此位置所需的时间。 | `lib/exercise_dataset.generated.dart:24074:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将臀部放低至起始位置。 | `lib/exercise_dataset.generated.dart:24075:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在另一侧重复。 | `lib/exercise_dataset.generated.dart:24076:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 侧向·髋部 | `lib/exercise_dataset.generated.dart:24085:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | side hip (on parallel bars) | `lib/exercise_dataset.generated.dart:24085:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 侧向·髋部 | `lib/exercise_dataset.generated.dart:24085:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 站在两根平行杠之间，双脚分开与肩同宽。 将双手放在横杆上，将身体抬离地面，用手臂支撑体重。 收紧腹肌，慢慢将双腿向一侧抬起，保持伸直。 在顶部暂停片刻，然后慢慢将双腿放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:24091:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 站在两根平行杠之间，双脚分开与肩同宽。 | `lib/exercise_dataset.generated.dart:24093:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将双手放在横杆上，将身体抬离地面，用手臂支撑体重。 | `lib/exercise_dataset.generated.dart:24094:1` | 是（动作教学说明候选） |
@@ -10826,8 +10827,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 启动内收肌并尽可能高地抬起上面的腿，但不要旋转臀部或向后倾斜。 | `lib/exercise_dataset.generated.dart:24138:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部暂停片刻，然后慢慢将腿放回起始位置。 | `lib/exercise_dataset.generated.dart:24139:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数，然后换边。 | `lib/exercise_dataset.generated.dart:24140:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 侧向·平板支撑·髋内收 | `lib/exercise_dataset.generated.dart:24149:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | side plank hip adduction | `lib/exercise_dataset.generated.dart:24149:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 侧向·平板支撑·髋内收 | `lib/exercise_dataset.generated.dart:24149:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 首先侧躺，双腿伸展并叠放在一起。 用前臂支撑自己，将肘部保持在肩膀正下方。 启动你的核心并将臀部抬离地面，从头到脚形成一条直线。 在保持侧平板支撑位置的同时，将上面的腿抬向天花板，保持笔直。 慢慢地将腿放回起始位置。 重复所需的重复次数，然后换边。 | `lib/exercise_dataset.generated.dart:24155:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 首先侧躺，双腿伸展并叠放在一起。 | `lib/exercise_dataset.generated.dart:24157:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 用前臂支撑自己，将肘部保持在肩膀正下方。 | `lib/exercise_dataset.generated.dart:24158:1` | 是（动作教学说明候选） |
@@ -10853,16 +10854,16 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将上臂伸向天花板，形成从头部到脚后跟的直线。 | `lib/exercise_dataset.generated.dart:24204:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 有控制地降低身体回到起始位置。 | `lib/exercise_dataset.generated.dart:24205:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数，然后换边。 | `lib/exercise_dataset.generated.dart:24206:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | side wrist pull stretch | `lib/exercise_dataset.generated.dart:24215:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 侧向·手腕·拉伸 | `lib/exercise_dataset.generated.dart:24215:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | side wrist pull stretch | `lib/exercise_dataset.generated.dart:24215:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 双脚分开与肩同宽站立，双臂在身前伸展。 将右臂向侧面伸出，与地面平行，手掌朝下。 用左手抓住右手，轻轻地将其拉向身体，感觉右前臂有拉伸感。 保持拉伸 15-30 秒，然后放松。 在另一侧重复。 | `lib/exercise_dataset.generated.dart:24221:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开与肩同宽站立，双臂在身前伸展。 | `lib/exercise_dataset.generated.dart:24223:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将右臂向侧面伸出，与地面平行，手掌朝下。 | `lib/exercise_dataset.generated.dart:24224:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 用左手抓住右手，轻轻地将其拉向身体，感觉右前臂有拉伸感。 | `lib/exercise_dataset.generated.dart:24225:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持拉伸 15-30 秒，然后放松。 | `lib/exercise_dataset.generated.dart:24226:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在另一侧重复。 | `lib/exercise_dataset.generated.dart:24227:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | side-to-side chin | `lib/exercise_dataset.generated.dart:24236:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 侧向·侧向 | `lib/exercise_dataset.generated.dart:24236:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | side-to-side chin | `lib/exercise_dataset.generated.dart:24236:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 双脚分开与肩同宽站立，膝盖稍微弯曲。 正手握住引体向上杆，双手之间的距离略大于肩宽。 悬挂在杠上，双臂完全伸展，身体放松。 弯曲肘部并将下巴朝向杠铃杆，将自己拉起，同时保持身体挺直。 一旦你的下巴高于杠铃，就将自己放低回到起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:24242:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开与肩同宽站立，膝盖稍微弯曲。 | `lib/exercise_dataset.generated.dart:24244:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 正手握住引体向上杆，双手之间的距离略大于肩宽。 | `lib/exercise_dataset.generated.dart:24245:1` | 是（动作教学说明候选） |
@@ -10870,15 +10871,15 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 弯曲肘部并将下巴朝向杠铃杆，将自己拉起，同时保持身体挺直。 | `lib/exercise_dataset.generated.dart:24247:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 一旦你的下巴高于杠铃，就将自己放低回到起始位置。 | `lib/exercise_dataset.generated.dart:24248:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:24249:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 侧向·侧向·触足卷腹 | `lib/exercise_dataset.generated.dart:24258:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | side-to-side toe touch (male) | `lib/exercise_dataset.generated.dart:24258:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 侧向·侧向·触足卷腹 | `lib/exercise_dataset.generated.dart:24258:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 双脚分开与肩同宽站立，双臂向两侧伸展。 腰部向右弯曲，将右手伸向右脚，同时保持左手向一侧延伸。 返回起始位置，然后腰部向左弯曲，将左手伸向左脚，同时保持右手向侧面延伸。 重复左右弯曲动作达到所需的重复次数。 | `lib/exercise_dataset.generated.dart:24264:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开与肩同宽站立，双臂向两侧伸展。 | `lib/exercise_dataset.generated.dart:24266:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 腰部向右弯曲，将右手伸向右脚，同时保持左手向一侧延伸。 | `lib/exercise_dataset.generated.dart:24267:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 返回起始位置，然后腰部向左弯曲，将左手伸向左脚，同时保持右手向侧面延伸。 | `lib/exercise_dataset.generated.dart:24268:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复左右弯曲动作达到所需的重复次数。 | `lib/exercise_dataset.generated.dart:24269:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 单臂·俯卧撑 | `lib/exercise_dataset.generated.dart:24278:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | single arm push-up | `lib/exercise_dataset.generated.dart:24278:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 单臂·俯卧撑 | `lib/exercise_dataset.generated.dart:24278:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 从俯卧撑位置开始，双手分开与肩同宽，一只手比另一只手稍宽。 弯曲肘部，保持背部挺直，调动核心力量，将身体降低至地面。 当你降低身体时，将你的重心转移到一侧，并将另一只手臂抬离地面，将其笔直延伸到一侧。 推动胸部和三头肌，将身体抬回到起始位置，同时将伸出的手臂放回地面。 重复该动作，每次重复时交替伸展手臂。 | `lib/exercise_dataset.generated.dart:24284:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 从俯卧撑位置开始，双手分开与肩同宽，一只手比另一只手稍宽。 | `lib/exercise_dataset.generated.dart:24286:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 弯曲肘部，保持背部挺直，调动核心力量，将身体降低至地面。 | `lib/exercise_dataset.generated.dart:24287:1` | 是（动作教学说明候选） |
@@ -10901,16 +10902,16 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 使用小腿肌肉，慢慢地将脚跟抬高，尽可能高。 | `lib/exercise_dataset.generated.dart:24330:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部停顿片刻，然后慢慢降低脚跟。 | `lib/exercise_dataset.generated.dart:24331:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数，然后换另一条腿。 | `lib/exercise_dataset.generated.dart:24332:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | single leg platform slide | `lib/exercise_dataset.generated.dart:24341:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 单腿 | `lib/exercise_dataset.generated.dart:24341:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | single leg platform slide | `lib/exercise_dataset.generated.dart:24341:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 首先将一只脚站在平台或滑板上。 稍微弯曲膝盖，将脚向后滑动到平台上，伸展腿。 在整个运动过程中保持核心参与并保持笔直姿势。 将脚滑回初始位置，慢慢返回起始位置。 重复该动作达到所需的重复次数，然后换腿。 | `lib/exercise_dataset.generated.dart:24347:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 首先将一只脚站在平台或滑板上。 | `lib/exercise_dataset.generated.dart:24349:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 稍微弯曲膝盖，将脚向后滑动到平台上，伸展腿。 | `lib/exercise_dataset.generated.dart:24350:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在整个运动过程中保持核心参与并保持笔直姿势。 | `lib/exercise_dataset.generated.dart:24351:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将脚滑回初始位置，慢慢返回起始位置。 | `lib/exercise_dataset.generated.dart:24352:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复该动作达到所需的重复次数，然后换腿。 | `lib/exercise_dataset.generated.dart:24353:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | single leg squat (pistol) male | `lib/exercise_dataset.generated.dart:24362:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 单腿·深蹲 | `lib/exercise_dataset.generated.dart:24362:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | single leg squat (pistol) male | `lib/exercise_dataset.generated.dart:24362:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 双脚分开与肩同宽站立，双臂在身前伸展。 将右脚抬离地面并向前伸展。 弯曲左膝并将臀部向后推，慢慢降低身体。 降低身体时，保持挺胸、背部挺直。 降低直到左大腿与地面平行，或者尽可能降低到您能舒服的高度。 在底部停顿片刻，然后推动左脚跟回到起始位置。 重复所需的重复次数，然后换腿。 | `lib/exercise_dataset.generated.dart:24368:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开与肩同宽站立，双臂在身前伸展。 | `lib/exercise_dataset.generated.dart:24370:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将右脚抬离地面并向前伸展。 | `lib/exercise_dataset.generated.dart:24371:1` | 是（动作教学说明候选） |
@@ -11028,8 +11029,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 推动脚踏板以伸展双腿，将其完全伸直。 | `lib/exercise_dataset.generated.dart:24639:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部停顿片刻，然后慢慢弯曲膝盖，将踏板放回起始位置。 | `lib/exercise_dataset.generated.dart:24640:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:24641:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | sled 45в° leg wide press | `lib/exercise_dataset.generated.dart:24650:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 雪橇·45·°·腿部·宽距·推举 | `lib/exercise_dataset.generated.dart:24650:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | sled 45в° leg wide press | `lib/exercise_dataset.generated.dart:24650:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 将雪橇机调整至 45 度角。 坐在雪橇机上，背部靠在垫子上，双脚放在脚踏平台上。 双脚分开的距离比肩宽。 推动脚部平台以伸展双腿并伸直膝盖。 动作结束时暂停片刻，然后慢慢弯曲膝盖回到起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:24656:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将雪橇机调整至 45 度角。 | `lib/exercise_dataset.generated.dart:24658:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在雪橇机上，背部靠在垫子上，双脚放在脚踏平台上。 | `lib/exercise_dataset.generated.dart:24659:1` | 是（动作教学说明候选） |
@@ -11093,8 +11094,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 伸展脚踝，保持膝盖稍微弯曲，将雪橇向前推。 | `lib/exercise_dataset.generated.dart:24795:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部停顿片刻，然后通过弯曲脚踝慢慢将雪橇放回原处。 | `lib/exercise_dataset.generated.dart:24796:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:24797:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | sledge hammer | `lib/exercise_dataset.generated.dart:24806:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 锤式 | `lib/exercise_dataset.generated.dart:24806:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | sledge hammer | `lib/exercise_dataset.generated.dart:24806:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 双脚分开与肩同宽站立，双手握住大锤。 启动你的核心并保持背部挺直。 使用核心和上半身的力量，将大锤向下挥向地面。 当你向下挥杆时，转动臀部并将力量传递到锤子上。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:24812:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开与肩同宽站立，双手握住大锤。 | `lib/exercise_dataset.generated.dart:24814:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 启动你的核心并保持背部挺直。 | `lib/exercise_dataset.generated.dart:24815:1` | 是（动作教学说明候选） |
@@ -12174,8 +12175,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将双手置于更宽的位置，然后立即再次将胸部降低到地面。 | `lib/exercise_dataset.generated.dart:27397:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复俯卧撑动作，下降并用双手抓住自己在较窄的位置。 | `lib/exercise_dataset.generated.dart:27398:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 继续在更宽和更窄的手位置之间交替，以达到所需的重复次数。 | `lib/exercise_dataset.generated.dart:27399:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 负重·前侧·平板支撑 | `lib/exercise_dataset.generated.dart:27408:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | weighted front plank | `lib/exercise_dataset.generated.dart:27408:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 负重·前侧·平板支撑 | `lib/exercise_dataset.generated.dart:27408:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 首先脸朝下躺在地板上。 将前臂放在地面上，肘部直接位于肩膀下方。 将双腿伸直在身后，脚趾着地。 启动你的核心并将你的身体抬离地面，用前臂和脚趾保持平衡。 保持身体从头部到脚跟呈一条直线。 保持此位置所需的时间。 将身体放低至起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:27414:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 首先脸朝下躺在地板上。 | `lib/exercise_dataset.generated.dart:27416:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将前臂放在地面上，肘部直接位于肩膀下方。 | `lib/exercise_dataset.generated.dart:27417:1` | 是（动作教学说明候选） |
@@ -12185,31 +12186,31 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持此位置所需的时间。 | `lib/exercise_dataset.generated.dart:27421:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将身体放低至起始位置。 | `lib/exercise_dataset.generated.dart:27422:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:27423:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 负重·前平举 | `lib/exercise_dataset.generated.dart:27432:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | weighted front raise | `lib/exercise_dataset.generated.dart:27432:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 负重·前平举 | `lib/exercise_dataset.generated.dart:27432:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 双脚分开与肩同宽站立，双手各握一个哑铃，手掌朝向大腿。 保持双臂伸直，呼气并将哑铃举至身前，直至与肩齐平。 在顶部停顿片刻，然后吸气，慢慢将哑铃放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:27438:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开与肩同宽站立，双手各握一个哑铃，手掌朝向大腿。 | `lib/exercise_dataset.generated.dart:27440:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持双臂伸直，呼气并将哑铃举至身前，直至与肩齐平。 | `lib/exercise_dataset.generated.dart:27441:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部停顿片刻，然后吸气，慢慢将哑铃放回起始位置。 | `lib/exercise_dataset.generated.dart:27442:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:27443:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 负重·悬垂·腿部·髋部·抬举 | `lib/exercise_dataset.generated.dart:27452:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | weighted hanging leg-hip raise | `lib/exercise_dataset.generated.dart:27452:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 负重·悬垂·腿部·髋部·抬举 | `lib/exercise_dataset.generated.dart:27452:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 悬挂在引体向上杆上，双臂完全伸展，手掌背向自己。 启动你的核心并将双腿抬起到你面前，保持伸直。 继续抬起，直到双腿与地面平行或稍高。 在顶部暂停片刻，然后慢慢将双腿放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:27458:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 悬挂在引体向上杆上，双臂完全伸展，手掌背向自己。 | `lib/exercise_dataset.generated.dart:27460:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 启动你的核心并将双腿抬起到你面前，保持伸直。 | `lib/exercise_dataset.generated.dart:27461:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 继续抬起，直到双腿与地面平行或稍高。 | `lib/exercise_dataset.generated.dart:27462:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部暂停片刻，然后慢慢将双腿放回起始位置。 | `lib/exercise_dataset.generated.dart:27463:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:27464:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 负重·健身球 | `lib/exercise_dataset.generated.dart:27473:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | weighted hyperextension (on stability ball) | `lib/exercise_dataset.generated.dart:27473:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 负重·健身球 | `lib/exercise_dataset.generated.dart:27473:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 将自己面朝下放在稳定球上，臀部放在球上，双脚靠在墙上以保持稳定。 将双手放在脑后或交叉放在胸前。 启动你的核心，慢慢地将你的上半身抬离球，伸展你的背部，直到你的身体形成一条直线。 在顶部停顿片刻，然后慢慢将上半身放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:27479:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将自己面朝下放在稳定球上，臀部放在球上，双脚靠在墙上以保持稳定。 | `lib/exercise_dataset.generated.dart:27481:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将双手放在脑后或交叉放在胸前。 | `lib/exercise_dataset.generated.dart:27482:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 启动你的核心，慢慢地将你的上半身抬离球，伸展你的背部，直到你的身体形成一条直线。 | `lib/exercise_dataset.generated.dart:27483:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部停顿片刻，然后慢慢将上半身放回起始位置。 | `lib/exercise_dataset.generated.dart:27484:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:27485:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 负重·跪姿·踏步 | `lib/exercise_dataset.generated.dart:27494:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | weighted kneeling step with swing | `lib/exercise_dataset.generated.dart:27494:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 负重·跪姿·踏步 | `lib/exercise_dataset.generated.dart:27494:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 从跪姿开始，膝盖分开与臀部同宽，背部挺直。 每只手各握一个重物，双臂在身前笔直向下伸展。 启动你的核心肌群，将重物向上举过头顶，保持手臂伸直。 将重量放回起始位置，然后重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:27500:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 从跪姿开始，膝盖分开与臀部同宽，背部挺直。 | `lib/exercise_dataset.generated.dart:27502:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 每只手各握一个重物，双臂在身前笔直向下伸展。 | `lib/exercise_dataset.generated.dart:27503:1` | 是（动作教学说明候选） |
@@ -12232,8 +12233,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 继续拉起自己，直到胸部到达杠铃，然后暂停片刻。 | `lib/exercise_dataset.generated.dart:27546:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 慢慢地将自己放回到起始位置，在整个运动过程中保持控制。 | `lib/exercise_dataset.generated.dart:27547:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:27548:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | weighted muscle up (on bar) | `lib/exercise_dataset.generated.dart:27557:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 负重 | `lib/exercise_dataset.generated.dart:27557:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | weighted muscle up (on bar) | `lib/exercise_dataset.generated.dart:27557:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 首先悬挂在引体向上杆上，手掌背向自己，双手之间的距离略大于肩宽。 启动你的核心并将肩胛骨向下拉和向后拉。 弯曲肘部，将胸部拉向杠铃杆，保持身体挺直。 当你的胸部到达杠铃时，用手向下推并将肘部向后推，将身体提升到杠铃上方。 在动作的最高点暂停，然后慢慢降低回到起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:27563:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 首先悬挂在引体向上杆上，手掌背向自己，双手之间的距离略大于肩宽。 | `lib/exercise_dataset.generated.dart:27565:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 启动你的核心并将肩胛骨向下拉和向后拉。 | `lib/exercise_dataset.generated.dart:27566:1` | 是（动作教学说明候选） |
@@ -12241,8 +12242,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 当你的胸部到达杠铃时，用手向下推并将肘部向后推，将身体提升到杠铃上方。 | `lib/exercise_dataset.generated.dart:27568:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在动作的最高点暂停，然后慢慢降低回到起始位置。 | `lib/exercise_dataset.generated.dart:27569:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:27570:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | weighted one hand pull up | `lib/exercise_dataset.generated.dart:27579:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 负重·单侧·引体向上 | `lib/exercise_dataset.generated.dart:27579:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | weighted one hand pull up | `lib/exercise_dataset.generated.dart:27579:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 正手握住引体向上杆，握距略宽于肩宽。 悬挂在杠上，手臂完全伸展，身体伸直。 弯曲肘部并挤压背部肌肉，调动核心力量，将身体拉向杠铃杆。 继续拉，直到下巴位于杠铃上方。 有控制地降低身体回到起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:27585:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 正手握住引体向上杆，握距略宽于肩宽。 | `lib/exercise_dataset.generated.dart:27587:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 悬挂在杠上，手臂完全伸展，身体伸直。 | `lib/exercise_dataset.generated.dart:27588:1` | 是（动作教学说明候选） |
@@ -12258,8 +12259,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 收紧腹肌，慢慢向前弯曲躯干，使胸部靠近膝盖。 | `lib/exercise_dataset.generated.dart:27611:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部暂停片刻，然后慢慢将躯干放回起始位置。 | `lib/exercise_dataset.generated.dart:27612:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:27613:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 负重·引体向上 | `lib/exercise_dataset.generated.dart:27622:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | weighted pull-up | `lib/exercise_dataset.generated.dart:27622:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 负重·引体向上 | `lib/exercise_dataset.generated.dart:27622:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 正手握住引体向上杆，握距略宽于肩宽。 悬挂在杠上，双臂完全伸展，身体伸直。 收紧背部肌肉，将身体拉向杠铃杆，保持肘部靠近身体。 继续拉，直到下巴位于杠铃上方。 在顶部停顿片刻，然后慢慢将身体放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:27628:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 正手握住引体向上杆，握距略宽于肩宽。 | `lib/exercise_dataset.generated.dart:27630:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 悬挂在杠上，双臂完全伸展，身体伸直。 | `lib/exercise_dataset.generated.dart:27631:1` | 是（动作教学说明候选） |
@@ -12267,8 +12268,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 继续拉，直到下巴位于杠铃上方。 | `lib/exercise_dataset.generated.dart:27633:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部停顿片刻，然后慢慢将身体放回起始位置。 | `lib/exercise_dataset.generated.dart:27634:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:27635:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 负重·手臂 | `lib/exercise_dataset.generated.dart:27644:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | weighted round arm | `lib/exercise_dataset.generated.dart:27644:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 负重·手臂 | `lib/exercise_dataset.generated.dart:27644:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 双脚分开与肩同宽站立，每只手各握一个哑铃。 稍微弯曲膝盖，髋部向前转动，保持背部挺直。 将手臂向两侧举起，肘部保持轻微弯曲。 继续举起手臂，直到它们与地面平行。 在顶部暂停片刻，然后慢慢将手臂放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:27650:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开与肩同宽站立，每只手各握一个哑铃。 | `lib/exercise_dataset.generated.dart:27652:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 稍微弯曲膝盖，髋部向前转动，保持背部挺直。 | `lib/exercise_dataset.generated.dart:27653:1` | 是（动作教学说明候选） |
@@ -12294,8 +12295,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将躯干向右扭转，将重量移向右侧地面。 | `lib/exercise_dataset.generated.dart:27699:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 暂停片刻，然后将躯干向左扭转，将重量转移到左侧地面。 | `lib/exercise_dataset.generated.dart:27700:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 继续交替进行所需的重复次数。 | `lib/exercise_dataset.generated.dart:27701:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | weighted russian twist v. 2 | `lib/exercise_dataset.generated.dart:27710:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 负重·俄罗斯·转体 | `lib/exercise_dataset.generated.dart:27710:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | weighted russian twist v. 2 | `lib/exercise_dataset.generated.dart:27710:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 坐在地上，膝盖弯曲，双脚平放在地板上。 用双手将重物放在胸前。 稍微向后倾斜以锻炼核心肌肉。 将躯干向右扭转，将重量移至身体右侧。 暂停片刻，然后将躯干向左扭转，将重量移向身体的左侧。 继续交替进行所需的重复次数。 | `lib/exercise_dataset.generated.dart:27716:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在地上，膝盖弯曲，双脚平放在地板上。 | `lib/exercise_dataset.generated.dart:27718:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 用双手将重物放在胸前。 | `lib/exercise_dataset.generated.dart:27719:1` | 是（动作教学说明候选） |
@@ -12303,8 +12304,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将躯干向右扭转，将重量移至身体右侧。 | `lib/exercise_dataset.generated.dart:27721:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 暂停片刻，然后将躯干向左扭转，将重量移向身体的左侧。 | `lib/exercise_dataset.generated.dart:27722:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 继续交替进行所需的重复次数。 | `lib/exercise_dataset.generated.dart:27723:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | weighted seated bicep curl (on stability ball) | `lib/exercise_dataset.generated.dart:27732:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 负重·坐姿·肱二头肌弯举·健身球 | `lib/exercise_dataset.generated.dart:27732:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | weighted seated bicep curl (on stability ball) | `lib/exercise_dataset.generated.dart:27732:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 坐在稳定球上，双脚平放在地面上，背部挺直。 反手握住健身球，手掌朝上，让手臂垂在身体两侧。 保持上臂静止，呼气并将药球向上卷向肩膀。 在顶部暂停片刻，挤压你的二头肌。 吸气并缓慢地将健身球放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:27738:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在稳定球上，双脚平放在地面上，背部挺直。 | `lib/exercise_dataset.generated.dart:27740:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 反手握住健身球，手掌朝上，让手臂垂在身体两侧。 | `lib/exercise_dataset.generated.dart:27741:1` | 是（动作教学说明候选） |
@@ -12312,8 +12313,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部暂停片刻，挤压你的二头肌。 | `lib/exercise_dataset.generated.dart:27743:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 吸气并缓慢地将健身球放回起始位置。 | `lib/exercise_dataset.generated.dart:27744:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:27745:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | weighted seated twist (on stability ball) | `lib/exercise_dataset.generated.dart:27754:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 负重·坐姿·转体·健身球 | `lib/exercise_dataset.generated.dart:27754:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | weighted seated twist (on stability ball) | `lib/exercise_dataset.generated.dart:27754:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 坐在稳定球上，双脚平放在地面上，膝盖弯曲成 90 度角。 双手靠近胸部握住杠铃片或哑铃。 启动你的核心并慢慢地将你的躯干旋转到一侧，保持臀部稳定。 旋转结束时暂停片刻，然后慢慢回到起始位置。 重复旋转到另一侧。 继续交替进行所需的重复次数。 | `lib/exercise_dataset.generated.dart:27760:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 坐在稳定球上，双脚平放在地面上，膝盖弯曲成 90 度角。 | `lib/exercise_dataset.generated.dart:27762:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双手靠近胸部握住杠铃片或哑铃。 | `lib/exercise_dataset.generated.dart:27763:1` | 是（动作教学说明候选） |
@@ -12329,8 +12330,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 启动你的核心，慢慢向受重侧侧弯，保持背部挺直。 | `lib/exercise_dataset.generated.dart:27786:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在底部停顿片刻，然后慢慢回到起始位置。 | `lib/exercise_dataset.generated.dart:27787:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数，然后换边。 | `lib/exercise_dataset.generated.dart:27788:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | weighted sissy squat | `lib/exercise_dataset.generated.dart:27797:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 负重·深蹲 | `lib/exercise_dataset.generated.dart:27797:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | weighted sissy squat | `lib/exercise_dataset.generated.dart:27797:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 双脚分开与肩同宽站立，脚趾稍微向外。 用双手将重物放在胸前，或将杠铃放在上背部。 保持挺胸，核心收紧，弯曲膝盖和臀部，慢慢降低身体。 继续降低，直到大腿与地面平行或尽可能低。 在底部停顿片刻，然后推动脚后跟回到起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:27803:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开与肩同宽站立，脚趾稍微向外。 | `lib/exercise_dataset.generated.dart:27805:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 用双手将重物放在胸前，或将杠铃放在上背部。 | `lib/exercise_dataset.generated.dart:27806:1` | 是（动作教学说明候选） |
@@ -12347,15 +12348,15 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 降低直到大腿与地面平行，或者尽可能降低到您能舒服的高度。 | `lib/exercise_dataset.generated.dart:27830:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 推动脚后跟站起来，在顶部挤压臀部。 | `lib/exercise_dataset.generated.dart:27831:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:27832:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 负重·站姿·弯举 | `lib/exercise_dataset.generated.dart:27841:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | weighted standing curl | `lib/exercise_dataset.generated.dart:27841:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 负重·站姿·弯举 | `lib/exercise_dataset.generated.dart:27841:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 双脚分开与肩同宽站立，双手各握一个哑铃，手掌朝前。 保持肘部靠近躯干，并在将哑铃弯举至肩部水平时呼气。 在顶部暂停片刻，然后吸气，慢慢将重量放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:27847:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开与肩同宽站立，双手各握一个哑铃，手掌朝前。 | `lib/exercise_dataset.generated.dart:27849:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持肘部靠近躯干，并在将哑铃弯举至肩部水平时呼气。 | `lib/exercise_dataset.generated.dart:27850:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 在顶部暂停片刻，然后吸气，慢慢将重量放回起始位置。 | `lib/exercise_dataset.generated.dart:27851:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:27852:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 负重·站姿 | `lib/exercise_dataset.generated.dart:27861:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | weighted standing hand squeeze | `lib/exercise_dataset.generated.dart:27861:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 负重·站姿 | `lib/exercise_dataset.generated.dart:27861:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 双脚分开与肩同宽站立，每只手各握一个重物。 将双臂伸直在身前，手掌相对。 尽可能用力将双手握在一起，用力接触前臂。 按住挤压几秒钟，然后松开。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:27867:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开与肩同宽站立，每只手各握一个重物。 | `lib/exercise_dataset.generated.dart:27869:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将双臂伸直在身前，手掌相对。 | `lib/exercise_dataset.generated.dart:27870:1` | 是（动作教学说明候选） |
@@ -12378,8 +12379,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 推动右脚跟回到起始位置。 | `lib/exercise_dataset.generated.dart:27913:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 左腿重复上述动作。 | `lib/exercise_dataset.generated.dart:27914:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 继续交替双腿达到所需的重复次数。 | `lib/exercise_dataset.generated.dart:27915:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 负重·推举 | `lib/exercise_dataset.generated.dart:27924:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | weighted svend press | `lib/exercise_dataset.generated.dart:27924:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 负重·推举 | `lib/exercise_dataset.generated.dart:27924:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 双脚分开与肩同宽站立，双手将杠铃片放在胸前。 保持肘部稍微弯曲，手掌相对。 将配重板直接压在您面前，完全伸展双臂。 动作结束时暂停片刻，然后慢慢将配重板放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:27930:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双脚分开与肩同宽站立，双手将杠铃片放在胸前。 | `lib/exercise_dataset.generated.dart:27932:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 保持肘部稍微弯曲，手掌相对。 | `lib/exercise_dataset.generated.dart:27933:1` | 是（动作教学说明候选） |
@@ -12403,15 +12404,15 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 弯曲肘部降低身体，直到上臂与地板平行。 | `lib/exercise_dataset.generated.dart:27977:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 伸直手臂，将自己推回起始位置。 | `lib/exercise_dataset.generated.dart:27978:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:27979:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | weighted triceps dip on high parallel bars | `lib/exercise_dataset.generated.dart:27988:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 负重·肱三头肌·双杠臂屈伸·高位 | `lib/exercise_dataset.generated.dart:27988:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | weighted triceps dip on high parallel bars | `lib/exercise_dataset.generated.dart:27988:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 将自己定位在两个双杠之间，双手握住杠，双臂完全伸展。 弯曲肘部并降低身体，直到上臂与地面平行。 暂停片刻，然后用手掌推直手臂并返回到起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:27994:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将自己定位在两个双杠之间，双手握住杠，双臂完全伸展。 | `lib/exercise_dataset.generated.dart:27996:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 弯曲肘部并降低身体，直到上臂与地面平行。 | `lib/exercise_dataset.generated.dart:27997:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 暂停片刻，然后用手掌推直手臂并返回到起始位置。 | `lib/exercise_dataset.generated.dart:27998:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:27999:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 健腹轮 | `lib/exercise_dataset.generated.dart:28008:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | wheel rollerout | `lib/exercise_dataset.generated.dart:28008:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 健腹轮 | `lib/exercise_dataset.generated.dart:28008:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 跪在地板上，将滚轮放在您面前。 将双手放在滚轮的手柄上，并将手臂伸直至前方。 调动你的核心肌肉，慢慢向前滚动轮子，保持背部挺直，腹肌紧张。 继续向前滚动，直到身体完全伸展并且手臂举过头顶。 暂停片刻，然后慢慢地将轮子向膝盖方向滚动，保持控制并保持腹肌接合。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:28014:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 跪在地板上，将滚轮放在您面前。 | `lib/exercise_dataset.generated.dart:28016:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将双手放在滚轮的手柄上，并将手臂伸直至前方。 | `lib/exercise_dataset.generated.dart:28017:1` | 是（动作教学说明候选） |
@@ -12427,16 +12428,16 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 继续滚动，直到身体完全伸展并且手臂举过头顶。 | `lib/exercise_dataset.generated.dart:28040:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 使用你的核心和手臂将轮子拉回你的身体，从而扭转运动。 | `lib/exercise_dataset.generated.dart:28041:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:28042:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 宽握·引体向上 | `lib/exercise_dataset.generated.dart:28051:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | wide grip pull-up | `lib/exercise_dataset.generated.dart:28051:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 宽握·引体向上 | `lib/exercise_dataset.generated.dart:28051:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 悬挂在引体向上杆上，手掌背向自己，双手之间的距离比肩宽。 启动你的核心并将肩胛骨挤压在一起。 将身体向上拉向杠铃，直到下巴位于杠铃上方。 有控制地降低身体回到起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:28057:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 悬挂在引体向上杆上，手掌背向自己，双手之间的距离比肩宽。 | `lib/exercise_dataset.generated.dart:28059:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 启动你的核心并将肩胛骨挤压在一起。 | `lib/exercise_dataset.generated.dart:28060:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将身体向上拉向杠铃，直到下巴位于杠铃上方。 | `lib/exercise_dataset.generated.dart:28061:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 有控制地降低身体回到起始位置。 | `lib/exercise_dataset.generated.dart:28062:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:28063:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 宽握·后侧·引体向上 | `lib/exercise_dataset.generated.dart:28072:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | wide grip rear pull-up | `lib/exercise_dataset.generated.dart:28072:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 宽握·后侧·引体向上 | `lib/exercise_dataset.generated.dart:28072:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 正手宽握抓住引体向上杆，双手间距略宽于肩宽。 悬挂在杠上，双臂完全伸展，身体伸直。 调动背部肌肉，将身体拉向杠铃杆，以胸部为主导。 继续拉，直到下巴位于杠铃上方。 在顶部停顿片刻，然后慢慢将身体放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:28078:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 正手宽握抓住引体向上杆，双手间距略宽于肩宽。 | `lib/exercise_dataset.generated.dart:28080:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 悬挂在杠上，双臂完全伸展，身体伸直。 | `lib/exercise_dataset.generated.dart:28081:1` | 是（动作教学说明候选） |
@@ -12452,8 +12453,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 弯曲肘部，将胸部压向地面，使其靠近身体两侧。 | `lib/exercise_dataset.generated.dart:28104:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 推动手掌以伸展手臂并返回到起始位置。 | `lib/exercise_dataset.generated.dart:28105:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:28106:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | wide-grip chest dip on high parallel bars | `lib/exercise_dataset.generated.dart:28115:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 宽距·胸部·双杠臂屈伸·高位 | `lib/exercise_dataset.generated.dart:28115:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | wide-grip chest dip on high parallel bars | `lib/exercise_dataset.generated.dart:28115:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 将自己置于双杠上，双臂完全伸展，身体悬浮在空中。 稍微向前倾，弯曲肘部降低身体，直到胸部位于杠铃上方。 暂停片刻，然后伸直手臂，将自己推回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:28121:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将自己置于双杠上，双臂完全伸展，身体悬浮在空中。 | `lib/exercise_dataset.generated.dart:28123:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 稍微向前倾，弯曲肘部降低身体，直到胸部位于杠铃上方。 | `lib/exercise_dataset.generated.dart:28124:1` | 是（动作教学说明候选） |
@@ -12483,8 +12484,8 @@
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 双手握拳。 | `lib/exercise_dataset.generated.dart:28186:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 以圆周运动旋转手腕，保持手臂静止。 | `lib/exercise_dataset.generated.dart:28187:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 继续手腕转圈达到所需的重复次数。 | `lib/exercise_dataset.generated.dart:28188:1` | 是（动作教学说明候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 手腕 | `lib/exercise_dataset.generated.dart:28197:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | en | 目录·动作名称 | wrist rollerer | `lib/exercise_dataset.generated.dart:28197:1` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·动作名称 | 手腕 | `lib/exercise_dataset.generated.dart:28197:1` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学摘要 | 将重物固定在绳子或杆的一端。 用双手握住绳子或杆的另一端，手掌朝下。 双脚分开与肩同宽站立，双臂完全伸展在身前。 弯曲手腕，慢慢地将重物向上滚动到手上。 在顶部暂停片刻，然后慢慢将重量放回起始位置。 重复所需的重复次数。 | `lib/exercise_dataset.generated.dart:28203:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 将重物固定在绳子或杆的一端。 | `lib/exercise_dataset.generated.dart:28205:1` | 是（动作教学说明候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作库·目录附录 | zh-CN | 目录·教学步骤 | 用双手握住绳子或杆的另一端，手掌朝下。 | `lib/exercise_dataset.generated.dart:28206:1` | 是（动作教学说明候选） |
@@ -12531,14 +12532,15 @@
 | [ ] | `Instance of '_Entry'.id` | 动作识别 | zh-CN + en | 文本 | {{entry.value}} | `lib/main.dart:11930:29` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作识别 | zh-CN + en | 文本 | 本次不输出动作评分 | `lib/main.dart:11947:19` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作识别 | zh-CN + en | 文本 | 骨骼标注图加载失败，请检查网络后重试。 | `lib/main.dart:12165:15` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作识别 | zh-CN + en | 文本 | 视频暂时无法播放 | `lib/main.dart:19224:33` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 动作识别 | zh-CN + en | 文本 | 裁剪分析片段 | `lib/main.dart:19345:25` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 动作识别 | zh-CN + en | 按钮/选项文本 | 保存中… | `lib/main.dart:19350:32` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 动作识别 | zh-CN + en | 按钮/选项文本 | 使用片段 | `lib/main.dart:19350:41` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 动作识别 | zh-CN + en | 文本 | 暂时无法编辑这个视频，请重新选择。 | `lib/main.dart:19358:38` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 动作识别 | zh-CN + en | 文本 | 暂停预览 | `lib/main.dart:19400:43` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 动作识别 | zh-CN + en | 文本 | 预览所选片段 | `lib/main.dart:19400:52` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 动作识别 | zh-CN + en | 文本 | 拖动两侧把手，只保留需要分析的动作片段。 | `lib/main.dart:19404:21` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 动作识别 | zh-CN + en | 文本 | 动作识别 | `lib/main.dart:12896:40` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作识别 | zh-CN + en | 文本 | 视频暂时无法播放 | `lib/main.dart:19278:33` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作识别 | zh-CN + en | 文本 | 裁剪分析片段 | `lib/main.dart:19399:25` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作识别 | zh-CN + en | 按钮/选项文本 | 保存中… | `lib/main.dart:19404:32` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作识别 | zh-CN + en | 按钮/选项文本 | 使用片段 | `lib/main.dart:19404:41` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作识别 | zh-CN + en | 文本 | 暂时无法编辑这个视频，请重新选择。 | `lib/main.dart:19412:38` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 动作识别 | zh-CN + en | 文本 | 暂停预览 | `lib/main.dart:19454:43` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作识别 | zh-CN + en | 文本 | 预览所选片段 | `lib/main.dart:19454:52` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 动作识别 | zh-CN + en | 文本 | 拖动两侧把手，只保留需要分析的动作片段。 | `lib/main.dart:19458:21` | 是（较长句子候选） |
 | [ ] | `Instance of '_Entry'.id` | 动作识别 | zh-CN + en | 文本 | ； | `lib/product_features.dart:2564:27` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作识别 | zh-CN | 用户反馈/默认文案 | 动作分析已完成 | `lib/recognition_api.dart:129:40` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 动作识别 | zh-CN | 用户反馈/默认文案 | 其他 | `lib/recognition_api.dart:256:50` | 否 |
@@ -13140,19 +13142,19 @@
 | [ ] | `Instance of '_Entry'.id` | 登录与资料 | zh-CN + en | 文本 | 使用 Apple 登录 | `lib/main.dart:1239:60` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 登录与资料 | zh-CN + en | 文本 | 使用 Google 登录 | `lib/main.dart:1250:47` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 登录与资料 | zh-CN + en | 文本 | Google 登录尚未配置。 | `lib/main.dart:1260:50` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 登录与资料 | zh-CN + en | 文本 | 未登录 | `lib/main.dart:14269:29` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 登录与资料 | zh-CN + en | 文本 | 登录后同步会员状态 | `lib/main.dart:14271:13` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 登录与资料 | zh-CN | 按钮/选项文本 | 请返回启动页登录 | `lib/main.dart:14276:15` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 登录与资料 | zh-CN + en | 按钮/选项文本 | 登录 | `lib/main.dart:14278:31` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 登录与资料 | zh-CN + en | 文本 | 形 | `lib/main.dart:14310:35` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 登录与资料 | zh-CN + en | 文本 | 管理会员 | `lib/main.dart:14399:50` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 登录与资料 | zh-CN + en | 文本 | 升级 PRO | `lib/main.dart:14399:59` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 登录与资料 | zh-CN + en | 文本 | 管理员工具 | `lib/main.dart:14418:21` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 登录与资料 | zh-CN + en | 文本 | 创建账号 | `lib/main.dart:14437:41` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 登录与资料 | zh-CN + en | 按钮/选项文本 | 开通会员 | `lib/main.dart:14443:41` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 登录与资料 | zh-CN + en | 按钮/选项文本 | 生成兑换码 | `lib/main.dart:14449:41` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 登录与资料 | zh-CN + en | 文本 | PRO 云同步已开启 | `lib/main.dart:14495:23` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 登录与资料 | zh-CN + en | 文本 | 训练记录保存在本机 · 可升级 PRO 云同步 | `lib/main.dart:14495:38` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 登录与资料 | zh-CN + en | 文本 | 未登录 | `lib/main.dart:14323:29` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 登录与资料 | zh-CN + en | 文本 | 登录后同步会员状态 | `lib/main.dart:14325:13` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 登录与资料 | zh-CN | 按钮/选项文本 | 请返回启动页登录 | `lib/main.dart:14330:15` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 登录与资料 | zh-CN + en | 按钮/选项文本 | 登录 | `lib/main.dart:14332:31` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 登录与资料 | zh-CN + en | 文本 | 形 | `lib/main.dart:14364:35` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 登录与资料 | zh-CN + en | 文本 | 管理会员 | `lib/main.dart:14453:50` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 登录与资料 | zh-CN + en | 文本 | 升级 PRO | `lib/main.dart:14453:59` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 登录与资料 | zh-CN + en | 文本 | 管理员工具 | `lib/main.dart:14472:21` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 登录与资料 | zh-CN + en | 文本 | 创建账号 | `lib/main.dart:14491:41` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 登录与资料 | zh-CN + en | 按钮/选项文本 | 开通会员 | `lib/main.dart:14497:41` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 登录与资料 | zh-CN + en | 按钮/选项文本 | 生成兑换码 | `lib/main.dart:14503:41` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 登录与资料 | zh-CN + en | 文本 | PRO 云同步已开启 | `lib/main.dart:14549:23` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 登录与资料 | zh-CN + en | 文本 | 训练记录保存在本机 · 可升级 PRO 云同步 | `lib/main.dart:14549:38` | 是（较长句子候选） |
 | [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN | 用户反馈/默认文案 | 自由训练 | `lib/controller.dart:2844:42` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN | 用户反馈/默认文案 | 休息计时 | `lib/controller.dart:2936:41` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN | 用户反馈/默认文案 | 自由训练 | `lib/controller.dart:3104:45` | 否 |
@@ -13231,57 +13233,57 @@
 | [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 文本 | 本周期有效组 | `lib/main.dart:7300:19` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 文本 | 该时段还没有可统计的训练组。 | `lib/main.dart:7311:22` | 是（较长句子候选） |
 | [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 文本 | {{item.value}} 组 | `lib/main.dart:7335:33` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 弹窗文本 | 补录训练 | `lib/main.dart:17521:31` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 弹窗文本 | 结束并保存 | `lib/main.dart:17521:40` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN | 输入框标签 | 训练备注 | `lib/main.dart:17530:26` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN | 输入提示 | 可选 | `lib/main.dart:17531:25` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 弹窗文本 | 保存为训练计划 | `lib/main.dart:17540:33` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 弹窗文本 | 本次实际重量将作为下一次计划重量 | `lib/main.dart:17541:36` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN | 输入框标签 | 计划名称 | `lib/main.dart:17548:62` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 弹窗文本 | 取消 | `lib/main.dart:17557:27` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 弹窗文本 | 保存 | `lib/main.dart:17584:27` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 弹窗文本 | 训练完成 | `lib/main.dart:17714:25` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 弹窗文本 | 查看记录 | `lib/main.dart:17826:49` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 弹窗文本 | 发布动态 | `lib/main.dart:17843:49` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 弹窗文本 | 分享卡片 | `lib/main.dart:17856:49` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 弹窗文本 | 完成 | `lib/main.dart:17865:49` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 文本 | 历史基线 | `lib/main.dart:18460:39` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 文本 | 历史个人纪录 | `lib/main.dart:18460:48` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 文本 | NEW PR | `lib/main.dart:18469:21` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 文本 | 本次没有超过同动作历史最佳；首次记录只建立基线，不会被误报为 PR。 | `lib/main.dart:18480:17` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 文本 | {{_metricLabel(detail.metric)}} · 此前 {{detail.previousValue.toStringAsFixed(detail.previousValue % 1 == 0 ? 0 : 1)}} kg（{{detail.previousDate.month}}月{{detail.previousDate.day}}日） | `lib/main.dart:18515:31` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 文本 | +{{(detail.currentValue - detail.previousValue).toStringAsFixed(1)}} kg | `lib/main.dart:18536:29` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 文本 | 与上次对比 | `lib/main.dart:18591:21` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 文本 | 暂无包含相同动作的历史训练。完成下一次同类训练后，这里会显示重量、次数、容量和时长变化。 | `lib/main.dart:18607:17` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 文本 | {{_deltaNumber(progress.weightDelta, suffix: ' kg')}} · {{_deltaNumber(progress.repsDelta, suffix: ' 次')}} | `lib/main.dart:18653:27` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 文本 | {{originalIndex + 1}} · {{_setTypeShort(set.type)}} | `lib/main.dart:19487:15` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 文本 | {{_displayWeight(set.weight)}} kg × {{set.reps}} 次 | `lib/main.dart:19493:15` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 文本 | 休 {{set.restSeconds}}s | `lib/main.dart:19499:13` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 文本 | 编辑计划 | `lib/main.dart:20161:25` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN | 工具提示 | 取消并返回 | `lib/main.dart:20163:18` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN | 工具提示 | 保存训练模板 | `lib/main.dart:20170:20` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN | 输入框标签 | 训练名称 | `lib/main.dart:20187:28` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 文本 | {{draft.exercises.length}} 个动作 · 返回不会修改原计划 | `lib/main.dart:20194:15` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 文本 | 添加动作 | `lib/main.dart:20219:39` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 文本 | 保存训练模板 | `lib/main.dart:20234:27` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 文本 | {{index + 1}} | `lib/main.dart:20494:27` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN | 输入框标签 | 组别类型 | `lib/main.dart:20503:30` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN | 输入框标签 | 重量 | `lib/main.dart:20531:30` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN | 输入框标签 | 次数 | `lib/main.dart:20551:30` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 文本 | 删除 | `lib/main.dart:20565:33` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN | 输入框标签 | 重量 | `lib/main.dart:20610:22` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN | 输入框标签 | 次数 | `lib/main.dart:20631:22` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN | 工具提示 | 删除这一组 | `lib/main.dart:20641:18` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 文本 | {{index + 1}} | `lib/main.dart:20659:23` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 文本 | {{index + 1}} | `lib/main.dart:20679:55` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN | 工具提示 | 取消并返回 | `lib/main.dart:20807:18` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 文本 | 新建计划 | `lib/main.dart:20811:25` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN | 工具提示 | 保存计划 | `lib/main.dart:20815:20` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN | 输入框标签 | 训练名称 | `lib/main.dart:20837:28` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 文本 | {{draft.exercises.length}} 个动作 · 保存后才会加入我的计划 | `lib/main.dart:20849:15` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 文本 | 添加动作 | `lib/main.dart:20884:39` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 按钮/选项文本 | 取消 | `lib/main.dart:20901:33` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 按钮/选项文本 | 保存计划 | `lib/main.dart:20911:35` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 弹窗文本 | 补录训练 | `lib/main.dart:17575:31` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 弹窗文本 | 结束并保存 | `lib/main.dart:17575:40` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN | 输入框标签 | 训练备注 | `lib/main.dart:17584:26` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN | 输入提示 | 可选 | `lib/main.dart:17585:25` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 弹窗文本 | 保存为训练计划 | `lib/main.dart:17594:33` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 弹窗文本 | 本次实际重量将作为下一次计划重量 | `lib/main.dart:17595:36` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN | 输入框标签 | 计划名称 | `lib/main.dart:17602:62` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 弹窗文本 | 取消 | `lib/main.dart:17611:27` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 弹窗文本 | 保存 | `lib/main.dart:17638:27` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 弹窗文本 | 训练完成 | `lib/main.dart:17768:25` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 弹窗文本 | 查看记录 | `lib/main.dart:17880:49` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 弹窗文本 | 发布动态 | `lib/main.dart:17897:49` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 弹窗文本 | 分享卡片 | `lib/main.dart:17910:49` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 弹窗文本 | 完成 | `lib/main.dart:17919:49` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 文本 | 历史基线 | `lib/main.dart:18514:39` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 文本 | 历史个人纪录 | `lib/main.dart:18514:48` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 文本 | NEW PR | `lib/main.dart:18523:21` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 文本 | 本次没有超过同动作历史最佳；首次记录只建立基线，不会被误报为 PR。 | `lib/main.dart:18534:17` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 文本 | {{_metricLabel(detail.metric)}} · 此前 {{detail.previousValue.toStringAsFixed(detail.previousValue % 1 == 0 ? 0 : 1)}} kg（{{detail.previousDate.month}}月{{detail.previousDate.day}}日） | `lib/main.dart:18569:31` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 文本 | +{{(detail.currentValue - detail.previousValue).toStringAsFixed(1)}} kg | `lib/main.dart:18590:29` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 文本 | 与上次对比 | `lib/main.dart:18645:21` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 文本 | 暂无包含相同动作的历史训练。完成下一次同类训练后，这里会显示重量、次数、容量和时长变化。 | `lib/main.dart:18661:17` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 文本 | {{_deltaNumber(progress.weightDelta, suffix: ' kg')}} · {{_deltaNumber(progress.repsDelta, suffix: ' 次')}} | `lib/main.dart:18707:27` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 文本 | {{originalIndex + 1}} · {{_setTypeShort(set.type)}} | `lib/main.dart:19541:15` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 文本 | {{_displayWeight(set.weight)}} kg × {{set.reps}} 次 | `lib/main.dart:19547:15` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 文本 | 休 {{set.restSeconds}}s | `lib/main.dart:19553:13` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 文本 | 编辑计划 | `lib/main.dart:20215:25` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN | 工具提示 | 取消并返回 | `lib/main.dart:20217:18` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN | 工具提示 | 保存训练模板 | `lib/main.dart:20224:20` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN | 输入框标签 | 训练名称 | `lib/main.dart:20241:28` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 文本 | {{draft.exercises.length}} 个动作 · 返回不会修改原计划 | `lib/main.dart:20248:15` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 文本 | 添加动作 | `lib/main.dart:20273:39` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 文本 | 保存训练模板 | `lib/main.dart:20288:27` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 文本 | {{index + 1}} | `lib/main.dart:20548:27` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN | 输入框标签 | 组别类型 | `lib/main.dart:20557:30` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN | 输入框标签 | 重量 | `lib/main.dart:20585:30` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN | 输入框标签 | 次数 | `lib/main.dart:20605:30` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 文本 | 删除 | `lib/main.dart:20619:33` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN | 输入框标签 | 重量 | `lib/main.dart:20664:22` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN | 输入框标签 | 次数 | `lib/main.dart:20685:22` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN | 工具提示 | 删除这一组 | `lib/main.dart:20695:18` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 文本 | {{index + 1}} | `lib/main.dart:20713:23` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 文本 | {{index + 1}} | `lib/main.dart:20733:55` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN | 工具提示 | 取消并返回 | `lib/main.dart:20861:18` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 文本 | 新建计划 | `lib/main.dart:20865:25` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN | 工具提示 | 保存计划 | `lib/main.dart:20869:20` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN | 输入框标签 | 训练名称 | `lib/main.dart:20891:28` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 文本 | {{draft.exercises.length}} 个动作 · 保存后才会加入我的计划 | `lib/main.dart:20903:15` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 文本 | 添加动作 | `lib/main.dart:20938:39` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 按钮/选项文本 | 取消 | `lib/main.dart:20955:33` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN + en | 按钮/选项文本 | 保存计划 | `lib/main.dart:20965:35` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN | 用户反馈/默认文案 | 恢复良好 | `lib/training_intelligence.dart:119:9` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN | 用户反馈/默认文案 | 基本恢复 | `lib/training_intelligence.dart:121:9` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 训练 | zh-CN | 用户反馈/默认文案 | 仍有疲劳 | `lib/training_intelligence.dart:123:9` | 否 |
@@ -13381,20 +13383,20 @@
 | [ ] | `Instance of '_Entry'.id` | 训练动态 | zh-CN | 用户反馈/默认文案 | 好友训练计划 | `lib/controller.dart:1041:36` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 训练动态 | zh-CN | 用户反馈/默认文案 | {{name}} · 好友分享 | `lib/controller.dart:1042:26` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 训练动态 | zh-CN | 用户反馈/默认文案 | 好友分享 | `lib/controller.dart:1042:61` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 训练动态 | zh-CN + en | 文本 | 分享训练 | `lib/main.dart:17980:21` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 训练动态 | zh-CN + en | 文本 | 4:5 海报 | `lib/main.dart:17984:22` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 训练动态 | zh-CN + en | 文本 | 卡片样式 | `lib/main.dart:18024:19` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 训练动态 | zh-CN + en | 文本 | 品牌默认图 | `lib/main.dart:18048:41` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 训练动态 | zh-CN + en | 文本 | 动作插图 | `lib/main.dart:18059:41` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 训练动态 | zh-CN + en | 文本 | 选择照片 | `lib/main.dart:18071:53` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 训练动态 | zh-CN + en | 文本 | 自选照片仅用于本机分享，不会上传服务器。 | `lib/main.dart:18080:23` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 训练动态 | zh-CN + en | 文本 | 正在生成… | `lib/main.dart:18104:39` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 训练动态 | zh-CN + en | 文本 | 生成图片并分享 | `lib/main.dart:18104:49` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 训练动态 | zh-CN + en | 文本 | TRAINING / COMPLETE | `lib/main.dart:18200:21` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 训练动态 | zh-CN + en | 文本 | 完成一次自由训练 | `lib/main.dart:18265:29` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 训练动态 | zh-CN + en | 文本 | 把自律，练成日常。 | `lib/main.dart:18278:27` | 是（较长句子候选） |
-| [ ] | `Instance of '_Entry'.id` | 训练动态 | zh-CN + en | 文本 | {{index + 1}} | `lib/main.dart:18381:11` | 否 |
-| [ ] | `Instance of '_Entry'.id` | 训练动态 | zh-CN + en | 文本 | {{sets}} SETS | `lib/main.dart:18403:9` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 训练动态 | zh-CN + en | 文本 | 分享训练 | `lib/main.dart:18034:21` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 训练动态 | zh-CN + en | 文本 | 4:5 海报 | `lib/main.dart:18038:22` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 训练动态 | zh-CN + en | 文本 | 卡片样式 | `lib/main.dart:18078:19` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 训练动态 | zh-CN + en | 文本 | 品牌默认图 | `lib/main.dart:18102:41` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 训练动态 | zh-CN + en | 文本 | 动作插图 | `lib/main.dart:18113:41` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 训练动态 | zh-CN + en | 文本 | 选择照片 | `lib/main.dart:18125:53` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 训练动态 | zh-CN + en | 文本 | 自选照片仅用于本机分享，不会上传服务器。 | `lib/main.dart:18134:23` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 训练动态 | zh-CN + en | 文本 | 正在生成… | `lib/main.dart:18158:39` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 训练动态 | zh-CN + en | 文本 | 生成图片并分享 | `lib/main.dart:18158:49` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 训练动态 | zh-CN + en | 文本 | TRAINING / COMPLETE | `lib/main.dart:18254:21` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 训练动态 | zh-CN + en | 文本 | 完成一次自由训练 | `lib/main.dart:18319:29` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 训练动态 | zh-CN + en | 文本 | 把自律，练成日常。 | `lib/main.dart:18332:27` | 是（较长句子候选） |
+| [ ] | `Instance of '_Entry'.id` | 训练动态 | zh-CN + en | 文本 | {{index + 1}} | `lib/main.dart:18435:11` | 否 |
+| [ ] | `Instance of '_Entry'.id` | 训练动态 | zh-CN + en | 文本 | {{sets}} SETS | `lib/main.dart:18457:9` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 训练动态 | zh-CN + en | 轻提示正文 | 训练动态已发布 | `lib/product_features.dart:3345:60` | 是（状态反馈（轻提示）） |
 | [ ] | `Instance of '_Entry'.id` | 训练动态 | zh-CN + en | 文本 | 发布训练动态 | `lib/product_features.dart:3376:21` | 否 |
 | [ ] | `Instance of '_Entry'.id` | 训练动态 | zh-CN + en | 文本 | {{widget.record.effectiveSets}} 组 · {{widget.record.volume.toStringAsFixed(0)}} kg · {{widget.record.durationSeconds ~/ 60}} 分钟 | `lib/product_features.dart:3396:23` | 是（较长句子候选） |

@@ -289,19 +289,23 @@ void main() {
     expect(controller.routines, isEmpty);
   });
 
-  testWidgets('AI top level keeps only the Coach conversation', (tester) async {
-    final controller = AppController();
-    addTearDown(controller.dispose);
-    await tester.pumpWidget(KiloApp(initialController: controller));
-    await _openRoute(tester, 'AI');
+  testWidgets(
+    'AI keeps Coach conversation with a recognition entry, not legacy tabs',
+    (tester) async {
+      final controller = AppController();
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(KiloApp(initialController: controller));
+      await _openRoute(tester, 'AI');
 
-    expect(find.byKey(const Key('ai-page')), findsOneWidget);
-    expect(find.text('AI Coach'), findsOneWidget);
-    expect(find.byKey(const Key('ai-recognition')), findsNothing);
-    expect(find.byKey(const Key('ai-top-tabs')), findsNothing);
-    expect(find.byType(NavigationDestination), findsNWidgets(5));
-    expect(tester.takeException(), isNull);
-  });
+      expect(find.byKey(const Key('ai-page')), findsOneWidget);
+      expect(find.text('AI Coach'), findsOneWidget);
+      expect(find.byKey(const Key('ai-recognition-entry')), findsOneWidget);
+      expect(find.byKey(const Key('ai-recognition')), findsNothing);
+      expect(find.byKey(const Key('ai-top-tabs')), findsNothing);
+      expect(find.byType(NavigationDestination), findsNWidgets(5));
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('home keeps one today recommendation and gates the why link', (
     tester,

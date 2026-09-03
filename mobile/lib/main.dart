@@ -62,7 +62,7 @@ const setNoteContainer = Color(0xFFE5F5ED);
 const workoutNoteColor = Color(0xFF5F6673);
 const workoutNoteContainer = Color(0xFFF0F2F5);
 const kiloAppVersion = '1.0.32';
-const kiloAppBuild = '33';
+const kiloAppBuild = '34';
 const kiloAppVersionLabel = '$kiloAppVersion ($kiloAppBuild)';
 const kiloSourceCommit = String.fromEnvironment(
   'KILO_SOURCE_COMMIT',
@@ -12621,6 +12621,14 @@ class _AiPageState extends State<AiPage> {
     });
   }
 
+  void _openRecognition() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => _AiRecognitionRoute(controller: controller),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     scroll
@@ -12683,6 +12691,36 @@ class _AiPageState extends State<AiPage> {
                       icon: const Icon(Icons.settings_outlined),
                     ),
                   ],
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton.icon(
+                  key: const Key('ai-recognition-entry'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: primary,
+                    backgroundColor: paper,
+                    minimumSize: const Size(0, 44),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 4,
+                    ),
+                    side: BorderSide(
+                      color: primary.withValues(alpha: .28),
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(13),
+                    ),
+                  ),
+                  onPressed: _openRecognition,
+                  icon: const Icon(
+                    Icons.accessibility_new_rounded,
+                    size: 18,
+                  ),
+                  label: const Text('动作识别'),
                 ),
               ),
             ),
@@ -12843,6 +12881,22 @@ class _AiPageState extends State<AiPage> {
       ),
     );
   }
+}
+
+class _AiRecognitionRoute extends StatelessWidget {
+  const _AiRecognitionRoute({required this.controller});
+
+  final AppController controller;
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: controller,
+    builder: (context, _) => Scaffold(
+      key: const Key('ai-recognition-route'),
+      appBar: AppBar(title: const Text('动作识别')),
+      body: SafeArea(child: RecognitionPage(controller: controller)),
+    ),
+  );
 }
 
 class _AiToolStatus extends StatelessWidget {

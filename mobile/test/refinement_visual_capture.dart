@@ -143,6 +143,26 @@ void main() {
     });
   }
 
+  testWidgets('render restored AI recognition entry at 320dp', (tester) async {
+    _viewport(tester, 320);
+    final controller = AppController()..page = PageId.ai;
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      RepaintBoundary(
+        key: _capture,
+        child: KiloApp(initialController: controller),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await _snapshot(tester, 'ai-320');
+    await tester.tap(find.byKey(const Key('ai-recognition-entry')));
+    await tester.pumpAndSettle();
+    await _snapshot(tester, 'ai-recognition-320');
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('ai-page')), findsOneWidget);
+  });
+
   for (final width in [320.0, 375.0]) {
     testWidgets('render home muscle palette $width', (tester) async {
       _viewport(tester, width);
