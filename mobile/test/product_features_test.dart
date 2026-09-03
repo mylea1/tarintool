@@ -81,6 +81,48 @@ void main() {
   });
 
   test(
+    'weight entries preserve same-day readings and use the last daily value',
+    () async {
+      final controller = AppController();
+      addTearDown(controller.dispose);
+      final day = DateTime(2026, 9, 2);
+      await controller.addWeightEntry(
+        WeightEntry(
+          id: 'weight-morning',
+          recordedAt: DateTime(2026, 9, 2, 8),
+          weightKg: 72.8,
+        ),
+      );
+      await controller.addWeightEntry(
+        WeightEntry(
+          id: 'weight-evening',
+          recordedAt: DateTime(2026, 9, 2, 20),
+          weightKg: 72.4,
+          note: '训练后',
+        ),
+      );
+      expect(controller.weightForDay(day), hasLength(2));
+      expect(controller.weightEntriesBetween(day, day), hasLength(2));
+      expect(controller.weightEntries.first.id, 'weight-evening');
+
+      final preferences = await SharedPreferences.getInstance();
+      final encoded = preferences.getString('kilo.weight.v1.local');
+      expect(encoded, isNotNull);
+      final decoded = (jsonDecode(encoded!) as List)
+          .map((item) => WeightEntry.fromJson(Map<String, dynamic>.from(item)))
+          .toList();
+      expect(
+        decoded.map((item) => item.id),
+        containsAll(['weight-morning', 'weight-evening']),
+      );
+      expect(decoded.first.note, '训练后');
+
+      await controller.deleteWeightEntry('weight-morning');
+      expect(controller.weightForDay(day), hasLength(1));
+    },
+  );
+
+  test(
     'activity API keeps publish, like and emoji comment requests separate',
     () async {
       final requests = <http.Request>[];
@@ -166,6 +208,41 @@ void main() {
     expect(find.text('力量日'), findsOneWidget);
     expect(find.text('训练'), findsOneWidget);
     expect(find.text('饮食'), findsOneWidget);
+  });
+
+  testWidgets('nutrition overview keeps its six actions at compact width', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 812);
+    tester.view.devicePixelRatio = 1;
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    final controller = AppController();
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(home: NutritionCenterPage(controller: controller)),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    for (final key in const [
+      'nutrition-quick-breakfast',
+      'nutrition-quick-lunch',
+      'nutrition-quick-dinner',
+      'nutrition-quick-snack',
+      'nutrition-quick-water',
+      'nutrition-quick-weight',
+    ]) {
+      await tester.scrollUntilVisible(
+        find.byKey(Key(key)),
+        160,
+        scrollable: find.byType(Scrollable).last,
+      );
+      expect(find.byKey(Key(key)), findsOneWidget);
+    }
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('guide and theme pages expose compact self-service controls', (

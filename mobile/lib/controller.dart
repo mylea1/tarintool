@@ -495,6 +495,7 @@ class AppController extends ChangeNotifier {
       chat.clear();
       trainingProfile = const TrainingProfile();
       nutritionEntries.clear();
+      weightEntries.clear();
       gymLocations.clear();
       techniqueAssessments.clear();
       profileOnboardingCompleted = false;
@@ -1163,6 +1164,7 @@ class AppController extends ChangeNotifier {
       for (final item in const [
         ['trainingProfile', 'kilo.training-profile.v1.'],
         ['nutrition', 'kilo.nutrition.v1.'],
+        ['weight', 'kilo.weight.v1.'],
         ['trainingIntelligence', 'kilo.training-intelligence.v1.'],
       ]) {
         final key = '${item[1]}$userId';
@@ -1188,6 +1190,7 @@ class AppController extends ChangeNotifier {
         'kilo.training-profile.v1.$userId',
       );
       final rawNutrition = preferences.getString('kilo.nutrition.v1.$userId');
+      final rawWeight = preferences.getString('kilo.weight.v1.$userId');
       final rawIntelligence = preferences.getString(
         'kilo.training-intelligence.v1.$userId',
       );
@@ -1212,6 +1215,7 @@ class AppController extends ChangeNotifier {
             'trainingProfile': jsonDecode(rawProfile!),
           if (rawNutrition?.isNotEmpty == true)
             'nutrition': jsonDecode(rawNutrition!),
+          if (rawWeight?.isNotEmpty == true) 'weight': jsonDecode(rawWeight!),
           if (rawIntelligence?.isNotEmpty == true)
             'trainingIntelligence': jsonDecode(rawIntelligence!),
         },
@@ -1700,6 +1704,7 @@ class AppController extends ChangeNotifier {
   final List<String> routineFolders = [];
   final List<WorkoutRecord> history = [];
   final List<NutritionEntry> nutritionEntries = [];
+  final List<WeightEntry> weightEntries = [];
   final List<GymLocationProfile> gymLocations = [];
 
   /// Exercises the user explicitly follows on the statistics overview. An
@@ -1792,6 +1797,8 @@ class AppController extends ChangeNotifier {
       'kilo.training-profile.v1.${currentUser?.id ?? 'local'}';
   String get _nutritionStorageKey =>
       'kilo.nutrition.v1.${currentUser?.id ?? 'local'}';
+  String get _weightStorageKey =>
+      'kilo.weight.v1.${currentUser?.id ?? 'local'}';
   String get _intelligenceStorageKey =>
       'kilo.training-intelligence.v1.${currentUser?.id ?? 'local'}';
   String get _statisticsTrackingStorageKey =>
@@ -1892,6 +1899,23 @@ class AppController extends ChangeNotifier {
         }
       }
       nutritionEntries.sort((a, b) => b.recordedAt.compareTo(a.recordedAt));
+      final rawWeight = preferences.getString(_weightStorageKey);
+      weightEntries.clear();
+      if (rawWeight != null && rawWeight.isNotEmpty) {
+        final values = jsonDecode(rawWeight);
+        if (values is List) {
+          weightEntries.addAll(
+            values
+                .whereType<Map>()
+                .map(
+                  (item) =>
+                      WeightEntry.fromJson(Map<String, dynamic>.from(item)),
+                )
+                .where((item) => item.id.isNotEmpty && item.weightKg > 0),
+          );
+        }
+      }
+      weightEntries.sort((a, b) => b.recordedAt.compareTo(a.recordedAt));
       final rawIntelligence = preferences.getString(_intelligenceStorageKey);
       gymLocations.clear();
       techniqueAssessments.clear();
@@ -2079,6 +2103,71 @@ class AppController extends ChangeNotifier {
     _scheduleCloudBackup();
   }
 
+  Future<void> addWeightEntry(WeightEntry entry) async {
+    if (entry.weightKg <= 0) return;
+    weightEntries.insert(0, entry);
+    weightEntries.sort((a, b) => b.recordedAt.compareTo(a.recordedAt));
+    notifyListeners();
+    try {
+      await _persistWeight();
+    } catch (_) {
+      // Keep measurements usable when platform storage is unavailable.
+    }
+  }
+
+  Future<void> updateWeightEntry(WeightEntry entry) async {
+    if (entry.weightKg <= 0) return;
+    final index = weightEntries.indexWhere((item) => item.id == entry.id);
+    if (index < 0) return;
+    weightEntries[index] = entry;
+    weightEntries.sort((a, b) => b.recordedAt.compareTo(a.recordedAt));
+    notifyListeners();
+    try {
+      await _persistWeight();
+    } catch (_) {
+      // Keep measurements usable when platform storage is unavailable.
+    }
+  }
+
+  Future<void> deleteWeightEntry(String id) async {
+    weightEntries.removeWhere((item) => item.id == id);
+    notifyListeners();
+    try {
+      await _persistWeight();
+    } catch (_) {
+      // Keep the in-memory list usable when platform storage is unavailable.
+    }
+  }
+
+  Future<void> _persistWeight() async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString(
+      _weightStorageKey,
+      jsonEncode(weightEntries.map((item) => item.toJson()).toList()),
+    );
+    _scheduleCloudBackup();
+  }
+
+  List<WeightEntry> weightForDay(DateTime day) => weightEntries
+      .where(
+        (item) =>
+            item.recordedAt.year == day.year &&
+            item.recordedAt.month == day.month &&
+            item.recordedAt.day == day.day,
+      )
+      .toList(growable: false);
+
+  List<WeightEntry> weightEntriesBetween(DateTime start, DateTime end) {
+    final endOfDay = DateTime(end.year, end.month, end.day, 23, 59, 59, 999);
+    return weightEntries
+        .where(
+          (item) =>
+              !item.recordedAt.isBefore(start) &&
+              !item.recordedAt.isAfter(endOfDay),
+        )
+        .toList(growable: false);
+  }
+
   List<NutritionEntry> nutritionForDay(DateTime day) => nutritionEntries
       .where(
         (item) =>
@@ -2091,13 +2180,23 @@ class AppController extends ChangeNotifier {
   String nextMealLabelFor(DateTime day) =>
       '第${nutritionForDay(day).length + 1}餐';
 
-  double get todayCalories => nutritionForDay(
-    DateTime.now(),
-  ).fold(0, (sum, item) => sum + item.calories);
+  double get todayCalories => nutritionForDay(DateTime.now())
+      .where((item) => item.mealType != '饮水' && item.waterMl <= 0)
+      .fold(0, (sum, item) => sum + item.calories);
 
-  double get todayProtein => nutritionForDay(
-    DateTime.now(),
-  ).fold(0, (sum, item) => sum + item.proteinGrams);
+  double get todayProtein => nutritionForDay(DateTime.now())
+      .where((item) => item.mealType != '饮水' && item.waterMl <= 0)
+      .fold(0, (sum, item) => sum + item.proteinGrams);
+
+  double waterMlForDay(DateTime day) =>
+      nutritionForDay(day).fold(0, (sum, item) {
+        if (item.waterMl > 0) return sum + item.waterMl;
+        if (item.mealType != '饮水') return sum;
+        final match = RegExp(r'([0-9]+(?:\.[0-9]+)?)').firstMatch(item.amount);
+        return sum + (double.tryParse(match?.group(1) ?? '') ?? 0);
+      });
+
+  double get todayWaterMl => waterMlForDay(DateTime.now());
 
   double? get estimatedDailyCalories {
     final profile = trainingProfile;
@@ -5319,6 +5418,53 @@ class AppController extends ChangeNotifier {
       '当前地点没有的器械动作不得生成。说明漏练、未完成或临时加练后将如何重排，并为推荐给出简短原因。生成结构化计划卡，方便查看和保存。',
       includeTrainingContext: true,
     );
+  }
+
+  /// Ask the existing Coach service for a date-scoped nutrition summary.
+  /// Callers decide when to invoke this (the nutrition page only does so
+  /// after an explicit tap), and can provide a local fallback when the user
+  /// is offline or the Coach endpoint is not configured.
+  Future<String> requestNutritionAdvice(DateTime day) async {
+    if (entitlements?.isMember != true) {
+      throw const CoachApiException('membership_required');
+    }
+    if (scenario == 'offline') {
+      throw const CoachApiException('coach_network');
+    }
+    if (coachApi == null && aiBaseUrl.trim().isEmpty) {
+      throw const CoachApiException('coach_not_configured');
+    }
+    final entries = nutritionForDay(day);
+    final food = entries
+        .where((item) => item.mealType != '饮水' && item.waterMl <= 0)
+        .toList(growable: false);
+    final nutritionContext = [
+      '日期 ${day.toIso8601String().split('T').first}',
+      '热量 ${food.fold<double>(0, (sum, item) => sum + item.calories).toStringAsFixed(0)} kcal',
+      '蛋白质 ${food.fold<double>(0, (sum, item) => sum + item.proteinGrams).toStringAsFixed(1)} g',
+      '碳水 ${food.fold<double>(0, (sum, item) => sum + item.carbsGrams).toStringAsFixed(1)} g',
+      '脂肪 ${food.fold<double>(0, (sum, item) => sum + item.fatGrams).toStringAsFixed(1)} g',
+      '饮水 ${waterMlForDay(day).toStringAsFixed(0)} ml',
+      if (food.isNotEmpty)
+        '餐次 ${food.map((item) => '${item.mealType}:${item.foodName}').join('、')}',
+      if (history.any(
+        (record) =>
+            record.date.year == day.year &&
+            record.date.month == day.month &&
+            record.date.day == day.day,
+      ))
+        '当天完成了训练',
+    ].join('；');
+    final answer = await _requestCoachAnswer(
+      '请只根据给定的饮食、饮水、训练和用户目标数据，给出今天最重要的1到2条饮食建议。'
+      '不要编造没有提供的食物或数值，不要输出长篇免责声明；如果记录不足，明确告诉用户先记录什么。'
+      '数据：$nutritionContext',
+      includeTrainingContext: true,
+      selectedTrainingContext: nutritionContext,
+    );
+    final body = answer.body.trim();
+    if (body.isEmpty) throw const CoachApiException('coach_empty');
+    return body;
   }
 
   Future<void> sendWorkoutComparisonForReview(

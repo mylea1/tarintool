@@ -1034,6 +1034,7 @@ class NutritionEntry {
     this.photoPaths = const [],
     this.recognitionWarnings = const [],
     this.recognitionReviewed = false,
+    this.waterMl = 0,
   });
 
   final String id;
@@ -1049,6 +1050,11 @@ class NutritionEntry {
   final List<String> recognitionWarnings;
   final bool recognitionReviewed;
 
+  /// Water is stored alongside food entries so the date navigator and
+  /// timeline share one durable source of truth. Food entries keep the
+  /// default value of zero for backwards compatibility.
+  final double waterMl;
+
   Map<String, dynamic> toJson() => {
     'id': id,
     'recordedAt': recordedAt.toIso8601String(),
@@ -1063,6 +1069,7 @@ class NutritionEntry {
     if (recognitionWarnings.isNotEmpty)
       'recognitionWarnings': recognitionWarnings,
     'recognitionReviewed': recognitionReviewed,
+    if (waterMl > 0) 'waterMl': waterMl,
   };
 
   factory NutritionEntry.fromJson(Map<String, dynamic> json) => NutritionEntry(
@@ -1090,8 +1097,67 @@ class NutritionEntry {
             .toList(growable: false) ??
         const [],
     recognitionReviewed: json['recognitionReviewed'] == true,
+    waterMl: (json['waterMl'] as num?)?.toDouble() ?? 0,
   );
 }
+
+/// A durable body-weight measurement. Multiple measurements on the same day
+/// are intentionally preserved; charts may choose the last one for a daily
+/// point while history keeps every raw reading.
+@immutable
+class WeightEntry {
+  const WeightEntry({
+    required this.id,
+    required this.recordedAt,
+    required this.weightKg,
+    this.note = '',
+    this.bodyFatPercent,
+  });
+
+  final String id;
+  final DateTime recordedAt;
+  final double weightKg;
+  final String note;
+  final double? bodyFatPercent;
+
+  WeightEntry copyWith({
+    DateTime? recordedAt,
+    double? weightKg,
+    String? note,
+    Object? bodyFatPercent = _sentinel,
+  }) => WeightEntry(
+    id: id,
+    recordedAt: recordedAt ?? this.recordedAt,
+    weightKg: weightKg ?? this.weightKg,
+    note: note ?? this.note,
+    bodyFatPercent: identical(bodyFatPercent, _sentinel)
+        ? this.bodyFatPercent
+        : bodyFatPercent as double?,
+  );
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'recordedAt': recordedAt.toIso8601String(),
+    'weightKg': weightKg,
+    if (note.trim().isNotEmpty) 'note': note.trim(),
+    if (bodyFatPercent != null) 'bodyFatPercent': bodyFatPercent,
+  };
+
+  factory WeightEntry.fromJson(Map<String, dynamic> json) => WeightEntry(
+    id: json['id']?.toString() ?? '',
+    recordedAt:
+        DateTime.tryParse(json['recordedAt']?.toString() ?? '') ??
+        DateTime.now(),
+    weightKg:
+        (json['weightKg'] as num?)?.toDouble() ??
+        (json['weight'] as num?)?.toDouble() ??
+        0,
+    note: json['note']?.toString() ?? '',
+    bodyFatPercent: (json['bodyFatPercent'] as num?)?.toDouble(),
+  );
+}
+
+const _sentinel = Object();
 
 /// A compact, immutable snapshot shown in the friends feed after a user
 /// explicitly publishes a completed workout. Private notes and body metrics

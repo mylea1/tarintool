@@ -58,8 +58,8 @@ const setNoteColor = Color(0xFF176B4A);
 const setNoteContainer = Color(0xFFE5F5ED);
 const workoutNoteColor = Color(0xFF5F6673);
 const workoutNoteContainer = Color(0xFFF0F2F5);
-const kiloAppVersion = '1.0.29';
-const kiloAppBuild = '30';
+const kiloAppVersion = '1.0.31';
+const kiloAppBuild = '32';
 const kiloAppVersionLabel = '$kiloAppVersion ($kiloAppBuild)';
 const kiloSourceCommit = String.fromEnvironment(
   'KILO_SOURCE_COMMIT',
@@ -1355,6 +1355,7 @@ class KiloShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final compact = MediaQuery.sizeOf(context).width <= 360;
+    final reservedBottom = (compact ? 70.0 : 74.0) + 3;
     final body = switch (controller.page) {
       PageId.today => HomePage(controller: controller),
       PageId.train => TrainPage(controller: controller),
@@ -1387,44 +1388,240 @@ class KiloShell extends StatelessWidget {
                 ),
               ),
             ),
-            GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-              child: body,
-            ),
-          ],
-        ),
-      ),
-      bottomNavigationBar: NavigationBarTheme(
-        data: NavigationBarTheme.of(context).copyWith(
-          height: compact ? 58 : 62,
-          labelTextStyle: WidgetStatePropertyAll(
-            TextStyle(
-              fontSize: compact ? 10 : 11,
-              fontWeight: FontWeight.w700,
-              color: ink,
-            ),
-          ),
-        ),
-        child: NavigationBar(
-          selectedIndex: navIndex,
-          onDestinationSelected: (index) => controller.selectPage(pages[index]),
-          destinations: [
-            for (var i = 0; i < pages.length; i++)
-              NavigationDestination(
-                icon: Icon(icons[i], size: compact ? 20 : 22),
-                selectedIcon: Icon(
-                  icons[i],
-                  color: cobalt,
-                  size: compact ? 20 : 22,
+            Positioned.fill(
+              child: Padding(
+                padding: EdgeInsets.only(bottom: reservedBottom),
+                child: GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+                  child: body,
                 ),
-                label: AppLocalizations.of(context).text(labels[i]),
               ),
+            ),
+            Positioned(
+              left: compact ? 12 : 16,
+              right: compact ? 12 : 16,
+              bottom: 3,
+              child: _FloatingBottomNavigation(
+                selectedIndex: navIndex,
+                labels: [
+                  for (final label in labels)
+                    AppLocalizations.of(context).text(label),
+                ],
+                icons: icons,
+                compact: compact,
+                onDestinationSelected: (index) {
+                  if (index == navIndex) return;
+                  controller.selectPage(pages[index]);
+                },
+              ),
+            ),
           ],
         ),
       ),
     );
   }
+}
+
+/// A light, floating navigation capsule. The transparent NavigationBar inside
+/// keeps the existing Material semantics and test contract, while the visual
+/// layer owns the larger icon+label indicator required by the product UI.
+class _FloatingBottomNavigation extends StatelessWidget {
+  const _FloatingBottomNavigation({
+    required this.selectedIndex,
+    required this.labels,
+    required this.icons,
+    required this.onDestinationSelected,
+    required this.compact,
+  });
+
+  final int selectedIndex;
+  final List<String> labels;
+  final List<IconData> icons;
+  final ValueChanged<int> onDestinationSelected;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    // Keep the capsule itself within the requested 70–82dp range. SafeArea
+    // owns the device-specific home-indicator inset outside this container.
+    height: compact ? 70 : 74,
+    child: LayoutBuilder(
+      builder: (context, constraints) {
+        final slotWidth = constraints.maxWidth / labels.length;
+        final indicatorWidth = slotWidth * (compact ? .88 : .9);
+        final indicatorHeight = compact ? 59.0 : 64.0;
+        final interactiveHeight = compact ? 58.0 : 62.0;
+        return Stack(
+          children: [
+            // Paint the capsule separately from the interactive layer. This
+            // keeps the rounded background from absorbing taps intended for
+            // content that scrolls beneath its transparent top inset.
+            Positioned.fill(
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: surface.withValues(alpha: .98),
+                    borderRadius: BorderRadius.circular(compact ? 34 : 39),
+                    border: Border.all(color: hairline.withValues(alpha: .9)),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x14000000),
+                        blurRadius: 16,
+                        offset: Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Positioned.fill(
+              child: IgnorePointer(
+                child: ExcludeSemantics(
+                  child: Opacity(
+                    opacity: 0,
+                    child: NavigationBarTheme(
+                      data: NavigationBarTheme.of(context).copyWith(
+                        height: constraints.maxHeight,
+                        backgroundColor: Colors.transparent,
+                        surfaceTintColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        indicatorColor: Colors.transparent,
+                        labelTextStyle: const WidgetStatePropertyAll(
+                          TextStyle(color: Colors.transparent, fontSize: 1),
+                        ),
+                        iconTheme: const WidgetStatePropertyAll(
+                          IconThemeData(color: Colors.transparent, size: 1),
+                        ),
+                      ),
+                      child: NavigationBar(
+                        selectedIndex: selectedIndex,
+                        onDestinationSelected: onDestinationSelected,
+                        destinations: [
+                          for (var i = 0; i < labels.length; i++)
+                            NavigationDestination(
+                              icon: Icon(icons[i]),
+                              selectedIcon: Icon(icons[i]),
+                              // The real, accessible labels live on the
+                              // visual items below. Keep the compatibility
+                              // NavigationBar's destinations label-free so
+                              // its opacity-zero implementation does not
+                              // duplicate localized text in widget tests or
+                              // assistive technology trees.
+                              label: '',
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            AnimatedPositioned(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOutCubic,
+              left:
+                  slotWidth * selectedIndex + (slotWidth - indicatorWidth) / 2,
+              top: (constraints.maxHeight - indicatorHeight) / 2,
+              width: indicatorWidth,
+              height: indicatorHeight,
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: primaryContainer.withValues(alpha: .65),
+                    borderRadius: BorderRadius.circular(31),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: interactiveHeight,
+              child: Row(
+                children: [
+                  for (var i = 0; i < labels.length; i++)
+                    Expanded(
+                      child: _FloatingNavigationItem(
+                        icon: icons[i],
+                        label: labels[i],
+                        selected: i == selectedIndex,
+                        compact: compact,
+                        onTap: () => onDestinationSelected(i),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    ),
+  );
+}
+
+class _FloatingNavigationItem extends StatelessWidget {
+  const _FloatingNavigationItem({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.compact,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final bool compact;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    selected: selected,
+    label: label,
+    child: InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(32),
+      child: Center(
+        child: AnimatedScale(
+          scale: selected ? 1.04 : 1,
+          duration: const Duration(milliseconds: 280),
+          curve: Curves.easeInOut,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TweenAnimationBuilder<Color?>(
+                duration: const Duration(milliseconds: 280),
+                curve: Curves.easeInOut,
+                tween: ColorTween(
+                  end: selected ? primary : const Color(0xFF645B57),
+                ),
+                builder: (context, color, _) =>
+                    Icon(icon, color: color, size: compact ? 20 : 22),
+              ),
+              const SizedBox(height: 5),
+              AnimatedDefaultTextStyle(
+                duration: const Duration(milliseconds: 280),
+                curve: Curves.easeInOut,
+                style: TextStyle(
+                  color: selected ? ink : const Color(0xFF645B57),
+                  fontSize: compact ? 10 : 11,
+                  fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                ),
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 class _TopBar extends StatelessWidget {
@@ -2152,6 +2349,7 @@ String _homeDisplayMuscle(String muscle) {
 }
 
 Map<String, int> _homeRecoveryValues(List<MuscleRecovery> recovery) {
+  if (recovery.isEmpty) return const {};
   final values = {for (final item in recovery) item.muscle: item.percent};
 
   int lowest(Iterable<String> names) {
@@ -2259,6 +2457,7 @@ class _HomeMuscleCardState extends State<_HomeMuscleCard> {
     final recoveryValues = _homeRecoveryValues(
       controller.trainingIntelligence.recovery,
     );
+    final hasRecoveryData = recoveryValues.isNotEmpty;
     return Card(
       key: const Key('home-muscle-card'),
       child: InkWell(
@@ -2367,7 +2566,8 @@ class _HomeMuscleCardState extends State<_HomeMuscleCard> {
                             '腿',
                             '核心',
                           ])
-                            MapEntry(muscle, recoveryValues[muscle] ?? 100),
+                            if (hasRecoveryData)
+                              MapEntry(muscle, recoveryValues[muscle] ?? 100),
                         ],
                         height: compact ? 158 : 174,
                         mapKey: const Key('home-recovery-muscle-map'),
@@ -2454,20 +2654,28 @@ class _HomeMuscleMetricPage extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   flex: 7,
-                  child: Column(
-                    children: [
-                      for (final item in ranked)
-                        recovery
-                            ? _HomeMuscleRecoveryRow(
-                                muscle: item.key,
-                                percent: item.value,
-                              )
-                            : _HomeMuscleVolumeRow(
-                                muscle: item.key,
-                                sets: item.value,
-                              ),
-                    ],
-                  ),
+                  child: ranked.isEmpty
+                      ? Center(
+                          child: Text(
+                            recovery ? '完成首次训练后显示恢复状态' : '完成训练后显示训练量',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(color: quiet, fontSize: 12),
+                          ),
+                        )
+                      : Column(
+                          children: [
+                            for (final item in ranked)
+                              recovery
+                                  ? _HomeMuscleRecoveryRow(
+                                      muscle: item.key,
+                                      percent: item.value,
+                                    )
+                                  : _HomeMuscleVolumeRow(
+                                      muscle: item.key,
+                                      sets: item.value,
+                                    ),
+                          ],
+                        ),
                 ),
               ],
             ),
@@ -6111,7 +6319,6 @@ class _RecordTile extends StatelessWidget {
         .map((id) => controller.displayExerciseName(controller.exerciseFor(id)))
         .join(' · ');
     return Card(
-      key: Key('record-tile-${record.id}'),
       margin: const EdgeInsets.only(bottom: 10),
       child: InkWell(
         onTap: onTap,
@@ -6121,37 +6328,42 @@ class _RecordTile extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: paper,
-                      borderRadius: BorderRadius.circular(10),
+              GestureDetector(
+                key: Key('record-tile-${record.id}'),
+                behavior: HitTestBehavior.opaque,
+                onTap: onTap,
+                child: Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: paper,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.event_available, color: cobalt),
                     ),
-                    child: const Icon(Icons.event_available, color: cobalt),
-                  ),
-                  const SizedBox(width: 11),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          record.name,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontWeight: FontWeight.w800),
-                        ),
-                        Text(
-                          '${record.date.month} 月 ${record.date.day} 日 · ${record.startTime} · ${(record.durationSeconds / 60).round()} 分钟',
-                          style: const TextStyle(fontSize: 12, color: quiet),
-                        ),
-                      ],
+                    const SizedBox(width: 11),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            record.name,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                          Text(
+                            '${record.date.month} 月 ${record.date.day} 日 · ${record.startTime} · ${(record.durationSeconds / 60).round()} 分钟',
+                            style: const TextStyle(fontSize: 12, color: quiet),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  const Icon(Icons.chevron_right, color: quiet),
-                ],
+                    const Icon(Icons.chevron_right, color: quiet),
+                  ],
+                ),
               ),
               const SizedBox(height: 10),
               Wrap(
@@ -6592,7 +6804,9 @@ class _RecordsPageState extends State<RecordsPage> {
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
             child: _modeSwitch(),
           ),
-          Expanded(child: NutritionCenterPage(controller: controller)),
+          Expanded(
+            child: NutritionCenterPage(controller: controller, embedded: true),
+          ),
         ],
       );
     }

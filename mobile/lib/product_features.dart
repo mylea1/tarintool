@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -20,6 +21,21 @@ bool _sameDay(DateTime first, DateTime second) =>
 
 String _dateText(DateTime value) =>
     '${value.year}年${value.month}月${value.day}日';
+
+IconData _mealIcon(String mealType) => switch (mealType) {
+  '早餐' => Icons.free_breakfast_outlined,
+  '午餐' => Icons.ramen_dining_outlined,
+  '晚餐' => Icons.nightlight_outlined,
+  '加餐' => Icons.bakery_dining_outlined,
+  _ => Icons.restaurant_menu_outlined,
+};
+
+double _waterAmount(NutritionEntry entry) {
+  if (entry.waterMl > 0) return entry.waterMl;
+  if (entry.mealType != '饮水') return 0;
+  final match = RegExp(r'([0-9]+(?:\.[0-9]+)?)').firstMatch(entry.amount);
+  return double.tryParse(match?.group(1) ?? '') ?? 0;
+}
 
 Color _primary(BuildContext context) => Theme.of(context).colorScheme.primary;
 
@@ -49,9 +65,14 @@ String _shareStyleLabel(String style) => switch (style) {
 };
 
 class NutritionCenterPage extends StatefulWidget {
-  const NutritionCenterPage({super.key, required this.controller});
+  const NutritionCenterPage({
+    super.key,
+    required this.controller,
+    this.embedded = false,
+  });
 
   final AppController controller;
+  final bool embedded;
 
   @override
   State<NutritionCenterPage> createState() => _NutritionCenterPageState();
@@ -59,6 +80,8 @@ class NutritionCenterPage extends StatefulWidget {
 
 class _NutritionCenterPageState extends State<NutritionCenterPage> {
   late DateTime selectedDate;
+  final Map<DateTime, String> _adviceCache = {};
+  bool _generatingAdvice = false;
 
   @override
   void initState() {
@@ -86,173 +109,315 @@ class _NutritionCenterPageState extends State<NutritionCenterPage> {
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      showDragHandle: true,
       builder: (_) => _NutritionCaptureSheet(
         controller: widget.controller,
         selectedDate: selectedDate,
+        mealType: null,
       ),
     );
     if (mounted) setState(() {});
   }
 
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    key: const Key('nutrition-center-page'),
-    appBar: AppBar(
-      title: const Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.restaurant_menu_rounded),
-          SizedBox(width: 8),
-          Text('饮食'),
+  Future<void> _showCaptureFor(String mealType) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => _NutritionCaptureSheet(
+        controller: widget.controller,
+        selectedDate: selectedDate,
+        mealType: mealType,
+      ),
+    );
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _showWaterEntry() async {
+    final amount = TextEditingController(text: '500');
+    final value = await showDialog<double>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('记录饮水'),
+        content: TextField(
+          controller: amount,
+          autofocus: true,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: const InputDecoration(labelText: '饮水量 ml'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(
+              dialogContext,
+            ).pop(double.tryParse(amount.text.trim())),
+            child: const Text('保存'),
+          ),
         ],
       ),
-      actions: [
-        IconButton(
-          key: const Key('nutrition-open-calendar'),
-          tooltip: '训练与饮食日历',
-          onPressed: () => Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) =>
-                  UnifiedCalendarPage(controller: widget.controller),
-            ),
-          ),
-          icon: const Icon(Icons.calendar_month_outlined),
+    );
+    amount.dispose();
+    if (value == null || value <= 0 || !mounted) return;
+    final now = DateTime.now();
+    await widget.controller.addNutritionEntry(
+      NutritionEntry(
+        id: 'water-${now.microsecondsSinceEpoch}',
+        recordedAt: DateTime(
+          selectedDate.year,
+          selectedDate.month,
+          selectedDate.day,
+          now.hour,
+          now.minute,
         ),
-      ],
-    ),
-    body: SafeArea(
-      top: false,
-      child: AnimatedBuilder(
-        animation: widget.controller,
-        builder: (context, _) => ListView(
-          key: const Key('nutrition-center-list'),
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 32),
-          children: [
-            _NutritionDateNavigator(
-              selectedDate: selectedDate,
-              onSelected: (date) => setState(() => selectedDate = date),
-              onPrevious: () => _shiftDate(-7),
-              onNext: () => _shiftDate(7),
-              onPick: _pickDate,
+        mealType: '饮水',
+        foodName: '饮水',
+        calories: 0,
+        amount: '${value.toStringAsFixed(0)} ml',
+        waterMl: value,
+      ),
+    );
+  }
+
+  Future<void> _generateAdvice() async {
+    final day = _dayOnly(selectedDate);
+    if (_adviceCache.containsKey(day) || _generatingAdvice) return;
+    setState(() => _generatingAdvice = true);
+    // Keep this local and deterministic until the coach endpoint exposes a
+    // date-scoped nutrition prompt. It uses the same durable data the AI
+    // surface will receive, and never runs just by opening the page.
+    await Future<void>.delayed(const Duration(milliseconds: 180));
+    if (!mounted) return;
+    if (widget.controller.isAuthenticated) {
+      try {
+        final remote = await widget.controller.requestNutritionAdvice(day);
+        if (!mounted) return;
+        setState(() {
+          _adviceCache[day] = remote.trim();
+          _generatingAdvice = false;
+        });
+        return;
+      } catch (_) {
+        // A local, deterministic summary keeps the page useful when the
+        // Coach endpoint is temporarily unavailable.
+      }
+    }
+    final entries = widget.controller.nutritionForDay(day);
+    final calories = entries
+        .where((item) => _waterAmount(item) <= 0 && item.mealType != '饮水')
+        .fold<double>(0, (sum, item) => sum + item.calories);
+    final protein = entries
+        .where((item) => _waterAmount(item) <= 0 && item.mealType != '饮水')
+        .fold<double>(0, (sum, item) => sum + item.proteinGrams);
+    final calorieTarget = widget.controller.estimatedDailyCalories;
+    final proteinTarget = widget.controller.trainingProfile.weightKg == null
+        ? null
+        : widget.controller.trainingProfile.weightKg! * 1.6;
+    final lines = <String>[];
+    if (calories == 0 && protein == 0) {
+      lines.add('今天还没有饮食记录，先记录一餐，建议会更准确。');
+    } else if (proteinTarget != null && protein < proteinTarget * .8) {
+      lines.add(
+        '今天蛋白质摄入偏低，还差 ${(proteinTarget - protein).clamp(0, proteinTarget).toStringAsFixed(0)} g。',
+      );
+      lines.add('下一餐优先补充鸡蛋、鱼肉或奶制品等优质蛋白。');
+    } else if (calorieTarget != null && calories < calorieTarget * .8) {
+      lines.add('当前热量低于目标，训练日可适当补充碳水与能量。');
+    } else if (calorieTarget != null && calories > calorieTarget * 1.1) {
+      lines.add('当前热量略高于目标，后续餐次可以适当收窄份量。');
+    } else {
+      lines.add('当前摄入接近目标，继续保持记录节奏。');
+    }
+    final hasTraining = widget.controller.history.any(
+      (record) => _sameDay(record.date, day),
+    );
+    if (hasTraining && lines.length < 2) {
+      lines.add('今天有训练，训练前后可结合训练量安排适量碳水。');
+    }
+    setState(() {
+      _adviceCache[day] = lines.take(2).join(' ');
+      _generatingAdvice = false;
+    });
+  }
+
+  void _showAdviceDetails(String advice) {
+    showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('今日建议'),
+        content: Text(advice),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('知道了'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final content = AnimatedBuilder(
+      animation: widget.controller,
+      builder: (context, _) => ListView(
+        key: const Key('nutrition-center-list'),
+        padding: EdgeInsets.fromLTRB(16, widget.embedded ? 12 : 10, 16, 32),
+        children: [
+          _NutritionDateNavigator(
+            selectedDate: selectedDate,
+            onSelected: (date) => setState(() => selectedDate = date),
+            onPrevious: () => _shiftDate(-7),
+            onNext: () => _shiftDate(7),
+            onPick: _pickDate,
+          ),
+          const SizedBox(height: 12),
+          _NutritionAiAdviceModule(
+            controller: widget.controller,
+            date: selectedDate,
+            advice: _adviceCache[_dayOnly(selectedDate)],
+            generating: _generatingAdvice,
+            onGenerate: _generateAdvice,
+            onDetails: _showAdviceDetails,
+          ),
+          if (widget.controller
+              .nutritionForDay(selectedDate)
+              .where((item) => _waterAmount(item) <= 0 && item.mealType != '饮水')
+              .isEmpty)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                key: const Key('nutrition-empty-add'),
+                onPressed: _showCapture,
+                icon: const Icon(Icons.add_rounded, size: 17),
+                label: const Text('记录第一餐'),
+              ),
             ),
-            const SizedBox(height: 12),
-            _NutritionDaySummary(
-              controller: widget.controller,
-              date: selectedDate,
-            ),
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '饮食时间轴',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                ),
-                FilledButton.icon(
-                  key: const Key('nutrition-add-entry'),
-                  onPressed: _showCapture,
-                  icon: const Icon(Icons.add_rounded, size: 18),
-                  label: const Text('记录'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 9),
-            _NutritionTimeline(
-              controller: widget.controller,
-              date: selectedDate,
-              onAdd: _showCapture,
-            ),
-            const SizedBox(height: 12),
-            _NutritionAiAdviceModule(
-              controller: widget.controller,
-              date: selectedDate,
-            ),
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              key: const Key('nutrition-unified-calendar-button'),
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => UnifiedCalendarPage(
-                    controller: widget.controller,
-                    initialDate: selectedDate,
-                  ),
+          const SizedBox(height: 12),
+          _NutritionDaySummary(
+            controller: widget.controller,
+            date: selectedDate,
+          ),
+          const SizedBox(height: 12),
+          _NutritionQuickActions(
+            onMeal: _showCaptureFor,
+            onWater: _showWaterEntry,
+            onWeight: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => _WeightEntryPage(
+                  controller: widget.controller,
+                  initialDate: selectedDate,
                 ),
               ),
-              icon: const Icon(Icons.event_note_outlined),
-              label: const Text('查看训练与饮食日历'),
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 12),
+          _WeightOverviewCard(
+            controller: widget.controller,
+            date: selectedDate,
+            onViewAll: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => _WeightDetailsPage(
+                  controller: widget.controller,
+                  initialDate: selectedDate,
+                ),
+              ),
+            ),
+            onAdd: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => _WeightEntryPage(
+                  controller: widget.controller,
+                  initialDate: selectedDate,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '饮食时间轴',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ),
+              FilledButton.icon(
+                key: const Key('nutrition-add-entry'),
+                onPressed: _showCapture,
+                icon: const Icon(Icons.add_rounded, size: 18),
+                label: const Text('记录'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 9),
+          _NutritionTimeline(
+            controller: widget.controller,
+            date: selectedDate,
+            onAdd: _showCapture,
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            key: const Key('nutrition-unified-calendar-button'),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => UnifiedCalendarPage(
+                  controller: widget.controller,
+                  initialDate: selectedDate,
+                ),
+              ),
+            ),
+            icon: const Icon(Icons.event_note_outlined),
+            label: const Text('查看训练与饮食日历'),
+          ),
+        ],
       ),
-    ),
-    floatingActionButton: FloatingActionButton(
-      key: const Key('nutrition-floating-add'),
-      onPressed: _showCapture,
-      tooltip: '记录饮食',
-      child: const Icon(Icons.camera_alt_outlined),
-    ),
-  );
+    );
+    if (widget.embedded) {
+      return KeyedSubtree(
+        key: const Key('nutrition-center-page'),
+        child: content,
+      );
+    }
+    // Standalone entry (for example from the home nutrition card) uses the
+    // same full-page overview as Records → Diet. Keep actions in the page
+    // itself so there is no second “饮食” title bar or floating-only entry
+    // point competing with the timeline controls.
+    return Scaffold(
+      key: const Key('nutrition-center-page'),
+      body: SafeArea(child: content),
+    );
+  }
 }
 
 class _NutritionAiAdviceModule extends StatelessWidget {
   const _NutritionAiAdviceModule({
     required this.controller,
     required this.date,
+    required this.advice,
+    required this.generating,
+    required this.onGenerate,
+    required this.onDetails,
   });
 
   final AppController controller;
   final DateTime date;
+  final String? advice;
+  final bool generating;
+  final VoidCallback onGenerate;
+  final ValueChanged<String> onDetails;
 
   double _totalCalories(List<NutritionEntry> entries) =>
       entries.fold(0, (sum, entry) => sum + entry.calories);
 
-  double _totalProtein(List<NutritionEntry> entries) =>
-      entries.fold(0, (sum, entry) => sum + entry.proteinGrams);
-
-  String _advice({
-    required double calories,
-    required double protein,
-    required double? calorieTarget,
-    required double? proteinTarget,
-    required bool hasTraining,
-  }) {
-    final parts = <String>[];
-    if (calories == 0 && protein == 0) {
-      parts.add('今天还没有饮食记录，先记录一餐，建议会更准确。');
-    } else if (proteinTarget != null && protein < proteinTarget * .8) {
-      parts.add(
-        '距离蛋白质目标还差 ${(proteinTarget - protein).clamp(0, proteinTarget).toStringAsFixed(0)} g，下一餐优先补充高蛋白食物。',
-      );
-    } else if (calorieTarget != null && calories < calorieTarget * .8) {
-      parts.add('当前热量低于目标，按计划继续记录，训练日可适当补充碳水。');
-    } else if (calorieTarget != null && calories > calorieTarget * 1.1) {
-      parts.add('当前热量高于目标，后续餐次可适当收窄份量。');
-    } else {
-      parts.add('当前摄入接近目标，继续保持记录节奏。');
-    }
-    if (hasTraining) {
-      if (calorieTarget != null && calories < calorieTarget * .8) {
-        parts.add('训练 × 饮食：当天有训练，训练前后适当补充能量。');
-      } else {
-        parts.add('训练 × 饮食：当天有训练，可结合训练量继续观察摄入。');
-      }
-    }
-    return parts.join(' ');
-  }
-
   @override
   Widget build(BuildContext context) {
     final entries = controller.nutritionForDay(date);
-    final calories = _totalCalories(entries);
-    final protein = _totalProtein(entries);
-    final calorieTarget = controller.estimatedDailyCalories;
-    final weight = controller.trainingProfile.weightKg;
-    final proteinTarget = weight == null ? null : weight * 1.6;
-    final hasTraining = controller.history.any(
-      (record) => _sameDay(record.date, date),
-    );
+    final foodEntries = entries
+        .where((item) => _waterAmount(item) <= 0 && item.mealType != '饮水')
+        .toList(growable: false);
+    final calories = _totalCalories(foodEntries);
+    final hasAdvice = advice != null && advice!.trim().isNotEmpty;
     final isMember = controller.entitlements?.isMember == true;
     if (!isMember) {
       return Card(
@@ -285,24 +450,31 @@ class _NutritionAiAdviceModule extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 7),
               const Text(
-                '根据当天热量、蛋白质和训练记录给出下一餐建议。',
+                '根据今天的饮食与训练数据生成专属建议。',
                 style: TextStyle(color: Color(0xFF756156), fontSize: 12),
               ),
-              const SizedBox(height: 8),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: OutlinedButton.icon(
-                  key: const Key('nutrition-ai-advice-paywall'),
-                  onPressed: () => showMembershipPaywall(
-                    context,
-                    controller: controller,
-                    reason: MembershipPaywallReason.premiumFeature,
+              const SizedBox(height: 7),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '已记录 ${calories.toStringAsFixed(0)} kcal',
+                      style: TextStyle(color: _muted(context), fontSize: 12),
+                    ),
                   ),
-                  icon: const Icon(Icons.lock_open_outlined, size: 17),
-                  label: const Text('解锁 PRO 建议'),
-                ),
+                  OutlinedButton.icon(
+                    key: const Key('nutrition-ai-advice-paywall'),
+                    onPressed: () => showMembershipPaywall(
+                      context,
+                      controller: controller,
+                      reason: MembershipPaywallReason.premiumFeature,
+                    ),
+                    icon: const Icon(Icons.lock_open_outlined, size: 16),
+                    label: const Text('解锁建议'),
+                  ),
+                ],
               ),
             ],
           ),
@@ -313,60 +485,111 @@ class _NutritionAiAdviceModule extends StatelessWidget {
       key: const Key('nutrition-ai-advice'),
       color: _primaryContainer(context).withValues(alpha: .3),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(13, 12, 13, 13),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.auto_awesome_rounded,
-                  size: 19,
-                  color: _primary(context),
-                ),
-                const SizedBox(width: 7),
-                const Expanded(
-                  child: Text(
-                    'AI 今日饮食建议',
-                    style: TextStyle(fontWeight: FontWeight.w900),
-                  ),
-                ),
-                _NutritionProPill(),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 14,
-              runSpacing: 5,
-              children: [
-                Text('当前 ${calories.toStringAsFixed(0)} kcal'),
-                Text('蛋白质 ${protein.toStringAsFixed(0)} g'),
-              ],
-            ),
-            const SizedBox(height: 5),
-            Text(
-              calorieTarget == null
-                  ? '热量目标：完善身高、体重、年龄后显示'
-                  : '热量目标：${calorieTarget.toStringAsFixed(0)} kcal',
-              style: TextStyle(color: _muted(context), fontSize: 12),
-            ),
-            Text(
-              proteinTarget == null
-                  ? '蛋白质目标：完善体重后显示'
-                  : '蛋白质目标：${proteinTarget.toStringAsFixed(0)} g（按体重估算）',
-              style: TextStyle(color: _muted(context), fontSize: 12),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _advice(
-                calories: calories,
-                protein: protein,
-                calorieTarget: calorieTarget,
-                proteinTarget: proteinTarget,
-                hasTraining: hasTraining,
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: _surface(context),
+                borderRadius: BorderRadius.circular(14),
               ),
-              key: const Key('nutrition-ai-advice-content'),
-              style: const TextStyle(height: 1.4, fontWeight: FontWeight.w700),
+              child: Icon(
+                Icons.lightbulb_outline_rounded,
+                color: _primary(context),
+              ),
+            ),
+            const SizedBox(width: 11),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Text(
+                        '今日建议',
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(width: 7),
+                      _NutritionProPill(),
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    '根据今天的饮食与训练数据\n生成专属饮食建议',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: _muted(context), fontSize: 12),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    '已记录 ${calories.toStringAsFixed(0)} kcal',
+                    style: TextStyle(color: _muted(context), fontSize: 12),
+                  ),
+                  if (controller.trainingProfile.weightKg != null)
+                    Text(
+                      '蛋白质目标：${(controller.trainingProfile.weightKg! * 1.6).toStringAsFixed(0)} g',
+                      style: TextStyle(color: _muted(context), fontSize: 11),
+                    ),
+                  if (hasAdvice) ...[
+                    const SizedBox(height: 7),
+                    Text(
+                      advice!,
+                      key: const Key('nutrition-ai-advice-content'),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        height: 1.35,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton(
+                        onPressed: () => onDetails(advice!),
+                        style: TextButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          minimumSize: const Size(44, 32),
+                        ),
+                        child: const Text('查看详情'),
+                      ),
+                    ),
+                  ] else ...[
+                    const SizedBox(height: 7),
+                    Text(
+                      '训练 × 饮食数据会用于生成建议',
+                      key: const Key('nutrition-ai-advice-content'),
+                      style: TextStyle(color: _muted(context), fontSize: 12),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            FilledButton(
+              key: const Key('nutrition-ai-advice-generate'),
+              onPressed: generating ? null : onGenerate,
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 11,
+                  vertical: 9,
+                ),
+                minimumSize: const Size(0, 38),
+              ),
+              child: generating
+                  ? const SizedBox.square(
+                      dimension: 17,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Text(hasAdvice ? '已生成' : '生成建议'),
             ),
           ],
         ),
@@ -548,24 +771,37 @@ class _NutritionDaySummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final entries = controller.nutritionForDay(date);
+    final foodEntries = entries
+        .where((item) => _waterAmount(item) <= 0 && item.mealType != '饮水')
+        .toList(growable: false);
     final calories = entries.fold<double>(
       0,
-      (sum, item) => sum + item.calories,
+      (sum, item) => sum + (_waterAmount(item) > 0 ? 0 : item.calories),
     );
-    final protein = entries.fold<double>(
+    final protein = foodEntries.fold<double>(
       0,
       (sum, item) => sum + item.proteinGrams,
     );
-    final carbs = entries.fold<double>(0, (sum, item) => sum + item.carbsGrams);
-    final fat = entries.fold<double>(0, (sum, item) => sum + item.fatGrams);
-    final target = _sameDay(date, DateTime.now())
-        ? controller.estimatedDailyCalories
-        : null;
+    final carbs = foodEntries.fold<double>(
+      0,
+      (sum, item) => sum + item.carbsGrams,
+    );
+    final fat = foodEntries.fold<double>(0, (sum, item) => sum + item.fatGrams);
+    final water = entries.fold<double>(
+      0,
+      (sum, item) => sum + _waterAmount(item),
+    );
+    final calorieTarget = controller.estimatedDailyCalories;
+    final proteinTarget = controller.trainingProfile.weightKg == null
+        ? null
+        : controller.trainingProfile.weightKg! * 1.6;
+    const carbsTarget = 320.0;
+    const fatTarget = 80.0;
+    const waterTarget = 2500.0;
     return Card(
       key: const Key('nutrition-day-summary'),
-      color: _primaryContainer(context).withValues(alpha: .38),
       child: Padding(
-        padding: const EdgeInsets.all(15),
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 15),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -573,48 +809,521 @@ class _NutritionDaySummary extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Expanded(
-                  child: Text(
-                    '${calories.toStringAsFixed(0)} kcal',
-                    style: Theme.of(context).textTheme.headlineMedium,
+                  child: RichText(
+                    text: TextSpan(
+                      style: DefaultTextStyle.of(context).style,
+                      children: [
+                        TextSpan(
+                          text: calories.toStringAsFixed(0),
+                          style: const TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        TextSpan(
+                          text: calorieTarget == null
+                              ? ' kcal'
+                              : ' / ${calorieTarget.toStringAsFixed(0)} kcal',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: _muted(context),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 Text(
-                  '${entries.length} 次记录',
+                  '${foodEntries.length} 次记录',
                   style: TextStyle(color: _muted(context), fontSize: 12),
                 ),
               ],
             ),
-            if (target != null) ...[
-              const SizedBox(height: 3),
-              Text(
-                '目标约 ${target.toStringAsFixed(0)} kcal',
-                style: TextStyle(color: _muted(context), fontSize: 12),
+            const SizedBox(height: 14),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final compact = constraints.maxWidth < 350;
+                final metrics = [
+                  _NutritionRingMetric(
+                    label: '蛋白质',
+                    unit: 'g',
+                    value: protein,
+                    target: proteinTarget,
+                    color: const Color(0xFFE99A49),
+                    keyName: 'nutrition-ring-protein',
+                  ),
+                  _NutritionRingMetric(
+                    label: '碳水',
+                    unit: 'g',
+                    value: carbs,
+                    target: carbsTarget,
+                    color: const Color(0xFF6E9FE4),
+                    keyName: 'nutrition-ring-carbs',
+                  ),
+                  _NutritionRingMetric(
+                    label: '脂肪',
+                    unit: 'g',
+                    value: fat,
+                    target: fatTarget,
+                    color: const Color(0xFFE98282),
+                    keyName: 'nutrition-ring-fat',
+                  ),
+                  _NutritionRingMetric(
+                    label: '饮水',
+                    unit: 'ml',
+                    value: water,
+                    target: waterTarget,
+                    color: const Color(0xFF46B8B3),
+                    keyName: 'nutrition-ring-water',
+                  ),
+                ];
+                return Row(
+                  children: [
+                    for (final metric in metrics)
+                      Expanded(
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: compact ? 0 : 2,
+                          ),
+                          child: metric,
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NutritionRingMetric extends StatelessWidget {
+  const _NutritionRingMetric({
+    required this.label,
+    required this.unit,
+    required this.value,
+    required this.target,
+    required this.color,
+    required this.keyName,
+  });
+
+  final String label;
+  final String unit;
+  final double value;
+  final double? target;
+  final Color color;
+  final String keyName;
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = target == null || target! <= 0
+        ? 0.0
+        : (value / target!).clamp(0.0, 1.0);
+    final targetLabel = target == null ? '—' : target!.toStringAsFixed(0);
+    return Column(
+      key: Key(keyName),
+      children: [
+        SizedBox(
+          width: 67,
+          height: 67,
+          child: CustomPaint(
+            painter: _NutritionRingPainter(progress: progress, color: color),
+            child: Center(
+              child: RichText(
+                textAlign: TextAlign.center,
+                text: TextSpan(
+                  style: DefaultTextStyle.of(context).style,
+                  children: [
+                    TextSpan(
+                      text: value.toStringAsFixed(0),
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    TextSpan(
+                      text: '\n/$targetLabel',
+                      style: TextStyle(fontSize: 10, color: _muted(context)),
+                    ),
+                  ],
+                ),
               ),
-            ],
-            const SizedBox(height: 13),
+            ),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          '$label ($unit)',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          target == null ? '完善目标' : '${(progress * 100).round()}%',
+          style: TextStyle(color: _muted(context), fontSize: 10),
+        ),
+      ],
+    );
+  }
+}
+
+class _NutritionRingPainter extends CustomPainter {
+  const _NutritionRingPainter({required this.progress, required this.color});
+
+  final double progress;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = size.center(Offset.zero);
+    final radius = math.min(size.width, size.height) / 2 - 5;
+    final track = Paint()
+      ..color = color.withValues(alpha: .18)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 5;
+    final active = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 5;
+    canvas.drawCircle(center, radius, track);
+    if (progress > 0) {
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        -math.pi / 2,
+        math.pi * 2 * progress,
+        false,
+        active,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _NutritionRingPainter oldDelegate) =>
+      oldDelegate.progress != progress || oldDelegate.color != color;
+}
+
+class _NutritionQuickActions extends StatelessWidget {
+  const _NutritionQuickActions({
+    required this.onMeal,
+    required this.onWater,
+    required this.onWeight,
+  });
+
+  final ValueChanged<String> onMeal;
+  final VoidCallback onWater;
+  final VoidCallback onWeight;
+
+  @override
+  Widget build(BuildContext context) {
+    final actions = [
+      _NutritionQuickAction(
+        keyName: 'nutrition-quick-breakfast',
+        label: '早餐',
+        icon: Icons.free_breakfast_outlined,
+        onTap: () => onMeal('早餐'),
+      ),
+      _NutritionQuickAction(
+        keyName: 'nutrition-quick-lunch',
+        label: '午餐',
+        icon: Icons.ramen_dining_outlined,
+        onTap: () => onMeal('午餐'),
+      ),
+      _NutritionQuickAction(
+        keyName: 'nutrition-quick-dinner',
+        label: '晚餐',
+        icon: Icons.nightlight_outlined,
+        onTap: () => onMeal('晚餐'),
+      ),
+      _NutritionQuickAction(
+        keyName: 'nutrition-quick-snack',
+        label: '加餐',
+        icon: Icons.bakery_dining_outlined,
+        onTap: () => onMeal('加餐'),
+      ),
+      _NutritionQuickAction(
+        keyName: 'nutrition-quick-water',
+        label: '饮水',
+        icon: Icons.water_drop_outlined,
+        onTap: onWater,
+      ),
+      KeyedSubtree(
+        key: const Key('nutrition-log-weight'),
+        child: _NutritionQuickAction(
+          keyName: 'nutrition-quick-weight',
+          label: '记体重',
+          icon: Icons.monitor_weight_outlined,
+          onTap: onWeight,
+        ),
+      ),
+    ];
+    return GridView.count(
+      key: const Key('nutrition-quick-actions'),
+      crossAxisCount: 3,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      mainAxisSpacing: 7,
+      crossAxisSpacing: 7,
+      childAspectRatio: 2.45,
+      children: actions,
+    );
+  }
+}
+
+class _NutritionQuickAction extends StatelessWidget {
+  const _NutritionQuickAction({
+    required this.keyName,
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final String keyName;
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: _primaryContainer(context).withValues(alpha: .26),
+    borderRadius: BorderRadius.circular(14),
+    child: InkWell(
+      key: Key(keyName),
+      borderRadius: BorderRadius.circular(14),
+      onTap: onTap,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 20, color: _primary(context)),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _WeightPoint {
+  const _WeightPoint(this.day, this.value);
+
+  final DateTime day;
+  final double value;
+}
+
+List<_WeightPoint> _dailyWeightPoints(
+  AppController controller, {
+  required DateTime start,
+  required DateTime end,
+}) {
+  final byDay = <DateTime, WeightEntry>{};
+  for (final entry in controller.weightEntriesBetween(start, end)) {
+    final day = _dayOnly(entry.recordedAt);
+    final previous = byDay[day];
+    if (previous == null || entry.recordedAt.isAfter(previous.recordedAt)) {
+      byDay[day] = entry;
+    }
+  }
+  final points =
+      byDay.entries
+          .map((item) => _WeightPoint(item.key, item.value.weightKg))
+          .toList()
+        ..sort((a, b) => a.day.compareTo(b.day));
+  return points;
+}
+
+class _WeightOverviewCard extends StatefulWidget {
+  const _WeightOverviewCard({
+    required this.controller,
+    required this.date,
+    required this.onViewAll,
+    required this.onAdd,
+  });
+
+  final AppController controller;
+  final DateTime date;
+  final VoidCallback onViewAll;
+  final VoidCallback onAdd;
+
+  @override
+  State<_WeightOverviewCard> createState() => _WeightOverviewCardState();
+}
+
+class _WeightOverviewCardState extends State<_WeightOverviewCard> {
+  String range = '7';
+
+  List<_WeightPoint> get points {
+    final end = _dayOnly(widget.date);
+    final days = int.parse(range);
+    return _dailyWeightPoints(
+      widget.controller,
+      start: end.subtract(Duration(days: days - 1)),
+      end: end,
+    );
+  }
+
+  WeightEntry? get latest {
+    final sorted =
+        widget.controller.weightEntries
+            .where(
+              (item) => !item.recordedAt.isAfter(
+                DateTime(
+                  widget.date.year,
+                  widget.date.month,
+                  widget.date.day,
+                  23,
+                  59,
+                  59,
+                ),
+              ),
+            )
+            .toList()
+          ..sort((a, b) => b.recordedAt.compareTo(a.recordedAt));
+    return sorted.firstOrNull;
+  }
+
+  WeightEntry? get previous {
+    final current = latest;
+    if (current == null) return null;
+    final sorted =
+        widget.controller.weightEntries
+            .where((item) => item.recordedAt.isBefore(current.recordedAt))
+            .toList()
+          ..sort((a, b) => b.recordedAt.compareTo(a.recordedAt));
+    return sorted.firstOrNull;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final current = latest;
+    final before = previous;
+    final chartPoints = points;
+    final first = chartPoints.firstOrNull;
+    final sevenDayDelta = first == null || current == null
+        ? null
+        : current.weightKg - first.value;
+    return Card(
+      key: const Key('nutrition-weight-card'),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 13),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             Row(
               children: [
-                Expanded(
-                  child: _MacroMetric(
-                    label: '蛋白质',
-                    value: protein,
-                    color: _primary(context),
+                const Expanded(
+                  child: Text(
+                    '体重变化',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
                   ),
                 ),
-                Expanded(
-                  child: _MacroMetric(
-                    label: '碳水',
-                    value: carbs,
-                    color: _primary(context).withValues(alpha: .72),
+                TextButton(
+                  onPressed: widget.onViewAll,
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    minimumSize: const Size(70, 36),
                   ),
+                  child: const Text('查看全部  ›'),
                 ),
-                Expanded(
-                  child: _MacroMetric(
-                    label: '脂肪',
-                    value: fat,
-                    color: _primary(context).withValues(alpha: .52),
+              ],
+            ),
+            if (current == null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(0, 6, 0, 12),
+                child: Row(
+                  children: [
+                    Icon(Icons.monitor_weight_outlined, color: _muted(context)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '暂无体重记录，记录一次后可查看趋势。',
+                        style: TextStyle(color: _muted(context)),
+                      ),
+                    ),
+                    OutlinedButton(
+                      key: const Key('nutrition-weight-empty-add'),
+                      onPressed: widget.onAdd,
+                      child: const Text('记录'),
+                    ),
+                  ],
+                ),
+              )
+            else ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: _WeightSummaryMetric(
+                      label: '当前体重',
+                      value: '${current.weightKg.toStringAsFixed(1)} kg',
+                    ),
                   ),
-                ),
+                  Expanded(
+                    child: _WeightSummaryMetric(
+                      label: '较上次',
+                      value: before == null
+                          ? '—'
+                          : _signedWeight(current.weightKg - before.weightKg),
+                      color: _trendColor(
+                        context,
+                        before == null ? 0 : current.weightKg - before.weightKg,
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: _WeightSummaryMetric(
+                      label: '近${range == '7' ? '7' : range}天',
+                      value: sevenDayDelta == null
+                          ? '—'
+                          : _signedWeight(sevenDayDelta),
+                      color: _trendColor(context, sevenDayDelta ?? 0),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              _WeightChart(
+                key: const Key('nutrition-weight-chart'),
+                points: chartPoints,
+              ),
+            ],
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                for (final value in const ['7', '30', '90'])
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 3),
+                      child: OutlinedButton(
+                        key: Key('nutrition-weight-range-$value'),
+                        onPressed: () => setState(() => range = value),
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size(0, 34),
+                          padding: EdgeInsets.zero,
+                          backgroundColor: range == value
+                              ? _primaryContainer(
+                                  context,
+                                ).withValues(alpha: .45)
+                              : null,
+                          side: BorderSide(
+                            color: range == value
+                                ? _primary(context)
+                                : _primaryContainer(context),
+                          ),
+                        ),
+                        child: Text('$value天'),
+                      ),
+                    ),
+                  ),
               ],
             ),
           ],
@@ -624,42 +1333,520 @@ class _NutritionDaySummary extends StatelessWidget {
   }
 }
 
-class _MacroMetric extends StatelessWidget {
-  const _MacroMetric({
+String _signedWeight(double value) =>
+    '${value >= 0 ? '+' : ''}${value.toStringAsFixed(1)} kg';
+
+Color _trendColor(BuildContext context, double value) => value == 0
+    ? _muted(context)
+    : value < 0
+    ? const Color(0xFF21845A)
+    : _primary(context);
+
+class _WeightSummaryMetric extends StatelessWidget {
+  const _WeightSummaryMetric({
     required this.label,
     required this.value,
-    required this.color,
+    this.color,
   });
 
   final String label;
-  final double value;
-  final Color color;
+  final String value;
+  final Color? color;
 
   @override
-  Widget build(BuildContext context) => Row(
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Container(
-        width: 4,
-        height: 32,
-        decoration: BoxDecoration(
+      Text(label, style: TextStyle(color: _muted(context), fontSize: 11)),
+      const SizedBox(height: 3),
+      Text(
+        value,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
           color: color,
-          borderRadius: BorderRadius.circular(4),
+          fontSize: 17,
+          fontWeight: FontWeight.w900,
         ),
       ),
-      const SizedBox(width: 8),
-      Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    ],
+  );
+}
+
+class _WeightChart extends StatelessWidget {
+  const _WeightChart({super.key, required this.points});
+
+  final List<_WeightPoint> points;
+
+  @override
+  Widget build(BuildContext context) {
+    if (points.isEmpty) {
+      return SizedBox(
+        height: 132,
+        child: Center(
+          child: Text('该时间段暂无数据', style: TextStyle(color: _muted(context))),
+        ),
+      );
+    }
+    return Column(
+      children: [
+        SizedBox(
+          height: 132,
+          width: double.infinity,
+          child: CustomPaint(painter: _WeightChartPainter(points)),
+        ),
+        const SizedBox(height: 2),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label, style: TextStyle(color: _muted(context), fontSize: 11)),
-            Text(
-              '${value.toStringAsFixed(0)} g',
-              style: const TextStyle(fontWeight: FontWeight.w900),
+            for (final point in _chartLabels(points))
+              Text(
+                '${point.day.month}/${point.day.day}',
+                style: TextStyle(color: _muted(context), fontSize: 10),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+List<_WeightPoint> _chartLabels(List<_WeightPoint> points) {
+  if (points.length <= 4) return points;
+  return [points.first, points[points.length ~/ 2], points.last];
+}
+
+class _WeightChartPainter extends CustomPainter {
+  _WeightChartPainter(this.points);
+
+  final List<_WeightPoint> points;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const padding = EdgeInsets.fromLTRB(7, 10, 7, 8);
+    final chart = Rect.fromLTWH(
+      padding.left,
+      padding.top,
+      size.width - padding.left - padding.right,
+      size.height - padding.top - padding.bottom,
+    );
+    final values = points.map((point) => point.value).toList();
+    final minValue = values.reduce(math.min);
+    final maxValue = values.reduce(math.max);
+    final span = math.max(maxValue - minValue, .8);
+    final line = Paint()
+      ..color = const Color(0xFFE96A45)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.1
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    final grid = Paint()
+      ..color = const Color(0xFFEFE3DA)
+      ..strokeWidth = 1;
+    for (var index = 0; index < 3; index++) {
+      final y = chart.top + chart.height * index / 2;
+      canvas.drawLine(Offset(chart.left, y), Offset(chart.right, y), grid);
+    }
+    Offset pointAt(int index) {
+      final x = points.length == 1
+          ? chart.center.dx
+          : chart.left + chart.width * index / (points.length - 1);
+      final y =
+          chart.bottom -
+          ((points[index].value - minValue) / span) * chart.height;
+      return Offset(x, y);
+    }
+
+    final path = Path()..moveTo(pointAt(0).dx, pointAt(0).dy);
+    for (var index = 1; index < points.length; index++) {
+      path.lineTo(pointAt(index).dx, pointAt(index).dy);
+    }
+    canvas.drawPath(path, line);
+    for (var index = 0; index < points.length; index++) {
+      final point = pointAt(index);
+      final isLast = index == points.length - 1;
+      canvas.drawCircle(
+        point,
+        isLast ? 5 : 3.5,
+        Paint()
+          ..color = isLast ? Colors.white : line.color
+          ..style = isLast ? PaintingStyle.fill : PaintingStyle.fill,
+      );
+      if (isLast) {
+        canvas.drawCircle(
+          point,
+          5,
+          Paint()
+            ..color = line.color
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 2,
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _WeightChartPainter oldDelegate) =>
+      oldDelegate.points != points;
+}
+
+class _WeightDetailsPage extends StatefulWidget {
+  const _WeightDetailsPage({
+    required this.controller,
+    required this.initialDate,
+  });
+
+  final AppController controller;
+  final DateTime initialDate;
+
+  @override
+  State<_WeightDetailsPage> createState() => _WeightDetailsPageState();
+}
+
+class _WeightDetailsPageState extends State<_WeightDetailsPage> {
+  String range = 'all';
+
+  AppController get controller => widget.controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      key: const Key('weight-details-page'),
+      appBar: AppBar(
+        title: const Text('体重记录'),
+        actions: [
+          IconButton(
+            tooltip: '新增体重',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => _WeightEntryPage(
+                  controller: controller,
+                  initialDate: widget.initialDate,
+                ),
+              ),
+            ),
+            icon: const Icon(Icons.add_rounded),
+          ),
+        ],
+      ),
+      body: SafeArea(
+        top: false,
+        child: AnimatedBuilder(
+          animation: controller,
+          builder: (context, _) {
+            final entries = [...controller.weightEntries]
+              ..sort((a, b) => b.recordedAt.compareTo(a.recordedAt));
+            final current = entries.firstOrNull;
+            final initial = entries.isEmpty ? null : entries.last;
+            final total = current == null || initial == null
+                ? null
+                : current.weightKg - initial.weightKg;
+            final now = _dayOnly(DateTime.now());
+            final chartStart = _weightRangeStart(range, entries, now);
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 30),
+              children: [
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Wrap(
+                      spacing: 18,
+                      runSpacing: 12,
+                      children: [
+                        _WeightSummaryMetric(
+                          label: '当前体重',
+                          value: current == null
+                              ? '—'
+                              : '${current.weightKg.toStringAsFixed(1)} kg',
+                        ),
+                        _WeightSummaryMetric(
+                          label: '初始体重',
+                          value: initial == null
+                              ? '—'
+                              : '${initial.weightKg.toStringAsFixed(1)} kg',
+                        ),
+                        _WeightSummaryMetric(
+                          label: '总变化',
+                          value: total == null ? '—' : _signedWeight(total),
+                          color: _trendColor(context, total ?? 0),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SegmentedButton<String>(
+                  key: const Key('weight-details-range'),
+                  segments: const [
+                    ButtonSegment(value: '7', label: Text('7天')),
+                    ButtonSegment(value: '30', label: Text('30天')),
+                    ButtonSegment(value: '90', label: Text('90天')),
+                    ButtonSegment(value: 'all', label: Text('全部')),
+                  ],
+                  selected: {range},
+                  onSelectionChanged: (value) =>
+                      setState(() => range = value.first),
+                ),
+                const SizedBox(height: 12),
+                _WeightChart(
+                  key: const Key('weight-details-chart'),
+                  points: _dailyWeightPoints(
+                    controller,
+                    start: chartStart,
+                    end: now,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                if (entries.isEmpty)
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(22),
+                      child: Center(
+                        child: Text(
+                          '暂无体重记录',
+                          style: TextStyle(color: _muted(context)),
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  for (var index = 0; index < entries.length; index++)
+                    _WeightHistoryTile(
+                      entry: entries[index],
+                      previous: index + 1 < entries.length
+                          ? entries[index + 1]
+                          : null,
+                      controller: controller,
+                    ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+DateTime _weightRangeStart(
+  String range,
+  List<WeightEntry> entries,
+  DateTime end,
+) {
+  if (range == 'all') {
+    return entries.isEmpty ? end : _dayOnly(entries.last.recordedAt);
+  }
+  final days = int.tryParse(range) ?? 7;
+  return end.subtract(Duration(days: days - 1));
+}
+
+class _WeightHistoryTile extends StatelessWidget {
+  const _WeightHistoryTile({
+    required this.entry,
+    required this.previous,
+    required this.controller,
+  });
+
+  final WeightEntry entry;
+  final WeightEntry? previous;
+  final AppController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final delta = previous == null ? null : entry.weightKg - previous!.weightKg;
+    return Card(
+      key: Key('weight-history-${entry.id}'),
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        title: Text(
+          '${entry.weightKg.toStringAsFixed(1)} kg',
+          style: const TextStyle(fontWeight: FontWeight.w900),
+        ),
+        subtitle: Text(
+          '${_dateText(entry.recordedAt)} ${entry.recordedAt.hour.toString().padLeft(2, '0')}:${entry.recordedAt.minute.toString().padLeft(2, '0')}${delta == null ? '' : ' · 较上一条 ${_signedWeight(delta)}'}${entry.note.trim().isEmpty ? '' : ' · ${entry.note.trim()}'}',
+        ),
+        trailing: PopupMenuButton<String>(
+          onSelected: (action) async {
+            if (action == 'delete') {
+              await controller.deleteWeightEntry(entry.id);
+            } else if (action == 'edit' && context.mounted) {
+              await Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => _WeightEntryPage(
+                    controller: controller,
+                    initialDate: entry.recordedAt,
+                    initialEntry: entry,
+                  ),
+                ),
+              );
+            }
+          },
+          itemBuilder: (_) => [
+            const PopupMenuItem(value: 'edit', child: Text('编辑')),
+            PopupMenuItem(
+              value: 'delete',
+              child: Text('删除', style: TextStyle(color: _primary(context))),
             ),
           ],
         ),
       ),
-    ],
+    );
+  }
+}
+
+class _WeightEntryPage extends StatefulWidget {
+  const _WeightEntryPage({
+    required this.controller,
+    required this.initialDate,
+    this.initialEntry,
+  });
+
+  final AppController controller;
+  final DateTime initialDate;
+  final WeightEntry? initialEntry;
+
+  @override
+  State<_WeightEntryPage> createState() => _WeightEntryPageState();
+}
+
+class _WeightEntryPageState extends State<_WeightEntryPage> {
+  late final TextEditingController weight;
+  late final TextEditingController note;
+  late DateTime date;
+  late TimeOfDay time;
+  bool saving = false;
+  String? error;
+
+  @override
+  void initState() {
+    super.initState();
+    final existing = widget.initialEntry;
+    weight = TextEditingController(
+      text: existing == null ? '' : existing.weightKg.toStringAsFixed(1),
+    );
+    note = TextEditingController(text: existing?.note ?? '');
+    date = _dayOnly(existing?.recordedAt ?? widget.initialDate);
+    final initialTime = existing?.recordedAt ?? DateTime.now();
+    time = TimeOfDay.fromDateTime(initialTime);
+  }
+
+  @override
+  void dispose() {
+    weight.dispose();
+    note.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final value = double.tryParse(weight.text.trim());
+    if (value == null || value <= 0) {
+      setState(() => error = '请输入有效体重');
+      return;
+    }
+    setState(() {
+      error = null;
+      saving = true;
+    });
+    final recordedAt = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      time.hour,
+      time.minute,
+    );
+    final old = widget.initialEntry;
+    final entry = WeightEntry(
+      id: old?.id ?? 'weight-${DateTime.now().microsecondsSinceEpoch}',
+      recordedAt: recordedAt,
+      weightKg: value,
+      note: note.text.trim(),
+    );
+    if (old == null) {
+      await widget.controller.addWeightEntry(entry);
+    } else {
+      await widget.controller.updateWeightEntry(entry);
+    }
+    if (!mounted) return;
+    Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    key: const Key('weight-entry-page'),
+    appBar: AppBar(title: Text(widget.initialEntry == null ? '记录体重' : '编辑体重')),
+    body: SafeArea(
+      top: false,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(18, 18, 18, 30),
+        children: [
+          TextField(
+            key: const Key('weight-entry-value'),
+            controller: weight,
+            autofocus: true,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(
+              labelText: '体重 kg *',
+              prefixIcon: Icon(Icons.monitor_weight_outlined),
+            ),
+          ),
+          const SizedBox(height: 12),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.calendar_today_outlined),
+            title: const Text('日期'),
+            subtitle: Text(_dateText(date)),
+            onTap: () async {
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: date,
+                firstDate: DateTime(2020),
+                lastDate: DateTime.now().add(const Duration(days: 365)),
+              );
+              if (picked != null) setState(() => date = _dayOnly(picked));
+            },
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.schedule_outlined),
+            title: const Text('时间'),
+            subtitle: Text(time.format(context)),
+            onTap: () async {
+              final picked = await showTimePicker(
+                context: context,
+                initialTime: time,
+              );
+              if (picked != null) setState(() => time = picked);
+            },
+          ),
+          TextField(
+            controller: note,
+            maxLines: 2,
+            decoration: const InputDecoration(
+              labelText: '备注（可选）',
+              prefixIcon: Icon(Icons.notes_outlined),
+            ),
+          ),
+          if (error != null) ...[
+            const SizedBox(height: 10),
+            Text(error!, style: TextStyle(color: _primary(context))),
+          ],
+          const SizedBox(height: 22),
+          FilledButton.icon(
+            key: const Key('nutrition-weight-save'),
+            onPressed: saving ? null : _save,
+            icon: saving
+                ? const SizedBox.square(
+                    dimension: 17,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.check_rounded),
+            label: const Text('保存体重'),
+          ),
+        ],
+      ),
+    ),
   );
 }
 
@@ -693,7 +1880,7 @@ class _NutritionTimeline extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               FilledButton.icon(
-                key: const Key('nutrition-empty-add'),
+                key: const Key('nutrition-empty-add-timeline'),
                 onPressed: onAdd,
                 icon: const Icon(Icons.add_rounded),
                 label: const Text('记录第一餐'),
@@ -727,121 +1914,168 @@ class _NutritionEntryTile extends StatelessWidget {
   final NutritionEntry entry;
   final int index;
 
+  void _showDetails(BuildContext context, String title, bool isWater) {
+    final lines = <String>[
+      '时间：${entry.recordedAt.hour.toString().padLeft(2, '0')}:${entry.recordedAt.minute.toString().padLeft(2, '0')}',
+      if (isWater)
+        '饮水：${_waterAmount(entry).toStringAsFixed(0)} ml'
+      else ...[
+        '热量：${entry.calories.toStringAsFixed(0)} kcal',
+        '蛋白质：${entry.proteinGrams.toStringAsFixed(1)} g',
+        '碳水：${entry.carbsGrams.toStringAsFixed(1)} g',
+        '脂肪：${entry.fatGrams.toStringAsFixed(1)} g',
+        if (entry.amount.trim().isNotEmpty) '份量：${entry.amount.trim()}',
+      ],
+      if (entry.photoPaths.isNotEmpty) '照片：${entry.photoPaths.length} 张',
+      if (entry.recognitionWarnings.isNotEmpty)
+        '识别提示：${entry.recognitionWarnings.join('；')}',
+    ];
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(title),
+        content: Text(lines.join('\n')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('关闭'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final title = entry.foodName.trim().isEmpty
-        ? '未命名餐次'
+    final isWater = _waterAmount(entry) > 0 || entry.mealType == '饮水';
+    final title = isWater
+        ? '饮水'
+        : entry.foodName.trim().isEmpty
+        ? entry.mealType.trim().isEmpty
+              ? '未命名餐次'
+              : entry.mealType
         : entry.foodName.trim();
     final details = <String>[
-      '${entry.calories.toStringAsFixed(0)} kcal',
-      if (entry.proteinGrams > 0)
-        '蛋白质 ${entry.proteinGrams.toStringAsFixed(0)} g',
-      if (entry.amount.trim().isNotEmpty) entry.amount.trim(),
+      if (isWater)
+        '${_waterAmount(entry).toStringAsFixed(0)} ml'
+      else ...[
+        '${entry.calories.toStringAsFixed(0)} kcal',
+        if (entry.proteinGrams > 0)
+          '蛋白质 ${entry.proteinGrams.toStringAsFixed(0)} g',
+      ],
+      if (!isWater && entry.amount.trim().isNotEmpty) entry.amount.trim(),
     ];
     return Card(
       key: Key('nutrition-entry-${entry.id}'),
       margin: const EdgeInsets.only(bottom: 9),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 11, 7, 11),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 38,
-              height: 38,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: _primaryContainer(context),
-                shape: BoxShape.circle,
-              ),
-              child: Text(
-                '${index + 1}',
-                style: TextStyle(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => _showDetails(context, title, isWater),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 11, 7, 11),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: _primaryContainer(context),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  isWater
+                      ? Icons.water_drop_outlined
+                      : _mealIcon(entry.mealType),
                   color: _primary(context),
-                  fontWeight: FontWeight.w900,
+                  size: 19,
                 ),
               ),
-            ),
-            const SizedBox(width: 11),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontWeight: FontWeight.w900),
-                        ),
-                      ),
-                      Text(
-                        '${entry.recordedAt.hour.toString().padLeft(2, '0')}:${entry.recordedAt.minute.toString().padLeft(2, '0')}',
-                        style: TextStyle(color: _muted(context), fontSize: 12),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    details.join(' · '),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: _muted(context), fontSize: 12),
-                  ),
-                  if (entry.photoPaths.isNotEmpty) ...[
-                    const SizedBox(height: 7),
-                    SizedBox(
-                      height: 48,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: entry.photoPaths.length,
-                        separatorBuilder: (_, _) => const SizedBox(width: 6),
-                        itemBuilder: (_, photoIndex) => _LocalPhoto(
-                          path: entry.photoPaths[photoIndex],
-                          size: 48,
-                        ),
-                      ),
-                    ),
-                  ],
-                  if (entry.recognitionWarnings.isNotEmpty) ...[
-                    const SizedBox(height: 6),
+              const SizedBox(width: 11),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(
-                          Icons.info_outline_rounded,
-                          size: 15,
-                          color: _primary(context),
-                        ),
-                        const SizedBox(width: 5),
                         Expanded(
                           child: Text(
-                            entry.recognitionWarnings.first,
+                            title,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: _muted(context),
-                              fontSize: 11,
-                            ),
+                            style: const TextStyle(fontWeight: FontWeight.w900),
+                          ),
+                        ),
+                        Text(
+                          '${entry.recordedAt.hour.toString().padLeft(2, '0')}:${entry.recordedAt.minute.toString().padLeft(2, '0')}',
+                          style: TextStyle(
+                            color: _muted(context),
+                            fontSize: 12,
                           ),
                         ),
                       ],
                     ),
+                    const SizedBox(height: 4),
+                    Text(
+                      details.join(' · '),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: _muted(context), fontSize: 12),
+                    ),
+                    if (entry.photoPaths.isNotEmpty) ...[
+                      const SizedBox(height: 7),
+                      SizedBox(
+                        height: 48,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: entry.photoPaths.length,
+                          separatorBuilder: (_, _) => const SizedBox(width: 6),
+                          itemBuilder: (_, photoIndex) => _LocalPhoto(
+                            path: entry.photoPaths[photoIndex],
+                            size: 48,
+                          ),
+                        ),
+                      ),
+                    ],
+                    if (entry.recognitionWarnings.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            Icons.info_outline_rounded,
+                            size: 15,
+                            color: _primary(context),
+                          ),
+                          const SizedBox(width: 5),
+                          Expanded(
+                            child: Text(
+                              entry.recognitionWarnings.first,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: _muted(context),
+                                fontSize: 11,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
-            IconButton(
-              tooltip: '删除记录',
-              onPressed: () => controller.deleteNutritionEntry(entry.id),
-              icon: Icon(
-                Icons.delete_outline_rounded,
-                color: Theme.of(context).colorScheme.error,
+              IconButton(
+                tooltip: '删除记录',
+                onPressed: () => controller.deleteNutritionEntry(entry.id),
+                icon: Icon(
+                  Icons.delete_outline_rounded,
+                  color: Theme.of(context).colorScheme.error,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -879,10 +2113,12 @@ class _NutritionCaptureSheet extends StatefulWidget {
   const _NutritionCaptureSheet({
     required this.controller,
     required this.selectedDate,
+    this.mealType,
   });
 
   final AppController controller;
   final DateTime selectedDate;
+  final String? mealType;
 
   @override
   State<_NutritionCaptureSheet> createState() => _NutritionCaptureSheetState();
@@ -1070,7 +2306,9 @@ class _NutritionCaptureSheetState extends State<_NutritionCaptureSheet> {
             now.hour,
             now.minute,
           ),
-          mealType: widget.controller.nextMealLabelFor(widget.selectedDate),
+          mealType:
+              widget.mealType ??
+              widget.controller.nextMealLabelFor(widget.selectedDate),
           foodName: food.text.trim(),
           amount: amount.text.trim(),
           calories: kcal,
@@ -1204,6 +2442,9 @@ class _NutritionCaptureSheetState extends State<_NutritionCaptureSheet> {
               controller: food,
               textInputAction: TextInputAction.next,
               decoration: const InputDecoration(
+                // Keep the established label for test/backward compatibility;
+                // the helper clarifies that the field is optional and the
+                // save path never requires a food name.
                 labelText: '食物名称 *',
                 helperText: '可选',
               ),
