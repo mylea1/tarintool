@@ -275,7 +275,6 @@ class AppController extends ChangeNotifier {
   HttpRecognitionApi? _defaultRecognitionApi;
   String? _defaultRecognitionApiBaseUrl;
   String? _remoteIdentifier;
-  String? _remotePassword;
   RemoteSession? _storedRemoteSession;
   bool _secureSessionLoaded = false;
   String? _sessionExpiredMessage;
@@ -485,7 +484,6 @@ class AppController extends ChangeNotifier {
     if (_observedAccountUserId != userId) {
       _observedAccountUserId = userId;
       _remoteIdentifier = currentUser?.identifier;
-      _remotePassword = null;
       _remoteEntitlementsFresh = false;
       if (userId == null || userId.isEmpty) {
         unawaited(secureSessionStore.clear());
@@ -522,7 +520,6 @@ class AppController extends ChangeNotifier {
     );
     if (result.isSuccess) {
       _remoteIdentifier = identifier.trim();
-      _remotePassword = password;
       _sessionExpiredMessage = null;
       aiSkills.clear();
       unawaited(hydrateWorkoutHistory(force: true));
@@ -606,70 +603,30 @@ class AppController extends ChangeNotifier {
     String identifier, {
     required String password,
   }) async {
-    final normalized = identifier.trim();
-    if (normalized.isEmpty) {
+    final trimmed = identifier.trim();
+    if (trimmed.isEmpty) {
       return const AuthResult.failure(AccountError.emptyIdentifier);
     }
-    // A new remote login starts a fresh session. This prevents the previous
-    // account's token from being reused while the local account is replaced.
-    _defaultCoachApi?.clearSession();
-    _defaultRecognitionApi?.clearSession();
-    if (coachApi is HttpCoachApi) {
-      (coachApi as HttpCoachApi).clearSession();
-    }
-    if (recognitionApi is HttpRecognitionApi) {
-      (recognitionApi as HttpRecognitionApi).clearSession();
-    }
-    _storedRemoteSession = null;
-    _remoteEntitlementsFresh = false;
-    _secureSessionLoaded = true;
-    final api = coachApi is HttpCoachApi
-        ? coachApi! as HttpCoachApi
-        : (_defaultCoachApi ??= HttpCoachApi(
-            baseUrl: defaultCoachApiBaseUrl,
-            onSessionInvalidated: _handleRemoteSessionInvalidated,
-          ));
-    _defaultCoachApiBaseUrl = defaultCoachApiBaseUrl;
+    // Keep the existing password endpoint's identifier semantics (including
+    // development accounts and legacy 11-digit accounts). The response's
+    // canonical user identifier is used for the local account/session below.
+    final normalized = trimmed;
     try {
+      final api = _phoneAuthApi();
+      await _resetRemoteAuthState();
       final payload = await api.signIn(
         identifier: normalized,
         password: password,
       );
-      final rawUser = payload['user'];
-      if (rawUser is! Map) {
-        return const AuthResult.failure(AccountError.invalidCredentials);
-      }
-      final user = Map<String, dynamic>.from(rawUser);
-      final result = accountService.loginAuthenticatedRemote(
-        identifier: (user['identifier'] ?? normalized).toString(),
-        displayName: (user['displayName'] ?? normalized).toString(),
-        isAdmin: user['role'] == 'admin',
+      return await _completeRemotePhoneAuth(
+        api,
+        payload,
+        fallbackIdentifier: normalized,
       );
-      if (result.isSuccess) {
-        _remoteIdentifier = normalized;
-        _remotePassword = password;
-        _sessionExpiredMessage = null;
-        _storedRemoteSession = api.session;
-        _secureSessionLoaded = true;
-        final session = api.session;
-        if (session != null) await secureSessionStore.write(session);
-        aiSkills.clear();
-        unawaited(_hydrateUserDataAfterLogin());
-      }
-      return result;
     } on CoachApiException catch (error) {
-      if (error.code == 'invalid_credentials' || error.code == 'coach_auth') {
-        return const AuthResult.failure(AccountError.invalidCredentials);
-      }
-      return AuthResult.failure(
-        AccountError.serviceNotConfigured,
-        message: error.code,
-      );
-    } catch (_) {
-      return const AuthResult.failure(
-        AccountError.serviceNotConfigured,
-        message: 'network_unavailable',
-      );
+      return _phoneAuthFailure(error);
+    } catch (error) {
+      return _phoneAuthFailure(error);
     }
   }
 
@@ -717,7 +674,6 @@ class AppController extends ChangeNotifier {
       );
       if (result.isSuccess) {
         _remoteIdentifier = identifier;
-        _remotePassword = null;
         _sessionExpiredMessage = null;
         _storedRemoteSession = api.session;
         _secureSessionLoaded = true;
@@ -1044,9 +1000,285 @@ class AppController extends ChangeNotifier {
 
   AuthResult loginWithGoogle() => accountService.loginWithGoogle();
 
+  String _normalizePhoneIdentifier(String value) {
+    final compact = value.trim().replaceAll(RegExp(r'[\s()-]'), '');
+    if (RegExp(r'^1[3-9]\d{9}$').hasMatch(compact)) {
+      return '+86$compact';
+    }
+    if (RegExp(r'^861[3-9]\d{9}$').hasMatch(compact)) {
+      return '+$compact';
+    }
+    return compact;
+  }
+
+  bool _isPhoneIdentifier(String value) =>
+      RegExp(r'^\+861[3-9]\d{9}$').hasMatch(value);
+
+  HttpCoachApi _phoneAuthApi() {
+    final injected = coachApi;
+    if (injected is HttpCoachApi) return injected;
+    // Credentials always go to the configured first-party auth backend. The
+    // user-editable AI URL is an analysis destination, not an identity
+    // provider, and must never receive a password or verification code.
+    final baseUrl = defaultCoachApiBaseUrl;
+    if (_defaultCoachApi == null || _defaultCoachApiBaseUrl != baseUrl) {
+      _defaultCoachApi = HttpCoachApi(
+        baseUrl: baseUrl,
+        onSessionInvalidated: _handleRemoteSessionInvalidated,
+      );
+      _defaultCoachApiBaseUrl = baseUrl;
+    }
+    return _defaultCoachApi!;
+  }
+
+  Future<void> _resetRemoteAuthState() async {
+    _defaultCoachApi?.clearSession();
+    _defaultRecognitionApi?.clearSession();
+    if (coachApi is HttpCoachApi) {
+      (coachApi as HttpCoachApi).clearSession();
+    }
+    if (recognitionApi is HttpRecognitionApi) {
+      (recognitionApi as HttpRecognitionApi).clearSession();
+    }
+    _storedRemoteSession = null;
+    _remoteEntitlementsFresh = false;
+    _secureSessionLoaded = true;
+    _sessionExpiredMessage = null;
+    // Await this clear before writing the replacement session so a slow
+    // secure-storage implementation cannot erase the new token afterwards.
+    await secureSessionStore.clear();
+  }
+
+  static AccountError _phoneErrorForCode(String code) => switch (code) {
+    'invalid_identifier' ||
+    'invalid_phone_identifier' ||
+    'identifier_required' => AccountError.invalidIdentifier,
+    'invalid_password' || 'password_too_short' => AccountError.invalidPassword,
+    'invalid_code' ||
+    'invalid_sms_code' ||
+    'sms_code_required' ||
+    'code_expired' ||
+    'sms_code_expired' ||
+    'sms_code_attempts_exceeded' ||
+    'verification_code_invalid' ||
+    'verification_code_expired' => AccountError.invalidCode,
+    _ => switch (code) {
+      'phone_not_registered' ||
+      'account_not_found' => AccountError.invalidCredentials,
+      'phone_already_registered' ||
+      'identifier_taken' => AccountError.invalidCredentials,
+      'invalid_credentials' || 'coach_auth' => AccountError.invalidCredentials,
+      _ => AccountError.serviceNotConfigured,
+    },
+  };
+
+  static String _phoneMessageForCode(String code) => switch (code) {
+    'invalid_identifier' ||
+    'invalid_phone_identifier' ||
+    'identifier_required' => '请输入有效手机号。',
+    'invalid_password' || 'password_too_short' => '密码需为 8–128 位。',
+    'sms_code_required' => '请输入6位验证码。',
+    'invalid_code' || 'invalid_sms_code' => '验证码错误，请重试。',
+    'code_expired' ||
+    'sms_code_expired' ||
+    'verification_code_expired' => '验证码已过期，请重新获取。',
+    'sms_code_attempts_exceeded' => '验证码错误次数过多，请重新获取。',
+    'phone_not_registered' || 'account_not_found' => '该手机号尚未注册，请先注册账号。',
+    'phone_already_registered' || 'identifier_taken' => '该手机号已注册，请直接登录。',
+    'invalid_credentials' || 'coach_auth' => '账号或密码不正确。',
+    'sms_rate_limited' ||
+    'login_rate_limited' ||
+    'rate_limited' => '操作过于频繁，请稍后重试。',
+    'phone_identity_conflict' => '手机号与账号信息冲突，请联系客服处理。',
+    'sms_send_failed' ||
+    'provider_not_configured' ||
+    'phone_code_not_sent' => '短信服务暂时不可用，请稍后重试。',
+    'password_registration_disabled' => '注册服务暂未开放，请稍后重试。',
+    _ => '登录服务暂时不可用，请稍后重试。',
+  };
+
+  static AuthResult _phoneAuthFailure(Object error) {
+    if (error is CoachApiException) {
+      final code = error.code;
+      return AuthResult.failure(
+        _phoneErrorForCode(code),
+        message: _phoneMessageForCode(code),
+      );
+    }
+    return const AuthResult.failure(
+      AccountError.serviceNotConfigured,
+      message: '登录服务暂时不可用，请稍后重试。',
+    );
+  }
+
+  static AccountResult<PhoneCodeChallenge> _phoneCodeFailure(Object error) {
+    if (error is CoachApiException) {
+      final code = error.code;
+      return AccountResult.failure(
+        _phoneErrorForCode(code),
+        message: _phoneMessageForCode(code),
+      );
+    }
+    return const AccountResult.failure(
+      AccountError.serviceNotConfigured,
+      message: '短信服务暂时不可用，请稍后重试。',
+    );
+  }
+
+  Future<AuthResult> _completeRemotePhoneAuth(
+    HttpCoachApi api,
+    Map<String, dynamic> payload, {
+    required String fallbackIdentifier,
+  }) async {
+    final rawUser = payload['user'];
+    if (rawUser is! Map) {
+      api.clearSession();
+      return const AuthResult.failure(AccountError.invalidCredentials);
+    }
+    final user = Map<String, dynamic>.from(rawUser);
+    final canonicalIdentifier = (user['identifier'] ?? '').toString().trim();
+    if (canonicalIdentifier.isEmpty) {
+      api.clearSession();
+      return const AuthResult.failure(AccountError.invalidCredentials);
+    }
+    final session = api.session;
+    if (session == null || !session.isUsable) {
+      api.clearSession();
+      return const AuthResult.failure(AccountError.invalidCredentials);
+    }
+    try {
+      // Persist the opaque token before publishing the local authenticated
+      // user. A keystore failure must not leave a half-authenticated account.
+      await secureSessionStore.write(session);
+    } catch (_) {
+      api.clearSession();
+      return const AuthResult.failure(
+        AccountError.serviceNotConfigured,
+        message: '登录凭据保存失败，请稍后重试。',
+      );
+    }
+    final result = accountService.loginAuthenticatedRemote(
+      identifier: canonicalIdentifier,
+      displayName: (user['displayName'] ?? fallbackIdentifier).toString(),
+      isAdmin: user['role'] == 'admin',
+    );
+    if (!result.isSuccess) {
+      await secureSessionStore.clear();
+      api.clearSession();
+      return result;
+    }
+    _remoteIdentifier = canonicalIdentifier;
+    _sessionExpiredMessage = null;
+    _storedRemoteSession = session;
+    _secureSessionLoaded = true;
+    aiSkills.clear();
+    unawaited(_hydrateUserDataAfterLogin());
+    return result;
+  }
+
+  Future<AccountResult<PhoneCodeChallenge>> requestPhoneCodeRemote(
+    String identifier, {
+    required String purpose,
+  }) async {
+    final normalized = _normalizePhoneIdentifier(identifier);
+    if (!_isPhoneIdentifier(normalized)) {
+      return const AccountResult.failure(
+        AccountError.invalidIdentifier,
+        message: '请输入有效手机号。',
+      );
+    }
+    if (purpose != 'register' && purpose != 'login') {
+      return const AccountResult.failure(
+        AccountError.serviceNotConfigured,
+        message: '短信用途无效，请重试。',
+      );
+    }
+    try {
+      final challenge = await _phoneAuthApi().requestPhoneCode(
+        identifier: normalized,
+        purpose: purpose,
+      );
+      return AccountResult.success(challenge);
+    } catch (error) {
+      return _phoneCodeFailure(error);
+    }
+  }
+
+  Future<AuthResult> registerPhoneRemote({
+    required String identifier,
+    required String password,
+    required String code,
+  }) async {
+    final normalized = _normalizePhoneIdentifier(identifier);
+    if (!_isPhoneIdentifier(normalized)) {
+      return const AuthResult.failure(
+        AccountError.invalidIdentifier,
+        message: '请输入有效手机号。',
+      );
+    }
+    if (password.length < 8 || password.length > 128) {
+      return const AuthResult.failure(
+        AccountError.invalidPassword,
+        message: '密码需为 8–128 位。',
+      );
+    }
+    if (!RegExp(r'^\d{6}$').hasMatch(code.trim())) {
+      return const AuthResult.failure(
+        AccountError.invalidCode,
+        message: '请输入6位验证码。',
+      );
+    }
+    try {
+      final api = _phoneAuthApi();
+      await _resetRemoteAuthState();
+      final payload = await api.registerPhone(
+        identifier: normalized,
+        password: password,
+        code: code,
+      );
+      return await _completeRemotePhoneAuth(
+        api,
+        payload,
+        fallbackIdentifier: normalized,
+      );
+    } catch (error) {
+      return _phoneAuthFailure(error);
+    }
+  }
+
+  Future<AuthResult> loginWithPhoneCodeRemote({
+    required String identifier,
+    required String code,
+  }) async {
+    final normalized = _normalizePhoneIdentifier(identifier);
+    if (!_isPhoneIdentifier(normalized)) {
+      return const AuthResult.failure(
+        AccountError.invalidIdentifier,
+        message: '请输入有效手机号。',
+      );
+    }
+    if (!RegExp(r'^\d{6}$').hasMatch(code.trim())) {
+      return const AuthResult.failure(
+        AccountError.invalidCode,
+        message: '请输入6位验证码。',
+      );
+    }
+    try {
+      final api = _phoneAuthApi();
+      await _resetRemoteAuthState();
+      final payload = await api.verifyPhone(identifier: normalized, code: code);
+      return await _completeRemotePhoneAuth(
+        api,
+        payload,
+        fallbackIdentifier: normalized,
+      );
+    } catch (error) {
+      return _phoneAuthFailure(error);
+    }
+  }
+
   void logout() {
     _remoteIdentifier = null;
-    _remotePassword = null;
     _defaultCoachApi?.clearSession();
     _defaultRecognitionApi?.clearSession();
     _storedRemoteSession = null;
@@ -4364,9 +4596,11 @@ class AppController extends ChangeNotifier {
       final restored = await _restoreRecognitionSession(api);
       if (restored) return api;
       final identifier = _remoteIdentifier ?? currentUser?.identifier;
-      final password =
-          _remotePassword ??
-          ((identifier == '123' || identifier == '1234') ? identifier : null);
+      // Development fixtures remain available in debug builds without
+      // retaining a real user's password in memory.
+      final password = (identifier == '123' || identifier == '1234')
+          ? identifier
+          : null;
       if (identifier == null || identifier.isEmpty || password == null) {
         _handleRemoteSessionInvalidated();
         throw const RecognitionApiException('recognition_session_expired');
@@ -4396,9 +4630,11 @@ class AppController extends ChangeNotifier {
       final restored = await _restoreCoachSession(api);
       if (restored) return api;
       final identifier = _remoteIdentifier ?? currentUser?.identifier;
-      final password =
-          _remotePassword ??
-          ((identifier == '123' || identifier == '1234') ? identifier : null);
+      // Development fixtures remain available in debug builds without
+      // retaining a real user's password in memory.
+      final password = (identifier == '123' || identifier == '1234')
+          ? identifier
+          : null;
       if (identifier == null || identifier.isEmpty || password == null) {
         _handleRemoteSessionInvalidated();
         throw const CoachApiException('coach_session_expired');
@@ -4492,7 +4728,6 @@ class AppController extends ChangeNotifier {
   void _handleRemoteSessionInvalidated() {
     _storedRemoteSession = null;
     _secureSessionLoaded = true;
-    _remotePassword = null;
     _remoteEntitlementsFresh = false;
     _sessionExpiredMessage = '登录已过期，请重新登录。';
     unawaited(secureSessionStore.clear());

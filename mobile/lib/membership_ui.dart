@@ -125,6 +125,9 @@ class MembershipPurchaseCoordinator extends ChangeNotifier {
         },
       );
       storeAvailable = await _store.isAvailable();
+      if (!storeAvailable) {
+        errorMessage = '当前无法连接 App Store，请稍后重试。';
+      }
       if (storeAvailable) {
         final response = await _store.queryProductDetails(
           membershipProductIds.values.toSet(),
@@ -135,9 +138,6 @@ class MembershipPurchaseCoordinator extends ChangeNotifier {
             response.productDetails.map((item) => MapEntry(item.id, item)),
           );
         if (response.error != null) errorMessage = '会员商品加载失败，请稍后重试。';
-        if (response.notFoundIDs.isNotEmpty) {
-          errorMessage = '部分会员商品尚未在商店启用。';
-        }
       }
     } catch (_) {
       storeAvailable = false;
@@ -587,11 +587,6 @@ class _MembershipCenterPageState extends State<MembershipCenterPage>
             ),
           ),
           const SizedBox(height: 4),
-          const Text(
-            '所有方案均解锁完整 PRO 能力，区别仅在订阅周期。',
-            style: TextStyle(fontSize: 12, color: _muted),
-          ),
-          const SizedBox(height: 8),
           MembershipPlanComparison(
             selected: selected,
             purchase: purchase,
@@ -623,13 +618,6 @@ class _MembershipCenterPageState extends State<MembershipCenterPage>
                 child: const Text('兑换会员'),
               ),
             ],
-          ),
-          Text(
-            Platform.isIOS || Platform.isMacOS
-                ? '付款由 App Store 安全处理。月度和年度方案会按 Apple 规则自动续订，可在 Apple ID 中管理或恢复。'
-                : '微信或支付宝完成支付后，由服务端回调确认订单并发放会员；不要重复支付同一订单。',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 11, height: 1.45, color: _muted),
           ),
         ],
       ),
@@ -680,7 +668,10 @@ class _MembershipCenterPageState extends State<MembershipCenterPage>
                 ],
               )
             : FilledButton(
-                onPressed: purchase.loading
+                onPressed:
+                    purchase.loading ||
+                        !purchase.storeAvailable ||
+                        purchase.productFor(selected) == null
                     ? null
                     : () => purchase.purchase(selected),
                 style: FilledButton.styleFrom(
@@ -696,7 +687,7 @@ class _MembershipCenterPageState extends State<MembershipCenterPage>
                           color: Colors.white,
                         ),
                       )
-                    : Text('使用 Apple 内购 · ${purchase.priceFor(selected)}'),
+                    : Text('购买 · ${purchase.priceFor(selected)}'),
               ),
       ),
     );
@@ -943,6 +934,8 @@ class MembershipPlanComparison extends StatelessWidget {
             price: purchase.priceFor(plan),
             monthlyEquivalent: _monthlyEquivalent(purchase, plan),
             selected: selected == plan,
+            unavailable:
+                purchase.storeAvailable && purchase.productFor(plan) == null,
             onTap: () => onSelected(plan),
           ),
       ];
@@ -1000,6 +993,7 @@ class _PlanCard extends StatelessWidget {
     required this.price,
     required this.monthlyEquivalent,
     required this.selected,
+    required this.unavailable,
     required this.onTap,
   });
 
@@ -1007,6 +1001,7 @@ class _PlanCard extends StatelessWidget {
   final String price;
   final String monthlyEquivalent;
   final bool selected;
+  final bool unavailable;
   final VoidCallback onTap;
 
   @override
@@ -1104,6 +1099,14 @@ class _PlanCard extends StatelessWidget {
                       fontWeight: FontWeight.w800,
                     ),
                   ),
+                  if (unavailable)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 3),
+                      child: Text(
+                        '暂不可购买',
+                        style: TextStyle(color: _muted, fontSize: 11),
+                      ),
+                    ),
                 ],
               ),
             ),

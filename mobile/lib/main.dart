@@ -968,6 +968,8 @@ class _BrandSplashPageState extends State<BrandSplashPage>
   }
 }
 
+enum _PhoneEntryMode { password, code }
+
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key, required this.controller});
 
@@ -980,25 +982,165 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   late final TextEditingController identifier;
   late final TextEditingController password;
+  late final TextEditingController code;
+  late final TextEditingController confirmPassword;
+  Timer? _codeTimer;
+  _PhoneEntryMode phoneMode = _PhoneEntryMode.password;
   String? error;
   bool busy = false;
+  bool registering = false;
+  int codeCooldown = 0;
+  int _operationGeneration = 0;
 
   @override
   void initState() {
     super.initState();
     identifier = TextEditingController();
     password = TextEditingController();
+    code = TextEditingController();
+    confirmPassword = TextEditingController();
   }
 
   @override
   void dispose() {
+    _codeTimer?.cancel();
     identifier.dispose();
     password.dispose();
+    code.dispose();
+    confirmPassword.dispose();
     super.dispose();
   }
 
-  Future<void> submit() async {
+  String _normalizedPhone() => identifier.text
+      .trim()
+      .replaceAll(RegExp(r'[\s()-]'), '')
+      .replaceFirstMapped(
+        RegExp(r'^1[3-9]\d{9}$'),
+        (match) => '+86${match.group(0)}',
+      )
+      .replaceFirstMapped(
+        RegExp(r'^861[3-9]\d{9}$'),
+        (match) => '+${match.group(0)}',
+      );
+
+  bool get _hasMainlandPhone =>
+      RegExp(r'^\+861[3-9]\d{9}$').hasMatch(_normalizedPhone());
+
+  String _localizedError(AccountError accountError) => switch (accountError) {
+    AccountError.emptyIdentifier => '请输入手机号或账号。',
+    AccountError.invalidIdentifier => '请输入有效的大陆手机号。',
+    AccountError.invalidPassword => '密码需为 8–128 位。',
+    AccountError.invalidCode => '请输入6位验证码。',
+    AccountError.invalidCredentials => '手机号或密码不正确。',
+    _ => '登录服务暂时不可用，请稍后重试。',
+  };
+
+  void _showError(String message) {
+    if (!mounted) return;
+    setState(() {
+      busy = false;
+      error = message;
+    });
+  }
+
+  void _setPhoneMode(_PhoneEntryMode mode) {
     if (busy) return;
+    _operationGeneration++;
+    setState(() {
+      registering = false;
+      phoneMode = mode;
+      error = null;
+      code.clear();
+      password.clear();
+      confirmPassword.clear();
+    });
+  }
+
+  void _openRegistration() {
+    if (busy) return;
+    _operationGeneration++;
+    setState(() {
+      registering = true;
+      phoneMode = _PhoneEntryMode.code;
+      error = null;
+      code.clear();
+      password.clear();
+      confirmPassword.clear();
+    });
+  }
+
+  void _backToLogin() {
+    if (busy) return;
+    _operationGeneration++;
+    setState(() {
+      registering = false;
+      phoneMode = _PhoneEntryMode.password;
+      error = null;
+      code.clear();
+      password.clear();
+      confirmPassword.clear();
+    });
+  }
+
+  void _startCodeCooldown(int seconds) {
+    _codeTimer?.cancel();
+    final bounded = seconds.clamp(0, 300).toInt();
+    if (!mounted) return;
+    setState(() => codeCooldown = bounded);
+    if (bounded <= 0) return;
+    _codeTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (codeCooldown <= 1) {
+        timer.cancel();
+        setState(() => codeCooldown = 0);
+      } else {
+        setState(() => codeCooldown -= 1);
+      }
+    });
+  }
+
+  Future<void> _sendCode() async {
+    if (busy || codeCooldown > 0) return;
+    if (!_hasMainlandPhone) {
+      _showError('请输入有效的大陆手机号。');
+      return;
+    }
+    final generation = ++_operationGeneration;
+    final purpose = registering ? 'register' : 'login';
+    setState(() {
+      busy = true;
+      error = null;
+    });
+    final result = await widget.controller.requestPhoneCodeRemote(
+      _normalizedPhone(),
+      purpose: purpose,
+    );
+    if (!mounted || generation != _operationGeneration) return;
+    if (!result.isSuccess || result.value == null) {
+      _showError(result.message ?? _localizedError(result.error));
+      return;
+    }
+    setState(() {
+      busy = false;
+      error = null;
+    });
+    _startCodeCooldown(result.value!.retryAfterSeconds);
+  }
+
+  Future<void> _submitPassword() async {
+    if (busy) return;
+    if (identifier.text.trim().isEmpty) {
+      _showError('请输入手机号或账号。');
+      return;
+    }
+    if (password.text.isEmpty) {
+      _showError('请输入密码。');
+      return;
+    }
+    final generation = ++_operationGeneration;
     setState(() {
       busy = true;
       error = null;
@@ -1007,35 +1149,92 @@ class _LoginPageState extends State<LoginPage> {
       identifier.text,
       password: password.text,
     );
-    if (!mounted) return;
+    if (!mounted || generation != _operationGeneration) return;
     if (!result.isSuccess) {
-      setState(() {
-        busy = false;
-        error =
-            result.message ??
-            switch (result.error) {
-              AccountError.emptyIdentifier => AppLocalizations.of(
-                context,
-              ).text('请输入手机号或账号。'),
-              AccountError.invalidCredentials => AppLocalizations.of(
-                context,
-              ).text('账号或密码不正确。'),
-              _ => AppLocalizations.of(context).text('登录暂时不可用，请稍后重试。'),
-            };
-      });
+      _showError(result.message ?? _localizedError(result.error));
       return;
     }
     setState(() => busy = false);
   }
 
+  Future<void> _submitCodeLogin() async {
+    if (busy) return;
+    if (!_hasMainlandPhone) {
+      _showError('请输入有效的大陆手机号。');
+      return;
+    }
+    if (!RegExp(r'^\d{6}$').hasMatch(code.text.trim())) {
+      _showError('请输入6位验证码。');
+      return;
+    }
+    final generation = ++_operationGeneration;
+    setState(() {
+      busy = true;
+      error = null;
+    });
+    final result = await widget.controller.loginWithPhoneCodeRemote(
+      identifier: _normalizedPhone(),
+      code: code.text,
+    );
+    if (!mounted || generation != _operationGeneration) return;
+    if (!result.isSuccess) {
+      _showError(result.message ?? _localizedError(result.error));
+      return;
+    }
+    setState(() => busy = false);
+  }
+
+  Future<void> _submitRegistration() async {
+    if (busy) return;
+    if (!_hasMainlandPhone) {
+      _showError('请输入有效的大陆手机号。');
+      return;
+    }
+    if (!RegExp(r'^\d{6}$').hasMatch(code.text.trim())) {
+      _showError('请输入6位验证码。');
+      return;
+    }
+    if (password.text.length < 8 || password.text.length > 128) {
+      _showError('密码需为 8–128 位。');
+      return;
+    }
+    if (password.text != confirmPassword.text) {
+      _showError('两次输入的密码不一致。');
+      return;
+    }
+    final generation = ++_operationGeneration;
+    setState(() {
+      busy = true;
+      error = null;
+    });
+    final result = await widget.controller.registerPhoneRemote(
+      identifier: _normalizedPhone(),
+      password: password.text,
+      code: code.text,
+    );
+    if (!mounted || generation != _operationGeneration) return;
+    if (!result.isSuccess) {
+      _showError(result.message ?? _localizedError(result.error));
+      return;
+    }
+    setState(() => busy = false);
+  }
+
+  Future<void> submit() async {
+    if (registering) return _submitRegistration();
+    if (phoneMode == _PhoneEntryMode.code) return _submitCodeLogin();
+    return _submitPassword();
+  }
+
   Future<void> submitApple() async {
     if (busy) return;
+    final generation = ++_operationGeneration;
     setState(() {
       busy = true;
       error = null;
     });
     final result = await widget.controller.loginWithAppleRemote();
-    if (!mounted) return;
+    if (!mounted || generation != _operationGeneration) return;
     setState(() {
       busy = false;
       error = result.isSuccess
@@ -1045,6 +1244,64 @@ class _LoginPageState extends State<LoginPage> {
             ).text(result.message ?? 'Apple 登录暂时不可用，请稍后重试。');
     });
   }
+
+  Widget _modeButton({
+    required Key key,
+    required String label,
+    required bool selected,
+    required VoidCallback? onPressed,
+  }) => Expanded(
+    child: OutlinedButton(
+      key: key,
+      onPressed: onPressed,
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size(0, 44),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        backgroundColor: selected ? primaryContainer : Colors.transparent,
+        side: BorderSide(color: selected ? primary : hairline),
+        foregroundColor: selected ? primary : ink,
+      ),
+      child: Text(label, textAlign: TextAlign.center),
+    ),
+  );
+
+  Widget _phoneCodeField({required Key key, required String label}) =>
+      TextField(
+        key: key,
+        controller: code,
+        enabled: !busy,
+        keyboardType: TextInputType.number,
+        textInputAction: TextInputAction.done,
+        inputFormatters: [
+          FilteringTextInputFormatter.digitsOnly,
+          LengthLimitingTextInputFormatter(6),
+        ],
+        maxLength: 6,
+        autofillHints: const [AutofillHints.oneTimeCode],
+        onSubmitted: (_) => submit(),
+        decoration: InputDecoration(
+          labelText: label,
+          counterText: '',
+          prefixIcon: const Icon(Icons.sms_outlined),
+        ),
+      );
+
+  Widget _sendCodeButton({required Key key}) => OutlinedButton.icon(
+    key: key,
+    onPressed: busy || codeCooldown > 0 ? null : _sendCode,
+    icon: const Icon(Icons.sms_outlined, size: 18),
+    label: Text(
+      codeCooldown > 0
+          ? '${codeCooldown}s 后重试'
+          : busy
+          ? '发送中…'
+          : '发送验证码',
+    ),
+    style: OutlinedButton.styleFrom(
+      minimumSize: const Size(0, 44),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -1136,19 +1393,65 @@ class _LoginPageState extends State<LoginPage> {
                                     icon: Icons.phone_iphone_rounded,
                                   ),
                                   const SizedBox(width: 10),
-                                  Text(
-                                    strings.text('登录账号'),
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleMedium
-                                        ?.copyWith(fontWeight: FontWeight.w900),
+                                  Expanded(
+                                    child: Text(
+                                      strings.text(
+                                        registering ? '注册账号' : '登录账号',
+                                      ),
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleMedium
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w900,
+                                          ),
+                                    ),
                                   ),
                                 ],
                               ),
+                              if (registering)
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: TextButton(
+                                    key: const Key('login-back-to-login'),
+                                    onPressed: busy ? null : _backToLogin,
+                                    child: Text(strings.text('返回登录')),
+                                  ),
+                                ),
+                              if (!registering) ...[
+                                const SizedBox(height: 10),
+                                Row(
+                                  children: [
+                                    _modeButton(
+                                      key: const Key('login-password-mode'),
+                                      label: strings.text('密码登录'),
+                                      selected:
+                                          phoneMode == _PhoneEntryMode.password,
+                                      onPressed: busy
+                                          ? null
+                                          : () => _setPhoneMode(
+                                              _PhoneEntryMode.password,
+                                            ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    _modeButton(
+                                      key: const Key('login-code-mode'),
+                                      label: strings.text('验证码登录'),
+                                      selected:
+                                          phoneMode == _PhoneEntryMode.code,
+                                      onPressed: busy
+                                          ? null
+                                          : () => _setPhoneMode(
+                                              _PhoneEntryMode.code,
+                                            ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                               const SizedBox(height: 10),
                               TextField(
                                 key: const Key('login-identifier'),
                                 controller: identifier,
+                                enabled: !busy,
                                 keyboardType: TextInputType.phone,
                                 textInputAction: TextInputAction.next,
                                 autofillHints: const [AutofillHints.username],
@@ -1157,25 +1460,84 @@ class _LoginPageState extends State<LoginPage> {
                                   prefixIcon: const Icon(Icons.phone_outlined),
                                 ),
                               ),
-                              const SizedBox(height: 10),
-                              TextField(
-                                key: const Key('login-password'),
-                                controller: password,
-                                obscureText: true,
-                                textInputAction: TextInputAction.done,
-                                autofillHints: const [AutofillHints.password],
-                                onSubmitted: (_) => submit(),
-                                decoration: InputDecoration(
-                                  labelText: strings.text('密码'),
-                                  prefixIcon: const Icon(
-                                    Icons.lock_outline_rounded,
+                              if (registering) ...[
+                                const SizedBox(height: 10),
+                                _phoneCodeField(
+                                  key: const Key('register-code'),
+                                  label: strings.text('验证码'),
+                                ),
+                                const SizedBox(height: 8),
+                                _sendCodeButton(
+                                  key: const Key('register-send-code'),
+                                ),
+                                const SizedBox(height: 10),
+                                TextField(
+                                  key: const Key('register-password'),
+                                  controller: password,
+                                  enabled: !busy,
+                                  obscureText: true,
+                                  textInputAction: TextInputAction.next,
+                                  autofillHints: const [
+                                    AutofillHints.newPassword,
+                                  ],
+                                  decoration: InputDecoration(
+                                    labelText: strings.text('设置密码（8–128 位）'),
+                                    prefixIcon: const Icon(
+                                      Icons.lock_outline_rounded,
+                                    ),
                                   ),
                                 ),
-                              ),
+                                const SizedBox(height: 10),
+                                TextField(
+                                  key: const Key('register-confirm-password'),
+                                  controller: confirmPassword,
+                                  enabled: !busy,
+                                  obscureText: true,
+                                  textInputAction: TextInputAction.done,
+                                  autofillHints: const [
+                                    AutofillHints.newPassword,
+                                  ],
+                                  onSubmitted: (_) => submit(),
+                                  decoration: InputDecoration(
+                                    labelText: strings.text('确认密码'),
+                                    prefixIcon: const Icon(
+                                      Icons.lock_reset_outlined,
+                                    ),
+                                  ),
+                                ),
+                              ] else if (phoneMode == _PhoneEntryMode.code) ...[
+                                const SizedBox(height: 10),
+                                _phoneCodeField(
+                                  key: const Key('login-code'),
+                                  label: strings.text('验证码'),
+                                ),
+                                const SizedBox(height: 8),
+                                _sendCodeButton(
+                                  key: const Key('login-send-code'),
+                                ),
+                              ] else ...[
+                                const SizedBox(height: 10),
+                                TextField(
+                                  key: const Key('login-password'),
+                                  controller: password,
+                                  enabled: !busy,
+                                  obscureText: true,
+                                  textInputAction: TextInputAction.done,
+                                  autofillHints: const [AutofillHints.password],
+                                  onSubmitted: (_) => submit(),
+                                  decoration: InputDecoration(
+                                    labelText: strings.text('密码'),
+                                    prefixIcon: const Icon(
+                                      Icons.lock_outline_rounded,
+                                    ),
+                                  ),
+                                ),
+                              ],
                               if (visibleError != null) ...[
                                 const SizedBox(height: 8),
                                 Text(
                                   visibleError,
+                                  softWrap: true,
                                   style: const TextStyle(
                                     color: danger,
                                     fontSize: 12,
@@ -1184,19 +1546,35 @@ class _LoginPageState extends State<LoginPage> {
                               ],
                               const SizedBox(height: 12),
                               FilledButton(
-                                key: const Key('login-button'),
+                                key: Key(
+                                  registering
+                                      ? 'register-button'
+                                      : phoneMode == _PhoneEntryMode.code
+                                      ? 'login-code-button'
+                                      : 'login-button',
+                                ),
                                 onPressed: busy ? null : submit,
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    if (!busy) ...[
-                                      const Icon(Icons.login_rounded, size: 19),
-                                      const SizedBox(width: 7),
-                                    ],
-                                    Text(strings.text(busy ? '登录中…' : '手机号登录')),
-                                  ],
+                                child: Text(
+                                  strings.text(
+                                    busy
+                                        ? '处理中…'
+                                        : registering
+                                        ? '注册并登录'
+                                        : phoneMode == _PhoneEntryMode.code
+                                        ? '验证码登录'
+                                        : '手机号登录',
+                                  ),
                                 ),
                               ),
+                              if (!registering) ...[
+                                const SizedBox(height: 4),
+                                TextButton.icon(
+                                  key: const Key('login-register-button'),
+                                  onPressed: busy ? null : _openRegistration,
+                                  icon: const Icon(Icons.person_add_alt_1),
+                                  label: Text(strings.text('注册账号')),
+                                ),
+                              ],
                             ],
                           ),
                         ),
@@ -1251,15 +1629,17 @@ class _LoginPageState extends State<LoginPage> {
                           child: InkWell(
                             key: const Key('google-login-button'),
                             borderRadius: BorderRadius.circular(24),
-                            onTap: () {
-                              final result = widget.controller
-                                  .loginWithGoogle();
-                              setState(
-                                () => error =
-                                    result.message ??
-                                    strings.text('Google 登录尚未配置。'),
-                              );
-                            },
+                            onTap: busy
+                                ? null
+                                : () {
+                                    final result = widget.controller
+                                        .loginWithGoogle();
+                                    setState(
+                                      () => error =
+                                          result.message ??
+                                          strings.text('Google 登录尚未配置。'),
+                                    );
+                                  },
                             child: Image.asset(
                               'assets/branding/sign_in_with_google_ios_light@3x.png',
                               width: 205,
@@ -1979,8 +2359,12 @@ class HomePage extends StatelessWidget {
       today.month,
       today.day,
     ).subtract(Duration(days: today.weekday - 1));
+    final nextMonday = monday.add(const Duration(days: 7));
     final weekRecords = controller.history
-        .where((record) => !record.date.isBefore(monday))
+        .where(
+          (record) =>
+              !record.date.isBefore(monday) && record.date.isBefore(nextMonday),
+        )
         .toList(growable: false);
     final muscleSets = <String, int>{};
     final homeDisplaySets = <String, int>{};
@@ -2008,9 +2392,7 @@ class HomePage extends StatelessWidget {
           action:
               '${weekRecords.map((record) => _dateKey(record.date)).toSet().length} / 4 次',
         ),
-        _WeekStrip(controller: controller),
-        const SizedBox(height: 12),
-        _HomeMuscleCard(
+        _HomeWeekOverview(
           controller: controller,
           muscleSets: muscleSets,
           displaySets: homeDisplaySets,
@@ -2090,6 +2472,193 @@ class HomePage extends StatelessWidget {
             ),
           ),
         ),
+      ],
+    );
+  }
+}
+
+class _HomeWeekOverview extends StatefulWidget {
+  const _HomeWeekOverview({
+    required this.controller,
+    required this.muscleSets,
+    required this.displaySets,
+  });
+
+  final AppController controller;
+  final Map<String, int> muscleSets;
+  final Map<String, int> displaySets;
+
+  @override
+  State<_HomeWeekOverview> createState() => _HomeWeekOverviewState();
+}
+
+class _HomeWeekOverviewState extends State<_HomeWeekOverview> {
+  DateTime? selectedDate;
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = selectedDate;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _WeekStrip(
+          controller: widget.controller,
+          selectedDate: selected,
+          onDateSelected: (date) => setState(() => selectedDate = date),
+        ),
+        const SizedBox(height: 12),
+        Stack(
+          children: [
+            Visibility(
+              visible: selected == null,
+              maintainState: true,
+              maintainAnimation: false,
+              maintainSize: false,
+              child: TickerMode(
+                enabled: selected == null,
+                child: _HomeMuscleCard(
+                  controller: widget.controller,
+                  muscleSets: widget.muscleSets,
+                  displaySets: widget.displaySets,
+                  active: selected == null,
+                ),
+              ),
+            ),
+            if (selected != null)
+              _HomeDayRecordsSection(
+                key: const Key('home-day-training-section'),
+                controller: widget.controller,
+                date: selected,
+                onBack: () => setState(() => selectedDate = null),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _HomeDayRecordsSection extends StatelessWidget {
+  const _HomeDayRecordsSection({
+    super.key,
+    required this.controller,
+    required this.date,
+    required this.onBack,
+  });
+
+  final AppController controller;
+  final DateTime date;
+  final VoidCallback onBack;
+
+  List<WorkoutRecord> get records {
+    final values = controller.history
+        .where((record) => _isSameDay(record.date, date))
+        .toList();
+    values.sort((a, b) {
+      final time = _recordStartDateTime(a).compareTo(_recordStartDateTime(b));
+      return time != 0 ? time : a.id.compareTo(b.id);
+    });
+    return values;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final values = records;
+    final dateKey = _dateKey(date);
+    final scheduledLabel = controller.scheduledLabels[dateKey]?.trim();
+    final hasScheduledLabel =
+        scheduledLabel != null && scheduledLabel.isNotEmpty;
+    final planned = controller.scheduled.contains(dateKey) || hasScheduledLabel;
+    final status = values.isNotEmpty
+        ? (planned ? '已完成 · 已安排' : '已完成')
+        : planned
+        ? '计划'
+        : '无记录';
+    final textScale = MediaQuery.textScalerOf(context).scale(1);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final title = Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '当天训练',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${date.year}年${date.month}月${date.day}日 · $status',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: quiet, fontSize: 12),
+                ),
+                if (hasScheduledLabel)
+                  Text(
+                    '计划：$scheduledLabel',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: quiet, fontSize: 12),
+                  ),
+              ],
+            );
+            final back = TextButton(
+              key: const Key('home-day-training-back'),
+              onPressed: onBack,
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 5),
+                minimumSize: const Size(44, 40),
+              ),
+              child: const Text('返回训练量与恢复'),
+            );
+            final stackHeader = textScale > 1.35 || constraints.maxWidth < 360;
+            return stackHeader
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      title,
+                      Align(alignment: Alignment.centerLeft, child: back),
+                    ],
+                  )
+                : Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: title),
+                      back,
+                    ],
+                  );
+          },
+        ),
+        if (values.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          for (var index = 0; index < values.length; index++) ...[
+            if (index > 0) const SizedBox(height: 8),
+            KeyedSubtree(
+              key: Key('home-day-record-${values[index].id}'),
+              child: _WorkoutShareCard(
+                controller: controller,
+                record: values[index],
+                compact: true,
+                onTap: () =>
+                    _showRecordDetail(context, controller, values[index]),
+              ),
+            ),
+          ],
+        ] else
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Card(
+              key: const Key('home-day-records-empty'),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  planned ? '当天有计划，完成后会显示记录。' : '当天没有训练记录。',
+                  style: const TextStyle(color: quiet),
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -2379,10 +2948,12 @@ class _HomeMuscleCard extends StatefulWidget {
     required this.controller,
     required this.muscleSets,
     required this.displaySets,
+    this.active = true,
   });
   final AppController controller;
   final Map<String, int> muscleSets;
   final Map<String, int> displaySets;
+  final bool active;
 
   @override
   State<_HomeMuscleCard> createState() => _HomeMuscleCardState();
@@ -2402,6 +2973,23 @@ class _HomeMuscleCardState extends State<_HomeMuscleCard> {
   void initState() {
     super.initState();
     _pageController = PageController();
+    _startAutoRotation();
+  }
+
+  @override
+  void didUpdateWidget(covariant _HomeMuscleCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.active == widget.active) return;
+    if (widget.active) {
+      _startAutoRotation();
+    } else {
+      _rotationTimer?.cancel();
+      _rotationTimer = null;
+    }
+  }
+
+  void _startAutoRotation() {
+    if (!widget.active || _manualSwipe || _rotationTimer != null) return;
     _rotationTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       if (!mounted || _manualSwipe || !_pageController.hasClients) return;
       final next = (_page + 1) % 2;
@@ -2454,6 +3042,9 @@ class _HomeMuscleCardState extends State<_HomeMuscleCard> {
   @override
   Widget build(BuildContext context) {
     final compact = MediaQuery.sizeOf(context).width <= 360;
+    final textScale = MediaQuery.textScalerOf(context).scale(1);
+    final pageViewHeight =
+        (compact ? 248.0 : 266.0) + math.max(0.0, textScale - 1.0) * 120.0;
     final ranked = _groups
         .map((group) => MapEntry(group, widget.displaySets[group] ?? 0))
         .toList(growable: false);
@@ -2528,7 +3119,7 @@ class _HomeMuscleCardState extends State<_HomeMuscleCard> {
               const SizedBox(height: 6),
               SizedBox(
                 key: const Key('home-muscle-page-view'),
-                height: compact ? 248 : 266,
+                height: pageViewHeight,
                 child: NotificationListener<ScrollNotification>(
                   onNotification: (notification) {
                     if (notification is ScrollStartNotification &&
@@ -2632,14 +3223,6 @@ class _HomeMuscleMetricPage extends StatelessWidget {
       onTap: onTap,
       child: Column(
         children: [
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              recovery ? '训练负荷估算，非医学测量' : '本周有效组数',
-              style: const TextStyle(color: quiet, fontSize: 11),
-            ),
-          ),
-          const SizedBox(height: 6),
           Expanded(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -3238,8 +3821,16 @@ class _HomeExerciseTrendPainter extends CustomPainter {
 }
 
 class _WeekStrip extends StatelessWidget {
-  const _WeekStrip({required this.controller});
+  const _WeekStrip({
+    required this.controller,
+    required this.selectedDate,
+    required this.onDateSelected,
+  });
+
   final AppController controller;
+  final DateTime? selectedDate;
+  final ValueChanged<DateTime> onDateSelected;
+
   @override
   Widget build(BuildContext context) {
     final days = ['一', '二', '三', '四', '五', '六', '日'];
@@ -3251,69 +3842,178 @@ class _WeekStrip extends StatelessWidget {
     ).subtract(Duration(days: today.weekday - 1));
     final dates = [for (var i = 0; i < 7; i++) monday.add(Duration(days: i))];
     final scale = MediaQuery.textScalerOf(context).scale(1);
-    return SizedBox(
-      height: 78 * scale,
-      child: Row(
-        children: [
-          for (var i = 0; i < 7; i++)
-            Expanded(
-              child: Padding(
-                padding: EdgeInsets.only(right: i == 6 ? 0 : 5),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: _isSameDay(dates[i], today) ? cobalt : Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: _isSameDay(dates[i], today) ? cobalt : hairline,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availableWidth = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : 338.0;
+        final itemWidth = math.max(44.0, (availableWidth - 30) / 7);
+        final rowWidth = itemWidth * 7 + 30;
+        return SizedBox(
+          height: 78 * scale,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: SizedBox(
+              width: rowWidth,
+              child: Row(
+                children: [
+                  for (var i = 0; i < 7; i++)
+                    Padding(
+                      padding: EdgeInsets.only(right: i == 6 ? 0 : 5),
+                      child: _HomeWeekDay(
+                        key: Key('home-week-day-${_dateKey(dates[i])}'),
+                        controller: controller,
+                        date: dates[i],
+                        label: days[i],
+                        today: _isSameDay(dates[i], today),
+                        selected:
+                            selectedDate != null &&
+                            _isSameDay(dates[i], selectedDate!),
+                        width: itemWidth,
+                        onTap: () => onDateSelected(dates[i]),
+                      ),
                     ),
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        days[i],
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: _isSameDay(dates[i], today)
-                              ? Colors.white
-                              : quiet,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${dates[i].day}',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          color: _isSameDay(dates[i], today)
-                              ? Colors.white
-                              : ink,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Icon(
-                        controller.history.any(
-                              (record) => _isSameDay(record.date, dates[i]),
-                            )
-                            ? Icons.check_circle
-                            : controller.scheduled.contains(_dateKey(dates[i]))
-                            ? Icons.fitness_center
-                            : Icons.remove,
-                        size: 12,
-                        color: _isSameDay(dates[i], today)
-                            ? lime
-                            : controller.history.any(
-                                (record) => _isSameDay(record.date, dates[i]),
-                              )
-                            ? cobalt
-                            : hairline,
-                      ),
-                    ],
-                  ),
-                ),
+                ],
               ),
             ),
-        ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _HomeWeekDay extends StatelessWidget {
+  const _HomeWeekDay({
+    super.key,
+    required this.controller,
+    required this.date,
+    required this.label,
+    required this.today,
+    required this.selected,
+    required this.width,
+    required this.onTap,
+  });
+
+  final AppController controller;
+  final DateTime date;
+  final String label;
+  final bool today;
+  final bool selected;
+  final double width;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final completed = controller.history.any(
+      (record) => _isSameDay(record.date, date),
+    );
+    final plannedKey = _dateKey(date);
+    final scheduledLabel = controller.scheduledLabels[plannedKey]?.trim();
+    final planned =
+        controller.scheduled.contains(plannedKey) ||
+        (scheduledLabel != null && scheduledLabel.isNotEmpty);
+    final status = completed
+        ? '已完成'
+        : planned
+        ? '计划'
+        : '—';
+    final background = completed
+        ? const Color(0xFFE2F2ED)
+        : planned
+        ? calendarScheduledContainer
+        : selected
+        ? calendarSelectedContainer
+        : Colors.white;
+    final borderColor = selected
+        ? primary
+        : today
+        ? calendarSelected
+        : completed
+        ? const Color(0xFF8BC7B9)
+        : planned
+        ? calendarScheduled
+        : hairline;
+    final markerColor = today
+        ? calendarSelected
+        : completed
+        ? const Color(0xFF438F82)
+        : planned
+        ? calendarScheduled
+        : hairline;
+    final marker = today
+        ? Icons.today_rounded
+        : completed
+        ? Icons.check_circle_rounded
+        : planned
+        ? Icons.event_available_rounded
+        : Icons.remove;
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: '$label ${date.month}月${date.day}日${today ? '，今天' : ''}，$status',
+      child: SizedBox(
+        width: width,
+        height: 78 * MediaQuery.textScalerOf(context).scale(1),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+            decoration: BoxDecoration(
+              color: background,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: borderColor,
+                width: selected || today ? 2 : 1,
+              ),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: quiet,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                SizedBox(
+                  width: double.infinity,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      '${date.day}',
+                      maxLines: 1,
+                      softWrap: false,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        color: ink,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Icon(marker, size: 12, color: markerColor),
+                const SizedBox(height: 1),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    status,
+                    style: TextStyle(
+                      fontSize: 9,
+                      color: markerColor,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -3323,6 +4023,24 @@ bool _isSameDay(DateTime left, DateTime right) =>
     left.year == right.year &&
     left.month == right.month &&
     left.day == right.day;
+
+DateTime _recordStartDateTime(WorkoutRecord record) {
+  final match = RegExp(
+    r'^(\d{1,2}):(\d{2})$',
+  ).firstMatch(record.startTime.trim());
+  final hour = int.tryParse(match?.group(1) ?? '');
+  final minute = int.tryParse(match?.group(2) ?? '');
+  if (hour != null && minute != null && hour >= 0 && hour < 24 && minute < 60) {
+    return DateTime(
+      record.date.year,
+      record.date.month,
+      record.date.day,
+      hour,
+      minute,
+    );
+  }
+  return record.date;
+}
 
 class _ParticlePainter extends CustomPainter {
   _ParticlePainter({required this.reducedMotion});
@@ -7296,10 +8014,6 @@ class _TrainingStatisticsView extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
             child: Column(
               children: [
-                const Text(
-                  '本周期有效组',
-                  style: TextStyle(color: quiet, fontSize: 12),
-                ),
                 const SizedBox(height: 8),
                 _MuscleBodyMap(muscleSets: muscleSets),
               ],
@@ -8045,7 +8759,7 @@ class _MemberAnalyticsPanel extends StatelessWidget {
           key: const Key('stats-ai-insight-locked'),
           controller: controller,
           title: '深度训练洞察',
-          description: '把训练、恢复、饮食和周报放在同一条判断链上。',
+          description: '',
           actionKey: const Key('open-member-analytics-paywall'),
         ),
       );
@@ -8337,12 +9051,14 @@ class _LockedAnalyticsModuleState extends State<_LockedAnalyticsModule> {
               ),
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            widget.description,
-            style: const TextStyle(color: quiet, fontSize: 12, height: 1.35),
-          ),
-          const SizedBox(height: 4),
+          if (widget.description.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              widget.description,
+              style: const TextStyle(color: quiet, fontSize: 12, height: 1.35),
+            ),
+            const SizedBox(height: 4),
+          ],
           ClipRect(
             child: AnimatedSize(
               duration: const Duration(milliseconds: 180),
@@ -9193,8 +9909,6 @@ class _MuscleDetailsPageState extends State<MuscleDetailsPage> {
               '训练分布',
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
             ),
-            const SizedBox(height: 4),
-            const Text('本周期有效组', style: TextStyle(color: quiet, fontSize: 12)),
             const SizedBox(height: 8),
             Card(
               child: Padding(
@@ -12708,18 +13422,13 @@ class _AiPageState extends State<AiPage> {
                       horizontal: 12,
                       vertical: 4,
                     ),
-                    side: BorderSide(
-                      color: primary.withValues(alpha: .28),
-                    ),
+                    side: BorderSide(color: primary.withValues(alpha: .28)),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(13),
                     ),
                   ),
                   onPressed: _openRecognition,
-                  icon: const Icon(
-                    Icons.accessibility_new_rounded,
-                    size: 18,
-                  ),
+                  icon: const Icon(Icons.accessibility_new_rounded, size: 18),
                   label: const Text('动作识别'),
                 ),
               ),
@@ -18172,6 +18881,8 @@ class _WorkoutShareCard extends StatelessWidget {
     this.cardStyle = 'coral',
     this.cardImageKey = 'brand',
     this.localPhotoPath,
+    this.compact = false,
+    this.onTap,
   });
 
   final AppController controller;
@@ -18179,6 +18890,8 @@ class _WorkoutShareCard extends StatelessWidget {
   final String cardStyle;
   final String cardImageKey;
   final String? localPhotoPath;
+  final bool compact;
+  final VoidCallback? onTap;
 
   Color get accent => switch (cardStyle) {
     'midnight' => const Color(0xFF2E3546),
@@ -18198,6 +18911,13 @@ class _WorkoutShareCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (compact) {
+      return _CompactWorkoutShareCard(
+        controller: controller,
+        record: record,
+        onTap: onTap,
+      );
+    }
     final exercises = record.exercises.take(5).toList(growable: false);
     final firstExercise = exercises.firstOrNull?.exerciseId;
     final imageAsset = cardImageKey == 'exercise' && firstExercise != null
@@ -18372,6 +19092,171 @@ class _WorkoutShareCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _CompactWorkoutShareCard extends StatelessWidget {
+  const _CompactWorkoutShareCard({
+    required this.controller,
+    required this.record,
+    required this.onTap,
+  });
+
+  final AppController controller;
+  final WorkoutRecord record;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final exercises = record.exercises.take(3).toList(growable: false);
+    return Material(
+      color: const Color(0xFFE96A45),
+      borderRadius: BorderRadius.circular(20),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 13, 14, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.bolt_rounded, color: Colors.white, size: 20),
+                  const SizedBox(width: 7),
+                  Expanded(
+                    child: Text(
+                      record.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  Flexible(
+                    fit: FlexFit.loose,
+                    child: Text(
+                      '${record.date.month}/${record.date.day} · ${record.startTime}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.end,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  _CompactShareMetric(
+                    label: '训练量',
+                    value: '${record.volume.toStringAsFixed(0)} kg',
+                  ),
+                  _CompactShareMetric(
+                    label: '有效组',
+                    value: '${record.effectiveSets}',
+                  ),
+                  _CompactShareMetric(
+                    label: '时长',
+                    value: '${(record.durationSeconds / 60).round()} 分',
+                  ),
+                ],
+              ),
+              if (exercises.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Container(height: 1, color: Colors.white24),
+                const SizedBox(height: 7),
+                for (final exercise in exercises)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.fitness_center_rounded,
+                          color: Colors.white70,
+                          size: 14,
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            controller.displayExerciseName(
+                              controller.exerciseFor(exercise.exerciseId),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          fit: FlexFit.loose,
+                          child: Text(
+                            _compactSetSummary(exercise),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.end,
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+String _compactSetSummary(WorkoutExercise exercise) {
+  final completed = exercise.sets.where((set) => set.completed).toList();
+  if (completed.isEmpty) return '暂无有效组';
+  return completed
+      .take(2)
+      .map((set) => '${_displayWeight(set.weight)} kg × ${set.reps}')
+      .join(' · ');
+}
+
+class _CompactShareMetric extends StatelessWidget {
+  const _CompactShareMetric({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => Expanded(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 9)),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 14,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 String _shareCardStyleLabel(String style) => switch (style) {

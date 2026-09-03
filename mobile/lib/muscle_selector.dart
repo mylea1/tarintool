@@ -273,21 +273,40 @@ class _InteractiveMuscleMapState extends State<InteractiveMuscleMap> {
           if (widget.showSideToggle)
             Padding(
               padding: const EdgeInsets.only(bottom: 4),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _SideButton(
-                    label: '正面',
-                    selected: side == MuscleMapSide.front,
-                    onPressed: () => setState(() => side = MuscleMapSide.front),
-                  ),
-                  const SizedBox(width: 6),
-                  _SideButton(
-                    label: '背面',
-                    selected: side == MuscleMapSide.back,
-                    onPressed: () => setState(() => side = MuscleMapSide.back),
-                  ),
-                ],
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final buttons = [
+                    _SideButton(
+                      label: '正面',
+                      selected: side == MuscleMapSide.front,
+                      onPressed: () =>
+                          setState(() => side = MuscleMapSide.front),
+                    ),
+                    _SideButton(
+                      label: '背面',
+                      selected: side == MuscleMapSide.back,
+                      onPressed: () =>
+                          setState(() => side = MuscleMapSide.back),
+                    ),
+                  ];
+                  if (constraints.maxWidth < 150) {
+                    return Row(
+                      children: [
+                        Expanded(child: buttons[0]),
+                        const SizedBox(width: 6),
+                        Expanded(child: buttons[1]),
+                      ],
+                    );
+                  }
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      buttons[0],
+                      const SizedBox(width: 6),
+                      buttons[1],
+                    ],
+                  );
+                },
               ),
             ),
           SizedBox(height: widget.height, width: double.infinity, child: body),
@@ -325,14 +344,17 @@ class _SideButton extends StatelessWidget {
     child: TextButton(
       onPressed: onPressed,
       style: TextButton.styleFrom(
-        minimumSize: const Size(48, 36),
-        padding: const EdgeInsets.symmetric(horizontal: 10),
+        minimumSize: const Size(0, 44),
+        padding: const EdgeInsets.symmetric(horizontal: 4),
         foregroundColor: selected
             ? const Color(0xFFD95718)
             : const Color(0xFF756156),
         textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
       ),
-      child: Text(label),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(label, maxLines: 1, softWrap: false),
+      ),
     ),
   );
 }

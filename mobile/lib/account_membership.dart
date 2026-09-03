@@ -45,6 +45,8 @@ enum UsageKind { ai, recognition }
 enum AccountError {
   none,
   emptyIdentifier,
+  invalidIdentifier,
+  invalidPassword,
   invalidCredentials,
   serviceNotConfigured,
   notAuthenticated,
@@ -53,6 +55,18 @@ enum AccountError {
   invalidCode,
   codeAlreadyUsed,
   invalidMembershipPlan,
+}
+
+class PhoneCodeChallenge {
+  const PhoneCodeChallenge({
+    required this.sent,
+    required this.retryAfterSeconds,
+    required this.expiresInSeconds,
+  });
+
+  final bool sent;
+  final int retryAfterSeconds;
+  final int expiresInSeconds;
 }
 
 class AccountUser {

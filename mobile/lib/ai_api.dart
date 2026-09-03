@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
+import 'account_membership.dart';
 import 'models.dart';
 import 'secure_session_store.dart';
 
@@ -194,9 +195,99 @@ class HttpCoachApi implements CoachApi, AgentCoachApi, StreamingCoachApi {
     if (token.isEmpty) {
       throw const CoachApiException('coach_auth_token_missing');
     }
+    final rawUser = payload['user'];
+    final canonicalIdentifier = rawUser is Map
+        ? (rawUser['identifier'] ?? '').toString().trim()
+        : '';
     _remoteSession = RemoteSession(
       token: token,
-      accountIdentifier: identifier.trim(),
+      accountIdentifier: canonicalIdentifier.isEmpty
+          ? identifier.trim()
+          : canonicalIdentifier,
+      apiOrigin: baseUrl,
+      expiresAt: _sessionExpiry(session),
+    );
+    _sessionToken = token;
+    return payload;
+  }
+
+  Future<PhoneCodeChallenge> requestPhoneCode({
+    required String identifier,
+    required String purpose,
+  }) async {
+    final response = await _client
+        .post(
+          _endpoint('/v1/auth/phone/request'),
+          headers: const {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'identifier': identifier.trim(),
+            'purpose': purpose,
+          }),
+        )
+        .timeout(requestTimeout);
+    final payload = _decodeJsonResponse(response, 'phone_code_request');
+    if (payload['sent'] != true) {
+      throw const CoachApiException('phone_code_not_sent');
+    }
+    return PhoneCodeChallenge(
+      sent: true,
+      retryAfterSeconds: _nonNegativeInt(payload['retryAfterSeconds'], 60),
+      expiresInSeconds: _nonNegativeInt(payload['expiresInSeconds'], 300),
+    );
+  }
+
+  Future<Map<String, dynamic>> registerPhone({
+    required String identifier,
+    required String password,
+    required String code,
+  }) async => _phoneAuth(
+    path: '/v1/auth/phone/register',
+    operation: 'phone_register',
+    body: {
+      'identifier': identifier.trim(),
+      'password': password,
+      'code': code.trim(),
+    },
+  );
+
+  Future<Map<String, dynamic>> verifyPhone({
+    required String identifier,
+    required String code,
+  }) async => _phoneAuth(
+    path: '/v1/auth/phone/verify',
+    operation: 'phone_verify',
+    body: {'identifier': identifier.trim(), 'code': code.trim()},
+  );
+
+  Future<Map<String, dynamic>> _phoneAuth({
+    required String path,
+    required String operation,
+    required Map<String, Object?> body,
+  }) async {
+    final response = await _client
+        .post(
+          _endpoint(path),
+          headers: const {'Content-Type': 'application/json'},
+          body: jsonEncode(body),
+        )
+        .timeout(requestTimeout);
+    final payload = _decodeJsonResponse(response, operation);
+    final session = payload['session'];
+    final token = session is Map<String, dynamic>
+        ? (session['token'] ?? '').toString()
+        : '';
+    if (token.isEmpty) {
+      throw CoachApiException('${operation}_token_missing');
+    }
+    final rawUser = payload['user'];
+    final canonicalIdentifier = rawUser is Map
+        ? (rawUser['identifier'] ?? '').toString().trim()
+        : '';
+    _remoteSession = RemoteSession(
+      token: token,
+      accountIdentifier: canonicalIdentifier.isEmpty
+          ? (body['identifier'] ?? '').toString().trim()
+          : canonicalIdentifier,
       apiOrigin: baseUrl,
       expiresAt: _sessionExpiry(session),
     );
@@ -1032,6 +1123,11 @@ class HttpCoachApi implements CoachApi, AgentCoachApi, StreamingCoachApi {
   static DateTime? _sessionExpiry(Object? rawSession) {
     if (rawSession is! Map<String, dynamic>) return null;
     return DateTime.tryParse((rawSession['expiresAt'] ?? '').toString());
+  }
+
+  static int _nonNegativeInt(Object? value, int fallback) {
+    final parsed = value is num ? value.toInt() : int.tryParse('$value');
+    return (parsed ?? fallback).clamp(0, 86400).toInt();
   }
 }
 

@@ -338,8 +338,17 @@ void main() {
     expect(find.text('暂无训练数据'), findsOneWidget);
     expect(find.text('暂无训练数据，是否使用推荐计划完成第一次训练？'), findsOneWidget);
     expect(find.text('使用推荐计划完成第一次训练'), findsOneWidget);
-    expect(find.text('胸'), findsNothing);
-    expect(find.text('背'), findsNothing);
+    final recommendation = find.byKey(const Key('ai-training-home-card'));
+    // Muscle-map labels remain valid even before any history exists. Only the
+    // recommendation must avoid presenting invented target muscle groups.
+    expect(
+      find.descendant(of: recommendation, matching: find.text('胸')),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: recommendation, matching: find.text('背')),
+      findsNothing,
+    );
     expect(tester.takeException(), isNull);
   });
 
@@ -2345,12 +2354,17 @@ void main() {
     final volumeController = AppController();
     addTearDown(volumeController.dispose);
     await tester.pumpWidget(KiloApp(initialController: volumeController));
+    await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
       find.byKey(const Key('home-muscle-open-volume')),
       220,
       scrollable: find.byType(Scrollable).first,
     );
-    await tester.tap(find.byKey(const Key('home-muscle-open-volume')));
+    final volumeLink = find.byKey(const Key('home-muscle-open-volume'));
+    await Scrollable.ensureVisible(tester.element(volumeLink), alignment: .3);
+    await tester.pumpAndSettle();
+    expect(volumeLink.hitTestable(), findsOneWidget);
+    await tester.tap(volumeLink);
     await tester.pumpAndSettle();
     expect(volumeController.page, PageId.train);
     expect(volumeController.trainView, TrainView.history);

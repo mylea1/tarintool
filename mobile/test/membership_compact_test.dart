@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -34,10 +35,18 @@ void main() {
     final controller = AppController(accountService: service);
     addTearDown(controller.dispose);
 
-    await tester.pumpWidget(
-      MaterialApp(home: MembershipCenterPage(controller: controller)),
-    );
-    await tester.pump(const Duration(milliseconds: 300));
+    // Prevent the widget test's default Android target from registering a
+    // real billing bridge. Linux has no store implementation, so initialization
+    // must take the unavailable/error path and leave purchasing disabled.
+    debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+    try {
+      await tester.pumpWidget(
+        MaterialApp(home: MembershipCenterPage(controller: controller)),
+      );
+      await tester.pump(const Duration(milliseconds: 300));
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
 
     final comparison = find.byKey(const Key('membership-plan-comparison'));
     final monthly = find.byKey(const Key('membership-plan-oneMonth'));
@@ -60,9 +69,19 @@ void main() {
     expect(find.text('最受欢迎'), findsNothing);
     expect(find.text('完整 PRO 权益'), findsNothing);
     expect(find.text('适合先体验 AI 训练闭环'), findsNothing);
+    expect(find.text('所有方案均解锁完整 PRO 能力，区别仅在订阅周期。'), findsNothing);
+    expect(find.textContaining('付款由 App Store'), findsNothing);
+    expect(find.text('部分会员商品尚未在商店启用。'), findsNothing);
+    final purchaseButton = find.ancestor(
+      of: find.text('购买 · ¥128'),
+      matching: find.byType(FilledButton),
+    );
+    expect(purchaseButton, findsOneWidget);
+    expect(tester.widget<FilledButton>(purchaseButton).onPressed, isNull);
 
     await tester.tap(monthly);
     await tester.pump();
+    expect(find.text('购买 · ¥12'), findsOneWidget);
     expect(find.byIcon(Icons.radio_button_checked_rounded), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -128,6 +147,16 @@ void main() {
     await tester.pump();
     expect(selected, MembershipPlan.yearly);
     expect(tester.takeException(), isNull);
+  });
+
+  test('unavailable App Store purchase gives explicit feedback', () async {
+    final controller = AppController();
+    addTearDown(controller.dispose);
+    final purchase = MembershipPurchaseCoordinator(controller);
+    addTearDown(purchase.dispose);
+
+    expect(await purchase.purchase(MembershipPlan.yearly), isFalse);
+    expect(purchase.errorMessage, '该会员方案尚未在 App Store 配置完成。');
   });
 
   testWidgets('profile opens membership orders and returns', (tester) async {
