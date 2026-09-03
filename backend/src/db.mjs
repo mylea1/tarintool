@@ -5,6 +5,12 @@ import Database from 'better-sqlite3';
 import { nowIso, hashPassword, randomId } from './security.mjs';
 
 const migrationPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'migrations', '001_init.sql');
+const phoneAuthMigrationPath = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '..',
+  'migrations',
+  '003_phone_auth.sql',
+);
 const workoutPostCardMigrationPath = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '..',
@@ -87,6 +93,13 @@ export function syncAccountPhoneIdentity(db, user) {
   if (!user || user.auth_provider !== 'password') return null;
   const normalized = normalizePhone(user.identifier);
   if (!normalized) return null;
+  const existing = db.prepare(
+    'SELECT * FROM user_identities WHERE user_id = ? AND kind = \'phone\'',
+  ).get(user.id);
+  // A password/account identifier may seed an unverified searchable alias for
+  // legacy accounts, but a phone proved by SMS must keep its verified source
+  // and timestamp across later login/startup synchronisation.
+  if (existing?.verified_at) return { status: 'unchanged', identity: existing };
   return putUserIdentity(db, {
     userId: user.id,
     kind: 'phone',
@@ -103,6 +116,7 @@ export function openDatabase(databasePath) {
   db.pragma('foreign_keys = ON');
   db.pragma('busy_timeout = 5000');
   db.exec(fs.readFileSync(migrationPath, 'utf8'));
+  db.exec(fs.readFileSync(phoneAuthMigrationPath, 'utf8'));
   // Card appearance is an additive migration. Keep the SQL in a numbered
   // file for release review while checking columns first so old installations
   // and repeated test boots remain safe and idempotent.

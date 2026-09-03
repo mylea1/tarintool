@@ -25,6 +25,7 @@ export function loadConfig(env = process.env) {
     port: intValue(env, 'KILO_PORT', 8790),
     publicBaseUrl: (env.KILO_PUBLIC_BASE_URL || `http://127.0.0.1:${env.KILO_PORT || 8790}`).replace(/\/+$/, ''),
     allowedOrigins: new Set((env.KILO_ALLOWED_ORIGINS || '').split(',').map((item) => item.trim()).filter(Boolean)),
+    trustedProxyIps: new Set((env.KILO_TRUSTED_PROXY_IPS || '').split(',').map((item) => item.trim()).filter(Boolean)),
     dataDir: resolve(env.KILO_DATA_DIR, 'data'),
     databasePath: resolve(env.KILO_DATABASE_PATH, 'data/kilo.sqlite3'),
     mediaDir: resolve(env.KILO_MEDIA_DIR, 'data/media'),
@@ -58,6 +59,12 @@ export function loadConfig(env = process.env) {
     googleClientId: env.GOOGLE_CLIENT_ID || '',
     sessionTtlDays: intValue(env, 'KILO_SESSION_TTL_DAYS', 30),
     gpuClaimTimeoutSeconds: intValue(env, 'KILO_GPU_CLAIM_TIMEOUT_SECONDS', 900),
+    smsOtpPepper: env.KILO_SMS_OTP_PEPPER || env.KILO_SESSION_PEPPER || 'development-only-sms-otp-pepper',
+    aliyunAccessKeyId: env.ALIYUN_ACCESS_KEY_ID || '',
+    aliyunAccessKeySecret: env.ALIYUN_ACCESS_KEY_SECRET || '',
+    aliyunSmsSignName: env.ALIYUN_SMS_SIGN_NAME || '',
+    aliyunSmsTemplateCode: env.ALIYUN_SMS_TEMPLATE_CODE || '',
+    aliyunSmsCodeParam: env.ALIYUN_SMS_CODE_PARAM || 'code',
   });
 }
 
@@ -71,5 +78,12 @@ export function assertProductionConfiguration(candidate = config, env = process.
   if (candidate.enableTestAdmin) problems.push('KILO_ENABLE_TEST_ADMIN=false');
   if (candidate.enableTestMember) problems.push('KILO_ENABLE_TEST_MEMBER=false');
   if (candidate.enablePasswordRegistration) problems.push('KILO_ENABLE_PASSWORD_REGISTRATION=false');
+  const smsProviderConfigured = Boolean(
+    candidate.aliyunAccessKeyId &&
+    candidate.aliyunAccessKeySecret &&
+    candidate.aliyunSmsSignName &&
+    candidate.aliyunSmsTemplateCode,
+  );
+  if (smsProviderConfigured && (!candidate.smsOtpPepper || candidate.smsOtpPepper === 'development-only-sms-otp-pepper' || candidate.smsOtpPepper.startsWith('replace-with-') || candidate.smsOtpPepper.length < 32)) problems.push('KILO_SMS_OTP_PEPPER');
   if (problems.length) throw new Error(`unsafe_production_configuration:${problems.join(',')}`);
 }

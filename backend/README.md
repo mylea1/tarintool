@@ -14,7 +14,20 @@ npm start
 
 健康检查为 `GET /health`。测试管理员 `1234/1234` 和普通体验账号 `123/123` 分别由 `KILO_ENABLE_TEST_ADMIN`、`KILO_ENABLE_TEST_MEMBER` 显式启用；两种测试开关都只允许 development/test，生产安全校验会拒绝它们。App 内的管理员身份不会绕过服务端角色校验。
 
-数据库由 `migrations/001_init.sql` 自动初始化。`KILO_DATA_DIR`、`KILO_DATABASE_PATH` 和 `KILO_MEDIA_DIR` 应指向持久卷；当前媒体实现是服务器磁盘上的 `LocalStorage`，API 使用逻辑 key，未来替换 OSS 不需要改移动端 API。媒体下载始终要求资源所属用户的会话。
+## 手机号注册与登录
+
+正式手机号流程使用阿里云号码认证服务（PNVS）的 `dypnsapi.aliyuncs.com` `SendSmsVerifyCode`（`2017-05-25`）：
+
+- `POST /v1/auth/phone/request`：`{identifier, purpose: "register"|"login"}`，成功返回 `sent`、`retryAfterSeconds: 60`、`expiresInSeconds: 300` 及可选 `challengeId`。
+- `POST /v1/auth/phone/register`：`{identifier, password, code}`。短信验证后创建密码账号并返回既有 `{user, session}`，密码长度为 8–128 个字符。
+- `POST /v1/auth/phone/verify`：`{identifier, code}`。只登录已注册手机号，不会把未注册号码自动创建为账号。
+- 原 `POST /v1/auth/phone/login` 密码接口保留，测试账号和历史短密码继续兼容；新增失败限频和 256 字符上限。
+
+仅中国大陆 11 位手机号（`1[3-9]xxxxxxxxx`，可带 `+86`）可走短信流程；11 位与 `+86` 形式归一为同一账号。验证码由 PNVS 生成并在成功响应中回传给服务端，服务端只保存带 `KILO_SMS_OTP_PEPPER` 的 HMAC，不把验证码、上游诊断或密钥写入客户端/日志。短信供应商配置不完整时请求 fail-closed，返回 `provider_not_configured`。
+
+配置变量和反向代理信任边界见 [`../docs/phone-auth-setup.md`](../docs/phone-auth-setup.md)。不要把阿里云密钥写入 Flutter define、Git 或公开日志。
+
+数据库由 `migrations/001_init.sql` 自动初始化，手机号认证表由后续 additive migration（当前为 `003_phone_auth.sql`）自动补齐。`KILO_DATA_DIR`、`KILO_DATABASE_PATH` 和 `KILO_MEDIA_DIR` 应指向持久卷；当前媒体实现是服务器磁盘上的 `LocalStorage`，API 使用逻辑 key，未来替换 OSS 不需要改移动端 API。媒体下载始终要求资源所属用户的会话。
 
 ## 会员订单与平台支付
 

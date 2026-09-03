@@ -1,6 +1,7 @@
 import { createServer } from 'node:http';
 import { createHmac, randomUUID } from 'node:crypto';
 import fs from 'node:fs';
+import { isIP } from 'node:net';
 import path from 'node:path';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { config as defaultConfig, assertProductionConfiguration, loadConfig } from './config.mjs';
@@ -8,6 +9,7 @@ import { openDatabase, closeDatabase, transaction, ensureEntitlement, refreshEnt
 import { hashPassword, verifyPassword, sha256, safeEqualText, nowIso, randomId, randomToken } from './security.mjs';
 import { LocalStorage, extensionForType } from './storage.mjs';
 import { ConcurrencyGate, QueueCapacityError } from './concurrency.mjs';
+import { sendAliyunSms, smsProviderConfigured } from './sms.mjs';
 
 const JSON_CONTENT_TYPE = 'application/json; charset=utf-8';
 const MAX_TEXT = 4000;
@@ -15,6 +17,21 @@ const MAX_SUMMARY = 6000;
 const MAX_AGENT_TOOL_RESULTS = 3;
 const MAX_AGENT_RESULT_BYTES = 12000;
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/u;
+const SMS_CODE_LENGTH = 6;
+const SMS_CODE_TTL_MS = 5 * 60 * 1000;
+const SMS_RETRY_AFTER_SECONDS = 60;
+const SMS_RATE_LIMITS = [
+  { scope: 'phone', windowMs: 60 * 1000, limit: 1 },
+  { scope: 'phone', windowMs: 60 * 60 * 1000, limit: 5 },
+  { scope: 'phone', windowMs: 24 * 60 * 60 * 1000, limit: 10 },
+  { scope: 'ip', windowMs: 60 * 1000, limit: 5 },
+  { scope: 'ip', windowMs: 60 * 60 * 1000, limit: 20 },
+  { scope: 'ip', windowMs: 24 * 60 * 60 * 1000, limit: 100 },
+];
+const PASSWORD_FAILURE_LIMITS = [
+  { scope: 'identifier', windowMs: 15 * 60 * 1000, limit: 5 },
+  { scope: 'ip', windowMs: 15 * 60 * 1000, limit: 20 },
+];
 const AI_TOOL_DEFINITIONS = [
   {
     type: 'function',
@@ -419,8 +436,9 @@ function writeError(res, error, req, cfg) {
   const status = Number.isInteger(error?.status) ? error.status : 500;
   const payload = { error: error?.code || 'internal_error' };
   if (error?.detail !== undefined) payload.detail = error.detail;
-  if (error?.code === 'ai_busy') {
-    res.setHeader('retry-after', String(error?.detail?.retryAfterSeconds || 5));
+  const retryAfterSeconds = Number(error?.detail?.retryAfterSeconds);
+  if (error?.code === 'ai_busy' || (Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0)) {
+    res.setHeader('retry-after', String(error?.code === 'ai_busy' ? error?.detail?.retryAfterSeconds || 5 : retryAfterSeconds));
   }
   if (status >= 500) console.error('[KILO API]', error?.stack || error);
   writeJson(res, status, payload, req, cfg);
@@ -451,6 +469,20 @@ function requireString(value, code, max = 256) {
   return value.trim();
 }
 
+function requirePassword(value, code = 'password_required', max = 128) {
+  if (typeof value !== 'string' || !value.length || value.length > max) throw httpError(400, code);
+  return value;
+}
+
+function requireSmsPhoneIdentifier(value) {
+  const identifier = requireString(value, 'identifier_required', 80);
+  const normalizedPhone = normalizePhone(identifier);
+  if (!/^\+861[3-9]\d{9}$/u.test(normalizedPhone || '')) {
+    throw httpError(400, 'invalid_phone_identifier');
+  }
+  return normalizedPhone;
+}
+
 function bearer(req) {
   const header = req.headers.authorization;
   if (!header || typeof header !== 'string') return null;
@@ -465,6 +497,298 @@ function createSession(db, cfg, userId) {
   db.prepare('INSERT INTO sessions (id, user_id, token_hash, expires_at, created_at) VALUES (?, ?, ?, ?, ?)')
     .run(randomId('ses_'), userId, sha256(token, cfg.sessionPepper), expires.toISOString(), created.toISOString());
   return { token, expiresAt: expires.toISOString() };
+}
+
+function canonicalClientIp(value) {
+  if (typeof value !== 'string') return null;
+  const candidate = value.trim();
+  if (!candidate) return null;
+  const mapped = candidate.toLowerCase().startsWith('::ffff:')
+    ? candidate.slice('::ffff:'.length)
+    : candidate;
+  return isIP(mapped) ? mapped : null;
+}
+
+function requestClientIp(req, cfg) {
+  const peer = canonicalClientIp(req.socket?.remoteAddress) || 'unknown';
+  const trusted = [...(cfg.trustedProxyIps || [])]
+    .map(canonicalClientIp)
+    .filter(Boolean)
+    .some((item) => item === peer);
+  const forwarded = req.headers['x-real-ip'];
+  if (trusted && typeof forwarded === 'string') {
+    const client = canonicalClientIp(forwarded);
+    if (client) return client;
+  }
+  // X-Forwarded-For is deliberately ignored. A proxy must be explicitly
+  // trusted and must provide one valid X-Real-IP value instead.
+  return peer;
+}
+
+function scopeHash(value, cfg) {
+  return sha256(String(value || 'unknown'), cfg.sessionPepper);
+}
+
+function smsCodeHash(value, cfg) {
+  return createHmac('sha256', cfg.smsOtpPepper || cfg.sessionPepper || '')
+    .update(`sms-otp\u0000${String(value)}`)
+    .digest('hex');
+}
+
+function phoneIdentifierCandidates(normalizedPhone) {
+  const values = [normalizedPhone];
+  if (normalizedPhone?.startsWith('+86')) values.push(normalizedPhone.slice(3));
+  return [...new Set(values.filter(Boolean))];
+}
+
+function findExistingPhoneAccount(db, normalizedPhone) {
+  const candidates = phoneIdentifierCandidates(normalizedPhone);
+  const placeholders = candidates.map(() => '?').join(', ');
+  const rows = db.prepare(`SELECT DISTINCT u.*
+    FROM users u
+    LEFT JOIN user_identities identity ON identity.user_id = u.id AND identity.kind = 'phone'
+    WHERE u.identifier IN (${placeholders})
+      OR identity.normalized_value IN (${placeholders})
+    ORDER BY u.created_at ASC`).all(...candidates, ...candidates);
+  return rows[0] || null;
+}
+
+function findVerifiedPhoneAccount(db, normalizedPhone) {
+  const verifiedRows = db.prepare(`SELECT u.*
+    FROM user_identities identity
+    JOIN users u ON u.id = identity.user_id
+    WHERE identity.kind = 'phone'
+      AND identity.normalized_value = ?
+      AND identity.verified_at IS NOT NULL
+      AND u.auth_provider = 'password'`).all(normalizedPhone);
+  const candidates = phoneIdentifierCandidates(normalizedPhone);
+  const placeholders = candidates.map(() => '?').join(', ');
+  const legacyUsers = db.prepare(`SELECT * FROM users
+    WHERE identifier IN (${placeholders}) AND auth_provider = 'password'
+    ORDER BY created_at ASC`).all(...candidates);
+  const accounts = new Map();
+  for (const user of [...verifiedRows, ...legacyUsers]) accounts.set(user.id, user);
+  if (accounts.size > 1) return { user: null, conflict: true };
+  return { user: [...accounts.values()][0] || null, conflict: false };
+}
+
+function findPasswordUser(db, identifier) {
+  const normalizedPhone = normalizePhone(identifier);
+  if (normalizedPhone) {
+    const candidates = phoneIdentifierCandidates(normalizedPhone);
+    const placeholders = candidates.map(() => '?').join(', ');
+    const rows = db.prepare(`SELECT * FROM users
+      WHERE identifier IN (${placeholders}) AND auth_provider = 'password'
+      ORDER BY created_at ASC`).all(...candidates);
+    // A legacy database could contain both forms. Do not guess across two
+    // accounts; password login is allowed only when the identifier is unique.
+    return rows.length === 1 ? rows[0] : null;
+  }
+  return db.prepare("SELECT * FROM users WHERE identifier = ? AND auth_provider = 'password'")
+    .get(identifier) || null;
+}
+
+function rateLimitRetrySeconds(db, scope, value, nowMs, windowMs) {
+  const oldest = db.prepare(`SELECT MIN(created_at) AS oldest
+    FROM sms_rate_events WHERE scope = ? AND scope_value = ? AND created_at >= ?`)
+    .get(scope, value, nowMs - windowMs)?.oldest;
+  return oldest == null ? 1 : Math.max(1, Math.ceil((Number(oldest) + windowMs - nowMs) / 1000));
+}
+
+function reserveSmsRateLimit(db, cfg, normalizedPhone, clientIp, nowMs = Date.now()) {
+  const phoneScope = scopeHash(normalizedPhone, cfg);
+  const ipScope = scopeHash(clientIp, cfg);
+  const values = { phone: phoneScope, ip: ipScope };
+  db.prepare('DELETE FROM sms_rate_events WHERE created_at < ?').run(nowMs - 24 * 60 * 60 * 1000);
+  let retryAfterSeconds = 0;
+  for (const rule of SMS_RATE_LIMITS) {
+    const count = db.prepare(`SELECT COUNT(*) AS count FROM sms_rate_events
+      WHERE scope = ? AND scope_value = ? AND created_at >= ?`)
+      .get(rule.scope, values[rule.scope], nowMs - rule.windowMs).count;
+    if (Number(count) >= rule.limit) {
+      retryAfterSeconds = Math.max(
+        retryAfterSeconds,
+        rateLimitRetrySeconds(db, rule.scope, values[rule.scope], nowMs, rule.windowMs),
+      );
+    }
+  }
+  if (retryAfterSeconds) throw httpError(429, 'sms_rate_limited', { retryAfterSeconds });
+  const insert = db.prepare('INSERT INTO sms_rate_events (id, scope, scope_value, created_at) VALUES (?, ?, ?, ?)');
+  insert.run(randomId('sms-rate_'), 'phone', phoneScope, nowMs);
+  insert.run(randomId('sms-rate_'), 'ip', ipScope, nowMs);
+}
+
+function markSmsChallengeFailed(db, challengeId, at = nowIso()) {
+  db.prepare(`UPDATE sms_challenges SET delivery_status = 'failed', consumed_at = ?
+    WHERE id = ? AND delivery_status = 'pending' AND consumed_at IS NULL`)
+    .run(at, challengeId);
+}
+
+function issueSmsChallenge(ctx, normalizedPhone, purpose, clientIp) {
+  const { db, cfg } = ctx;
+  if (!ctx.smsSenderInjected && !smsProviderConfigured(cfg)) {
+    throw httpError(503, 'provider_not_configured', { provider: 'sms' });
+  }
+  const challenge = transaction(db, () => {
+    const created = new Date();
+    const createdAt = created.toISOString();
+    const expiresAt = new Date(created.getTime() + SMS_CODE_TTL_MS).toISOString();
+    const id = randomId('sms_');
+    const requestIp = scopeHash(clientIp, cfg);
+    // The provider owns code generation. Until its response arrives this is
+    // only an opaque placeholder, never a locally usable SMS code.
+    const pendingHash = smsCodeHash(randomId('pending_'), cfg);
+    db.prepare(`UPDATE sms_challenges SET delivery_status = 'replaced', consumed_at = ?
+      WHERE normalized_phone = ? AND purpose = ? AND delivery_status IN ('pending', 'sent')
+        AND consumed_at IS NULL`).run(createdAt, normalizedPhone, purpose);
+    reserveSmsRateLimit(db, cfg, normalizedPhone, clientIp, created.getTime());
+    db.prepare(`INSERT INTO sms_challenges
+      (id, normalized_phone, purpose, code_hash, attempts, delivery_status,
+       created_at, expires_at, consumed_at, request_ip)
+      VALUES (?, ?, ?, ?, 0, 'pending', ?, ?, NULL, ?)`)
+      .run(id, normalizedPhone, purpose, pendingHash, createdAt, expiresAt, requestIp);
+    return { id, createdAt, expiresAt };
+  });
+  return challenge;
+}
+
+async function sendSmsChallenge(ctx, challenge, normalizedPhone, purpose) {
+  let result;
+  try {
+    result = await ctx.smsSender({
+      phone: normalizedPhone,
+      purpose,
+      challengeId: challenge.id,
+    });
+  } catch {
+    markSmsChallengeFailed(ctx.db, challenge.id);
+    throw httpError(502, 'sms_send_failed');
+  }
+  const verifyCode = result?.sent === true ? String(result.verifyCode || '') : '';
+  if (!/^\d{6}$/u.test(verifyCode)) {
+    markSmsChallengeFailed(ctx.db, challenge.id);
+    throw httpError(502, 'sms_send_failed');
+  }
+  const changed = ctx.db.prepare(`UPDATE sms_challenges SET code_hash = ?, delivery_status = 'sent'
+    WHERE id = ? AND delivery_status = 'pending' AND consumed_at IS NULL`)
+    .run(smsCodeHash(verifyCode, ctx.cfg), challenge.id);
+  if (changed.changes !== 1) throw httpError(502, 'sms_send_failed');
+  return {
+    sent: true,
+    retryAfterSeconds: SMS_RETRY_AFTER_SECONDS,
+    expiresInSeconds: Math.floor(SMS_CODE_TTL_MS / 1000),
+    challengeId: challenge.id,
+  };
+}
+
+async function requestSmsChallenge(ctx, normalizedPhone, purpose, clientIp) {
+  const challenge = issueSmsChallenge(ctx, normalizedPhone, purpose, clientIp);
+  return sendSmsChallenge(ctx, challenge, normalizedPhone, purpose);
+}
+
+function latestSmsChallenge(db, normalizedPhone, purpose) {
+  return db.prepare(`SELECT * FROM sms_challenges
+    WHERE normalized_phone = ? AND purpose = ? AND delivery_status = 'sent'
+      AND consumed_at IS NULL ORDER BY created_at DESC LIMIT 1`)
+    .get(normalizedPhone, purpose) || null;
+}
+
+function preflightSmsCode(ctx, normalizedPhone, purpose, code) {
+  if (!/^\d{6}$/u.test(code)) throw httpError(401, 'invalid_sms_code');
+  const row = latestSmsChallenge(ctx.db, normalizedPhone, purpose);
+  if (!row) throw httpError(401, 'invalid_sms_code');
+  const nowMs = Date.now();
+  if (new Date(row.expires_at).getTime() <= nowMs) {
+    ctx.db.prepare(`UPDATE sms_challenges SET consumed_at = ?
+      WHERE id = ? AND delivery_status = 'sent' AND consumed_at IS NULL`)
+      .run(nowIso(), row.id);
+    throw httpError(401, 'sms_code_expired');
+  }
+  if (Number(row.attempts) >= 5) {
+    ctx.db.prepare(`UPDATE sms_challenges SET consumed_at = ?
+      WHERE id = ? AND delivery_status = 'sent' AND consumed_at IS NULL`)
+      .run(nowIso(), row.id);
+    throw httpError(429, 'sms_code_attempts_exceeded');
+  }
+  const expected = smsCodeHash(code, ctx.cfg);
+  if (!safeEqualText(expected, row.code_hash)) {
+    // This write intentionally happens outside a transaction that throws so
+    // failed guesses cannot be rolled back by the route's error response.
+    const changed = ctx.db.prepare(`UPDATE sms_challenges
+      SET attempts = attempts + 1,
+          consumed_at = CASE WHEN attempts + 1 >= 5 THEN ? ELSE consumed_at END
+      WHERE id = ? AND delivery_status = 'sent' AND consumed_at IS NULL AND attempts < 5`)
+      .run(nowIso(), row.id);
+    if (changed.changes === 1 && Number(row.attempts) + 1 >= 5) {
+      throw httpError(429, 'sms_code_attempts_exceeded');
+    }
+    throw httpError(401, 'invalid_sms_code');
+  }
+  return row;
+}
+
+function consumeSmsChallenge(db, cfg, normalizedPhone, purpose, challengeId, code) {
+  const expected = smsCodeHash(code, cfg);
+  const row = db.prepare(`SELECT * FROM sms_challenges
+    WHERE id = ? AND normalized_phone = ? AND purpose = ?
+      AND delivery_status = 'sent' AND consumed_at IS NULL`).get(
+    challengeId,
+    normalizedPhone,
+    purpose,
+  );
+  if (!row || Number(row.attempts) >= 5 || new Date(row.expires_at).getTime() <= Date.now()) {
+    throw httpError(401, 'invalid_sms_code');
+  }
+  if (!safeEqualText(expected, row.code_hash)) throw httpError(401, 'invalid_sms_code');
+  const changed = db.prepare(`UPDATE sms_challenges
+    SET consumed_at = ?, attempts = attempts + 1
+    WHERE id = ? AND normalized_phone = ? AND purpose = ?
+      AND delivery_status = 'sent' AND consumed_at IS NULL AND attempts < 5`)
+    .run(nowIso(), challengeId, normalizedPhone, purpose);
+  if (changed.changes !== 1) throw httpError(401, 'invalid_sms_code');
+  return row;
+}
+
+function passwordFailureHash(value, cfg) {
+  const normalizedPhone = normalizePhone(value);
+  const canonical = normalizedPhone || String(value || '').normalize('NFKC').trim().toLowerCase();
+  return scopeHash(canonical, cfg);
+}
+
+function enforcePasswordFailureLimit(db, cfg, identifier, clientIp, nowMs = Date.now()) {
+  const values = {
+    identifier: passwordFailureHash(identifier, cfg),
+    ip: scopeHash(clientIp, cfg),
+  };
+  db.prepare('DELETE FROM password_login_failures WHERE created_at < ?').run(nowMs - 15 * 60 * 1000);
+  let retryAfterSeconds = 0;
+  for (const rule of PASSWORD_FAILURE_LIMITS) {
+    const count = db.prepare(`SELECT COUNT(*) AS count FROM password_login_failures
+      WHERE scope = ? AND scope_value = ? AND created_at >= ?`)
+      .get(rule.scope, values[rule.scope], nowMs - rule.windowMs).count;
+    if (Number(count) >= rule.limit) {
+      const oldest = db.prepare(`SELECT MIN(created_at) AS oldest FROM password_login_failures
+        WHERE scope = ? AND scope_value = ? AND created_at >= ?`)
+        .get(rule.scope, values[rule.scope], nowMs - rule.windowMs)?.oldest;
+      retryAfterSeconds = Math.max(
+        retryAfterSeconds,
+        oldest == null ? 1 : Math.max(1, Math.ceil((Number(oldest) + rule.windowMs - nowMs) / 1000)),
+      );
+    }
+  }
+  if (retryAfterSeconds) throw httpError(429, 'login_rate_limited', { retryAfterSeconds });
+  return values;
+}
+
+function recordPasswordFailure(db, values, nowMs = Date.now()) {
+  const insert = db.prepare('INSERT INTO password_login_failures (id, scope, scope_value, created_at) VALUES (?, ?, ?, ?)');
+  insert.run(randomId('pwd-fail_'), 'identifier', values.identifier, nowMs);
+  insert.run(randomId('pwd-fail_'), 'ip', values.ip, nowMs);
+}
+
+function clearPasswordIdentifierFailures(db, identifierHash) {
+  db.prepare('DELETE FROM password_login_failures WHERE scope = ? AND scope_value = ?')
+    .run('identifier', identifierHash);
 }
 
 function authenticate(req, ctx) {
@@ -2054,7 +2378,7 @@ async function handleRequest(req, res, ctx) {
     if (!ctx.cfg.enablePasswordRegistration) throw httpError(404, 'password_registration_disabled');
     const body = await readBody(req, ctx.cfg.maxJsonBytes);
     const identifier = requireString(body.identifier, 'identifier_required', 256);
-    const password = requireString(body.password, 'password_required', 256);
+    const password = requirePassword(body.password, 'password_required', 256);
     const displayName = typeof body.displayName === 'string' && body.displayName.trim() ? body.displayName.trim().slice(0, 120) : identifier;
     if (password.length < 4) throw httpError(400, 'invalid_password');
     const created = transaction(ctx.db, () => {
@@ -2072,16 +2396,107 @@ async function handleRequest(req, res, ctx) {
   }
   if (req.method === 'POST' && url.pathname === '/v1/auth/phone/login') {
     const body = await readBody(req, ctx.cfg.maxJsonBytes);
-    const identifier = requireString(body.identifier, 'identifier_required', 256);
-    const password = requireString(body.password, 'password_required', 256);
-    if (!ctx.cfg.enableTestAdmin && !ctx.cfg.enableTestMember && identifier === ctx.cfg.testAdminIdentifier && password === ctx.cfg.testAdminPassword) throw httpError(401, 'invalid_credentials');
-    if (!ctx.cfg.enableTestMember && identifier === ctx.cfg.testMemberIdentifier && password === ctx.cfg.testMemberPassword) throw httpError(401, 'invalid_credentials');
-    const user = ctx.db.prepare("SELECT * FROM users WHERE identifier = ? AND auth_provider = 'password'").get(identifier);
-    if (!user || !verifyPassword(password, user.password_salt, user.password_hash)) throw httpError(401, 'invalid_credentials');
-    ensureEntitlement(ctx.db, user.id);
-    syncAccountPhoneIdentity(ctx.db, user);
-    const session = createSession(ctx.db, ctx.cfg, user.id);
-    writeJson(res, 200, { user: publicUser(user), session }, req, ctx.cfg); return;
+    const identifier = requireString(body.identifier, 'identifier_required', 128);
+    const password = requirePassword(body.password, 'password_required', 256);
+    const clientIp = requestClientIp(req, ctx.cfg);
+    const failureValues = enforcePasswordFailureLimit(ctx.db, ctx.cfg, identifier, clientIp);
+    const failed = () => {
+      recordPasswordFailure(ctx.db, failureValues);
+      throw httpError(401, 'invalid_credentials');
+    };
+    if (!ctx.cfg.enableTestAdmin && !ctx.cfg.enableTestMember &&
+      identifier === ctx.cfg.testAdminIdentifier && password === ctx.cfg.testAdminPassword) failed();
+    if (!ctx.cfg.enableTestMember && identifier === ctx.cfg.testMemberIdentifier &&
+      password === ctx.cfg.testMemberPassword) failed();
+    const user = findPasswordUser(ctx.db, identifier);
+    let valid = false;
+    try {
+      valid = Boolean(user && verifyPassword(password, user.password_salt, user.password_hash));
+    } catch {
+      valid = false;
+    }
+    if (!valid) failed();
+    const result = transaction(ctx.db, () => {
+      clearPasswordIdentifierFailures(ctx.db, failureValues.identifier);
+      ensureEntitlement(ctx.db, user.id);
+      syncAccountPhoneIdentity(ctx.db, user);
+      return { user: ctx.db.prepare('SELECT * FROM users WHERE id = ?').get(user.id), session: createSession(ctx.db, ctx.cfg, user.id) };
+    });
+    writeJson(res, 200, { user: publicUser(result.user), session: result.session }, req, ctx.cfg); return;
+  }
+  if (req.method === 'POST' && url.pathname === '/v1/auth/phone/request') {
+    const body = await readBody(req, ctx.cfg.maxJsonBytes);
+    const normalizedPhone = requireSmsPhoneIdentifier(body.identifier);
+    const purpose = requireString(body.purpose, 'sms_purpose_required', 16);
+    if (!['register', 'login'].includes(purpose)) throw httpError(400, 'invalid_sms_purpose');
+    const result = await requestSmsChallenge(ctx, normalizedPhone, purpose, requestClientIp(req, ctx.cfg));
+    writeJson(res, 200, result, req, ctx.cfg); return;
+  }
+  if (req.method === 'POST' && url.pathname === '/v1/auth/phone/register') {
+    const body = await readBody(req, ctx.cfg.maxJsonBytes);
+    const normalizedPhone = requireSmsPhoneIdentifier(body.identifier);
+    const password = requirePassword(body.password, 'password_required', 256);
+    if (password.length < 8 || password.length > 128) throw httpError(400, 'invalid_password');
+    const code = requireString(body.code, 'sms_code_required', 32);
+    const challenge = preflightSmsCode(ctx, normalizedPhone, 'register', code);
+    const displayName = typeof body.displayName === 'string' && body.displayName.trim()
+      ? body.displayName.normalize('NFKC').trim().slice(0, 120)
+      : normalizedPhone;
+    const result = transaction(ctx.db, () => {
+      consumeSmsChallenge(ctx.db, ctx.cfg, normalizedPhone, 'register', challenge.id, code);
+      if (findExistingPhoneAccount(ctx.db, normalizedPhone)) throw httpError(409, 'identifier_taken');
+      const id = randomId('usr_');
+      const hp = hashPassword(password, undefined, 8);
+      const stamp = nowIso();
+      ctx.db.prepare(`INSERT INTO users
+        (id, identifier, display_name, role, auth_provider, password_salt, password_hash, created_at)
+        VALUES (?, ?, ?, 'user', 'password', ?, ?, ?)`)
+        .run(id, normalizedPhone, displayName, hp.salt, hp.hash, stamp);
+      ensureEntitlement(ctx.db, id);
+      const identity = putUserIdentity(ctx.db, {
+        userId: id,
+        kind: 'phone',
+        normalizedValue: normalizedPhone,
+        displayValue: normalizedPhone,
+        source: 'user',
+        verifiedAt: stamp,
+        searchable: true,
+      });
+      if (identity.status === 'conflict') throw httpError(409, 'identifier_taken');
+      const user = ctx.db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+      return { user, session: createSession(ctx.db, ctx.cfg, id) };
+    });
+    writeJson(res, 201, { user: publicUser(result.user), session: result.session }, req, ctx.cfg); return;
+  }
+  if (req.method === 'POST' && url.pathname === '/v1/auth/phone/verify') {
+    const body = await readBody(req, ctx.cfg.maxJsonBytes);
+    const normalizedPhone = requireSmsPhoneIdentifier(body.identifier);
+    const code = requireString(body.code, 'sms_code_required', 32);
+    const challenge = preflightSmsCode(ctx, normalizedPhone, 'login', code);
+    const result = transaction(ctx.db, () => {
+      consumeSmsChallenge(ctx.db, ctx.cfg, normalizedPhone, 'login', challenge.id, code);
+      const account = findVerifiedPhoneAccount(ctx.db, normalizedPhone);
+      if (account.conflict) return { user: null, session: null, conflict: true };
+      const user = account.user;
+      if (!user) return { user: null, session: null, conflict: false };
+      const identity = putUserIdentity(ctx.db, {
+        userId: user.id,
+        kind: 'phone',
+        normalizedValue: normalizedPhone,
+        displayValue: normalizedPhone,
+        source: 'user',
+        verifiedAt: nowIso(),
+        searchable: true,
+      });
+      if (!['created', 'updated', 'unchanged'].includes(identity.status)) {
+        return { user: null, session: null, conflict: true };
+      }
+      ensureEntitlement(ctx.db, user.id);
+      return { user: ctx.db.prepare('SELECT * FROM users WHERE id = ?').get(user.id), session: createSession(ctx.db, ctx.cfg, user.id), conflict: false };
+    });
+    if (result.conflict) throw httpError(409, 'phone_identity_conflict');
+    if (!result.user) throw httpError(404, 'phone_not_registered');
+    writeJson(res, 200, { user: publicUser(result.user), session: result.session }, req, ctx.cfg); return;
   }
   if (req.method === 'POST' && ['/v1/auth/apple', '/v1/auth/google'].includes(url.pathname)) {
     const provider = url.pathname.endsWith('apple') ? 'apple' : 'google';
@@ -2115,7 +2530,6 @@ async function handleRequest(req, res, ctx) {
     const session = createSession(ctx.db, ctx.cfg, user.id);
     writeJson(res, 200, { user: publicUser(user), session }, req, ctx.cfg); return;
   }
-  if (req.method === 'POST' && url.pathname === '/v1/auth/phone/request') throw httpError(501, 'provider_not_configured', { provider: 'sms' });
   if (req.method === 'POST' && url.pathname === '/v1/auth/logout') {
     const user = authenticate(req, ctx);
     const token = bearer(req);
@@ -3169,10 +3583,17 @@ function conversationPublic(row, messages) { return { id: row.id, title: row.tit
 export function createApp(options = {}) {
   const cfg = options.config || defaultConfig;
   if (options.assertProduction !== false) assertProductionConfiguration(cfg);
+  if (cfg.nodeEnv === 'production' && typeof options.smsSender === 'function') {
+    throw new Error('sms_sender_injection_forbidden_in_production');
+  }
   fs.mkdirSync(cfg.dataDir, { recursive: true }); fs.mkdirSync(cfg.mediaDir, { recursive: true });
   const db = options.db || openDatabase(cfg.databasePath); const storage = options.storage || new LocalStorage(cfg.mediaDir, { maxBytes: cfg.maxUploadBytes }); seedTestMember(db, cfg); seedTestAdmin(db, cfg);
   const aiGate = options.aiGate || new ConcurrencyGate({ limit: cfg.aiMaxConcurrency, queueLimit: cfg.aiQueueLimit });
-  const ctx = { cfg, db, storage, aiGate, friendSearchWindows: new Map() };
+  const smsSenderInjected = typeof options.smsSender === 'function';
+  const smsSender = smsSenderInjected
+    ? options.smsSender
+    : ({ phone }) => sendAliyunSms({ phone, config: cfg });
+  const ctx = { cfg, db, storage, aiGate, smsSender, smsSenderInjected, friendSearchWindows: new Map() };
   const server = createServer((req, res) => handleRequest(req, res, ctx).catch((error) => writeError(res, error, req, cfg)));
   server.context = ctx;
   server.closeGracefully = async () => { await new Promise((resolve) => server.close(resolve)); closeDatabase(db); };
