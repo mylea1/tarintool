@@ -932,10 +932,10 @@ String _markdown(List<_Entry> entries, int scannedFiles) {
     ..writeln('## 使用与边界')
     ..writeln()
     ..writeln(
-      '- 重新生成：`cd "E:/fitness app/strength-pro/mobile"; dart run tool/export_ui_copy.dart`。',
+      '- 重新生成 Markdown/JSON：`cd "E:/fitness app/strength-pro/mobile"; dart run tool/export_ui_copy.dart --no-html`。',
     )
     ..writeln(
-      '- 在同目录的 `ui-copy-review.html` 中搜索、按页面筛选、勾选条目，并导出“ID + 原文模板” JSON；导出不会回写源码。',
+      '- 直接编辑本 Markdown 的“选择”列：将待审阅、确认可删除的条目从 `[ ]` 改为 `[x]`；每行同时保留稳定 ID、原文模板和源码位置，修改不会回写 app。',
     )
     ..writeln(
       '- `zh-CN + en` 表示调用了 `AppStrings` 的中文源键/英文目录；直接中文字符串标记为 `zh-CN`，直接英文字符串标记为 `en`。',
@@ -965,12 +965,13 @@ String _markdown(List<_Entry> entries, int scannedFiles) {
     ..writeln('| 选择 | 稳定 ID | 页面 | locale | 类型 | 原文模板 | 源码 | 解释候选 |')
     ..writeln('| --- | --- | --- | --- | --- | --- | --- | --- |');
   for (final entry in entries) {
+    final id = entry.id;
     final source = '${entry.file}:${entry.line}:${entry.column}';
     final explanatory = entry.explanatoryCandidate
         ? '是（${entry.explanatoryReason}）'
         : '否';
     buffer.writeln(
-      '| [ ] | `$entry.id` | ${_md(entry.page)} | ${_md(entry.locale)} | ${_md(entry.type)} | ${_md(entry.originalText)} | `$source` | ${_md(explanatory)} |',
+      '| [ ] | `$id` | ${_md(entry.page)} | ${_md(entry.locale)} | ${_md(entry.type)} | ${_md(entry.originalText)} | `$source` | ${_md(explanatory)} |',
     );
   }
   return buffer.toString();
