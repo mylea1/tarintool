@@ -50,6 +50,20 @@ class _SyncCoachApi extends HttpCoachApi {
 }
 
 void main() {
+  test('personal profile keeps editable name and local avatar', () {
+    final service = AccountService();
+    service.loginWithPhone('13800138000');
+
+    final updated = service.updateCurrentProfile(
+      displayName: '力量小林',
+      avatarPath: r'C:\photos\avatar.jpg',
+    );
+
+    expect(updated?.displayName, '力量小林');
+    expect(updated?.avatarPath, r'C:\photos\avatar.jpg');
+    expect(service.currentUser?.identifier, '13800138000');
+  });
+
   testWidgets('default app starts at login root', (tester) async {
     await tester.pumpWidget(const KiloApp());
     await tester.pumpAndSettle(const Duration(seconds: 4));

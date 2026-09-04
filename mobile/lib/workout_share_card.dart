@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'models.dart';
 
 const workoutShareCardAspectRatio = 12 / 7;
+const workoutResultCardAspectRatio = 1200 / 950;
 
 Color workoutShareAccent(String style) => switch (style) {
   'midnight' => const Color(0xFF5B8CFF),
@@ -147,6 +148,265 @@ class WorkoutShareCard extends StatelessWidget {
       ),
     );
   }
+}
+
+/// A complete training-result surface. Personal/share mode stops after the
+/// exercise list; social mode accepts a lightweight interaction footer.
+class WorkoutResultCard extends StatelessWidget {
+  const WorkoutResultCard({
+    super.key,
+    required this.workoutName,
+    required this.date,
+    required this.durationSeconds,
+    required this.volume,
+    required this.effectiveSets,
+    required this.completionPercent,
+    required this.exerciseNames,
+    this.cardStyle = 'coral',
+    this.localPhotoPath,
+    this.photoImageProvider,
+    this.socialFooter,
+  });
+
+  final String workoutName;
+  final DateTime date;
+  final int durationSeconds;
+  final double volume;
+  final int effectiveSets;
+  final int completionPercent;
+  final List<String> exerciseNames;
+  final String cardStyle;
+  final String? localPhotoPath;
+  final ImageProvider<Object>? photoImageProvider;
+  final Widget? socialFooter;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = workoutShareAccent(cardStyle);
+    final visible = exerciseNames.take(3).toList(growable: false);
+    final remaining = exerciseNames.length - visible.length;
+    final canvasHeight = socialFooter == null ? 950.0 : 1100.0;
+    return MediaQuery.withClampedTextScaling(
+      maxScaleFactor: 1,
+      child: AspectRatio(
+        aspectRatio: 1200 / canvasHeight,
+        child: FittedBox(
+          fit: BoxFit.fill,
+          child: SizedBox(
+            width: 1200,
+            height: canvasHeight,
+            child: Container(
+              key: const Key('workout-result-card'),
+              decoration: BoxDecoration(
+                color: const Color(0xFF111214),
+                borderRadius: BorderRadius.circular(42),
+                border: Border.all(color: const Color(0xFF34363A)),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                children: [
+                  WorkoutShareCard(
+                    workoutName: workoutName,
+                    date: date,
+                    durationSeconds: durationSeconds,
+                    volume: volume,
+                    effectiveSets: effectiveSets,
+                    cardStyle: cardStyle,
+                    localPhotoPath: localPhotoPath,
+                    photoImageProvider: photoImageProvider,
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(34, 24, 34, 28),
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _ResultMetric(
+                                icon: Icons.timer_outlined,
+                                value: '${(durationSeconds / 60).round()} 分钟',
+                                label: '时长',
+                                accent: accent,
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: _ResultMetric(
+                                icon: Icons.fitness_center_outlined,
+                                value: '${volume.toStringAsFixed(0)} kg',
+                                label: '总量',
+                                accent: accent,
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: _ResultMetric(
+                                icon: Icons.task_alt_rounded,
+                                value: '$effectiveSets 组',
+                                label: '组数',
+                                accent: accent,
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: _ResultMetric(
+                                icon: Icons.percent_rounded,
+                                value: '${completionPercent.clamp(0, 100)}%',
+                                label: '完成度',
+                                accent: accent,
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (visible.isNotEmpty) ...[
+                          const SizedBox(height: 22),
+                          Row(
+                            children: [
+                              for (
+                                var index = 0;
+                                index < visible.length;
+                                index++
+                              ) ...[
+                                Expanded(
+                                  child: _ExerciseResultChip(
+                                    name: visible[index],
+                                    accent: accent,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                              ],
+                              if (remaining > 0)
+                                Expanded(
+                                  child: _ExerciseResultChip(
+                                    name: '还有 $remaining 个动作 ›',
+                                    accent: accent,
+                                    quiet: true,
+                                  ),
+                                )
+                              else if (visible.length < 4)
+                                for (
+                                  var index = visible.length;
+                                  index < 4;
+                                  index++
+                                )
+                                  const Expanded(child: SizedBox()),
+                            ],
+                          ),
+                        ],
+                        if (socialFooter != null) ...[
+                          const SizedBox(height: 24),
+                          const Divider(color: Color(0xFF3A3C40)),
+                          const SizedBox(height: 14),
+                          socialFooter!,
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ResultMetric extends StatelessWidget {
+  const _ResultMetric({
+    required this.icon,
+    required this.value,
+    required this.label,
+    required this.accent,
+  });
+  final IconData icon;
+  final String value;
+  final String label;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    height: 102,
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+    decoration: BoxDecoration(
+      color: const Color(0xFF1B1C1F),
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: const Color(0xFF36383D)),
+    ),
+    child: Row(
+      children: [
+        Icon(icon, color: accent, size: 28),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  value,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: const TextStyle(color: Color(0xFF96999F), fontSize: 14),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _ExerciseResultChip extends StatelessWidget {
+  const _ExerciseResultChip({
+    required this.name,
+    required this.accent,
+    this.quiet = false,
+  });
+  final String name;
+  final Color accent;
+  final bool quiet;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    height: 66,
+    padding: const EdgeInsets.symmetric(horizontal: 16),
+    decoration: BoxDecoration(
+      color: const Color(0xFF202124),
+      borderRadius: BorderRadius.circular(22),
+      border: Border.all(color: const Color(0xFF3B3D42)),
+    ),
+    child: Row(
+      children: [
+        if (!quiet) ...[
+          Icon(Icons.fitness_center_rounded, size: 20, color: accent),
+          const SizedBox(width: 9),
+        ],
+        Expanded(
+          child: Text(
+            name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: quiet ? const Color(0xFFB3B5BA) : Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class _ShareInformation extends StatelessWidget {

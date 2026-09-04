@@ -298,6 +298,7 @@ class GymLocationsPage extends StatelessWidget {
     final name = TextEditingController(text: existing?.name ?? '');
     final custom = TextEditingController();
     final selectedEquipment = <String>[...?existing?.equipment];
+    final selectedExerciseIds = <String>{...?existing?.exerciseIds};
     try {
       await showModalBottomSheet<void>(
         context: context,
@@ -412,6 +413,70 @@ class GymLocationsPage extends StatelessWidget {
                       ),
                     ],
                     const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            '这个健身房的动作',
+                            style: TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                        ),
+                        TextButton.icon(
+                          key: const Key('gym-pick-exercises'),
+                          onPressed: () async {
+                            final result = await _pickGymExercises(
+                              sheetContext,
+                              controller,
+                              selectedExerciseIds,
+                            );
+                            if (result == null) return;
+                            setSheetState(() {
+                              selectedExerciseIds
+                                ..clear()
+                                ..addAll(result);
+                            });
+                          },
+                          icon: const Icon(Icons.playlist_add_rounded),
+                          label: const Text('选择动作'),
+                        ),
+                      ],
+                    ),
+                    Text(
+                      selectedExerciseIds.isEmpty
+                          ? '尚未添加动作。添加后，训练计划的动作选择器可直接切换到这个健身房。'
+                          : '已添加 ${selectedExerciseIds.length} 个动作',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF708494),
+                      ),
+                    ),
+                    if (selectedExerciseIds.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          for (final id in selectedExerciseIds.take(8))
+                            InputChip(
+                              label: Text(
+                                controller.displayExerciseName(
+                                  controller.exerciseFor(id),
+                                ),
+                              ),
+                              onDeleted: () => setSheetState(
+                                () => selectedExerciseIds.remove(id),
+                              ),
+                            ),
+                          if (selectedExerciseIds.length > 8)
+                            Chip(
+                              label: Text(
+                                '还有 ${selectedExerciseIds.length - 8} 个',
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
+                    const SizedBox(height: 16),
                     FilledButton(
                       key: const Key('save-gym-location'),
                       onPressed: () async {
@@ -433,11 +498,12 @@ class GymLocationsPage extends StatelessWidget {
                                 'gym-${DateTime.now().microsecondsSinceEpoch}',
                             name: locationName,
                             equipment: values,
+                            exerciseIds: selectedExerciseIds.toList(),
                           ),
                         );
                         if (sheetContext.mounted) Navigator.pop(sheetContext);
                       },
-                      child: Text(existing == null ? '保存并设为当前地点' : '保存器械配置'),
+                      child: Text(existing == null ? '保存并设为当前地点' : '保存地点配置'),
                     ),
                   ],
                 ),
@@ -500,15 +566,13 @@ class GymLocationsPage extends StatelessWidget {
                     style: const TextStyle(fontWeight: FontWeight.w900),
                   ),
                   subtitle: Text(
-                    gym.equipment.isEmpty
-                        ? '尚未添加器械 · 点击右侧编辑'
-                        : gym.equipment.join(' · '),
+                    '${gym.exerciseIds.length} 个动作${gym.equipment.isEmpty ? '' : ' · ${gym.equipment.join(' · ')}'}',
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis,
                   ),
                   trailing: IconButton(
                     key: Key('edit-gym-${gym.id}'),
-                    tooltip: '编辑器械',
+                    tooltip: '编辑地点动作与器械',
                     onPressed: () => _edit(context, gym),
                     icon: const Icon(Icons.edit_outlined),
                   ),
@@ -532,9 +596,89 @@ class _EmptyGym extends StatelessWidget {
           SizedBox(height: 10),
           Text('还没有训练地点'),
           SizedBox(height: 5),
-          Text('添加器械后，AI 才会过滤当前地点无法完成的动作。', textAlign: TextAlign.center),
+          Text('添加地点并选择可用动作，之后可直接从该健身房动作库加入训练计划。', textAlign: TextAlign.center),
         ],
       ),
+    ),
+  );
+}
+
+Future<Set<String>?> _pickGymExercises(
+  BuildContext context,
+  AppController controller,
+  Set<String> initial,
+) async {
+  final selected = <String>{...initial};
+  var query = '';
+  return showModalBottomSheet<Set<String>>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    showDragHandle: true,
+    builder: (context) => StatefulBuilder(
+      builder: (context, setState) {
+        final needle = query.trim().toLowerCase();
+        final items = controller.selectableExercises
+            .where((exercise) {
+              if (needle.isEmpty) return true;
+              return controller
+                      .displayExerciseName(exercise)
+                      .toLowerCase()
+                      .contains(needle) ||
+                  exercise.muscle.toLowerCase().contains(needle);
+            })
+            .toList(growable: false);
+        return SizedBox(
+          height: MediaQuery.sizeOf(context).height * .82,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: TextField(
+                  key: const Key('gym-exercise-search'),
+                  decoration: const InputDecoration(
+                    prefixIcon: Icon(Icons.search_rounded),
+                    labelText: '搜索动作',
+                  ),
+                  onChanged: (value) => setState(() => query = value),
+                ),
+              ),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: items.length,
+                  itemBuilder: (context, index) {
+                    final exercise = items[index];
+                    return CheckboxListTile(
+                      key: Key('gym-exercise-${exercise.id}'),
+                      value: selected.contains(exercise.id),
+                      title: Text(controller.displayExerciseName(exercise)),
+                      subtitle: Text(exercise.muscle),
+                      onChanged: (value) => setState(() {
+                        if (value == true) {
+                          selected.add(exercise.id);
+                        } else {
+                          selected.remove(exercise.id);
+                        }
+                      }),
+                    );
+                  },
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    key: const Key('gym-exercise-confirm'),
+                    onPressed: () => Navigator.pop(context, selected),
+                    child: Text('保存 ${selected.length} 个动作'),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     ),
   );
 }

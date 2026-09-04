@@ -73,9 +73,23 @@ void main() {
     await tester.pump();
     expect(find.text('划船机'), findsOneWidget);
 
+    final exerciseId = controller.selectableExercises.first.id;
+    await tester.ensureVisible(find.byKey(const Key('gym-pick-exercises')));
+    await tester.tap(find.byKey(const Key('gym-pick-exercises')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(Key('gym-exercise-$exerciseId')));
+    await tester.tap(find.byKey(const Key('gym-exercise-confirm')));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.byKey(const Key('save-gym-location')));
     await tester.tap(find.byKey(const Key('save-gym-location')));
     await tester.pumpAndSettle();
     expect(controller.gymLocations.single.equipment, contains('划船机'));
+    expect(controller.gymLocations.single.exerciseIds, contains(exerciseId));
+    expect(
+      controller.currentGymExercises.map((item) => item.id),
+      contains(exerciseId),
+    );
   });
 
   testWidgets('friend search remains usable at 320dp with 200% text', (
@@ -299,7 +313,8 @@ void main() {
 
       expect(find.byKey(const Key('ai-page')), findsOneWidget);
       expect(find.text('AI Coach'), findsOneWidget);
-      expect(find.byKey(const Key('ai-recognition-entry')), findsOneWidget);
+      expect(find.byKey(const Key('ai-top-navigation')), findsOneWidget);
+      expect(find.text('动作识别'), findsOneWidget);
       expect(find.byKey(const Key('ai-recognition')), findsNothing);
       expect(find.byKey(const Key('ai-top-tabs')), findsNothing);
       expect(find.byType(NavigationDestination), findsNWidgets(5));

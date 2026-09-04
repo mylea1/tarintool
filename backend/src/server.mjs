@@ -2561,7 +2561,12 @@ async function handleRequest(req, res, ctx) {
       replaceForUser: true,
     });
     if (result.status === 'conflict') throw httpError(409, 'username_taken');
-    writeJson(res, 200, { identity: publicIdentity(result.identity) }, req, ctx.cfg); return;
+    const displayName = rawUsername.normalize('NFKC').trim();
+    ctx.db.prepare('UPDATE users SET display_name = ? WHERE id = ?').run(displayName, user.id);
+    writeJson(res, 200, {
+      identity: publicIdentity(result.identity),
+      user: publicUser(ctx.db.prepare('SELECT * FROM users WHERE id = ?').get(user.id)),
+    }, req, ctx.cfg); return;
   }
 
   if (req.method === 'GET' && url.pathname === '/v1/me/entitlements') {
@@ -2911,12 +2916,20 @@ async function handleRequest(req, res, ctx) {
     const user = authenticate(req, ctx);
     const body = await readBody(req, ctx.cfg.maxJsonBytes);
     const snapshot = workoutSnapshotFromBody(body);
-    if (ctx.db.prepare('SELECT 1 FROM friend_workout_posts WHERE owner_user_id = ? AND source_workout_id = ?').get(user.id, snapshot.sourceWorkoutId)) {
-      throw httpError(409, 'workout_already_published');
-    }
-    const id = randomId('fwp_');
+    const existing = ctx.db.prepare('SELECT id FROM friend_workout_posts WHERE owner_user_id = ? AND source_workout_id = ?').get(user.id, snapshot.sourceWorkoutId);
+    const id = existing?.id || randomId('fwp_');
     const stamp = nowIso();
-    try {
+    if (existing) {
+      ctx.db.prepare(`UPDATE friend_workout_posts SET
+        name = ?, started_at = ?, completed_at = ?, duration_seconds = ?,
+        volume_kg = ?, effective_sets = ?, completion_rate = ?, exercises_json = ?,
+        caption = ?, card_style = ?, card_image_key = ?, updated_at = ?
+        WHERE id = ? AND owner_user_id = ?`)
+        .run(snapshot.name, snapshot.startedAt, snapshot.completedAt, snapshot.durationSeconds,
+          snapshot.volumeKg, snapshot.effectiveSets, snapshot.completionRate,
+          JSON.stringify(snapshot.exercises), snapshot.caption, snapshot.cardStyle,
+          snapshot.cardImageKey, stamp, id, user.id);
+    } else {
       ctx.db.prepare(`INSERT INTO friend_workout_posts
         (id, owner_user_id, source_workout_id, name, started_at, completed_at,
          duration_seconds, volume_kg, effective_sets, completion_rate, exercises_json,
@@ -2925,11 +2938,11 @@ async function handleRequest(req, res, ctx) {
         .run(id, user.id, snapshot.sourceWorkoutId, snapshot.name, snapshot.startedAt, snapshot.completedAt,
           snapshot.durationSeconds, snapshot.volumeKg, snapshot.effectiveSets, snapshot.completionRate,
           JSON.stringify(snapshot.exercises), snapshot.caption, snapshot.cardStyle, snapshot.cardImageKey, stamp, stamp);
-    } catch (error) {
-      if (String(error?.message || '').includes('UNIQUE')) throw httpError(409, 'workout_already_published');
-      throw error;
     }
-    writeJson(res, 201, { post: workoutPostForViewer(ctx.db, id, user.id) }, req, ctx.cfg); return;
+    writeJson(res, existing ? 200 : 201, {
+      post: workoutPostForViewer(ctx.db, id, user.id),
+      updated: Boolean(existing),
+    }, req, ctx.cfg); return;
   }
   const friendWorkoutCommentListMatch = url.pathname.match(/^\/v1\/friends\/workouts\/([^/]+)\/comments$/);
   if (friendWorkoutCommentListMatch && req.method === 'GET') {

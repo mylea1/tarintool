@@ -121,4 +121,63 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.byKey(const Key('workout-share-photo')), findsOneWidget);
   });
+
+  testWidgets('result card adds summaries and actions without social content', (
+    tester,
+  ) async {
+    _viewport(tester, const Size(1280, 1120));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: WorkoutResultCard(
+            workoutName: '自由训练',
+            date: DateTime(2026, 9, 3),
+            durationSeconds: 82 * 60,
+            volume: 8400,
+            effectiveSets: 14,
+            completionPercent: 100,
+            exerciseNames: const ['高位下拉', '单臂下拉', '坐姿划船', '反向飞鸟', '弯举'],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('82 分钟'), findsOneWidget);
+    expect(find.text('8400 kg'), findsOneWidget);
+    expect(find.text('100%'), findsOneWidget);
+    expect(find.text('高位下拉'), findsOneWidget);
+    expect(find.text('还有 2 个动作 ›'), findsOneWidget);
+    expect(find.byKey(const Key('social-footer')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('social mode accepts one lightweight interaction footer', (
+    tester,
+  ) async {
+    _viewport(tester, const Size(1280, 1180));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: WorkoutResultCard(
+            workoutName: '自由训练',
+            date: DateTime(2026, 9, 3),
+            durationSeconds: 82 * 60,
+            volume: 8400,
+            effectiveSets: 14,
+            completionPercent: 100,
+            exerciseNames: const ['高位下拉'],
+            socialFooter: const Row(
+              key: Key('social-footer'),
+              children: [Icon(Icons.favorite_border), Text('28')],
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('social-footer')), findsOneWidget);
+    expect(find.text('28'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }

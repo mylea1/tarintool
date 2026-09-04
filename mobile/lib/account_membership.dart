@@ -76,6 +76,7 @@ class AccountUser {
     required this.displayName,
     required this.isAdmin,
     this.provider = AuthProvider.phone,
+    this.avatarPath,
   });
 
   final String id;
@@ -83,6 +84,7 @@ class AccountUser {
   final String displayName;
   final bool isAdmin;
   final AuthProvider provider;
+  final String? avatarPath;
 
   Map<String, Object?> toMap() => {
     'id': id,
@@ -90,6 +92,7 @@ class AccountUser {
     'displayName': displayName,
     'isAdmin': isAdmin,
     'provider': provider.name,
+    'avatarPath': avatarPath,
   };
 
   factory AccountUser.fromMap(Map<String, dynamic> map) => AccountUser(
@@ -101,6 +104,7 @@ class AccountUser {
       (item) => item.name == map['provider'],
       orElse: () => AuthProvider.phone,
     ),
+    avatarPath: map['avatarPath']?.toString(),
   );
 }
 
@@ -731,6 +735,26 @@ class AccountService extends ChangeNotifier {
     notifyListeners();
   }
 
+  AccountUser? updateCurrentProfile({String? displayName, String? avatarPath}) {
+    final current = currentUser;
+    if (current == null) return null;
+    final cleanName = displayName?.trim();
+    final updated = AccountUser(
+      id: current.id,
+      identifier: current.identifier,
+      displayName: cleanName == null || cleanName.isEmpty
+          ? current.displayName
+          : cleanName,
+      isAdmin: current.isAdmin,
+      provider: current.provider,
+      avatarPath: avatarPath ?? current.avatarPath,
+    );
+    _users[current.id] = updated;
+    _persist();
+    notifyListeners();
+    return updated;
+  }
+
   AuthResult _login({
     required String identifier,
     required String displayName,
@@ -743,12 +767,14 @@ class AccountService extends ChangeNotifier {
         : '${provider.name}:$normalizedIdentifier';
     // A successful backend login is authoritative. Rebuild the cached user
     // instead of keeping a stale locally-persisted role or display name.
+    final previous = _users[id];
     final user = AccountUser(
       id: id,
       identifier: identifier,
       displayName: displayName,
       isAdmin: isAdmin,
       provider: provider,
+      avatarPath: previous?.avatarPath,
     );
     _users[id] = user;
     _currentUserId = id;

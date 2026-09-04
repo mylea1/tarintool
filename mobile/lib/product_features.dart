@@ -3331,16 +3331,19 @@ class _PublishWorkoutSheetState extends State<PublishWorkoutSheet> {
       if (!mounted) return;
       final messenger = ScaffoldMessenger.maybeOf(context);
       Navigator.of(context).pop(true);
-      messenger?.showSnackBar(const SnackBar(content: Text('训练动态已发布')));
+      messenger?.showSnackBar(const SnackBar(content: Text('训练动态已发布或更新')));
     } catch (caught) {
       if (!mounted) return;
       setState(() {
         publishing = false;
-        error =
-            caught is CoachApiException &&
-                (caught.code == 'coach_unauthenticated' ||
-                    caught.code == 'coach_session_expired')
-            ? '登录状态已过期，请重新登录。'
+        error = caught is CoachApiException
+            ? switch (caught.code) {
+                'coach_unauthenticated' ||
+                'coach_session_expired' => '登录状态已过期，请重新登录。',
+                'workout_not_completed' => '训练尚未完成，暂时不能发布。',
+                'invalid_workout_card_style' => '卡片主题无效，请重新选择。',
+                _ => '发布失败：${caught.code}',
+              }
             : '发布失败，请检查网络后重试。';
       });
     }
@@ -3396,6 +3399,7 @@ class _PublishWorkoutSheetState extends State<PublishWorkoutSheet> {
             ),
             const SizedBox(height: 10),
             _WorkoutActivityRecordPreview(
+              controller: widget.controller,
               record: widget.record,
               style: cardStyle,
               localPhotoPath: localPhotoPath,
@@ -3488,36 +3492,66 @@ class _PublishWorkoutSheetState extends State<PublishWorkoutSheet> {
 
 class _WorkoutActivityRecordPreview extends StatelessWidget {
   const _WorkoutActivityRecordPreview({
+    required this.controller,
     required this.record,
     required this.style,
     this.localPhotoPath,
   });
 
+  final AppController controller;
   final WorkoutRecord record;
   final String style;
   final String? localPhotoPath;
 
   @override
-  Widget build(BuildContext context) => WorkoutShareCard.fromRecord(
-    record: record,
-    cardStyle: style,
-    localPhotoPath: localPhotoPath,
-  );
+  Widget build(BuildContext context) {
+    final total = record.exercises.fold<int>(
+      0,
+      (sum, item) => sum + item.sets.length,
+    );
+    final completed = record.exercises.fold<int>(
+      0,
+      (sum, item) => sum + item.sets.where((set) => set.completed).length,
+    );
+    return WorkoutResultCard(
+      workoutName: record.name,
+      date: record.date,
+      durationSeconds: record.durationSeconds,
+      volume: record.volume,
+      effectiveSets: record.effectiveSets,
+      completionPercent: total == 0 ? 0 : (completed / total * 100).round(),
+      exerciseNames: [
+        for (final item in record.exercises)
+          controller.displayExerciseName(
+            controller.exerciseFor(item.exerciseId),
+          ),
+      ],
+      cardStyle: style,
+      localPhotoPath: localPhotoPath,
+    );
+  }
 }
 
 class _WorkoutActivityPostPreview extends StatelessWidget {
-  const _WorkoutActivityPostPreview({required this.post});
+  const _WorkoutActivityPostPreview({required this.post, this.socialFooter});
 
   final WorkoutActivityPost post;
+  final Widget? socialFooter;
 
   @override
-  Widget build(BuildContext context) => WorkoutShareCard(
+  Widget build(BuildContext context) => WorkoutResultCard(
     workoutName: post.workoutName,
     date: post.completedAt,
     durationSeconds: post.durationSeconds,
     volume: post.volume,
     effectiveSets: post.effectiveSets,
+    completionPercent: post.completionPercent,
+    exerciseNames: [
+      for (final exercise in post.exerciseSummary)
+        exercise.name.isEmpty ? exercise.exerciseId : exercise.name,
+    ],
     cardStyle: post.cardStyle,
+    socialFooter: socialFooter,
   );
 }
 
@@ -3614,12 +3648,99 @@ class _WorkoutActivityCardState extends State<WorkoutActivityCard> {
     }
   }
 
+  Widget _socialFooter(
+    BuildContext context,
+    WorkoutActivityPost post,
+  ) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      if (post.caption.trim().isNotEmpty) ...[
+        Text(
+          post.caption.trim(),
+          style: const TextStyle(color: Colors.white, height: 1.35),
+        ),
+        const SizedBox(height: 12),
+      ],
+      if (post.emojiCounts.isNotEmpty) ...[
+        Wrap(
+          spacing: 5,
+          runSpacing: 5,
+          children: [
+            for (final entry in post.emojiCounts.entries)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: .08),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '${entry.key} ${entry.value}',
+                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 10),
+      ],
+      Row(
+        children: [
+          OutlinedButton.icon(
+            key: Key('workout-activity-like-${post.id}'),
+            onPressed: busy ? null : _like,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.white,
+              side: const BorderSide(color: Color(0xFF55585E)),
+            ),
+            icon: Icon(
+              post.liked
+                  ? Icons.favorite_rounded
+                  : Icons.favorite_border_rounded,
+              size: 18,
+            ),
+            label: Text('${post.likeCount}'),
+          ),
+          const SizedBox(width: 8),
+          PopupMenuButton<String>(
+            key: Key('workout-activity-emoji-${post.id}'),
+            enabled: !busy,
+            onSelected: _emoji,
+            tooltip: '快捷互动',
+            itemBuilder: (_) => [
+              for (final emoji in const ['👍', '🔥', '👏', '💪', '❤️', '🎉'])
+                PopupMenuItem<String>(
+                  value: emoji,
+                  child: Text(emoji, style: const TextStyle(fontSize: 22)),
+                ),
+            ],
+            child: OutlinedButton.icon(
+              onPressed: null,
+              style: OutlinedButton.styleFrom(
+                disabledForegroundColor: Colors.white,
+                side: const BorderSide(color: Color(0xFF55585E)),
+              ),
+              icon: const Icon(Icons.emoji_emotions_outlined, size: 18),
+              label: const Text('快捷互动'),
+            ),
+          ),
+          if (error != null) ...[
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                error!,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: Color(0xFFFF8A80), fontSize: 11),
+              ),
+            ),
+          ],
+        ],
+      ),
+    ],
+  );
+
   @override
   Widget build(BuildContext context) {
     final post = widget.post;
-    final minutes = post.durationSeconds ~/ 60;
-    final seconds = post.durationSeconds % 60;
-    final duration = minutes == 0 ? '$seconds 秒' : '$minutes 分钟';
     return Card(
       key: Key('workout-activity-${post.id}'),
       margin: const EdgeInsets.only(bottom: 12),
@@ -3667,172 +3788,13 @@ class _WorkoutActivityCardState extends State<WorkoutActivityCard> {
               ],
             ),
             const SizedBox(height: 13),
-            _WorkoutActivityPostPreview(post: post),
-            const SizedBox(height: 12),
-            Text(
-              post.workoutName,
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 7,
-              runSpacing: 7,
-              children: [
-                _ActivityMetric(icon: Icons.timer_outlined, value: duration),
-                _ActivityMetric(
-                  icon: Icons.fitness_center_outlined,
-                  value: '${post.volume.toStringAsFixed(0)} kg',
-                ),
-                _ActivityMetric(
-                  icon: Icons.task_alt_outlined,
-                  value: '${post.effectiveSets} 组',
-                ),
-                _ActivityMetric(
-                  icon: Icons.percent_outlined,
-                  value: '${post.completionPercent}%',
-                ),
-              ],
-            ),
-            if (post.exerciseSummary.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  for (final exercise in post.exerciseSummary.take(5))
-                    Chip(
-                      avatar: Icon(
-                        Icons.circle,
-                        size: 7,
-                        color: _primary(context),
-                      ),
-                      label: Text(
-                        exercise.name.isEmpty
-                            ? exercise.exerciseId
-                            : exercise.name,
-                      ),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                ],
-              ),
-            ],
-            if (post.caption.trim().isNotEmpty) ...[
-              const SizedBox(height: 9),
-              Text(post.caption.trim(), style: const TextStyle(height: 1.35)),
-            ],
-            if (post.emojiCounts.isNotEmpty) ...[
-              const SizedBox(height: 9),
-              Wrap(
-                spacing: 5,
-                children: [
-                  for (final entry in post.emojiCounts.entries)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _primaryContainer(
-                          context,
-                        ).withValues(alpha: .42),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        '${entry.key} ${entry.value}',
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                    ),
-                ],
-              ),
-            ],
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                OutlinedButton.icon(
-                  key: Key('workout-activity-like-${post.id}'),
-                  onPressed: busy ? null : _like,
-                  icon: Icon(
-                    post.liked
-                        ? Icons.favorite_rounded
-                        : Icons.favorite_border_rounded,
-                    size: 18,
-                  ),
-                  label: Text('${post.likeCount}'),
-                ),
-                const SizedBox(width: 8),
-                PopupMenuButton<String>(
-                  key: Key('workout-activity-emoji-${post.id}'),
-                  enabled: !busy,
-                  onSelected: _emoji,
-                  tooltip: '表情评论',
-                  itemBuilder: (_) => [
-                    for (final emoji in const [
-                      '👍',
-                      '🔥',
-                      '👏',
-                      '💪',
-                      '❤️',
-                      '🎉',
-                    ])
-                      PopupMenuItem<String>(
-                        value: emoji,
-                        child: Text(
-                          emoji,
-                          style: const TextStyle(fontSize: 22),
-                        ),
-                      ),
-                  ],
-                  child: OutlinedButton.icon(
-                    onPressed: null,
-                    icon: const Icon(Icons.emoji_emotions_outlined, size: 18),
-                    label: const Text('表情'),
-                  ),
-                ),
-                if (error != null) ...[
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      error!,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.error,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ),
-                ],
-              ],
+            _WorkoutActivityPostPreview(
+              post: post,
+              socialFooter: _socialFooter(context, post),
             ),
           ],
         ),
       ),
     );
   }
-}
-
-class _ActivityMetric extends StatelessWidget {
-  const _ActivityMetric({required this.icon, required this.value});
-  final IconData icon;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-    decoration: BoxDecoration(
-      color: _primaryContainer(context).withValues(alpha: .35),
-      borderRadius: BorderRadius.circular(10),
-    ),
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 14, color: _primary(context)),
-        const SizedBox(width: 5),
-        Text(
-          value,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
-        ),
-      ],
-    ),
-  );
 }

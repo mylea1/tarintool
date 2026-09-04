@@ -265,7 +265,7 @@ test('friend identity search is cross-platform, masked and supports stable user 
   assert.equal(taken.body.error, 'username_taken');
 });
 
-test('completed workout posts are friend-visible, immutable, and emoji-only interactive', async () => {
+test('completed workout posts are friend-visible, updateable, and emoji-only interactive', async () => {
   const sourceWorkoutId = `workout-post-${Date.now()}`;
   const created = await api('/v1/friends/workouts', {
     method: 'POST',
@@ -301,15 +301,17 @@ test('completed workout posts are friend-visible, immutable, and emoji-only inte
     headers: { authorization: `Bearer ${userToken}` },
     body: JSON.stringify({ sourceWorkoutId, name: '修改后的名称', completedAt: '2026-08-31T11:03:00.000Z' }),
   });
-  assert.equal(duplicate.response.status, 409);
-  assert.equal(duplicate.body.error, 'workout_already_published');
+  assert.equal(duplicate.response.status, 200);
+  assert.equal(duplicate.body.updated, true);
+  assert.equal(duplicate.body.post.id, created.body.post.id);
+  assert.equal(duplicate.body.post.name, '修改后的名称');
 
   const feed = await api('/v1/friends/feed', { headers: { authorization: `Bearer ${user2Token}` } });
   assert.equal(feed.response.status, 200);
   const visible = feed.body.workouts.find((item) => item.id === created.body.post.id);
-  assert.equal(visible.name, '周三上肢训练');
-  assert.equal(visible.cardStyle, 'forest');
-  assert.equal(visible.cardImageKey, 'exercise');
+  assert.equal(visible.name, '修改后的名称');
+  assert.equal(visible.cardStyle, 'coral');
+  assert.equal(visible.cardImageKey, 'brand');
   assert.equal('ownerIdentifier' in visible, false);
 
   const invalidAppearance = await api('/v1/friends/workouts', {

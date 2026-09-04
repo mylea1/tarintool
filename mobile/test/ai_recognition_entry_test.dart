@@ -48,10 +48,10 @@ void main() {
     expect(input, findsOneWidget);
     await tester.enterText(input, '保留这段草稿');
 
-    final entry = find.byKey(const Key('ai-recognition-entry'));
+    final entry = find.byKey(const Key('ai-top-navigation'));
     expect(entry, findsOneWidget);
     expect(tester.getRect(entry).right, lessThanOrEqualTo(375));
-    await tester.tap(entry);
+    await tester.tap(find.text('动作识别'));
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('ai-recognition-route')), findsOneWidget);
@@ -122,7 +122,7 @@ void main() {
     );
     final pageContext = tester.element(find.byKey(const Key('ai-page')));
     expect(MediaQuery.textScalerOf(pageContext).scale(1), closeTo(2, .001));
-    final entry = find.byKey(const Key('ai-recognition-entry'));
+    final entry = find.byKey(const Key('ai-top-navigation'));
     expect(entry, findsOneWidget);
     final entryRect = tester.getRect(entry);
     expect(entryRect.left, greaterThanOrEqualTo(0));

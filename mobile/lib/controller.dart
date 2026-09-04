@@ -24,6 +24,16 @@ const String defaultCoachApiBaseUrl = String.fromEnvironment(
   defaultValue: 'https://api.kilostrength.cn',
 );
 
+String _userFacingDisplayName(Object? raw, String identifier) {
+  final value = raw?.toString().trim() ?? '';
+  if (value.isEmpty) return identifier;
+  final machineLike = RegExp(
+    r'^(usr_|phone:|apple:|google:)|^[a-f0-9_-]{20,}$',
+    caseSensitive: false,
+  ).hasMatch(value);
+  return machineLike ? identifier : value;
+}
+
 class PlatformTimerBridge {
   static const _channel = MethodChannel('kilo.platform.timer');
 
@@ -668,7 +678,7 @@ class AppController extends ChangeNotifier {
       }
       final result = accountService.loginAuthenticatedRemote(
         identifier: identifier,
-        displayName: (user['displayName'] ?? identifier).toString(),
+        displayName: _userFacingDisplayName(user['displayName'], identifier),
         isAdmin: user['role'] == 'admin',
         provider: AuthProvider.apple,
       );
@@ -782,6 +792,22 @@ class AppController extends ChangeNotifier {
       throw const CoachApiException('friends_unavailable');
     }
     return api.updateFriendUsername(username.trim());
+  }
+
+  Future<void> updateCurrentProfile({
+    required String displayName,
+    String? avatarPath,
+  }) async {
+    final cleanName = displayName.trim();
+    if (cleanName.isEmpty) throw const CoachApiException('username_required');
+    if (_storedRemoteSession != null) {
+      await updateFriendUsernameRemote(cleanName);
+    }
+    accountService.updateCurrentProfile(
+      displayName: cleanName,
+      avatarPath: avatarPath,
+    );
+    notifyListeners();
   }
 
   Future<Map<String, dynamic>> searchFriendsRemote(String query) async {
@@ -1167,7 +1193,10 @@ class AppController extends ChangeNotifier {
     }
     final result = accountService.loginAuthenticatedRemote(
       identifier: canonicalIdentifier,
-      displayName: (user['displayName'] ?? fallbackIdentifier).toString(),
+      displayName: _userFacingDisplayName(
+        user['displayName'],
+        canonicalIdentifier.isEmpty ? fallbackIdentifier : canonicalIdentifier,
+      ),
       isAdmin: user['role'] == 'admin',
     );
     if (!result.isSuccess) {
@@ -2047,6 +2076,14 @@ class AppController extends ChangeNotifier {
   GymLocationProfile? get currentGym =>
       gymLocations.where((item) => item.isCurrent).firstOrNull;
 
+  List<Exercise> get currentGymExercises {
+    final ids = currentGym?.exerciseIds.toSet() ?? const <String>{};
+    if (ids.isEmpty) return const [];
+    return selectableExercises
+        .where((exercise) => ids.contains(exercise.id))
+        .toList(growable: false);
+  }
+
   TrainingIntelligenceSnapshot get trainingIntelligence =>
       intelligenceEngine.calculate(
         history: history,
@@ -2236,6 +2273,7 @@ class AppController extends ChangeNotifier {
       id: location.id,
       name: location.name,
       equipment: location.equipment,
+      exerciseIds: location.exerciseIds,
       isCurrent: true,
     );
     for (var i = 0; i < gymLocations.length; i++) {
@@ -2244,6 +2282,7 @@ class AppController extends ChangeNotifier {
         id: item.id,
         name: item.name,
         equipment: item.equipment,
+        exerciseIds: item.exerciseIds,
         isCurrent: item.id == updated.id,
       );
     }
@@ -2264,6 +2303,7 @@ class AppController extends ChangeNotifier {
         id: item.id,
         name: item.name,
         equipment: item.equipment,
+        exerciseIds: item.exerciseIds,
         isCurrent: item.id == id,
       );
     }
@@ -2493,9 +2533,6 @@ class AppController extends ChangeNotifier {
     );
     return catalog.length + (customIndex < 0 ? 0 : customIndex) + 1;
   }
-
-  String numberedExerciseName(Exercise exercise) =>
-      '${exerciseNumberFor(exercise)}  ${displayExerciseName(exercise)}';
 
   Exercise exerciseFor(String id) => allExercises.firstWhere(
     (item) => item.id == id,

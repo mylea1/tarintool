@@ -10,18 +10,21 @@ class GymLocationProfile {
     required this.id,
     required this.name,
     required this.equipment,
+    this.exerciseIds = const [],
     this.isCurrent = false,
   });
 
   final String id;
   final String name;
   final List<String> equipment;
+  final List<String> exerciseIds;
   final bool isCurrent;
 
   Map<String, dynamic> toJson() => {
     'id': id,
     'name': name,
     'equipment': equipment,
+    'exerciseIds': exerciseIds,
     'isCurrent': isCurrent,
   };
 
@@ -30,6 +33,7 @@ class GymLocationProfile {
         id: json['id']?.toString() ?? '',
         name: json['name']?.toString() ?? '训练地点',
         equipment: _strings(json['equipment']),
+        exerciseIds: _strings(json['exerciseIds']),
         isCurrent: json['isCurrent'] == true,
       );
 }

@@ -2321,33 +2321,6 @@ class _ExerciseThumb extends StatelessWidget {
   }
 }
 
-class _ExerciseNumberBadge extends StatelessWidget {
-  const _ExerciseNumberBadge({required this.number});
-  final int number;
-
-  @override
-  Widget build(BuildContext context) => Semantics(
-    label: '动作编号 $number',
-    child: Container(
-      constraints: const BoxConstraints(minWidth: 26, minHeight: 24),
-      alignment: Alignment.center,
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-      decoration: BoxDecoration(
-        color: ink.withValues(alpha: .88),
-        borderRadius: BorderRadius.circular(7),
-      ),
-      child: Text(
-        '$number',
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 11,
-          fontWeight: FontWeight.w900,
-        ),
-      ),
-    ),
-  );
-}
-
 class HomePage extends StatelessWidget {
   const HomePage({super.key, required this.controller});
   final AppController controller;
@@ -11103,15 +11076,6 @@ class _ExerciseLibraryPageState extends State<ExerciseLibraryPage> {
                                           ),
                                         ),
                                       ),
-                                      Positioned(
-                                        right: 7,
-                                        top: 7,
-                                        child: _ExerciseNumberBadge(
-                                          number: controller.exerciseNumberFor(
-                                            exercise,
-                                          ),
-                                        ),
-                                      ),
                                     ],
                                   ),
                                 ),
@@ -13485,27 +13449,27 @@ class _AiPageState extends State<AiPage> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: OutlinedButton.icon(
-                  key: const Key('ai-recognition-entry'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: primary,
-                    backgroundColor: paper,
-                    minimumSize: const Size(0, 44),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 4,
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: SizedBox(
+                width: double.infinity,
+                child: SegmentedButton<AiView>(
+                  key: const Key('ai-top-navigation'),
+                  segments: const [
+                    ButtonSegment<AiView>(
+                      value: AiView.chat,
+                      icon: Icon(Icons.forum_outlined),
+                      label: Text('AI 教练'),
                     ),
-                    side: BorderSide(color: primary.withValues(alpha: .28)),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(13),
+                    ButtonSegment<AiView>(
+                      value: AiView.recognition,
+                      icon: Icon(Icons.accessibility_new_rounded),
+                      label: Text('动作识别'),
                     ),
-                  ),
-                  onPressed: _openRecognition,
-                  icon: const Icon(Icons.accessibility_new_rounded, size: 18),
-                  label: const Text('动作识别'),
+                  ],
+                  selected: const {AiView.chat},
+                  onSelectionChanged: (values) {
+                    if (values.contains(AiView.recognition)) _openRecognition();
+                  },
                 ),
               ),
             ),
@@ -15074,6 +15038,139 @@ class _AiPlanExerciseDetail extends StatelessWidget {
   }
 }
 
+Future<void> _showPersonalProfileSheet(
+  BuildContext context,
+  AppController controller,
+) async {
+  final user = controller.currentUser;
+  if (user == null) return;
+  final name = TextEditingController(text: user.displayName);
+  var avatarPath = user.avatarPath;
+  var saving = false;
+  String? error;
+  try {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setState) => Padding(
+          padding: EdgeInsets.fromLTRB(
+            20,
+            0,
+            20,
+            20 + MediaQuery.viewInsetsOf(sheetContext).bottom,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('个人资料', style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 12),
+              Center(
+                child: CircleAvatar(
+                  radius: 38,
+                  backgroundColor: ink,
+                  foregroundImage: avatarPath?.isNotEmpty == true
+                      ? FileImage(File(avatarPath!))
+                      : null,
+                  child: avatarPath?.isNotEmpty == true
+                      ? null
+                      : Text(
+                          name.text.trim().characters.firstOrNull ?? '形',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 24,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Center(
+                child: TextButton.icon(
+                  key: const Key('pick-profile-avatar'),
+                  onPressed: saving
+                      ? null
+                      : () async {
+                          final result = await FilePicker.platform.pickFiles(
+                            type: FileType.image,
+                            allowMultiple: false,
+                            withData: false,
+                          );
+                          final path = result?.files.single.path;
+                          if (path != null && path.isNotEmpty) {
+                            setState(() => avatarPath = path);
+                          }
+                        },
+                  icon: const Icon(Icons.add_a_photo_outlined),
+                  label: const Text('更换头像'),
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                key: const Key('profile-display-name'),
+                controller: name,
+                maxLength: 30,
+                decoration: const InputDecoration(
+                  labelText: '用户名',
+                  helperText: '好友动态中会显示这个名称',
+                ),
+              ),
+              Text(
+                '登录账号：${user.identifier}',
+                style: const TextStyle(color: quiet),
+              ),
+              if (error != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  error!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ],
+              const SizedBox(height: 14),
+              FilledButton(
+                key: const Key('save-personal-profile'),
+                onPressed: saving
+                    ? null
+                    : () async {
+                        final value = name.text.trim();
+                        if (value.isEmpty) {
+                          setState(() => error = '用户名不能为空');
+                          return;
+                        }
+                        setState(() {
+                          saving = true;
+                          error = null;
+                        });
+                        try {
+                          await controller.updateCurrentProfile(
+                            displayName: value,
+                            avatarPath: avatarPath,
+                          );
+                          if (sheetContext.mounted) Navigator.pop(sheetContext);
+                        } on CoachApiException catch (caught) {
+                          setState(() {
+                            saving = false;
+                            error = caught.code == 'username_taken'
+                                ? '这个用户名已被使用'
+                                : '保存失败，请检查网络后重试';
+                          });
+                        }
+                      },
+                child: Text(saving ? '正在保存…' : '保存个人资料'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  } finally {
+    name.dispose();
+  }
+}
+
 class _AccountMembershipCard extends StatelessWidget {
   const _AccountMembershipCard({required this.controller});
 
@@ -15144,16 +15241,30 @@ class _AccountMembershipCard extends StatelessWidget {
                             color: ink,
                             borderRadius: BorderRadius.circular(14),
                           ),
-                          child: Text(
-                            user.displayName.isEmpty
-                                ? '形'
-                                : user.displayName.substring(0, 1),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
+                          child: user.avatarPath?.isNotEmpty == true
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(14),
+                                  child: Image.file(
+                                    File(user.avatarPath!),
+                                    width: 46,
+                                    height: 46,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, _, _) => const Icon(
+                                      Icons.person_rounded,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                )
+                              : Text(
+                                  user.displayName.isEmpty
+                                      ? '形'
+                                      : user.displayName.characters.first,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
                         ),
                         Positioned(
                           right: -5,
@@ -15187,8 +15298,21 @@ class _AccountMembershipCard extends StatelessWidget {
                               fontWeight: FontWeight.w800,
                             ),
                           ),
+                          Text(
+                            user.identifier,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(color: quiet, fontSize: 11),
+                          ),
                         ],
                       ),
+                    ),
+                    IconButton(
+                      key: const Key('edit-personal-profile'),
+                      tooltip: '修改用户名和头像',
+                      onPressed: () =>
+                          _showPersonalProfileSheet(context, controller),
+                      icon: const Icon(Icons.edit_outlined),
                     ),
                   ],
                 );
@@ -17821,6 +17945,7 @@ class _ExercisePickerSheetState extends State<_ExercisePickerSheet> {
   late final TextEditingController query;
   String muscle = '全部';
   String equipment = '全部';
+  bool currentGymOnly = false;
   final Set<String> selectedIds = <String>{};
 
   @override
@@ -17837,7 +17962,10 @@ class _ExercisePickerSheetState extends State<_ExercisePickerSheet> {
 
   List<Exercise> get filtered {
     final needle = query.text.trim().toLowerCase();
-    return widget.controller.selectableExercises.where((item) {
+    final source = currentGymOnly
+        ? widget.controller.currentGymExercises
+        : widget.controller.selectableExercises;
+    return source.where((item) {
       final number = widget.controller.exerciseNumberFor(item).toString();
       final queryMatch =
           needle.isEmpty ||
@@ -17946,6 +18074,26 @@ class _ExercisePickerSheetState extends State<_ExercisePickerSheet> {
                 ),
               ],
             ),
+            if (widget.controller.currentGym != null &&
+                widget.controller.currentGymExercises.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: FilterChip(
+                  key: const Key('exercise-picker-current-gym'),
+                  avatar: const Icon(Icons.location_on_outlined, size: 17),
+                  label: Text(
+                    currentGymOnly
+                        ? '${widget.controller.currentGym!.name} · 仅显示本馆动作'
+                        : '从 ${widget.controller.currentGym!.name} 选择',
+                  ),
+                  selected: currentGymOnly,
+                  onSelected: (value) => setState(() {
+                    currentGymOnly = value;
+                    muscle = '全部';
+                    equipment = '全部';
+                  }),
+                ),
+              ),
             Expanded(
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -18042,27 +18190,15 @@ class _ExercisePickerSheetState extends State<_ExercisePickerSheet> {
                                         exerciseId: exercise.id,
                                         size: 40,
                                       ),
-                                      title: Row(
-                                        children: [
-                                          _ExerciseNumberBadge(
-                                            number: widget.controller
-                                                .exerciseNumberFor(exercise),
-                                          ),
-                                          const SizedBox(width: 7),
-                                          Expanded(
-                                            child: Text(
-                                              widget.controller
-                                                  .displayExerciseName(
-                                                    exercise,
-                                                  ),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.w700,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
+                                      title: Text(
+                                        widget.controller.displayExerciseName(
+                                          exercise,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                        ),
                                       ),
                                       subtitle: Text(
                                         '${exercise.muscle} · ${exercise.equipment}',
@@ -18814,7 +18950,7 @@ class _WorkoutShareSheetState extends State<_WorkoutShareSheet> {
                     style: TextStyle(fontSize: 21, fontWeight: FontWeight.w900),
                   ),
                 ),
-                Text('横向 12:7', style: TextStyle(color: quiet, fontSize: 12)),
+                Text('完整训练成果卡', style: TextStyle(color: quiet, fontSize: 12)),
               ],
             ),
           ),
@@ -18825,14 +18961,14 @@ class _WorkoutShareSheetState extends State<_WorkoutShareSheet> {
                 child: SizedBox(
                   width: maxPreviewWidth,
                   child: AspectRatio(
-                    aspectRatio: workoutShareCardAspectRatio,
+                    aspectRatio: workoutResultCardAspectRatio,
                     child: FittedBox(
                       fit: BoxFit.contain,
                       child: RepaintBoundary(
                         key: boundaryKey,
                         child: SizedBox(
                           width: 1200,
-                          height: 700,
+                          height: 950,
                           child: _WorkoutShareCard(
                             controller: widget.controller,
                             record: widget.record,
@@ -18956,9 +19092,31 @@ class _WorkoutShareCard extends StatelessWidget {
         onTap: onTap,
       );
     }
-    return WorkoutShareCard.fromRecord(
+    final totalSets = record.exercises.fold<int>(
+      0,
+      (sum, exercise) => sum + exercise.sets.length,
+    );
+    final completedSets = record.exercises.fold<int>(
+      0,
+      (sum, exercise) =>
+          sum + exercise.sets.where((set) => set.completed).length,
+    );
+    return WorkoutResultCard(
       key: const Key('workout-share-card'),
-      record: record,
+      workoutName: record.name,
+      date: record.date,
+      durationSeconds: record.durationSeconds,
+      volume: record.volume,
+      effectiveSets: record.effectiveSets,
+      completionPercent: totalSets == 0
+          ? 0
+          : (completedSets / totalSets * 100).round(),
+      exerciseNames: [
+        for (final exercise in record.exercises)
+          controller.displayExerciseName(
+            controller.exerciseFor(exercise.exerciseId),
+          ),
+      ],
       cardStyle: cardStyle,
       localPhotoPath: localPhotoPath,
     );
@@ -21026,7 +21184,7 @@ class _RoutineExerciseEditor extends StatelessWidget {
         tilePadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 1),
         leading: _ExerciseThumb(exerciseId: exercise.exerciseId, size: 34),
         title: Text(
-          '${controller.exerciseNumberFor(controller.exerciseFor(exercise.exerciseId))}  $title',
+          title,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
@@ -21487,7 +21645,7 @@ void _showRoutineReplacePicker(
             for (final item in controller.selectableExercises)
               ListTile(
                 dense: true,
-                title: Text(controller.numberedExerciseName(item)),
+                title: Text(controller.displayExerciseName(item)),
                 subtitle: Text('${item.muscle} · ${item.equipment}'),
                 onTap: () {
                   target.exerciseId = item.id;
