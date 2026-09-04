@@ -90,6 +90,45 @@ class _StreamingAgentCoachApi
 }
 
 void main() {
+  test('text load and cardio metrics survive workout history encoding', () {
+    final set = WorkoutSet(
+      id: 'set-cardio',
+      weight: 0,
+      weightText: '自重',
+      reps: 0,
+      durationSeconds: 1500,
+      speedKph: 8.5,
+      inclinePercent: 6,
+      completed: true,
+    );
+    final record = WorkoutRecord(
+      id: 'record-cardio',
+      name: '有氧训练',
+      date: DateTime(2026, 9, 4),
+      startTime: '09:00',
+      durationSeconds: 1500,
+      volume: 0,
+      effectiveSets: 1,
+      exerciseIds: const ['dataset_0670'],
+      exercises: [
+        WorkoutExercise(
+          id: 'exercise-cardio',
+          exerciseId: 'dataset_0670',
+          sets: [set],
+        ),
+      ],
+    );
+
+    final restored = decodeWorkoutRecords(
+      encodeWorkoutRecords([record]),
+    ).single;
+    final restoredSet = restored.exercises.single.sets.single;
+    expect(restoredSet.weightText, '自重');
+    expect(restoredSet.durationSeconds, 1500);
+    expect(restoredSet.speedKph, 8.5);
+    expect(restoredSet.inclinePercent, 6);
+  });
+
   setUp(() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
   });
@@ -123,7 +162,7 @@ void main() {
         controller.visibleExercises.map((item) => item.id),
         contains(first.id),
       );
-      expect(selectableCatalog, hasLength(catalog.length - 300));
+      expect(selectableCatalog.length, lessThan(catalog.length - 300));
     },
   );
 

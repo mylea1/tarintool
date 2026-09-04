@@ -843,7 +843,11 @@ class AppController extends ChangeNotifier {
                   {
                     'type': set.type,
                     'weight': set.plannedWeight ?? set.weight,
+                    'weightText': set.weightText,
                     'reps': set.reps,
+                    'durationSeconds': set.durationSeconds,
+                    'speedKph': set.speedKph,
+                    'inclinePercent': set.inclinePercent,
                     'restSeconds': set.restSeconds,
                   },
               ],
@@ -979,7 +983,11 @@ class AppController extends ChangeNotifier {
               type: (rawSet['type'] ?? 'work').toString(),
               weight: weight,
               plannedWeight: weight,
+              weightText: (rawSet['weightText'] ?? '').toString(),
               reps: (rawSet['reps'] as num?)?.toInt() ?? 0,
+              durationSeconds: (rawSet['durationSeconds'] as num?)?.toInt(),
+              speedKph: (rawSet['speedKph'] as num?)?.toDouble(),
+              inclinePercent: (rawSet['inclinePercent'] as num?)?.toDouble(),
               restSeconds: (rawSet['restSeconds'] as num?)?.toInt() ?? 0,
             ),
           );
@@ -2698,18 +2706,7 @@ class AppController extends ChangeNotifier {
       equipmentGroupForLabel(equipment);
 
   List<String> get equipmentFilterOptions {
-    const preferred = <String>[
-      '固定器械',
-      '哑铃',
-      '杠铃',
-      '有氧',
-      '史密斯机',
-      '绳索',
-      '自重',
-      '壶铃',
-      '弹力带',
-      '阻力带',
-    ];
+    const preferred = <String>['固定器械', '哑铃', '杠铃', '有氧', '史密斯机', '绳索', '自重'];
     final available = <String>{
       for (final item in selectableExercises) equipmentGroupFor(item.equipment),
     }..removeWhere((item) => item.trim().isEmpty || item == '全部');
@@ -2723,8 +2720,13 @@ class AppController extends ChangeNotifier {
 
   Exercise get selectedExercise => exerciseFor(selectedExerciseId);
 
-  String displayExerciseName(Exercise exercise) =>
-      appLanguage == AppLanguage.english ? exercise.englishName : exercise.name;
+  String displayExerciseName(Exercise exercise) => conciseExerciseName(
+    exercise,
+    english: appLanguage == AppLanguage.english,
+  );
+
+  bool isCardioExercise(String exerciseId) =>
+      isCardioExerciseDefinition(exerciseFor(exerciseId));
 
   WorkoutRecord? workoutRecordForAiContext(AiContextSelection context) {
     if (context.type != AiContextType.workoutRecord) return null;
@@ -3272,7 +3274,8 @@ class AppController extends ChangeNotifier {
           ? 0
           : DateTime.now().difference(started).inSeconds;
       final duration = _activeSetElapsedSeconds + currentSegment;
-      if (duration > 0) {
+      final cardio = isCardioExercise(parent.exerciseId);
+      if (duration > 0 && (!cardio || set.durationSeconds == null)) {
         set.durationSeconds = duration.clamp(1, 3600);
       }
       _activeSetStartedAt = null;
@@ -3301,7 +3304,7 @@ class AppController extends ChangeNotifier {
         restSetupPending = false;
         pendingRestSetId = null;
       }
-      set.durationSeconds = null;
+      if (!isCardioExercise(parent.exerciseId)) set.durationSeconds = null;
       _activeSetElapsedSeconds = 0;
       _activeSetStartedAt = workoutPaused ? null : DateTime.now();
       restRemainingSeconds = 0;
@@ -3852,7 +3855,11 @@ class AppController extends ChangeNotifier {
   void clearExerciseValues(WorkoutExercise exercise) {
     for (final set in exercise.sets) {
       set.weight = 0;
+      set.weightText = '';
       set.reps = 0;
+      set.durationSeconds = null;
+      set.speedKph = null;
+      set.inclinePercent = null;
       if (freeWorkout) set.plannedWeight = null;
     }
     notifyListeners();
@@ -3870,11 +3877,31 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void batchUpdate({String? type, double? weight, int? reps}) {
+  void updateSetWeightText(
+    WorkoutSet set,
+    String value, {
+    bool planned = false,
+  }) {
+    final normalized = value.trim();
+    final parsed = double.tryParse(normalized);
+    if (parsed == null) {
+      set.weight = 0;
+      set.weightText = normalized;
+      if (planned) set.plannedWeight = null;
+    } else {
+      set.weight = parsed;
+      set.weightText = '';
+      if (planned) set.plannedWeight = parsed;
+    }
+  }
+
+  void batchUpdate({String? type, String? weightInput, int? reps}) {
     for (final item in workout.expand((item) => item.sets)) {
       if (!selectedSetIds.contains(item.id) || item.completed) continue;
       if (type != null) item.type = type;
-      if (weight != null) item.weight = weight;
+      if (weightInput != null && weightInput.trim().isNotEmpty) {
+        updateSetWeightText(item, weightInput);
+      }
       if (reps != null) item.reps = reps;
     }
     selectedSetIds.clear();
@@ -4073,6 +4100,7 @@ class AppController extends ChangeNotifier {
   void updatePlannedWeight(WorkoutSet set, double value) {
     set.plannedWeight = value;
     set.weight = value;
+    set.weightText = '';
     notifyListeners();
   }
 
@@ -5121,6 +5149,7 @@ class AppController extends ChangeNotifier {
   Map<String, dynamic> _aiSetPayload(WorkoutSet set) => {
     'type': set.type,
     'weightKg': set.weight,
+    'weightText': set.weightText,
     'plannedWeightKg': set.plannedWeight,
     'reps': set.reps,
     'targetMin': set.targetMin,
@@ -5131,6 +5160,8 @@ class AppController extends ChangeNotifier {
     'rir': set.rir,
     'note': set.note.trim(),
     'durationSeconds': set.durationSeconds,
+    'speedKph': set.speedKph,
+    'inclinePercent': set.inclinePercent,
   };
 
   Map<String, dynamic> _aiWorkoutExercisePayload(WorkoutExercise exercise) => {

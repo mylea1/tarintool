@@ -512,6 +512,9 @@ class WorkoutSet {
     this.rir,
     this.note = '',
     this.durationSeconds,
+    this.weightText = '',
+    this.speedKph,
+    this.inclinePercent,
   });
   final String id;
   String type;
@@ -537,6 +540,9 @@ class WorkoutSet {
   double? rir;
   String note;
   int? durationSeconds;
+  String weightText;
+  double? speedKph;
+  double? inclinePercent;
 
   double get plannedWeightOrActual => plannedWeight ?? weight;
 
@@ -557,6 +563,9 @@ class WorkoutSet {
     rir: rir,
     note: note,
     durationSeconds: durationSeconds,
+    weightText: weightText,
+    speedKph: speedKph,
+    inclinePercent: inclinePercent,
   );
 
   /// Copies a set into a persisted plan. A plan created from a legacy live
@@ -581,6 +590,9 @@ class WorkoutSet {
     rir: rir,
     note: note,
     durationSeconds: durationSeconds,
+    weightText: weightText,
+    speedKph: speedKph,
+    inclinePercent: inclinePercent,
   );
 }
 
@@ -1309,7 +1321,14 @@ class WorkoutActivityPost {
   );
 }
 
-const workoutCardStyles = <String>['coral', 'midnight', 'forest', 'titanium'];
+const workoutCardStyles = <String>[
+  'coral',
+  'midnight',
+  'forest',
+  'titanium',
+  'gold',
+  'electric',
+];
 const workoutCardImages = <String>['brand', 'exercise'];
 
 String _safeWorkoutCardStyle(Object? value) {
@@ -1900,7 +1919,40 @@ final List<Exercise> catalog = _disambiguateExerciseNames(_rawCatalog);
 /// and can be rendered after an app upgrade.
 bool _isUnsupportedSelectableExercise(Exercise exercise) {
   return retiredExerciseIds.contains(exercise.id) ||
-      manuallyRetiredExerciseIds.contains(exercise.id);
+      manuallyRetiredExerciseIds.contains(exercise.id) ||
+      _usesRetiredEquipment(exercise) ||
+      _isRemovedBodyweightExercise(exercise);
+}
+
+const _retainedBodyweightExerciseIds = <String>{
+  'pull_up',
+  'dip',
+  'push_up',
+  'dataset_0274', // crunch floor
+  'dataset_0472', // hanging leg raise
+};
+
+bool _usesRetiredEquipment(Exercise exercise) {
+  final value = '${exercise.equipment} ${exercise.name} ${exercise.englishName}'
+      .toLowerCase();
+  return value.contains('壶铃') ||
+      value.contains('弹力带') ||
+      value.contains('阻力带') ||
+      value.contains('训练绳') ||
+      value.contains('kettlebell') ||
+      value.contains('resistance band') ||
+      RegExp(r'\bband(s|ed)?\b').hasMatch(value) ||
+      value.contains('battle rope') ||
+      value.contains('training rope');
+}
+
+bool _isRemovedBodyweightExercise(Exercise exercise) {
+  final equipment = exercise.equipment.toLowerCase();
+  final isBodyweight =
+      exercise.loadMode == 'bodyweight' ||
+      equipment.contains('自重') ||
+      equipment.contains('bodyweight');
+  return isBodyweight && !_retainedBodyweightExerciseIds.contains(exercise.id);
 }
 
 /// Picker-visible exercises. The historical catalog above is deliberately not
@@ -2041,6 +2093,52 @@ String equipmentGroupForLabel(String equipment) {
     return '有氧';
   }
   return equipment.trim();
+}
+
+bool isCardioExerciseDefinition(Exercise exercise) =>
+    equipmentGroupForLabel(exercise.equipment) == '有氧';
+
+/// Removes equipment/category prefixes from list and workout titles while the
+/// full metadata remains available in filters and detail pages.
+String conciseExerciseName(Exercise exercise, {required bool english}) {
+  var value = english ? exercise.englishName.trim() : exercise.name.trim();
+  if (english) {
+    value = value.replaceAll(
+      RegExp(
+        r'\b(smith machine|resistance band|bodyweight|barbell|dumbbell|cable|machine|kettlebell|band)\b',
+        caseSensitive: false,
+      ),
+      ' ',
+    );
+    value = value.replaceAll(RegExp(r'\s+'), ' ').trim();
+  } else {
+    const equipmentLabels = <String>[
+      '固定器械',
+      '史密斯机',
+      '曲杆杠铃',
+      '六角杠铃',
+      '奥杆杠铃',
+      '训练绳',
+      '阻力带',
+      '弹力带',
+      '壶铃',
+      '杠铃',
+      '哑铃',
+      '绳索',
+      '自重',
+      '器械',
+    ];
+    for (final label in equipmentLabels) {
+      value = value.replaceAll(label, '');
+    }
+    value = value
+        .replaceAll(RegExp(r'^[·\s]+|[·\s]+$'), '')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+  }
+  return value.isEmpty
+      ? (english ? exercise.englishName.trim() : exercise.name.trim())
+      : value;
 }
 
 String exerciseAsset(String id) {

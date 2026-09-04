@@ -40,8 +40,19 @@ void main() {
     expect(equipmentGroupForLabel('stationary bike'), '有氧');
   });
 
-  test('legacy unsupported equipment is hidden from selectable catalog', () {
-    const forbidden = ['波速球', '滑雪机', '训练锤'];
+  test('retired equipment is hidden from selectable catalog', () {
+    const forbidden = [
+      '波速球',
+      '滑雪机',
+      '训练锤',
+      '壶铃',
+      '弹力带',
+      '阻力带',
+      '训练绳',
+      'kettlebell',
+      'resistance band',
+      'battle rope',
+    ];
     expect(
       selectableCatalog.where(
         (item) => forbidden.any(
@@ -52,6 +63,96 @@ void main() {
       isEmpty,
     );
     expect(catalog.length, greaterThan(selectableCatalog.length));
+  });
+
+  test('only the five requested bodyweight actions remain selectable', () {
+    final bodyweight = selectableCatalog.where(
+      (item) =>
+          item.loadMode == 'bodyweight' ||
+          item.equipment.contains('自重') ||
+          item.equipment.toLowerCase().contains('bodyweight'),
+    );
+    expect(bodyweight.map((item) => item.id).toSet(), {
+      'pull_up',
+      'dip',
+      'push_up',
+      'dataset_0274',
+      'dataset_0472',
+    });
+  });
+
+  test('all specifically requested catalog numbers are retired', () {
+    final numbers = <int>{
+      39,
+      40,
+      42,
+      43,
+      45,
+      68,
+      69,
+      71,
+      74,
+      263,
+      265,
+      269,
+      270,
+      272,
+      273,
+      274,
+      276,
+      277,
+      278,
+      279,
+      280,
+      281,
+      282,
+      283,
+      284,
+      285,
+      286,
+      287,
+      288,
+      292,
+      293,
+      294,
+      456,
+      458,
+      459,
+      460,
+      461,
+      464,
+      466,
+      470,
+      473,
+      475,
+      476,
+      479,
+      480,
+      761,
+      763,
+      764,
+      811,
+      812,
+      813,
+      817,
+      819,
+      ...List<int>.generate(27, (index) => 820 + index),
+      ...List<int>.generate(5, (index) => 848 + index),
+    };
+    final selectableIds = selectableCatalog.map((item) => item.id).toSet();
+    for (final number in numbers) {
+      final id = catalog[number - 1].id;
+      if (id == 'dataset_0472') continue;
+      expect(selectableIds, isNot(contains(id)));
+    }
+  });
+
+  test('display names omit equipment words and cardio is categorized', () {
+    final controller = AppController();
+    addTearDown(controller.dispose);
+    expect(controller.displayExerciseName(catalog.first), '推胸');
+    expect(controller.equipmentFilterOptions, isNot(contains('壶铃')));
+    expect(selectableCatalog.where(isCardioExerciseDefinition), isNotEmpty);
   });
 
   test('deltoid labels are included in shoulder filtering', () {
@@ -119,7 +220,10 @@ void main() {
     controller.selectPage(PageId.exercises);
     await tester.pumpAndSettle();
     expect(find.text('Exercise Library'), findsWidgets);
-    expect(find.text(selectableCatalog.first.englishName), findsWidgets);
+    expect(
+      find.text(controller.displayExerciseName(selectableCatalog.first)),
+      findsWidgets,
+    );
     controller.dispose();
   });
 
