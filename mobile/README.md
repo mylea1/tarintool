@@ -81,10 +81,11 @@ flutter run                 # 连接 Android 设备或模拟器
 
 Android debug APK：
 
-```bash
-flutter build apk --debug
-# build/app/outputs/flutter-apk/app-debug.apk
+```powershell
+.\mobile\tool\build_android_debug_isolated.ps1 -Flavor cn
 ```
+
+该命令需要从仓库根目录执行，并只构建当前 Git `HEAD`：源码快照位于 WSL 原生 ext4，构建全程使用同一套 Linux Flutter/JDK/Android SDK，且通过独占锁阻止重复 Gradle 进程。命名后的 APK 与 SHA256 文件输出到根目录 `artifacts/`。完整流程及故障处理见 [`../docs/android-isolated-build-runbook.md`](../docs/android-isolated-build-runbook.md)。不要再从共享的 `mobile/` 工作区直接运行 `flutter build apk`。
 
 ## 安装与版本核验
 

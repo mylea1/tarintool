@@ -47,17 +47,13 @@ npm run build
 
 ## Flutter 移动端
 
-`mobile/` 是与根目录旧 Flutter/BetterCoach 工程隔离的形域 Android/iOS 主应用，业务状态和交互以 `web-prototype/` 为基线。Android 可离线复用本机 Gradle 分发版构建 Debug APK：
+`mobile/` 是与根目录旧 Flutter/BetterCoach 工程隔离的形域 Android/iOS 主应用，业务状态和交互以 `web-prototype/` 为基线。Android Debug APK 使用独立 Git 源码快照、WSL 原生 ext4 目录和单实例构建锁：
 
 ```powershell
-cd "E:\fitness app\strength-pro\mobile"
-flutter pub get
-flutter analyze
-flutter test
-flutter build apk --debug
+.\mobile\tool\build_android_debug_isolated.ps1 -Flavor cn
 ```
 
-产物位于 `mobile/build/app/outputs/flutter-apk/app-debug.apk`。iOS 业务界面共享同一 Flutter 代码；`mobile/ios/` 已包含 Live Activity 与 `KiloWatch` target。Apple Watch 通过 WatchConnectivity 接收当前动作与休息截止时间，并把“完成本组”回传给 Flutter；需在 macOS Xcode 中选择 iPhone + Apple Watch 配对模拟器或实体设备完成签名和真机验证。移动端功能矩阵见 [`docs/web-mobile-parity.md`](docs/web-mobile-parity.md)，识别请求/结果边界见 [`contracts/mobile-recognition.json`](contracts/mobile-recognition.json)。
+命名后的 APK 和 SHA256 文件位于 `artifacts/`。不要在共享的 `mobile/build` 中并行打包，也不要在 Windows 与 WSL 间复用 `.dart_tool`。故障总结、环境约束和核验清单见 [`docs/android-isolated-build-runbook.md`](docs/android-isolated-build-runbook.md)。iOS 业务界面共享同一 Flutter 代码；`mobile/ios/` 已包含 Live Activity 与 `KiloWatch` target。Apple Watch 通过 WatchConnectivity 接收当前动作与休息截止时间，并把“完成本组”回传给 Flutter；需在 macOS Xcode 中选择 iPhone + Apple Watch 配对模拟器或实体设备完成签名和真机验证。移动端功能矩阵见 [`docs/web-mobile-parity.md`](docs/web-mobile-parity.md)，识别请求/结果边界见 [`contracts/mobile-recognition.json`](contracts/mobile-recognition.json)。
 
 ## 阶段边界
 
