@@ -66,6 +66,10 @@ void main() {
     expect(yearlyRect.height, inInclusiveRange(130.0, 190.0));
     expect(find.text('月度会员'), findsOneWidget);
     expect(find.text('年度会员'), findsOneWidget);
+    expect(
+      find.descendant(of: comparison, matching: find.textContaining('/ 月')),
+      findsNothing,
+    );
     expect(find.text('最受欢迎'), findsNothing);
     expect(find.text('完整 PRO 权益'), findsNothing);
     expect(find.text('适合先体验 AI 训练闭环'), findsNothing);

@@ -37,11 +37,6 @@ const Map<MembershipPlan, String> _fallbackPrices = {
   MembershipPlan.yearly: '¥128',
 };
 
-const Map<MembershipPlan, double> _fallbackRawPrices = {
-  MembershipPlan.oneMonth: 12,
-  MembershipPlan.yearly: 128,
-};
-
 class MembershipMark extends StatelessWidget {
   const MembershipMark({super.key, required this.isMember, this.size = 28});
 
@@ -932,7 +927,6 @@ class MembershipPlanComparison extends StatelessWidget {
           _PlanCard(
             plan: plan,
             price: purchase.priceFor(plan),
-            monthlyEquivalent: _monthlyEquivalent(purchase, plan),
             selected: selected == plan,
             unavailable:
                 purchase.storeAvailable && purchase.productFor(plan) == null,
@@ -965,33 +959,12 @@ class MembershipPlanComparison extends StatelessWidget {
       );
     },
   );
-
-  static String _monthlyEquivalent(
-    MembershipPurchaseCoordinator purchase,
-    MembershipPlan plan,
-  ) {
-    final product = purchase.productFor(plan);
-    final raw = product?.rawPrice ?? _fallbackRawPrices[plan]!;
-    final months = switch (plan) {
-      MembershipPlan.oneMonth => 1,
-      MembershipPlan.threeMonths => 3,
-      MembershipPlan.yearly => 12,
-      _ => 1,
-    };
-    final value = raw / months;
-    final symbol = product == null
-        ? '¥'
-        : product.price.replaceAll(RegExp(r'[\d\s.,]'), '');
-    final decimals = value == value.roundToDouble() ? 0 : 1;
-    return '约 $symbol${value.toStringAsFixed(decimals)} / 月';
-  }
 }
 
 class _PlanCard extends StatelessWidget {
   const _PlanCard({
     required this.plan,
     required this.price,
-    required this.monthlyEquivalent,
     required this.selected,
     required this.unavailable,
     required this.onTap,
@@ -999,7 +972,6 @@ class _PlanCard extends StatelessWidget {
 
   final MembershipPlan plan;
   final String price;
-  final String monthlyEquivalent;
   final bool selected;
   final bool unavailable;
   final VoidCallback onTap;
@@ -1089,15 +1061,6 @@ class _PlanCard extends StatelessWidget {
                   Text(
                     caption,
                     style: const TextStyle(color: _muted, fontSize: 11),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    monthlyEquivalent,
-                    style: const TextStyle(
-                      color: _ember,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                    ),
                   ),
                   if (unavailable)
                     const Padding(
