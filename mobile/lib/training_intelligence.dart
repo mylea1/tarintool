@@ -171,8 +171,9 @@ class DailyTrainingRecommendation {
   final int exerciseCount;
   final String? routineId;
 
-  /// False means the engine intentionally withheld a personalised suggestion
-  /// because there is no completed set to use as evidence yet.
+  /// False means neither a completed onboarding baseline nor real completed
+  /// training data is available, so the engine intentionally withheld a
+  /// recommendation.
   final bool hasTrainingData;
 }
 
@@ -478,11 +479,14 @@ class TrainingIntelligenceEngine {
     DateTime? now,
   }) {
     final clock = now ?? DateTime.now();
-    if (!TrainingKnowledgeRules.hasCompletedSet(history)) {
+    final hasCompletedTraining = TrainingKnowledgeRules.hasCompletedSet(
+      history,
+    );
+    if (!hasCompletedTraining && !profile.hasRecommendationBaseline) {
       return const DailyTrainingRecommendation(
         title: '暂无训练数据',
         muscles: [],
-        reason: '完成第一次训练后，系统会根据真实重量、次数、组数和恢复状态生成建议。',
+        reason: '完成基础训练档案后，系统会先按目标与偏好生成建议。',
         estimatedMinutes: 0,
         exerciseCount: 0,
         hasTrainingData: false,
@@ -592,12 +596,14 @@ class TrainingIntelligenceEngine {
     return DailyTrainingRecommendation(
       title: title,
       muscles: recommendedMuscles,
-      reason:
-          '${recommendedMuscles.map((m) => '$m恢复 ${recoveryMap[m] ?? 100}%').join('，')}'
-          '${recentFallback ? '；近期主要肌群均在冷却窗口内，已优先延续可恢复计划' : ''}'
-          '；'
-          '${preferredRoutineName == best?.name ? '已承接今天或最近漏掉的计划，' : ''}'
-          '同时优先补足近4周训练量较低的肌群。',
+      reason: !hasCompletedTraining
+          ? '这是依据你的${_goalLabel(profile.goal)}目标、每周 ${profile.preferredWeekdays.length} 天、'
+                '单次 ${profile.sessionMinutes} 分钟和重点肌群生成的首份建议；完成后会再按真实表现调整。'
+          : '${recommendedMuscles.map((m) => '$m恢复 ${recoveryMap[m] ?? 100}%').join('，')}'
+                '${recentFallback ? '；近期主要肌群均在冷却窗口内，已优先延续可恢复计划' : ''}'
+                '；'
+                '${preferredRoutineName == best?.name ? '已承接今天或最近漏掉的计划，' : ''}'
+                '同时优先补足近4周训练量较低的肌群。',
       estimatedMinutes: best == null
           ? profile.sessionMinutes
           : (best.exercises.fold<int>(
@@ -611,6 +617,14 @@ class TrainingIntelligenceEngine {
       routineId: best?.id,
     );
   }
+
+  String _goalLabel(String? goal) => switch (goal) {
+    'muscle_gain' => '增肌',
+    'fat_loss' => '减脂',
+    'body_recomp' => '塑形',
+    'strength' => '力量',
+    _ => '当前',
+  };
 
   Map<String, DateTime> _recentMuscles(
     List<WorkoutRecord> history,

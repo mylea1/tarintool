@@ -957,6 +957,63 @@ void main() {
     }
   });
 
+  test('authenticated redemption replaces the local entitlement', () async {
+    final requests = <http.Request>[];
+    final api = HttpCoachApi(
+      baseUrl: 'https://api.example.test',
+      client: MockClient((request) async {
+        requests.add(request);
+        if (request.url.path == '/v1/redemptions/redeem') {
+          return http.Response(
+            jsonEncode({
+              'entitlement': {
+                'membership': 'threeMonths',
+                'membershipExpiresAt': '2026-12-04T00:00:00.000Z',
+                'aiRemaining': 20,
+                'aiDailyLimit': 20,
+                'recognitionRemaining': 5,
+                'recognitionWeeklyGrant': 3,
+              },
+            }),
+            200,
+          );
+        }
+        return http.Response('{}', 200);
+      }),
+    );
+    api.restoreSession(
+      const RemoteSession(
+        token: 'redemption-session',
+        accountIdentifier: '+8613800138000',
+        apiOrigin: 'https://api.example.test',
+      ),
+      accountIdentifier: '+8613800138000',
+    );
+    final account = AccountService(persistence: InMemoryAccountPersistence())
+      ..loginAuthenticatedRemote(
+        identifier: '+8613800138000',
+        displayName: '13800138000',
+        isAdmin: false,
+      );
+    final controller = AppController(accountService: account, coachApi: api);
+    try {
+      final result = await controller.redeemCode(' pro-2026 ');
+
+      expect(result.isSuccess, isTrue);
+      expect(controller.entitlements?.membership, MembershipPlan.threeMonths);
+      final redeemRequest = requests.singleWhere(
+        (request) => request.url.path == '/v1/redemptions/redeem',
+      );
+      expect(
+        redeemRequest.headers['authorization'],
+        'Bearer redemption-session',
+      );
+      expect(jsonDecode(redeemRequest.body), {'code': 'PRO-2026'});
+    } finally {
+      controller.dispose();
+    }
+  });
+
   test(
     'workout trial activation observes duration and effective-set boundaries',
     () async {

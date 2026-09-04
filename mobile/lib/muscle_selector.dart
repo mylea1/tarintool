@@ -31,6 +31,9 @@ class InteractiveMuscleMap extends StatefulWidget {
     this.height = 250,
     this.gender = MuscleMapGender.male,
     this.onMuscleTap,
+    this.selectionMode = false,
+    this.selectedGroups = const <String>{},
+    this.onSelectionChanged,
     this.showSideToggle = true,
     this.mode = MuscleMapMode.volume,
   });
@@ -39,6 +42,9 @@ class InteractiveMuscleMap extends StatefulWidget {
   final double height;
   final MuscleMapGender gender;
   final ValueChanged<String>? onMuscleTap;
+  final bool selectionMode;
+  final Set<String> selectedGroups;
+  final ValueChanged<Set<String>>? onSelectionChanged;
   final bool showSideToggle;
   final MuscleMapMode mode;
 
@@ -172,6 +178,14 @@ class _InteractiveMuscleMapState extends State<InteractiveMuscleMap> {
   }
 
   void _toggle(String slug) {
+    final group = overlayGroups[slug];
+    if (widget.selectionMode && group != null) {
+      final next = <String>{...widget.selectedGroups};
+      if (!next.add(group)) next.remove(group);
+      widget.onSelectionChanged?.call(next);
+      widget.onMuscleTap?.call(slug);
+      return;
+    }
     setState(() {
       if (!selected.add(slug)) selected.remove(slug);
     });
@@ -248,7 +262,11 @@ class _InteractiveMuscleMapState extends State<InteractiveMuscleMap> {
                         colorFilter: ColorFilter.mode(
                           _heat(
                             overlayGroups[region.slug]!,
-                            selected: selected.contains(region.slug),
+                            selected: widget.selectionMode
+                                ? widget.selectedGroups.contains(
+                                    overlayGroups[region.slug],
+                                  )
+                                : selected.contains(region.slug),
                           ),
                           BlendMode.srcIn,
                         ),
@@ -260,9 +278,9 @@ class _InteractiveMuscleMapState extends State<InteractiveMuscleMap> {
         ),
       ),
     );
-    final selectedLabels = selected
-        .map((slug) => labels[slug] ?? slug)
-        .toList();
+    final selectedLabels = widget.selectionMode
+        ? widget.selectedGroups.toList()
+        : selected.map((slug) => labels[slug] ?? slug).toList();
     return Semantics(
       container: true,
       label:

@@ -1491,17 +1491,25 @@ Future<void> _showRedeem(BuildContext context, AppController controller) async {
               minimumSize: const Size.fromHeight(50),
               backgroundColor: _membershipEmber(context),
             ),
-            onPressed: () {
-              final result = controller.redeemCode(code.text);
+            onPressed: () async {
+              final result = await controller.redeemCode(code.text);
+              if (!sheetContext.mounted) return;
               if (result.isSuccess) {
                 Navigator.pop(sheetContext);
                 ScaffoldMessenger.of(
                   context,
                 ).showSnackBar(const SnackBar(content: Text('兑换成功，会员权益已生效。')));
               } else {
-                ScaffoldMessenger.of(
-                  sheetContext,
-                ).showSnackBar(const SnackBar(content: Text('兑换码无效或已使用。')));
+                ScaffoldMessenger.of(sheetContext).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      result.message ??
+                          (result.error == AccountError.codeAlreadyUsed
+                              ? '兑换码已经使用。'
+                              : '兑换码无效。'),
+                    ),
+                  ),
+                );
               }
             },
             child: const Text('立即兑换'),

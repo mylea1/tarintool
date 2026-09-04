@@ -46,6 +46,7 @@ class _PhoneAuthHarness {
           expect(body['code'], '654321');
           return _authResponse('register-session');
         case '/v1/auth/phone/login':
+          expect(body['identifier'], '+8613800138000');
           expect(body['password'], 'strong-pass-123');
           return _authResponse('password-session');
         case '/v1/auth/phone/verify':

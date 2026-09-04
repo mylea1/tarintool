@@ -353,6 +353,9 @@ class _TrainingProfileOnboardingPageState
   final dislikedExercises = TextEditingController();
   final unavailableExercises = TextEditingController();
   bool saving = false;
+  String? validationError;
+  int onboardingStep = 0;
+  String musclePreferenceKind = 'focus';
 
   @override
   void initState() {
@@ -406,35 +409,103 @@ class _TrainingProfileOnboardingPageState
 
   Future<void> _save() async {
     if (saving) return;
+    final parsedAge = int.tryParse(age.text.trim());
+    final parsedHeight = double.tryParse(height.text.trim());
+    final parsedWeight = double.tryParse(weight.text.trim());
+    final error =
+        _identityError(
+          parsedAge: parsedAge,
+          parsedHeight: parsedHeight,
+          parsedWeight: parsedWeight,
+        ) ??
+        (preferredWeekdays.isEmpty
+            ? '请至少选择一个每周训练日。'
+            : focusMuscles.isEmpty
+            ? '请在肌肉图上至少选择一个重点训练部位。'
+            : null);
+    if (error != null) {
+      setState(() {
+        validationError = error;
+        if (_identityError(
+              parsedAge: parsedAge,
+              parsedHeight: parsedHeight,
+              parsedWeight: parsedWeight,
+            ) !=
+            null) {
+          onboardingStep = 0;
+        }
+      });
+      return;
+    }
     setState(() => saving = true);
-    await widget.controller.saveTrainingProfile(
-      TrainingProfile(
-        gender: gender,
-        age: int.tryParse(age.text.trim()),
-        trainingYears: double.tryParse(years.text.trim()),
-        goal: goal,
-        heightCm: double.tryParse(height.text.trim()),
-        weightKg: double.tryParse(weight.text.trim()),
-        weeklyTrainingDays: preferredWeekdays.isEmpty
-            ? null
-            : preferredWeekdays.length,
-        preferredWeekdays: preferredWeekdays.toList()..sort(),
-        activityLevel: switch (preferredWeekdays.length) {
-          <= 1 => 'low',
-          >= 5 => 'high',
-          _ => 'moderate',
-        },
-        sessionMinutes: sessionMinutes,
-        planStyle: planStyle,
-        preferredRepRange: preferredRepRange,
-        needsWarmupSets: needsWarmupSets,
-        focusMuscles: focusMuscles.toList(),
-        reducedMuscles: reducedMuscles.toList(),
-        dislikedExerciseIds: _splitProfileValues(dislikedExercises.text),
-        unavailableExerciseIds: _splitProfileValues(unavailableExercises.text),
-      ),
+    final profile = TrainingProfile(
+      gender: gender,
+      age: parsedAge,
+      trainingYears: double.tryParse(years.text.trim()),
+      goal: goal,
+      heightCm: parsedHeight,
+      weightKg: parsedWeight,
+      weeklyTrainingDays: preferredWeekdays.isEmpty
+          ? null
+          : preferredWeekdays.length,
+      preferredWeekdays: preferredWeekdays.toList()..sort(),
+      activityLevel: switch (preferredWeekdays.length) {
+        <= 1 => 'low',
+        >= 5 => 'high',
+        _ => 'moderate',
+      },
+      sessionMinutes: sessionMinutes,
+      planStyle: planStyle,
+      preferredRepRange: preferredRepRange,
+      needsWarmupSets: needsWarmupSets,
+      focusMuscles: focusMuscles.toList(),
+      reducedMuscles: reducedMuscles.toList(),
+      dislikedExerciseIds: _splitProfileValues(dislikedExercises.text),
+      unavailableExerciseIds: _splitProfileValues(unavailableExercises.text),
     );
+    await widget.controller.saveTrainingProfile(profile);
+    if (!widget.editMode && widget.controller.weightEntries.isEmpty) {
+      await widget.controller.addWeightEntry(
+        WeightEntry(
+          id: 'profile-weight-${DateTime.now().microsecondsSinceEpoch}',
+          recordedAt: DateTime.now(),
+          weightKg: parsedWeight!,
+          note: '首次训练档案',
+        ),
+      );
+    }
     if (widget.editMode && mounted) Navigator.pop(context);
+  }
+
+  String? _identityError({
+    required int? parsedAge,
+    required double? parsedHeight,
+    required double? parsedWeight,
+  }) => switch ((gender, parsedAge, parsedHeight, parsedWeight, goal)) {
+    (null, _, _, _, _) => '请选择性别，以便匹配身体图和估算基础代谢。',
+    (_, null, _, _, _) => '请输入有效年龄。',
+    (_, final value?, _, _, _) when value < 13 || value > 100 =>
+      '年龄需要在 13–100 岁之间。',
+    (_, _, null, _, _) => '请输入有效身高。',
+    (_, _, final value?, _, _) when value < 100 || value > 250 =>
+      '身高需要在 100–250 cm 之间。',
+    (_, _, _, null, _) => '请输入有效体重。',
+    (_, _, _, final value?, _) when value < 30 || value > 300 =>
+      '体重需要在 30–300 kg 之间。',
+    (_, _, _, _, null) => '请选择当前训练目标。',
+    _ => null,
+  };
+
+  void _continueToPreferences() {
+    final error = _identityError(
+      parsedAge: int.tryParse(age.text.trim()),
+      parsedHeight: double.tryParse(height.text.trim()),
+      parsedWeight: double.tryParse(weight.text.trim()),
+    );
+    setState(() {
+      validationError = error;
+      if (error == null) onboardingStep = 1;
+    });
   }
 
   @override
@@ -445,15 +516,12 @@ class _TrainingProfileOnboardingPageState
       surfaceTintColor: Colors.transparent,
       automaticallyImplyLeading: false,
       actions: [
-        TextButton(
-          key: const Key('profile-onboarding-skip'),
-          onPressed: saving
-              ? null
-              : widget.editMode
-              ? () => Navigator.pop(context)
-              : widget.controller.skipTrainingProfile,
-          child: Text(widget.editMode ? '取消' : '跳过'),
-        ),
+        if (widget.editMode)
+          TextButton(
+            key: const Key('profile-onboarding-cancel'),
+            onPressed: saving ? null : () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
         const SizedBox(width: 8),
       ],
     ),
@@ -469,155 +537,284 @@ class _TrainingProfileOnboardingPageState
             style: Theme.of(context).textTheme.headlineLarge,
           ),
           const SizedBox(height: 8),
-          const Text('这些资料用于训练建议和热量估算。所有项都可留空，之后也能在“我的”中修改。'),
-          const SizedBox(height: 22),
-          _profileChoices(
-            title: '性别（可选）',
-            value: gender,
-            choices: const {'male': '男', 'female': '女', 'other': '其他 / 不便说明'},
-            onSelected: (value) => setState(() => gender = value),
+          Text(
+            widget.editMode
+                ? '这些资料用于训练建议和热量估算，保存后会立即更新建议。'
+                : onboardingStep == 0
+                ? '第 1 步：填写身体资料与目标。下一步会按性别加载对应的互动肌肉图。'
+                : '第 2 步：点击身体图选择训练部位，再填写每周安排与训练偏好。',
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           Row(
             children: [
-              Expanded(
-                child: TextField(
-                  controller: age,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: '年龄'),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: TextField(
-                  controller: years,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  decoration: const InputDecoration(labelText: '训练年限'),
-                ),
-              ),
+              _OnboardingStepPill(label: '1 身体资料', active: onboardingStep == 0),
+              const SizedBox(width: 8),
+              _OnboardingStepPill(label: '2 训练偏好', active: onboardingStep == 1),
             ],
           ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: height,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
+          if (validationError != null) ...[
+            const SizedBox(height: 12),
+            Container(
+              key: const Key('profile-onboarding-error'),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: danger.withValues(alpha: .1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: danger.withValues(alpha: .35)),
+              ),
+              child: Text(
+                validationError!,
+                style: TextStyle(color: danger, fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+          if (onboardingStep == 0) ...[
+            const SizedBox(height: 22),
+            _profileChoices(
+              title: '性别',
+              value: gender,
+              choices: const {'male': '男', 'female': '女', 'other': '其他 / 不便说明'},
+              onSelected: (value) => setState(() {
+                gender = value;
+                validationError = null;
+              }),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    key: const Key('profile-age-input'),
+                    controller: age,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: '年龄'),
                   ),
-                  decoration: const InputDecoration(labelText: '身高 cm'),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextField(
+                    key: const Key('profile-training-years-input'),
+                    controller: years,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: const InputDecoration(labelText: '训练年限'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    key: const Key('profile-height-input'),
+                    controller: height,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: const InputDecoration(labelText: '身高 cm'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextField(
+                    key: const Key('profile-weight-input'),
+                    controller: weight,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: const InputDecoration(labelText: '体重 kg'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _profileChoices(
+              title: '当前目标',
+              value: goal,
+              choices: const {
+                'muscle_gain': '增肌',
+                'fat_loss': '减脂',
+                'body_recomp': '塑形',
+                'strength': '力量',
+              },
+              onSelected: (value) => setState(() {
+                goal = value;
+                validationError = null;
+              }),
+            ),
+            const SizedBox(height: 22),
+            FilledButton.icon(
+              key: const Key('profile-onboarding-next'),
+              onPressed: _continueToPreferences,
+              icon: const Icon(Icons.arrow_forward_rounded),
+              label: const Text('下一步：选择训练部位'),
+            ),
+          ] else ...[
+            const SizedBox(height: 18),
+            Card(
+              key: const Key('profile-muscle-map-card'),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      '点击身体图选择训练部位',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 3),
+                    Text(switch (gender) {
+                      'female' => '当前使用女性身体 SVG',
+                      'male' => '当前使用男性身体 SVG',
+                      _ => '当前使用通用身体 SVG',
+                    }, style: TextStyle(color: muted, fontSize: 12)),
+                    const SizedBox(height: 10),
+                    SegmentedButton<String>(
+                      key: const Key('profile-muscle-preference-mode'),
+                      segments: const [
+                        ButtonSegment(value: 'focus', label: Text('重点训练')),
+                        ButtonSegment(value: 'reduced', label: Text('减少训练')),
+                      ],
+                      selected: {musclePreferenceKind},
+                      onSelectionChanged: (value) =>
+                          setState(() => musclePreferenceKind = value.first),
+                    ),
+                    const SizedBox(height: 8),
+                    InteractiveMuscleMap(
+                      key: Key(
+                        'profile-muscle-map-${gender == 'female' ? 'female' : 'male'}',
+                      ),
+                      muscleSets: const {},
+                      height: 330,
+                      gender: gender == 'female'
+                          ? MuscleMapGender.female
+                          : MuscleMapGender.male,
+                      selectionMode: true,
+                      selectedGroups: musclePreferenceKind == 'focus'
+                          ? focusMuscles
+                          : reducedMuscles,
+                      onSelectionChanged: (selected) => setState(() {
+                        final target = musclePreferenceKind == 'focus'
+                            ? focusMuscles
+                            : reducedMuscles;
+                        final opposite = musclePreferenceKind == 'focus'
+                            ? reducedMuscles
+                            : focusMuscles;
+                        target
+                          ..clear()
+                          ..addAll(selected);
+                        opposite.removeAll(selected);
+                        validationError = null;
+                      }),
+                    ),
+                    const SizedBox(height: 7),
+                    Text(
+                      '重点：${focusMuscles.isEmpty ? '未选择' : focusMuscles.join('、')}',
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    Text(
+                      '减少：${reducedMuscles.isEmpty ? '无' : reducedMuscles.join('、')}',
+                      style: TextStyle(color: muted, fontSize: 12),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: TextField(
-                  controller: weight,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  decoration: const InputDecoration(labelText: '体重 kg'),
-                ),
+            ),
+            const SizedBox(height: 12),
+            _weekdayChoices(),
+            const SizedBox(height: 12),
+            _profileChoices(
+              title: '每次训练时长',
+              value: sessionMinutes.toString(),
+              choices: const {
+                '30': '30 分',
+                '45': '45 分',
+                '60': '60 分',
+                '75': '75 分',
+                '90': '90 分',
+              },
+              onSelected: (value) => setState(
+                () => sessionMinutes = int.tryParse(value ?? '') ?? 60,
               ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          _profileChoices(
-            title: '当前目标（可选）',
-            value: goal,
-            choices: const {
-              'muscle_gain': '增肌',
-              'fat_loss': '减脂',
-              'body_recomp': '塑形',
-              'strength': '力量',
-            },
-            onSelected: (value) => setState(() => goal = value),
-          ),
-          const SizedBox(height: 12),
-          _weekdayChoices(),
-          const SizedBox(height: 12),
-          _profileChoices(
-            title: '每次训练时长',
-            value: sessionMinutes.toString(),
-            choices: const {
-              '30': '30 分',
-              '45': '45 分',
-              '60': '60 分',
-              '75': '75 分',
-              '90': '90 分',
-            },
-            onSelected: (value) => setState(
-              () => sessionMinutes = int.tryParse(value ?? '') ?? 60,
             ),
-          ),
-          const SizedBox(height: 12),
-          _profileChoices(
-            title: '计划变化偏好',
-            value: planStyle,
-            choices: const {'fixed': '固定计划', 'adaptive': '经常变化'},
-            onSelected: (value) => setState(() => planStyle = value ?? 'fixed'),
-          ),
-          const SizedBox(height: 12),
-          _profileChoices(
-            title: '常用次数范围',
-            value: preferredRepRange,
-            choices: const {
-              '3-6': '3–6',
-              '6-10': '6–10',
-              '8-12': '8–12',
-              '10-15': '10–15',
-            },
-            onSelected: (value) =>
-                setState(() => preferredRepRange = value ?? '8-12'),
-          ),
-          const SizedBox(height: 12),
-          SwitchListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-            tileColor: surface,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-              side: BorderSide(color: hairline),
+            const SizedBox(height: 12),
+            _profileChoices(
+              title: '计划变化偏好',
+              value: planStyle,
+              choices: const {'fixed': '固定计划', 'adaptive': '经常变化'},
+              onSelected: (value) =>
+                  setState(() => planStyle = value ?? 'fixed'),
             ),
-            value: needsWarmupSets,
-            title: const Text('需要热身组'),
-            onChanged: (value) => setState(() => needsWarmupSets = value),
-          ),
-          const SizedBox(height: 12),
-          _musclePreference(
-            title: '重点发展的肌群',
-            selected: focusMuscles,
-            onChanged: () => setState(() {}),
-          ),
-          const SizedBox(height: 12),
-          _musclePreference(
-            title: '希望减少训练的肌群',
-            selected: reducedMuscles,
-            onChanged: () => setState(() {}),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: dislikedExercises,
-            decoration: const InputDecoration(
-              labelText: '不喜欢的动作',
-              hintText: '用顿号或逗号分隔',
+            const SizedBox(height: 12),
+            _profileChoices(
+              title: '常用次数范围',
+              value: preferredRepRange,
+              choices: const {
+                '3-6': '3–6',
+                '6-10': '6–10',
+                '8-12': '8–12',
+                '10-15': '10–15',
+              },
+              onSelected: (value) =>
+                  setState(() => preferredRepRange = value ?? '8-12'),
             ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: unavailableExercises,
-            decoration: const InputDecoration(
-              labelText: '无法完成的动作',
-              hintText: '伤病限制或当前无法完成',
+            const SizedBox(height: 12),
+            SwitchListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+              tileColor: surface,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(color: hairline),
+              ),
+              value: needsWarmupSets,
+              title: const Text('需要热身组'),
+              onChanged: (value) => setState(() => needsWarmupSets = value),
             ),
-          ),
-          const SizedBox(height: 22),
-          FilledButton(
-            key: const Key('profile-onboarding-save'),
-            onPressed: saving ? null : _save,
-            child: Text(saving ? '保存中…' : '保存并开始'),
-          ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: dislikedExercises,
+              decoration: const InputDecoration(
+                labelText: '不喜欢的动作',
+                hintText: '用顿号或逗号分隔',
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: unavailableExercises,
+              decoration: const InputDecoration(
+                labelText: '无法完成的动作',
+                hintText: '伤病限制或当前无法完成',
+              ),
+            ),
+            const SizedBox(height: 22),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    key: const Key('profile-onboarding-back'),
+                    onPressed: saving
+                        ? null
+                        : () => setState(() {
+                            onboardingStep = 0;
+                            validationError = null;
+                          }),
+                    icon: const Icon(Icons.arrow_back_rounded),
+                    label: const Text('上一步'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FilledButton(
+                    key: const Key('profile-onboarding-save'),
+                    onPressed: saving ? null : _save,
+                    child: Text(saving ? '保存中…' : '保存并生成建议'),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     ),
@@ -732,50 +929,32 @@ class _TrainingProfileOnboardingPageState
       ),
     ),
   );
+}
 
-  Widget _musclePreference({
-    required String title,
-    required Set<String> selected,
-    required VoidCallback onChanged,
-  }) => Container(
-    padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
-    decoration: BoxDecoration(
-      color: surface,
-      borderRadius: BorderRadius.circular(12),
-      border: Border.all(color: hairline),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(title, style: Theme.of(context).textTheme.labelMedium),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 7,
-          runSpacing: 7,
-          children: [
-            for (final muscle in const [
-              '胸',
-              '背',
-              '肩',
-              '二头',
-              '三头',
-              '股四头',
-              '腘绳肌',
-              '臀',
-              '小腿',
-              '核心',
-            ])
-              FilterChip(
-                label: Text(muscle),
-                selected: selected.contains(muscle),
-                onSelected: (value) {
-                  value ? selected.add(muscle) : selected.remove(muscle);
-                  onChanged();
-                },
-              ),
-          ],
+class _OnboardingStepPill extends StatelessWidget {
+  const _OnboardingStepPill({required this.label, required this.active});
+
+  final String label;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) => Expanded(
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      decoration: BoxDecoration(
+        color: active ? primaryContainer : surface,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: active ? primary : hairline),
+      ),
+      child: Text(
+        label,
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          color: active ? primary : muted,
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
         ),
-      ],
+      ),
     ),
   );
 }

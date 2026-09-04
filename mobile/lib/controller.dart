@@ -617,10 +617,13 @@ class AppController extends ChangeNotifier {
     if (trimmed.isEmpty) {
       return const AuthResult.failure(AccountError.emptyIdentifier);
     }
-    // Keep the existing password endpoint's identifier semantics (including
-    // development accounts and legacy 11-digit accounts). The response's
-    // canonical user identifier is used for the local account/session below.
-    final normalized = trimmed;
+    // Phone registrations are stored canonically as +86 numbers. Normalize
+    // an 11-digit phone before password login while preserving development
+    // usernames and other legacy identifiers unchanged.
+    final phoneCandidate = _normalizePhoneIdentifier(trimmed);
+    final normalized = _isPhoneIdentifier(phoneCandidate)
+        ? phoneCandidate
+        : trimmed;
     try {
       final api = _phoneAuthApi();
       await _resetRemoteAuthState();
@@ -1938,8 +1941,51 @@ class AppController extends ChangeNotifier {
   RedemptionCode generateRedemptionCode({required MembershipPlan plan}) =>
       accountService.generateRedemptionCode(plan: plan);
 
-  AccountResult<EntitlementSnapshot> redeemCode(String code) =>
-      accountService.redeemCode(code);
+  Future<AccountResult<EntitlementSnapshot>> redeemCode(String code) async {
+    final normalized = code.trim().toUpperCase();
+    if (normalized.isEmpty) {
+      return const AccountResult.failure(AccountError.invalidCode);
+    }
+    try {
+      final api = await _activeCoachApi();
+      if (api is HttpCoachApi && api.hasSession) {
+        final payload = await api.redeemMembershipCode(normalized);
+        final raw = payload['entitlement'];
+        if (raw is! Map) {
+          return const AccountResult.failure(
+            AccountError.serviceNotConfigured,
+            message: '兑换结果缺少会员信息，请稍后重试。',
+          );
+        }
+        final entitlement = EntitlementSnapshot.fromMap(
+          Map<String, dynamic>.from(raw),
+        );
+        accountService.replaceCurrentEntitlement(entitlement);
+        _remoteEntitlementsFresh = true;
+        unawaited(backupUserData());
+        return AccountResult.success(entitlement);
+      }
+      // Local fixtures remain available to offline tests and development
+      // previews, but production sessions always redeem on the server.
+      return accountService.redeemCode(normalized);
+    } on CoachApiException catch (error) {
+      return switch (error.code) {
+        'invalid_code' => const AccountResult.failure(AccountError.invalidCode),
+        'code_already_used' => const AccountResult.failure(
+          AccountError.codeAlreadyUsed,
+        ),
+        _ => const AccountResult.failure(
+          AccountError.serviceNotConfigured,
+          message: '兑换服务暂时不可用，请稍后重试。',
+        ),
+      };
+    } catch (_) {
+      return const AccountResult.failure(
+        AccountError.serviceNotConfigured,
+        message: '兑换服务暂时不可用，请稍后重试。',
+      );
+    }
+  }
 
   PageId page = PageId.today;
   TrainView trainView = TrainView.workout;
@@ -2483,10 +2529,14 @@ class AppController extends ChangeNotifier {
     if (profile.weightKg == null ||
         profile.heightCm == null ||
         profile.age == null ||
-        !const {'male', 'female'}.contains(profile.gender)) {
+        profile.gender == null) {
       return null;
     }
-    final sexOffset = profile.gender == 'male' ? 5 : -161;
+    final sexOffset = switch (profile.gender) {
+      'male' => 5,
+      'female' => -161,
+      _ => -78,
+    };
     final bmr =
         10 * profile.weightKg! +
         6.25 * profile.heightCm! -
@@ -5742,6 +5792,15 @@ class AppController extends ChangeNotifier {
         .toList(growable: false);
     final nutritionContext = [
       '日期 ${day.toIso8601String().split('T').first}',
+      if (trainingProfile.goal != null) '目标 ${trainingProfile.goal}',
+      if (trainingProfile.heightCm != null)
+        '身高 ${trainingProfile.heightCm!.toStringAsFixed(0)} cm',
+      if (trainingProfile.weightKg != null)
+        '体重 ${trainingProfile.weightKg!.toStringAsFixed(1)} kg',
+      if (estimatedDailyCalories != null)
+        '建议热量 ${estimatedDailyCalories!.toStringAsFixed(0)} kcal',
+      if (trainingProfile.weightKg != null)
+        '建议蛋白质 ${(trainingProfile.weightKg! * 1.6).toStringAsFixed(0)} g',
       '热量 ${food.fold<double>(0, (sum, item) => sum + item.calories).toStringAsFixed(0)} kcal',
       '蛋白质 ${food.fold<double>(0, (sum, item) => sum + item.proteinGrams).toStringAsFixed(1)} g',
       '碳水 ${food.fold<double>(0, (sum, item) => sum + item.carbsGrams).toStringAsFixed(1)} g',
@@ -5759,7 +5818,7 @@ class AppController extends ChangeNotifier {
     ].join('；');
     final answer = await _requestCoachAnswer(
       '请只根据给定的饮食、饮水、训练和用户目标数据，给出今天最重要的1到2条饮食建议。'
-      '不要编造没有提供的食物或数值，不要输出长篇免责声明；如果记录不足，明确告诉用户先记录什么。'
+      '不要编造没有提供的食物或数值，不要输出长篇免责声明。没有餐次记录时，直接按基础档案给出今天可执行的起始热量、蛋白质与餐次安排，不要回答“没有饮食记录”或“数据不足”。'
       '数据：$nutritionContext',
       includeTrainingContext: true,
       selectedTrainingContext: nutritionContext,

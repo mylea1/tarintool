@@ -19,8 +19,8 @@ class TrainingKnowledgeRules {
   static const defaultTargetMax = 12;
   static const maxPrimaryMuscles = 2;
 
-  /// A recommendation is only personalised after at least one real completed
-  /// set has been persisted. Planned/empty records are not evidence.
+  /// Real completed sets take over from the onboarding baseline as the
+  /// strongest evidence for later adaptive recommendations.
   static bool hasCompletedSet(Iterable<WorkoutRecord> records) =>
       records.any((record) {
         return record.exercises.any(

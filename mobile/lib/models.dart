@@ -947,6 +947,20 @@ class TrainingProfile {
   final List<String> dislikedExerciseIds;
   final List<String> unavailableExerciseIds;
 
+  /// Minimum profile needed to produce a safe first-session training and
+  /// nutrition recommendation before any workout or meal has been logged.
+  bool get hasRecommendationBaseline =>
+      gender != null &&
+      age != null &&
+      age! >= 13 &&
+      heightCm != null &&
+      heightCm! > 0 &&
+      weightKg != null &&
+      weightKg! > 0 &&
+      goal != null &&
+      preferredWeekdays.isNotEmpty &&
+      focusMuscles.isNotEmpty;
+
   Map<String, dynamic> toJson() => {
     if (gender != null) 'gender': gender,
     if (age != null) 'age': age,

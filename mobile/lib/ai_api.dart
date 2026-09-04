@@ -635,6 +635,17 @@ class HttpCoachApi implements CoachApi, AgentCoachApi, StreamingCoachApi {
     return _decodeJsonResponse(response, 'membership_entitlements');
   }
 
+  Future<Map<String, dynamic>> redeemMembershipCode(String code) async {
+    final response = await _client
+        .post(
+          _endpoint('/v1/redemptions/redeem'),
+          headers: _authHeaders,
+          body: jsonEncode({'code': code.trim().toUpperCase()}),
+        )
+        .timeout(requestTimeout);
+    return _decodeJsonResponse(response, 'membership_redemption');
+  }
+
   Future<Map<String, dynamic>> activateMembershipTrial({
     required String workoutId,
     required int durationSeconds,

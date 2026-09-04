@@ -155,6 +155,43 @@ void main() {
     },
   );
 
+  test('membership redemption is sent to the authenticated backend', () async {
+    Map<String, dynamic>? redemptionBody;
+    final client = MockClient((request) async {
+      if (request.url.path == '/v1/auth/phone/login') {
+        return http.Response(
+          jsonEncode({
+            'session': {'token': 'redemption-session'},
+          }),
+          200,
+        );
+      }
+      expect(request.url.path, '/v1/redemptions/redeem');
+      expect(request.headers['authorization'], 'Bearer redemption-session');
+      redemptionBody = jsonDecode(request.body) as Map<String, dynamic>;
+      return http.Response(
+        jsonEncode({
+          'entitlement': {
+            'membership': 'threeMonths',
+            'isMember': true,
+            'expiresAt': '2026-12-04T00:00:00.000Z',
+          },
+        }),
+        200,
+      );
+    });
+    final api = HttpCoachApi(
+      baseUrl: 'https://api.example.test',
+      client: client,
+    );
+
+    await api.signIn(identifier: '13800138000', password: '1234');
+    final payload = await api.redeemMembershipCode('  pro-2026  ');
+
+    expect(redemptionBody, {'code': 'PRO-2026'});
+    expect(payload['entitlement'], isA<Map<String, dynamic>>());
+  });
+
   test(
     'membership client submits strict workout trial activation payload',
     () async {

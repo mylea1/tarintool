@@ -472,13 +472,13 @@ void main() {
       find.byKey(const Key('nutrition-ai-advice-content')),
       findsOneWidget,
     );
-    expect(find.textContaining('训练 × 饮食'), findsOneWidget);
+    expect(find.text('基础档案已可用于生成第一份建议'), findsOneWidget);
     expect(find.textContaining('蛋白质目标'), findsWidgets);
     expect(find.byKey(const Key('nutrition-ai-advice-locked')), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('training profile onboarding keeps every field optional', (
+  testWidgets('first login profile requires a recommendation baseline', (
     tester,
   ) async {
     final controller = AppController();
@@ -486,19 +486,20 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(home: TrainingProfileOnboardingPage(controller: controller)),
     );
-    expect(find.byKey(const Key('profile-onboarding-skip')), findsOneWidget);
+    expect(find.byKey(const Key('profile-onboarding-skip')), findsNothing);
     await tester.scrollUntilVisible(
-      find.byKey(const Key('profile-onboarding-save')),
-      180,
+      find.byKey(const Key('profile-onboarding-next')),
+      220,
       scrollable: find.byType(Scrollable).first,
     );
-    await tester.tap(find.byKey(const Key('profile-onboarding-save')));
+    await tester.tap(find.byKey(const Key('profile-onboarding-next')));
     await tester.pump();
-    expect(controller.profileOnboardingCompleted, isTrue);
+    expect(find.byKey(const Key('profile-onboarding-error')), findsOneWidget);
+    expect(controller.profileOnboardingCompleted, isFalse);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('profile uses direct choices for goal and preferred weekdays', (
+  testWidgets('profile uses gender SVG and saves first recommendation data', (
     tester,
   ) async {
     final controller = AppController();
@@ -510,10 +511,41 @@ void main() {
     expect(find.text('减脂'), findsOneWidget);
     expect(find.text('塑形'), findsOneWidget);
     expect(find.text('保持体能'), findsNothing);
-    expect(find.text('每周训练日（可多选）'), findsOneWidget);
+    await tester.tap(find.text('女'));
+    await tester.enterText(find.byKey(const Key('profile-age-input')), '28');
+    await tester.enterText(
+      find.byKey(const Key('profile-height-input')),
+      '168',
+    );
+    await tester.enterText(find.byKey(const Key('profile-weight-input')), '60');
     await tester.tap(find.text('塑形'));
-    await tester.drag(find.byType(ListView), const Offset(0, -260));
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('profile-onboarding-next')),
+      220,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byKey(const Key('profile-onboarding-next')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('profile-muscle-map-female')), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('interactive-muscle-body')),
+      220,
+      scrollable: find.byType(Scrollable).first,
+    );
+    final body = find.byKey(const Key('interactive-muscle-body'));
+    final rect = tester.getRect(body);
+    await tester.tapAt(
+      Offset(
+        rect.left + rect.width * (24 / 48),
+        rect.top + rect.height * (20 / 88),
+      ),
+    );
     await tester.pump();
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('preferred-weekdays-field')),
+      220,
+      scrollable: find.byType(Scrollable).first,
+    );
     for (final weekday in [1, 3, 5, 7]) {
       await tester.tap(find.byKey(Key('preferred-weekday-$weekday')));
     }
@@ -525,8 +557,16 @@ void main() {
     await tester.tap(find.byKey(const Key('profile-onboarding-save')));
     await tester.pump();
     expect(controller.trainingProfile.goal, 'body_recomp');
+    expect(controller.trainingProfile.gender, 'female');
+    expect(controller.trainingProfile.heightCm, 168);
+    expect(controller.trainingProfile.weightKg, 60);
+    expect(controller.trainingProfile.focusMuscles, isNotEmpty);
     expect(controller.trainingProfile.weeklyTrainingDays, 4);
     expect(controller.trainingProfile.preferredWeekdays, [1, 3, 5, 7]);
+    expect(controller.profileOnboardingCompleted, isTrue);
+    expect(controller.weightEntries.single.weightKg, 60);
+    expect(controller.trainingIntelligence.today.hasTrainingData, isTrue);
+    expect(controller.trainingIntelligence.today.title, isNot('暂无训练数据'));
   });
 
   testWidgets('home nutrition card records calories and protein', (

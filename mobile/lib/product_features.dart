@@ -205,7 +205,19 @@ class _NutritionCenterPageState extends State<NutritionCenterPage> {
         : widget.controller.trainingProfile.weightKg! * 1.6;
     final lines = <String>[];
     if (calories == 0 && protein == 0) {
-      lines.add('今天还没有饮食记录，先记录一餐，建议会更准确。');
+      final goal = switch (widget.controller.trainingProfile.goal) {
+        'muscle_gain' => '增肌',
+        'fat_loss' => '减脂',
+        'body_recomp' => '塑形',
+        'strength' => '力量',
+        _ => '当前',
+      };
+      lines.add(
+        '按你的$goal目标，今日可先执行'
+        '${calorieTarget == null ? '稳定三餐' : '约 ${calorieTarget.toStringAsFixed(0)} kcal'}'
+        '${proteinTarget == null ? '' : '、蛋白质约 ${proteinTarget.toStringAsFixed(0)} g'}。',
+      );
+      lines.add('把蛋白质分配到各餐，训练前后安排主食和优质蛋白。');
     } else if (proteinTarget != null && protein < proteinTarget * .8) {
       lines.add(
         '今天蛋白质摄入偏低，还差 ${(proteinTarget - protein).clamp(0, proteinTarget).toStringAsFixed(0)} g。',
@@ -441,7 +453,7 @@ class _NutritionAiAdviceModule extends StatelessWidget {
               ),
               const SizedBox(height: 7),
               Text(
-                '根据今天的饮食与训练数据生成专属建议。',
+                '根据基础档案、训练目标与今日记录生成专属建议。',
                 style: TextStyle(color: _muted(context), fontSize: 12),
               ),
               const SizedBox(height: 7),
@@ -510,7 +522,7 @@ class _NutritionAiAdviceModule extends StatelessWidget {
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    '根据今天的饮食与训练数据\n生成专属饮食建议',
+                    '根据基础档案与今日记录\n生成专属饮食建议',
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(color: _muted(context), fontSize: 12),
@@ -551,7 +563,7 @@ class _NutritionAiAdviceModule extends StatelessWidget {
                   ] else ...[
                     const SizedBox(height: 7),
                     Text(
-                      '训练 × 饮食数据会用于生成建议',
+                      '基础档案已可用于生成第一份建议',
                       key: const Key('nutrition-ai-advice-content'),
                       style: TextStyle(color: _muted(context), fontSize: 12),
                     ),

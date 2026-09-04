@@ -256,6 +256,37 @@ void main() {
     },
   );
 
+  test(
+    'complete onboarding baseline produces the first training suggestion',
+    () {
+      final result = engine.calculate(
+        history: const [],
+        exercises: const [exercise],
+        routines: [
+          routine(id: 'push', name: 'Push', exerciseId: 'bench_press'),
+        ],
+        techniques: const [],
+        profile: const TrainingProfile(
+          gender: 'female',
+          age: 28,
+          goal: 'body_recomp',
+          heightCm: 168,
+          weightKg: 60,
+          weeklyTrainingDays: 3,
+          preferredWeekdays: [1, 3, 5],
+          sessionMinutes: 60,
+          focusMuscles: ['胸'],
+        ),
+        now: DateTime(2026, 9, 2, 12),
+      );
+
+      expect(result.today.hasTrainingData, isTrue);
+      expect(result.today.title, 'Push');
+      expect(result.today.routineId, 'push');
+      expect(result.today.reason, contains('首份建议'));
+    },
+  );
+
   test('does not recommend back again when back was trained yesterday', () {
     final now = DateTime(2026, 9, 2, 12);
     final result = engine.calculate(
