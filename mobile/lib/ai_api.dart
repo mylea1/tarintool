@@ -128,11 +128,13 @@ class HttpCoachApi
     required this.baseUrl,
     http.Client? client,
     this.requestTimeout = const Duration(seconds: 90),
+    this.authRequestTimeout = const Duration(seconds: 20),
     this.onSessionInvalidated,
   }) : _client = client ?? http.Client();
   final String baseUrl;
   final http.Client _client;
   final Duration requestTimeout;
+  final Duration authRequestTimeout;
   final void Function()? onSessionInvalidated;
   String? _sessionToken;
   RemoteSession? _remoteSession;
@@ -187,7 +189,7 @@ class HttpCoachApi
           headers: const {'Content-Type': 'application/json'},
           body: jsonEncode({'identifier': identifier, 'password': password}),
         )
-        .timeout(requestTimeout);
+        .timeout(authRequestTimeout);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw _coachServerException(
         response.statusCode,
@@ -232,7 +234,7 @@ class HttpCoachApi
             'purpose': purpose,
           }),
         )
-        .timeout(requestTimeout);
+        .timeout(authRequestTimeout);
     final payload = _decodeJsonResponse(response, 'phone_code_request');
     if (payload['sent'] != true) {
       throw const CoachApiException('phone_code_not_sent');
@@ -278,7 +280,7 @@ class HttpCoachApi
           headers: const {'Content-Type': 'application/json'},
           body: jsonEncode(body),
         )
-        .timeout(requestTimeout);
+        .timeout(authRequestTimeout);
     final payload = _decodeJsonResponse(response, operation);
     final session = payload['session'];
     final token = session is Map<String, dynamic>

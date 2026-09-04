@@ -17,7 +17,7 @@
 - 进步中心：肌群分布、周热力图、动作趋势、长期目标正反馈
 - 动作识别：上传、机位、按视频时间定位的问题事件、对应骨骼证据图、可选完整骨骼视频、低置信度和离线场景
 - AI 问答：独立界面、来源引用、本地训练摘要授权和离线状态
-- 设备能力模拟：灵动岛、锁屏、Android 通知和 Apple Watch
+- 原生设备能力：iOS Live Activity、Android 训练通知，以及 Apple Watch 当前动作/完成组/组间休息双向同步；Web 端仅提供模拟预览
 - 移动端预览：Web 在宽屏中仍保持 520 px 以内的手机应用结构；浅色主题、粒子背景支持系统“减少动态效果”
 
 ## 一键运行前后端
@@ -57,11 +57,11 @@ flutter test
 flutter build apk --debug
 ```
 
-产物位于 `mobile/build/app/outputs/flutter-apk/app-debug.apk`。iOS 业务界面共享同一 Flutter 代码；灵动岛、锁屏 Live Activity 和 AppIntent 源码位于 `mobile/ios-live-activity/`，需在 macOS Xcode 中加入 Widget Extension 后构建。移动端功能矩阵见 [`docs/web-mobile-parity.md`](docs/web-mobile-parity.md)，识别请求/结果边界见 [`contracts/mobile-recognition.json`](contracts/mobile-recognition.json)。
+产物位于 `mobile/build/app/outputs/flutter-apk/app-debug.apk`。iOS 业务界面共享同一 Flutter 代码；`mobile/ios/` 已包含 Live Activity 与 `KiloWatch` target。Apple Watch 通过 WatchConnectivity 接收当前动作与休息截止时间，并把“完成本组”回传给 Flutter；需在 macOS Xcode 中选择 iPhone + Apple Watch 配对模拟器或实体设备完成签名和真机验证。移动端功能矩阵见 [`docs/web-mobile-parity.md`](docs/web-mobile-parity.md)，识别请求/结果边界见 [`contracts/mobile-recognition.json`](contracts/mobile-recognition.json)。
 
 ## 阶段边界
 
-Web 原型不接入正式认证、支付、生产数据库或真实原生系统能力。Flutter 移动端已接入本地优先训练状态、识别/AI 客户端边界和 Android/iOS 计时桥；正式云端 Drift 同步、BetterCoach 生产识别服务、ActivityKit Xcode target 与 WatchConnectivity 仍需在契约冻结后配置。
+Web 原型不接入正式认证、支付、生产数据库或真实原生系统能力。Flutter 移动端已接入本地优先训练状态、识别/AI 客户端边界、Android/iOS 计时桥、ActivityKit target 与 WatchConnectivity；正式云端 Drift 同步和 BetterCoach 生产识别服务仍需按部署环境配置。
 
 粒子层只使用少量点、邻近连线和可见性暂停。Flutter 端可用 `CustomPainter` 和 `AnimationController` 实现同类效果，开启 Reduce Motion 时只绘制静态帧。
 

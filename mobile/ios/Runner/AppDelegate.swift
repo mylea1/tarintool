@@ -13,6 +13,7 @@ import UserNotifications
   ) -> Bool {
     let didLaunch = super.application(application, didFinishLaunchingWithOptions: launchOptions)
     UNUserNotificationCenter.current().delegate = self
+    KiloWatchConnectivityManager.shared.activate()
     return didLaunch
   }
 
@@ -32,7 +33,17 @@ import UserNotifications
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
     let channel = FlutterMethodChannel(name: "kilo.platform.timer", binaryMessenger: engineBridge.applicationRegistrar.messenger())
     timerChannel = channel
+    KiloWatchConnectivityManager.shared.onCompleteSet = { [weak self] completedSets in
+      self?.timerChannel?.invokeMethod(
+        "completeSetFromNotification",
+        arguments: ["completedSets": completedSets]
+      )
+    }
     channel.setMethodCallHandler { call, result in
+      if call.method == "getAppleWatchStatus" {
+        result(KiloWatchConnectivityManager.shared.isPairedAndInstalled)
+        return
+      }
       if call.method == "consumePendingWorkoutOpen" {
         let pending = self.pendingWorkoutOpen
         self.pendingWorkoutOpen = false
@@ -42,18 +53,60 @@ import UserNotifications
       if call.method == "consumePendingTimerActions" {
         if #available(iOS 16.1, *) {
           Task { @MainActor in
-            result(KiloLiveActivityManager.shared.consumeSystemActions())
+            var actions = KiloLiveActivityManager.shared.consumeSystemActions()
+            if let completedSets = KiloWatchConnectivityManager.shared.consumeCompletedSets() {
+              actions["completedSets"] = completedSets
+            }
+            result(actions)
           }
         } else {
-          result([:])
+          if let completedSets = KiloWatchConnectivityManager.shared.consumeCompletedSets() {
+            result(["completedSets": completedSets])
+          } else {
+            result([:])
+          }
         }
         return
+      }
+      let arguments = call.arguments as? [String: Any] ?? [:]
+      let watch = KiloWatchConnectivityManager.shared
+      switch call.method {
+      case "startWorkout":
+        watch.startWorkout(
+          name: arguments["workoutName"] as? String ?? "自由训练",
+          exercise: arguments["exercise"] as? String ?? "准备训练",
+          exerciseSymbol: arguments["exerciseSymbol"] as? String ?? "figure.strengthtraining.traditional",
+          completedSets: arguments["completedSets"] as? Int ?? 0,
+          totalSets: arguments["totalSets"] as? Int ?? 0,
+          nextRestSeconds: arguments["nextRestSeconds"] as? Int ?? 0
+        )
+      case "updateWorkoutState":
+        watch.updateWorkout(
+          exercise: arguments["exercise"] as? String ?? "准备训练",
+          exerciseSymbol: arguments["exerciseSymbol"] as? String ?? "figure.strengthtraining.traditional",
+          completedSets: arguments["completedSets"] as? Int ?? 0,
+          totalSets: arguments["totalSets"] as? Int ?? 0,
+          nextRestSeconds: arguments["nextRestSeconds"] as? Int ?? 0
+        )
+      case "startTimer", "updateTimer":
+        watch.updateRest(
+          exercise: arguments["exercise"] as? String ?? "组间休息",
+          seconds: arguments["seconds"] as? Int ?? 0,
+          endsAtEpochMs: (arguments["endsAtEpochMs"] as? NSNumber)?.int64Value
+        )
+      case "clearRest", "completeRest":
+        watch.clearRest()
+      case "pauseTimer":
+        watch.pause()
+      case "finishTimer":
+        watch.finish()
+      default:
+        break
       }
       guard #available(iOS 16.1, *) else {
         result(nil)
         return
       }
-      let arguments = call.arguments as? [String: Any] ?? [:]
       Task { @MainActor in
         let liveActivity = KiloLiveActivityManager.shared
         switch call.method {

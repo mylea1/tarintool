@@ -108,6 +108,16 @@ class PlatformTimerBridge {
     }
   }
 
+  static Future<bool> isAppleWatchConnected() async {
+    try {
+      return await _channel.invokeMethod<bool>('getAppleWatchStatus') ?? false;
+    } on MissingPluginException {
+      return false;
+    } on PlatformException catch (_) {
+      return false;
+    }
+  }
+
   static Future<void> start({
     required String exercise,
     required int seconds,
@@ -132,14 +142,18 @@ class PlatformTimerBridge {
     required String exercise,
     required int completedSets,
     required int totalSets,
+    String exerciseSymbol = 'figure.strengthtraining.traditional',
+    int nextRestSeconds = 0,
   }) async {
     try {
       await _channel.invokeMethod<void>('startWorkout', {
         'elapsedSeconds': elapsedSeconds,
         'workoutName': workoutName,
         'exercise': exercise,
+        'exerciseSymbol': exerciseSymbol,
         'completedSets': completedSets,
         'totalSets': totalSets,
+        'nextRestSeconds': nextRestSeconds,
       });
     } on MissingPluginException {
       // The native foreground service is optional in widget tests and previews.
@@ -152,12 +166,16 @@ class PlatformTimerBridge {
     required String exercise,
     required int completedSets,
     required int totalSets,
+    String exerciseSymbol = 'figure.strengthtraining.traditional',
+    int nextRestSeconds = 0,
   }) async {
     try {
       await _channel.invokeMethod<void>('updateWorkoutState', {
         'exercise': exercise,
+        'exerciseSymbol': exerciseSymbol,
         'completedSets': completedSets,
         'totalSets': totalSets,
+        'nextRestSeconds': nextRestSeconds,
       });
     } on MissingPluginException {
       // Optional capability.
@@ -259,6 +277,7 @@ class AppController extends ChangeNotifier {
     this.accountService.addListener(_handleAccountChanged);
     _observedAccountUserId = currentUser?.id;
     unawaited(loadRecognitionCapabilities());
+    unawaited(refreshAppleWatchStatus());
   }
 
   final AccountService accountService;
@@ -1151,6 +1170,18 @@ class AppController extends ChangeNotifier {
   }
 
   static AccountResult<PhoneCodeChallenge> _phoneCodeFailure(Object error) {
+    if (error is TimeoutException) {
+      return const AccountResult.failure(
+        AccountError.serviceNotConfigured,
+        message: '连接短信服务器超时，请检查网络或 VPN 后重试。',
+      );
+    }
+    if (error is SocketException) {
+      return const AccountResult.failure(
+        AccountError.serviceNotConfigured,
+        message: '无法连接短信服务器，请检查网络或 VPN 后重试。',
+      );
+    }
     if (error is CoachApiException) {
       final code = error.code;
       return AccountResult.failure(
@@ -2090,6 +2121,14 @@ class AppController extends ChangeNotifier {
   String activeConversationId = 'conversation-main';
   String scenario = 'normal';
   bool appleWatch = false;
+
+  Future<void> refreshAppleWatchStatus() async {
+    final connected = await PlatformTimerBridge.isAppleWatchConnected();
+    if (_disposed || appleWatch == connected) return;
+    appleWatch = connected;
+    notifyListeners();
+  }
+
   bool liveActivity = true;
   bool androidNotifications = true;
   bool batchMode = false;
@@ -3298,6 +3337,8 @@ class AppController extends ChangeNotifier {
         exercise: _platformExerciseName(),
         completedSets: completedSets,
         totalSets: totalSets,
+        exerciseSymbol: _platformExerciseSymbol(),
+        nextRestSeconds: _platformNextRestSeconds(),
       );
     }
     persistActiveWorkout();
@@ -3323,6 +3364,8 @@ class AppController extends ChangeNotifier {
       exercise: _platformExerciseName(),
       completedSets: completedSets,
       totalSets: totalSets,
+      exerciseSymbol: _platformExerciseSymbol(),
+      nextRestSeconds: _platformNextRestSeconds(),
     );
     persistActiveWorkout();
     notifyListeners();
@@ -3373,6 +3416,8 @@ class AppController extends ChangeNotifier {
         exercise: _platformExerciseName(),
         completedSets: completedSets,
         totalSets: totalSets,
+        exerciseSymbol: _platformExerciseSymbol(),
+        nextRestSeconds: _platformNextRestSeconds(),
       );
     }
     if (restRunning) {
@@ -3601,10 +3646,42 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  WorkoutExercise? _platformExercise([WorkoutExercise? preferred]) {
+    if (preferred != null && preferred.sets.any((set) => !set.completed)) {
+      return preferred;
+    }
+    for (final exercise in workout) {
+      if (exercise.sets.any((set) => !set.completed)) return exercise;
+    }
+    return preferred ?? (workout.isEmpty ? null : workout.last);
+  }
+
   String _platformExerciseName([WorkoutExercise? preferred]) {
-    final exercise = preferred ?? (workout.isEmpty ? null : workout.first);
+    final exercise = _platformExercise(preferred);
     if (exercise == null) return '准备训练';
     return displayExerciseName(exerciseFor(exercise.exerciseId));
+  }
+
+  String _platformExerciseSymbol([WorkoutExercise? preferred]) {
+    final exercise = _platformExercise(preferred);
+    if (exercise == null) return 'figure.strengthtraining.traditional';
+    final muscle = exerciseFor(exercise.exerciseId).muscle;
+    if (muscle.contains('腿') || muscle.contains('臀')) return 'figure.squat';
+    if (muscle.contains('背')) return 'figure.strengthtraining.functional';
+    if (muscle.contains('核心') || muscle.contains('腹')) {
+      return 'figure.core.training';
+    }
+    if (muscle.contains('有氧')) return 'figure.run';
+    return 'figure.strengthtraining.traditional';
+  }
+
+  int _platformNextRestSeconds([WorkoutExercise? preferred]) {
+    final exercise = _platformExercise(preferred);
+    if (exercise == null) return 0;
+    for (final set in exercise.sets) {
+      if (!set.completed) return effectiveRestSeconds(set, exercise);
+    }
+    return exercise.restSeconds > 0 ? exercise.restSeconds : defaultRestSeconds;
   }
 
   void _syncPlatformWorkoutState([WorkoutExercise? preferred]) {
@@ -3613,6 +3690,8 @@ class AppController extends ChangeNotifier {
       exercise: _platformExerciseName(preferred),
       completedSets: completedSets,
       totalSets: totalSets,
+      exerciseSymbol: _platformExerciseSymbol(preferred),
+      nextRestSeconds: _platformNextRestSeconds(preferred),
     );
   }
 

@@ -12,7 +12,7 @@
 | 动作详情与三标签 | `_showExerciseDetail` | 概览只显示训练次数、最重重量、估算 1RM；教学/记录保留原标签；备注与教学链接固定保存到 legacy `library` scope，仅 HTTP/HTTPS 链接可外部打开 | `widget_test.dart` detail tabs；`link_utils_test.dart` URI normalization |
 | 动作识别 | `RecognitionPage`（AI 顶部“动作识别” tab） | idle/ready/processing/error；未配置服务时明确返回 `service_not_configured`，不生成伪报告 | `recognition_api.dart` / `widget_test.dart` |
 | 知识库 AI | `AiPage` | 五项导航中的 AI 入口顶部切换问答/动作识别；问答主区只保留消息流和底部输入；抽屉支持新建/切换/删除对话；未配置 URL 时显示服务未配置状态，不显示示例回答 | `widget_test.dart` AI tabs/drawer |
-| 我的、设备与隐私 | `ProfilePage` | Android 通知、iOS Live Activity、Apple Watch 开关；训练偏好和模拟场景入口 | Profile 手动验收 |
+| 我的、设备与隐私 | `ProfilePage` | Android 通知、iOS Live Activity；Apple Watch 显示真实配对/安装状态，并双向同步当前动作、完成组和组间休息 | `controller_test.dart` Watch bridge；macOS 配对模拟器/真机验收 |
 
 ## v7 parity evidence
 
@@ -39,7 +39,7 @@
 | 动作库 | 搜索、肌群/器械筛选、详情、私密备注/链接、自定义动作 | 320/375dp 以 62dp rail + 右侧两列图片卡适配，触控目标至少 44dp；窄屏搜索与筛选分行；详情使用底部 sheet，三个标签切换，资源固定为 legacy `library` scope | — |
 | 动作识别 | 上传视频、机位、idle → processing → report/error | `RecognitionApi` 作为 BetterCoach 可替换边界；`file_picker` 选择视频、展示文件名/大小、格式校验和重试；未配置服务返回清晰错误 | 真正 CameraX/Photos 原生相机采集仍由平台产品决定 |
 | AI | 对话、等待、引用、训练数据授权 | 引用单独 sheet 展示，授权可撤销；服务设置填写 `http://127.0.0.1:8790` 后调用 `/v1/coach/answer`，客户端不保存 key；后端代理从 `DEEPSEEK_API_KEY` 读取并在未配置/上游失败时返回可解释错误，不生成样例回答 | `backend-mock/server.mjs` DeepSeek proxy |
-| 我的 | 设备连接、偏好、隐私、服务配置 | Android 通知、iOS Live Activity、WatchConnectivity 用 capability switch 表达，不伪造系统构建；用户数据从空态开始 | Xcode App Group/Widget target 需 macOS 配置 |
+| 我的 | 设备连接、偏好、隐私、服务配置 | Android 通知、iOS Live Activity；内置 `KiloWatch` target 通过 WatchConnectivity 自动同步，界面只显示真实配对与安装状态；用户数据从空态开始 | Apple Watch 签名、配对模拟器与真机链路需 macOS/Xcode 验收 |
 
 ## 迁移约束
 

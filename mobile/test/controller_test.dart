@@ -586,6 +586,58 @@ void main() {
     }
   });
 
+  test('Apple Watch bridge receives exercise icon, rest and completion action', () async {
+    const channel = MethodChannel('kilo.platform.timer');
+    final calls = <MethodCall>[];
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          calls.add(call);
+          if (call.method == 'getAppleWatchStatus') return true;
+          return null;
+        });
+
+    final controller = AppController();
+    try {
+      final exercise = controller.createBlankWorkoutExercise(
+        'bench_press',
+        'watch-bench',
+      )..restSeconds = 75;
+      exercise.sets.add(
+        WorkoutSet(id: 'watch-set', reps: 8, restSeconds: 75),
+      );
+      controller.startWorkout(source: [exercise], name: '手表训练');
+      await Future<void>.delayed(Duration.zero);
+
+      final start = calls.lastWhere((call) => call.method == 'startWorkout');
+      final startArguments = start.arguments! as Map<Object?, Object?>;
+      expect(startArguments['exercise'], isNotEmpty);
+      expect(startArguments['exerciseSymbol'], isNotEmpty);
+      expect(startArguments['nextRestSeconds'], 75);
+      expect(controller.appleWatch, isTrue);
+
+      final liveExercise = controller.workout.single;
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      await messenger.handlePlatformMessage(
+        channel.name,
+        const StandardMethodCodec().encodeMethodCall(
+          MethodCall('completeSetFromNotification', {'completedSets': 1}),
+        ),
+        (_) {},
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(liveExercise.sets.first.completed, isTrue);
+      expect(controller.restRunning, isTrue);
+      expect(controller.restRemainingSeconds, 75);
+      expect(calls.map((call) => call.method), contains('startTimer'));
+    } finally {
+      controller.dispose();
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, null);
+    }
+  });
+
   test('prepared workout becomes active only when its timer starts', () {
     const channel = MethodChannel('kilo.platform.timer');
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
