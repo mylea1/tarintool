@@ -1127,9 +1127,8 @@ class AppController extends ChangeNotifier {
     'login_rate_limited' ||
     'rate_limited' => '操作过于频繁，请稍后重试。',
     'phone_identity_conflict' => '手机号与账号信息冲突，请联系客服处理。',
-    'sms_send_failed' ||
-    'provider_not_configured' ||
-    'phone_code_not_sent' => '短信服务暂时不可用，请稍后重试。',
+    'provider_not_configured' => '短信服务尚未完成线上配置，请联系管理员。',
+    'sms_send_failed' || 'phone_code_not_sent' => '短信发送失败，请稍后重试。',
     'password_registration_disabled' => '注册服务暂未开放，请稍后重试。',
     _ => '登录服务暂时不可用，请稍后重试。',
   };

@@ -252,7 +252,54 @@ class _InteractiveMuscleMapState extends State<InteractiveMuscleMap> {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                SvgPicture.asset(_baseAsset(), fit: BoxFit.contain),
+                ColorFiltered(
+                  colorFilter: Theme.of(context).brightness == Brightness.dark
+                      ? const ColorFilter.matrix(<double>[
+                          1,
+                          0,
+                          0,
+                          0,
+                          76,
+                          0,
+                          1,
+                          0,
+                          0,
+                          76,
+                          0,
+                          0,
+                          1,
+                          0,
+                          76,
+                          0,
+                          0,
+                          0,
+                          1,
+                          0,
+                        ])
+                      : const ColorFilter.matrix(<double>[
+                          1,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0,
+                          1,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0,
+                          1,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0,
+                          1,
+                          0,
+                        ]),
+                  child: SvgPicture.asset(_baseAsset(), fit: BoxFit.contain),
+                ),
                 for (final region in _regions)
                   if (overlayGroups.containsKey(region.slug))
                     IgnorePointer(

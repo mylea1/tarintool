@@ -308,6 +308,40 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('missing production SMS configuration is explained explicitly', (
+    tester,
+  ) async {
+    final client = MockClient(
+      (request) async => http.Response(
+        jsonEncode({'error': 'provider_not_configured'}),
+        501,
+        headers: const {'content-type': 'application/json'},
+      ),
+    );
+    final api = HttpCoachApi(
+      baseUrl: 'https://api.example.test',
+      client: client,
+    );
+    final controller = AppController(coachApi: api);
+    addTearDown(() {
+      controller.dispose();
+      client.close();
+    });
+    await tester.pumpWidget(
+      MaterialApp(home: LoginPage(controller: controller)),
+    );
+    await tester.enterText(
+      find.byKey(const Key('login-identifier')),
+      '13023097571',
+    );
+    await _tapAfterScroll(tester, const Key('login-code-mode'));
+    await _tapAfterScroll(tester, const Key('login-send-code'));
+    await tester.pump();
+
+    expect(find.text('短信服务尚未完成线上配置，请联系管理员。'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   test(
     'a secure-session write failure does not publish a local user',
     () async {

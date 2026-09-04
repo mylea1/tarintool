@@ -651,6 +651,7 @@ Future<Set<String>?> _pickGymExercises(
                     return CheckboxListTile(
                       key: Key('gym-exercise-${exercise.id}'),
                       value: selected.contains(exercise.id),
+                      secondary: _GymExerciseThumb(exercise: exercise),
                       title: Text(controller.displayExerciseName(exercise)),
                       subtitle: Text(exercise.muscle),
                       onChanged: (value) => setState(() {
@@ -680,6 +681,38 @@ Future<Set<String>?> _pickGymExercises(
         );
       },
     ),
+  );
+}
+
+class _GymExerciseThumb extends StatelessWidget {
+  const _GymExerciseThumb({required this.exercise});
+
+  final Exercise exercise;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    key: Key('gym-exercise-thumb-${exercise.id}'),
+    width: 46,
+    height: 46,
+    clipBehavior: Clip.antiAlias,
+    decoration: BoxDecoration(
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      borderRadius: BorderRadius.circular(11),
+      border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+    ),
+    child: exercise.id.startsWith('custom-')
+        ? Icon(
+            Icons.fitness_center_rounded,
+            color: Theme.of(context).colorScheme.primary,
+          )
+        : Image.asset(
+            exerciseAsset(exercise.id),
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) => Icon(
+              Icons.fitness_center_rounded,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
   );
 }
 

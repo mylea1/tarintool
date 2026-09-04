@@ -77,6 +77,7 @@ void main() {
     await tester.ensureVisible(find.byKey(const Key('gym-pick-exercises')));
     await tester.tap(find.byKey(const Key('gym-pick-exercises')));
     await tester.pumpAndSettle();
+    expect(find.byKey(Key('gym-exercise-thumb-$exerciseId')), findsOneWidget);
     await tester.tap(find.byKey(Key('gym-exercise-$exerciseId')));
     await tester.tap(find.byKey(const Key('gym-exercise-confirm')));
     await tester.pumpAndSettle();
@@ -873,6 +874,13 @@ void main() {
     );
     final focusedBorder = theme.inputDecorationTheme.focusedBorder!;
     expect(focusedBorder.borderSide.color, const Color(0xFFD64C0C));
+    final logoImage = tester.widget<Image>(
+      find.descendant(
+        of: find.byType(BrandLogo).first,
+        matching: find.byType(Image),
+      ),
+    );
+    expect((logoImage.image as AssetImage).assetName, brandLogoLightAsset);
   });
 
   testWidgets('logo orange dark theme reaches shell navigation and inputs', (
@@ -971,6 +979,19 @@ void main() {
       find.byKey(const Key('template-editor-save-button')),
       findsOneWidget,
     );
+    expect(find.text('正式组'), findsWidgets);
+    final routineRest = find.byWidgetPredicate(
+      (widget) =>
+          widget.key is ValueKey<String> &&
+          (widget.key! as ValueKey<String>).value.startsWith('routine-rest-'),
+    );
+    expect(routineRest, findsOneWidget);
+    await tester.tap(routineRest);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('routine-rest-quick-90')));
+    await tester.tap(find.byKey(const Key('routine-rest-save')));
+    await tester.pumpAndSettle();
+    expect(find.text('90 秒'), findsOneWidget);
     await tester.enterText(
       find.byKey(const Key('routine-editor-name')),
       '改名草稿',
@@ -1086,6 +1107,7 @@ void main() {
       tester.view.resetDevicePixelRatio();
     });
     final controller = AppController();
+    controller.darkMode = true;
     addTearDown(controller.dispose);
     await tester.pumpWidget(KiloApp(initialController: controller));
     await tester.pump();
@@ -1098,6 +1120,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('home-muscle-map')), findsOneWidget);
     expect(find.byKey(const Key('interactive-muscle-map')), findsOneWidget);
+    expect(find.byType(ColorFiltered), findsWidgets);
     expect(find.bySemanticsLabel('正面人体图'), findsOneWidget);
     await tester.tap(find.bySemanticsLabel('背面人体图'));
     await tester.pump();
@@ -1204,6 +1227,16 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(controller.customExercises.single.name, '自定义肩部动作');
+    final search = tester.widget<TextField>(
+      find.byKey(const Key('exercise-picker-search')),
+    );
+    expect(search.controller?.text, '自定义肩部动作');
+    expect(
+      find.byKey(
+        Key('exercise-picker-item-${controller.customExercises.single.id}'),
+      ),
+      findsOneWidget,
+    );
     expect(find.text('添加 1 个动作'), findsOneWidget);
     await tester.tap(find.byKey(const Key('exercise-picker-add-selected')));
     await tester.pumpAndSettle();
