@@ -790,6 +790,28 @@ class Plan {
   final String level;
   final String focus;
   final List<PlanSession> sessions;
+
+  factory Plan.fromJson(Map<String, dynamic> json) {
+    final sessions = (json['sessions'] as List<dynamic>? ?? const [])
+        .whereType<Map>()
+        .map((item) => PlanSession.fromJson(Map<String, dynamic>.from(item)))
+        .toList(growable: false);
+    final id = (json['id'] ?? '').toString().trim();
+    final title = (json['title'] ?? '').toString().trim();
+    if (id.isEmpty || title.isEmpty || sessions.isEmpty) {
+      throw const FormatException('invalid_official_plan');
+    }
+    return Plan(
+      id: id,
+      title: title,
+      subtitle: (json['subtitle'] ?? '').toString().trim(),
+      days: (json['days'] as num?)?.toInt() ?? sessions.length,
+      weeks: (json['weeks'] as num?)?.toInt() ?? 1,
+      level: (json['level'] ?? '').toString().trim(),
+      focus: (json['focus'] ?? '').toString().trim(),
+      sessions: sessions,
+    );
+  }
 }
 
 class PlanSession {
@@ -805,6 +827,24 @@ class PlanSession {
   final int exercises;
   final String duration;
   final List<String> exerciseIds;
+
+  factory PlanSession.fromJson(Map<String, dynamic> json) {
+    final exerciseIds = (json['exerciseIds'] as List<dynamic>? ?? const [])
+        .map((item) => item.toString().trim())
+        .where((item) => item.isNotEmpty)
+        .toList(growable: false);
+    final name = (json['name'] ?? '').toString().trim();
+    if (name.isEmpty || exerciseIds.isEmpty) {
+      throw const FormatException('invalid_official_plan_session');
+    }
+    return PlanSession(
+      day: (json['day'] ?? '').toString().trim(),
+      name: name,
+      exercises: (json['exercises'] as num?)?.toInt() ?? exerciseIds.length,
+      duration: (json['duration'] ?? '').toString().trim(),
+      exerciseIds: exerciseIds,
+    );
+  }
 }
 
 class ChatMessage {

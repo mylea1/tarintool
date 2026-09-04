@@ -99,6 +99,15 @@ test('expanded knowledge retrieval reaches public evidence behind repository not
 
 test('health, auth and admin role boundaries', async () => {
   assert.equal((await api('/health')).body.ok, true);
+  const officialPlans = await api('/v1/training/official-plans');
+  assert.equal(officialPlans.response.status, 200);
+  assert.equal(officialPlans.body.version, 1);
+  assert.equal(officialPlans.body.locale, 'zh-CN');
+  assert.equal(officialPlans.body.plans.some((item) => item.id === 'upper-lower-4'), true);
+  assert.deepEqual(
+    officialPlans.body.plans.find((item) => item.id === 'upper-lower-4').sessions[0].exerciseIds,
+    ['bench_press', 'chest_supported_row', 'shoulder_press'],
+  );
   const capabilities = await api('/v1/analysis/capabilities');
   assert.equal(capabilities.response.status, 200);
   assert.equal(capabilities.body.exercises.some((item) => item.exerciseId === 'barbell_squat'), true);

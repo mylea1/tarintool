@@ -230,6 +230,7 @@ class AppController extends ChangeNotifier {
     AccountService? accountService,
     this.recognitionApi,
     this.coachApi,
+    this.officialPlansApi,
     WorkoutHistoryPersistence? workoutHistoryPersistence,
     ActiveWorkoutPersistence? activeWorkoutPersistence,
     TrainingLibraryPersistence? trainingLibraryPersistence,
@@ -263,6 +264,7 @@ class AppController extends ChangeNotifier {
   final AccountService accountService;
   final RecognitionApi? recognitionApi;
   final CoachApi? coachApi;
+  final OfficialPlansApi? officialPlansApi;
   final WorkoutHistoryPersistence workoutHistoryPersistence;
   final ActiveWorkoutPersistence activeWorkoutPersistence;
   final TrainingLibraryPersistence trainingLibraryPersistence;
@@ -273,6 +275,7 @@ class AppController extends ChangeNotifier {
   Future<void> _trainingLibraryWriteChain = Future<void>.value();
   Future<void> _customExerciseWriteChain = Future<void>.value();
   Future<void> _aiConversationWriteChain = Future<void>.value();
+  Future<List<Plan>>? _officialPlansRequest;
   int _aiConversationRevision = 0;
   String? _loadedHistoryUserId;
   String? _loadedTrainingLibraryUserId;
@@ -2020,6 +2023,9 @@ class AppController extends ChangeNotifier {
   final List<NutritionEntry> nutritionEntries = [];
   final List<WeightEntry> weightEntries = [];
   final List<GymLocationProfile> gymLocations = [];
+  List<Plan> officialPlans = const [];
+  bool officialPlansLoading = false;
+  String? officialPlansError;
 
   /// Exercises the user explicitly follows on the statistics overview. An
   /// empty list is intentional: the overview must never silently choose a
@@ -2764,6 +2770,92 @@ class AppController extends ChangeNotifier {
         notifyListeners();
       }
     }
+  }
+
+  Future<List<Plan>> loadOfficialPlans({bool force = false}) {
+    if (!force && officialPlans.isNotEmpty) {
+      return Future<List<Plan>>.value(officialPlans);
+    }
+    final pending = _officialPlansRequest;
+    if (pending != null) return pending;
+    final request = _loadOfficialPlans();
+    _officialPlansRequest = request;
+    return request.whenComplete(() {
+      if (identical(_officialPlansRequest, request)) {
+        _officialPlansRequest = null;
+      }
+    });
+  }
+
+  Future<List<Plan>> _loadOfficialPlans() async {
+    const cacheKey = 'kilo.official_plans.v1';
+    officialPlansLoading = true;
+    officialPlansError = null;
+
+    final preferences = await SharedPreferences.getInstance();
+    if (officialPlans.isEmpty) {
+      final cached = preferences.getString(cacheKey);
+      if (cached != null && cached.isNotEmpty) {
+        try {
+          final payload = jsonDecode(cached);
+          final rawPlans = payload is Map
+              ? (payload['plans'] as List<dynamic>? ?? const [])
+              : const <dynamic>[];
+          officialPlans = _parseOfficialPlans(rawPlans);
+          if (!_disposed && officialPlans.isNotEmpty) notifyListeners();
+        } catch (_) {
+          await preferences.remove(cacheKey);
+        }
+      }
+    }
+
+    try {
+      final injected = officialPlansApi;
+      final api =
+          injected ??
+          (coachApi is OfficialPlansApi
+              ? coachApi as OfficialPlansApi
+              : _firstPartyOfficialPlansApi());
+      final rawPlans = await api.fetchOfficialPlans();
+      final loaded = _parseOfficialPlans(rawPlans);
+      if (loaded.isEmpty) {
+        throw const FormatException('official_plans_empty');
+      }
+      officialPlans = loaded;
+      await preferences.setString(cacheKey, jsonEncode({'plans': rawPlans}));
+    } catch (_) {
+      officialPlansError = officialPlans.isEmpty
+          ? '官方计划暂时无法加载，请稍后重试'
+          : '网络不可用，当前显示上次缓存的官方计划';
+    } finally {
+      officialPlansLoading = false;
+      if (!_disposed) notifyListeners();
+    }
+    return officialPlans;
+  }
+
+  OfficialPlansApi _firstPartyOfficialPlansApi() {
+    final baseUrl = defaultCoachApiBaseUrl;
+    if (_defaultCoachApi == null || _defaultCoachApiBaseUrl != baseUrl) {
+      _defaultCoachApi = HttpCoachApi(
+        baseUrl: baseUrl,
+        onSessionInvalidated: _handleRemoteSessionInvalidated,
+      );
+      _defaultCoachApiBaseUrl = baseUrl;
+    }
+    return _defaultCoachApi!;
+  }
+
+  static List<Plan> _parseOfficialPlans(List<dynamic> rawPlans) {
+    final result = <Plan>[];
+    for (final raw in rawPlans.whereType<Map>()) {
+      try {
+        result.add(Plan.fromJson(Map<String, dynamic>.from(raw)));
+      } catch (_) {
+        // One malformed server entry must not hide the remaining valid plans.
+      }
+    }
+    return List<Plan>.unmodifiable(result);
   }
 
   List<Exercise> get visibleExercises {

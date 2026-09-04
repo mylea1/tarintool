@@ -35,6 +35,29 @@ class _CapturingCoachApi implements CoachApi {
   }
 }
 
+class _OfficialPlansApiStub implements OfficialPlansApi {
+  _OfficialPlansApiStub({this.fail = false});
+
+  final bool fail;
+
+  @override
+  Future<List<Map<String, dynamic>>> fetchOfficialPlans() async {
+    if (fail) throw const CoachApiException('offline');
+    return [
+      {
+        'id': 'backend-plan',
+        'title': '后端计划',
+        'sessions': [
+          {
+            'name': '第一天',
+            'exerciseIds': ['bench_press'],
+          },
+        ],
+      },
+    ];
+  }
+}
+
 class _StreamingAgentCoachApi
     implements CoachApi, AgentCoachApi, StreamingCoachApi {
   _StreamingAgentCoachApi({this.toolCallCount = 1});
@@ -137,6 +160,22 @@ void main() {
 
   setUp(() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
+  });
+
+  test('official plans use the last backend cache while offline', () async {
+    final online = AppController(officialPlansApi: _OfficialPlansApiStub());
+    addTearDown(online.dispose);
+    final fresh = await online.loadOfficialPlans();
+    expect(fresh.single.id, 'backend-plan');
+
+    final offline = AppController(
+      officialPlansApi: _OfficialPlansApiStub(fail: true),
+    );
+    addTearDown(offline.dispose);
+    final cached = await offline.loadOfficialPlans();
+
+    expect(cached.single.id, 'backend-plan');
+    expect(offline.officialPlansError, contains('缓存'));
   });
 
   test('dark appearance mode persists across controller instances', () async {

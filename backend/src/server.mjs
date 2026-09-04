@@ -3,6 +3,7 @@ import { createHmac, randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import { isIP } from 'node:net';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { config as defaultConfig, assertProductionConfiguration, loadConfig } from './config.mjs';
 import { openDatabase, closeDatabase, transaction, ensureEntitlement, refreshEntitlement, publicUser, publicEntitlement, seedTestAdmin, seedTestMember, isoWeekKey, membershipActive, publicCheckinState, ensureCheckinState, shanghaiDayKey, normalizeUsername, normalizePhone, normalizeEmail, maskUserIdentity, putUserIdentity, syncAccountPhoneIdentity } from './db.mjs';
@@ -18,6 +19,18 @@ const MAX_SUMMARY = 6000;
 // request may legitimately need plans, history, recovery, active training and
 // nutrition in one turn; rejecting call four made the advertised API unusable.
 const MAX_AGENT_TOOL_RESULTS = 5;
+const OFFICIAL_TRAINING_PLANS_PATH = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../knowledge/official-training-plans.zh-CN.json',
+);
+
+function officialTrainingPlans() {
+  const payload = JSON.parse(fs.readFileSync(OFFICIAL_TRAINING_PLANS_PATH, 'utf8'));
+  if (!payload || payload.version !== 1 || !Array.isArray(payload.plans)) {
+    throw new Error('invalid_official_training_plans');
+  }
+  return payload;
+}
 const MAX_AGENT_RESULT_BYTES = 12000;
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/u;
 const SMS_CODE_LENGTH = 6;
@@ -2373,6 +2386,9 @@ async function handleRequest(req, res, ctx) {
       modelVersion: 'bettercoach-cpu-v1',
       exercises: RECOGNITION_CAPABILITIES,
     }, req, ctx.cfg); return;
+  }
+  if (req.method === 'GET' && url.pathname === '/v1/training/official-plans') {
+    writeJson(res, 200, officialTrainingPlans(), req, ctx.cfg); return;
   }
 
   // Explicitly configured test credentials are seeded at startup; no test

@@ -1,0 +1,88 @@
+{
+  "version": 1,
+  "locale": "zh-CN",
+  "plans": [
+    {
+      "id": "upper-lower-4",
+      "title": "上下肢力量",
+      "subtitle": "力量与增肌并重，围绕主项双重渐进",
+      "days": 4,
+      "weeks": 12,
+      "level": "中级",
+      "focus": "力量 + 增肌",
+      "sessions": [
+        {
+          "day": "周一",
+          "name": "上肢力量",
+          "exercises": 6,
+          "duration": "65 分钟",
+          "exerciseIds": ["bench_press", "chest_supported_row", "shoulder_press"]
+        },
+        {
+          "day": "周二",
+          "name": "下肢力量",
+          "exercises": 5,
+          "duration": "70 分钟",
+          "exerciseIds": ["barbell_squat", "romanian_deadlift", "leg_curl"]
+        },
+        {
+          "day": "周四",
+          "name": "上肢容量",
+          "exercises": 7,
+          "duration": "60 分钟",
+          "exerciseIds": ["dumbbell_press", "lat_pulldown", "lateral_raise"]
+        }
+      ]
+    },
+    {
+      "id": "ppl-6",
+      "title": "推拉腿进阶",
+      "subtitle": "高频分化，适合恢复能力较好的训练者",
+      "days": 6,
+      "weeks": 8,
+      "level": "中高级",
+      "focus": "肌肥大",
+      "sessions": [
+        {
+          "day": "周一",
+          "name": "推 A",
+          "exercises": 6,
+          "duration": "58 分钟",
+          "exerciseIds": ["bench_press", "shoulder_press", "triceps_extension"]
+        },
+        {
+          "day": "周二",
+          "name": "拉 A",
+          "exercises": 6,
+          "duration": "60 分钟",
+          "exerciseIds": ["pull_up", "row", "biceps_curl"]
+        }
+      ]
+    },
+    {
+      "id": "full-body-3",
+      "title": "全身三日",
+      "subtitle": "低频率限制下保持每周肌群刺激",
+      "days": 3,
+      "weeks": 10,
+      "level": "中级",
+      "focus": "均衡增肌",
+      "sessions": [
+        {
+          "day": "周一",
+          "name": "全身 A",
+          "exercises": 6,
+          "duration": "62 分钟",
+          "exerciseIds": ["barbell_squat", "bench_press", "row"]
+        },
+        {
+          "day": "周三",
+          "name": "全身 B",
+          "exercises": 6,
+          "duration": "60 分钟",
+          "exerciseIds": ["deadlift", "shoulder_press", "lat_pulldown"]
+        }
+      ]
+    }
+  ]
+}

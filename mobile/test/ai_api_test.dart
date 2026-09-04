@@ -6,6 +6,42 @@ import 'package:http/testing.dart';
 import 'package:kilo_strength/ai_api.dart';
 
 void main() {
+  test('official plans are fetched from the public backend endpoint', () async {
+    final client = MockClient((request) async {
+      expect(request.method, 'GET');
+      expect(request.url.path, '/v1/training/official-plans');
+      expect(request.headers['authorization'], isNull);
+      return http.Response(
+        jsonEncode({
+          'version': 1,
+          'plans': [
+            {
+              'id': 'full-body-3',
+              'title': '全身三日',
+              'sessions': [
+                {
+                  'name': '全身 A',
+                  'exerciseIds': ['barbell_squat'],
+                },
+              ],
+            },
+          ],
+        }),
+        200,
+        headers: {'content-type': 'application/json; charset=utf-8'},
+      );
+    });
+    final api = HttpCoachApi(
+      baseUrl: 'https://api.example.test',
+      client: client,
+    );
+
+    final plans = await api.fetchOfficialPlans();
+
+    expect(plans, hasLength(1));
+    expect(plans.single['id'], 'full-body-3');
+  });
+
   test(
     'friend discovery uses masked search and stable target user IDs',
     () async {

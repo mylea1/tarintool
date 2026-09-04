@@ -95,6 +95,13 @@ abstract interface class CoachApi {
   });
 }
 
+/// Public configuration endpoint for server-owned official training plans.
+/// Keeping this separate from [CoachApi] lets the plans load without an AI
+/// entitlement or signed-in session.
+abstract interface class OfficialPlansApi {
+  Future<List<Map<String, dynamic>>> fetchOfficialPlans();
+}
+
 /// Extended protocol used only when the AI page has granted read-only local
 /// data access. Keeping this separate preserves compatibility with existing
 /// mock/third-party CoachApi implementations.
@@ -115,7 +122,8 @@ abstract interface class AgentCoachApi {
   Future<void> rollbackQuotaReservation(String requestId);
 }
 
-class HttpCoachApi implements CoachApi, AgentCoachApi, StreamingCoachApi {
+class HttpCoachApi
+    implements CoachApi, AgentCoachApi, StreamingCoachApi, OfficialPlansApi {
   HttpCoachApi({
     required this.baseUrl,
     http.Client? client,
@@ -588,6 +596,18 @@ class HttpCoachApi implements CoachApi, AgentCoachApi, StreamingCoachApi {
 
   Uri _endpoint(String path) =>
       Uri.parse('${baseUrl.replaceAll(RegExp(r'/+$'), '')}$path');
+
+  @override
+  Future<List<Map<String, dynamic>>> fetchOfficialPlans() async {
+    final response = await _client
+        .get(_endpoint('/v1/training/official-plans'))
+        .timeout(requestTimeout);
+    final payload = _decodeJsonResponse(response, 'official_plans');
+    return (payload['plans'] as List<dynamic>? ?? const [])
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList(growable: false);
+  }
 
   Map<String, Object> get _clientTimeContext {
     final now = DateTime.now();

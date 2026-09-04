@@ -6994,90 +6994,6 @@ Future<void> _showSetEffortEditor(
 class _PlansView extends StatelessWidget {
   const _PlansView({required this.controller});
   final AppController controller;
-  static const plans = <Plan>[
-    Plan(
-      id: 'upper-lower-4',
-      title: '上下肢力量',
-      subtitle: '力量与增肌并重，围绕主项双重渐进',
-      days: 4,
-      weeks: 12,
-      level: '中级',
-      focus: '力量 + 增肌',
-      sessions: [
-        PlanSession(
-          day: '周一',
-          name: '上肢力量',
-          exercises: 6,
-          duration: '65 分钟',
-          exerciseIds: ['bench_press', 'chest_supported_row', 'shoulder_press'],
-        ),
-        PlanSession(
-          day: '周二',
-          name: '下肢力量',
-          exercises: 5,
-          duration: '70 分钟',
-          exerciseIds: ['barbell_squat', 'romanian_deadlift', 'leg_curl'],
-        ),
-        PlanSession(
-          day: '周四',
-          name: '上肢容量',
-          exercises: 7,
-          duration: '60 分钟',
-          exerciseIds: ['dumbbell_press', 'lat_pulldown', 'lateral_raise'],
-        ),
-      ],
-    ),
-    Plan(
-      id: 'ppl-6',
-      title: '推拉腿进阶',
-      subtitle: '高频分化，适合恢复能力较好的训练者',
-      days: 6,
-      weeks: 8,
-      level: '中高级',
-      focus: '肌肥大',
-      sessions: [
-        PlanSession(
-          day: '周一',
-          name: '推 A',
-          exercises: 6,
-          duration: '58 分钟',
-          exerciseIds: ['bench_press', 'shoulder_press', 'triceps_extension'],
-        ),
-        PlanSession(
-          day: '周二',
-          name: '拉 A',
-          exercises: 6,
-          duration: '60 分钟',
-          exerciseIds: ['pull_up', 'row', 'biceps_curl'],
-        ),
-      ],
-    ),
-    Plan(
-      id: 'full-body-3',
-      title: '全身三日',
-      subtitle: '低频率限制下保持每周肌群刺激',
-      days: 3,
-      weeks: 10,
-      level: '中级',
-      focus: '均衡增肌',
-      sessions: [
-        PlanSession(
-          day: '周一',
-          name: '全身 A',
-          exercises: 6,
-          duration: '62 分钟',
-          exerciseIds: ['barbell_squat', 'bench_press', 'row'],
-        ),
-        PlanSession(
-          day: '周三',
-          name: '全身 B',
-          exercises: 6,
-          duration: '60 分钟',
-          exerciseIds: ['deadlift', 'shoulder_press', 'lat_pulldown'],
-        ),
-      ],
-    ),
-  ];
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -20812,7 +20728,37 @@ void _showOfficialPlans(BuildContext context, AppController controller) {
   showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    builder: (context) => SafeArea(
+    builder: (context) => _OfficialPlansSheet(controller: controller),
+  );
+}
+
+class _OfficialPlansSheet extends StatefulWidget {
+  const _OfficialPlansSheet({required this.controller});
+
+  final AppController controller;
+
+  @override
+  State<_OfficialPlansSheet> createState() => _OfficialPlansSheetState();
+}
+
+class _OfficialPlansSheetState extends State<_OfficialPlansSheet> {
+  late Future<List<Plan>> plans;
+
+  @override
+  void initState() {
+    super.initState();
+    plans = widget.controller.loadOfficialPlans();
+  }
+
+  void reload() {
+    setState(() {
+      plans = widget.controller.loadOfficialPlans(force: true);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
       child: SizedBox(
         height: MediaQuery.sizeOf(context).height * .72,
         child: Padding(
@@ -20822,24 +20768,75 @@ void _showOfficialPlans(BuildContext context, AppController controller) {
             children: [
               Text('官方单日计划', style: Theme.of(context).textTheme.headlineMedium),
               Text(
-                '每个入口都是一节可直接执行的训练。先看详情，再决定使用。',
+                '计划由官方持续维护。每个入口都是一节可直接执行的训练。',
                 style: TextStyle(color: quiet),
               ),
               const SizedBox(height: 12),
               Expanded(
-                child: ListView(
-                  children: [
-                    for (final plan in _PlansView.plans)
-                      _PlanCard(controller: controller, plan: plan),
-                  ],
+                child: FutureBuilder<List<Plan>>(
+                  future: plans,
+                  builder: (context, snapshot) {
+                    final items =
+                        snapshot.data ?? widget.controller.officialPlans;
+                    if (snapshot.connectionState == ConnectionState.waiting &&
+                        items.isEmpty) {
+                      return const Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CircularProgressIndicator(),
+                            SizedBox(height: 12),
+                            Text('正在加载官方计划'),
+                          ],
+                        ),
+                      );
+                    }
+                    if (items.isEmpty) {
+                      return Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.cloud_off_outlined, size: 36),
+                            const SizedBox(height: 10),
+                            Text(
+                              widget.controller.officialPlansError ??
+                                  '官方计划暂时无法加载',
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 10),
+                            OutlinedButton.icon(
+                              key: const Key('official-plans-retry'),
+                              onPressed: reload,
+                              icon: const Icon(Icons.refresh),
+                              label: const Text('重新加载'),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+                    return ListView(
+                      children: [
+                        if (widget.controller.officialPlansError != null)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Text(
+                              widget.controller.officialPlansError!,
+                              style: TextStyle(color: quiet, fontSize: 12),
+                            ),
+                          ),
+                        for (final plan in items)
+                          _PlanCard(controller: widget.controller, plan: plan),
+                      ],
+                    );
+                  },
                 ),
               ),
             ],
           ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 void _showPlanDetail(

@@ -32,6 +32,39 @@ class _AdviceCoachApi implements CoachApi {
   }) async => const CoachAnswer(body: '蛋白质分配到三餐，训练前补充主食，训练后安排优质蛋白并继续记录饮水。');
 }
 
+class _TestOfficialPlansApi implements OfficialPlansApi {
+  int calls = 0;
+
+  @override
+  Future<List<Map<String, dynamic>>> fetchOfficialPlans() async {
+    calls += 1;
+    return [
+      {
+        'id': 'upper-lower-4',
+        'title': '上下肢力量',
+        'subtitle': '力量与增肌并重',
+        'days': 4,
+        'weeks': 12,
+        'level': '中级',
+        'focus': '力量 + 增肌',
+        'sessions': [
+          {
+            'day': '周一',
+            'name': '上肢力量',
+            'exercises': 3,
+            'duration': '65 分钟',
+            'exerciseIds': [
+              'bench_press',
+              'chest_supported_row',
+              'shoulder_press',
+            ],
+          },
+        ],
+      },
+    ];
+  }
+}
+
 Future<void> _openRoute(WidgetTester tester, String label) async {
   await tester.tap(find.text(label).last);
   await tester.pumpAndSettle();
@@ -1053,10 +1086,11 @@ void main() {
     expect(controller.routines.first.name, '已保存计划');
   });
 
-  testWidgets('official plans remain available without user fixtures', (
+  testWidgets('official plans load from the backend-owned catalog', (
     tester,
   ) async {
-    final controller = AppController();
+    final api = _TestOfficialPlansApi();
+    final controller = AppController(officialPlansApi: api);
     addTearDown(controller.dispose);
     await tester.pumpWidget(KiloApp(initialController: controller));
     await _openRoute(tester, '训练');
@@ -1074,6 +1108,7 @@ void main() {
       find.byKey(const Key('official-plan-upper-lower-4')),
       findsOneWidget,
     );
+    expect(api.calls, 1);
   });
 
   testWidgets('timer bridge tolerates missing plugins and forwards methods', (
