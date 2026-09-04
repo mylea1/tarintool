@@ -586,7 +586,7 @@ void main() {
     }
   });
 
-  test('first completed set starts a prepared workout and its rest timer', () {
+  test('prepared workout becomes active only when its timer starts', () {
     const channel = MethodChannel('kilo.platform.timer');
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async => null);
@@ -599,7 +599,14 @@ void main() {
       controller.updateExerciseRest(exercise, 45);
       final set = exercise.sets.single;
 
+      expect(controller.workoutStarted, isFalse);
+      expect(controller.workoutDraft, isTrue);
       expect(controller.workoutTimerStarted, isFalse);
+      controller.beginWorkoutTimer();
+
+      expect(controller.workoutStarted, isTrue);
+      expect(controller.workoutDraft, isFalse);
+      expect(controller.workoutTimerStarted, isTrue);
       controller.completeSet(set, exercise);
 
       expect(controller.workoutTimerStarted, isTrue);
@@ -678,7 +685,7 @@ void main() {
 
       controller.startWorkout(name: '自由训练');
       expect(controller.workoutStarted, isTrue);
-      expect(controller.workoutDraft, isTrue);
+      expect(controller.workoutDraft, isFalse);
       expect(calls, contains('startWorkout'));
 
       controller.addExercise('bench_press');
@@ -1285,6 +1292,49 @@ void main() {
           .setMockMethodCallHandler(channel, null);
     }
   });
+
+  test(
+    'prepared workout survives recreation without becoming active',
+    () async {
+      final persistence = InMemoryActiveWorkoutPersistence();
+      AccountService signedInAccount() {
+        final account = AccountService(allowTestAdmin: true);
+        account.loginWithPhone('123', password: '123');
+        return account;
+      }
+
+      final first = AppController(
+        accountService: signedInAccount(),
+        activeWorkoutPersistence: persistence,
+      );
+      first.startWorkout(name: '待开始训练', autoStartTimer: false);
+      first.addExercise('bench_press');
+      await first.flushActiveWorkoutPersistence();
+      first.dispose();
+
+      final restored = AppController(
+        accountService: signedInAccount(),
+        activeWorkoutPersistence: persistence,
+      );
+      try {
+        await restored.hydrateActiveWorkout();
+
+        expect(restored.workoutDraft, isTrue);
+        expect(restored.workoutStarted, isFalse);
+        expect(restored.workoutTimerStarted, isFalse);
+        expect(restored.workoutName, '待开始训练');
+        expect(restored.workout, hasLength(1));
+
+        restored.beginWorkoutTimer();
+        expect(restored.workoutDraft, isFalse);
+        expect(restored.workoutStarted, isTrue);
+      } finally {
+        restored.abortWorkout();
+        await restored.flushActiveWorkoutPersistence();
+        restored.dispose();
+      }
+    },
+  );
 
   test('active rest deadline survives process recreation', () async {
     const channel = MethodChannel('kilo.platform.timer');

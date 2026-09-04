@@ -1841,7 +1841,9 @@ class AppController extends ChangeNotifier {
 
   Future<void> hydrateActiveWorkout() async {
     final userId = currentUser?.id;
-    if (userId == null || userId.isEmpty || workoutStarted) return;
+    if (userId == null || userId.isEmpty || workoutStarted || workoutDraft) {
+      return;
+    }
     final snapshot = await activeWorkoutPersistence.read(userId);
     if (snapshot == null || _disposed) return;
     workout
@@ -1850,8 +1852,8 @@ class AppController extends ChangeNotifier {
     workoutName = snapshot.name;
     workoutNote = snapshot.note;
     freeWorkout = snapshot.freeWorkout;
-    workoutDraft = snapshot.draft;
-    workoutStarted = true;
+    workoutDraft = snapshot.draft || !snapshot.timerStarted;
+    workoutStarted = snapshot.timerStarted;
     workoutCompleted = false;
     workoutTimerStarted = snapshot.timerStarted;
     workoutPaused = snapshot.paused;
@@ -1890,7 +1892,7 @@ class AppController extends ChangeNotifier {
   void persistActiveWorkout() {
     final userId = currentUser?.id;
     if (userId == null || userId.isEmpty) return;
-    final snapshot = workoutStarted
+    final snapshot = workoutStarted || workoutDraft
         ? ActiveWorkoutSnapshot(
             name: workoutName,
             note: workoutNote,
@@ -3265,9 +3267,11 @@ class AppController extends ChangeNotifier {
       }
     }
     workoutName = name ?? (freeWorkout ? '自由训练' : workoutName);
-    workoutDraft = workout.isEmpty;
+    // Opening a workout without starting its timer is a preparation state.
+    // It becomes an active training session only in [beginWorkoutTimer].
+    workoutDraft = true;
     workoutCompleted = false;
-    workoutStarted = true;
+    workoutStarted = false;
     workoutTimerStarted = false;
     workoutPaused = false;
     workoutElapsedSeconds = 0;
@@ -3283,7 +3287,7 @@ class AppController extends ChangeNotifier {
   }
 
   void renameActiveWorkout(String value) {
-    if (!workoutStarted) return;
+    if (!workoutStarted && !workoutDraft) return;
     final next = value.trim();
     if (next.isEmpty || next == workoutName) return;
     workoutName = next;
@@ -3301,7 +3305,9 @@ class AppController extends ChangeNotifier {
   }
 
   void beginWorkoutTimer() {
-    if (!workoutStarted || workoutTimerStarted) return;
+    if ((!workoutStarted && !workoutDraft) || workoutTimerStarted) return;
+    workoutStarted = true;
+    workoutDraft = false;
     workoutTimerStarted = true;
     workoutPaused = false;
     workoutStartedAt = DateTime.now();
@@ -3329,7 +3335,7 @@ class AppController extends ChangeNotifier {
   }
 
   void _openWorkoutFromSystem() {
-    if (!workoutStarted) {
+    if (!workoutStarted && !workoutDraft) {
       _pendingSystemWorkoutOpen = true;
       unawaited(hydrateActiveWorkout());
       return;
@@ -3472,7 +3478,7 @@ class AppController extends ChangeNotifier {
   }
 
   void completeSet(WorkoutSet set, WorkoutExercise parent) {
-    if (!workoutStarted) return;
+    if (!workoutStarted && !workoutDraft) return;
     if (!workoutTimerStarted) beginWorkoutTimer();
     set.completed = !set.completed;
     if (set.completed) {
@@ -3527,7 +3533,7 @@ class AppController extends ChangeNotifier {
   }
 
   void startCurrentSetTimer() {
-    if (!workoutStarted) return;
+    if (!workoutStarted && !workoutDraft) return;
     if (!workoutTimerStarted) beginWorkoutTimer();
     _activeSetStartedAt = DateTime.now();
     _activeSetElapsedSeconds = 0;
@@ -3543,7 +3549,9 @@ class AppController extends ChangeNotifier {
 
   void applyNaturalWorkout(ParsedWorkoutNote parsed) {
     if (parsed.exercises.isEmpty) return;
-    if (!workoutStarted) startWorkout(name: '自由训练', autoStartTimer: false);
+    if (!workoutStarted && !workoutDraft) {
+      startWorkout(name: '自由训练', autoStartTimer: false);
+    }
     workout.addAll(parsed.exercises.map((item) => item.copyForWorkout()));
     if (parsed.note.isNotEmpty) workoutNote = parsed.note;
     persistActiveWorkout();
@@ -4152,7 +4160,7 @@ class AppController extends ChangeNotifier {
       set.restSeconds = inheritedRestSeconds;
     }
     workout.add(item);
-    workoutDraft = true;
+    workoutDraft = !workoutStarted;
     _syncPlatformWorkoutState(item);
     persistActiveWorkout();
     notifyListeners();
@@ -4770,7 +4778,7 @@ class AppController extends ChangeNotifier {
       }
       workout.add(latest);
     }
-    workoutDraft = true;
+    workoutDraft = !workoutStarted;
     _syncPlatformWorkoutState(latest);
     persistActiveWorkout();
     notifyListeners();

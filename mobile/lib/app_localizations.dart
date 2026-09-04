@@ -80,7 +80,6 @@ class AppStrings {
     '上传训练视频并查看动作建议': 'Upload a training video for movement feedback',
     '有来源的训练问答': 'Evidence-based training answers',
     '训练偏好、设备连接和隐私设置': 'Training preferences, devices and privacy',
-    '记录每一组，把坚持变成看得见的成长。': 'Log every set. Make consistency visible.',
     '登录账号': 'Sign in',
     '手机号登录': 'Sign in with phone',
     '手机号': 'Phone number',

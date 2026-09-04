@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:kilo_strength/ai_api.dart';
@@ -914,7 +915,7 @@ void main() {
     expect(find.textContaining('82.5 kg × 6 次'), findsOneWidget);
   });
 
-  testWidgets('logo orange light theme reaches shell navigation and inputs', (
+  testWidgets('pearl logo light theme reaches shell navigation and inputs', (
     tester,
   ) async {
     final controller = AppController();
@@ -923,15 +924,15 @@ void main() {
 
     final context = tester.element(find.byType(KiloShell));
     final theme = Theme.of(context);
-    expect(theme.scaffoldBackgroundColor, const Color(0xFFF2F4F6));
-    expect(theme.colorScheme.primary, const Color(0xFFD64C0C));
-    expect(theme.colorScheme.surface, const Color(0xFFF8FAFB));
+    expect(theme.scaffoldBackgroundColor, const Color(0xFFF5F1EB));
+    expect(theme.colorScheme.primary, const Color(0xFFC45112));
+    expect(theme.colorScheme.surface, const Color(0xFFFBF8F3));
     expect(
       NavigationBarTheme.of(context).indicatorColor,
-      const Color(0xFFE8EDF1),
+      const Color(0xFFEAE3DB),
     );
     final focusedBorder = theme.inputDecorationTheme.focusedBorder!;
-    expect(focusedBorder.borderSide.color, const Color(0xFFD64C0C));
+    expect(focusedBorder.borderSide.color, const Color(0xFFC45112));
     final logoImage = tester.widget<Image>(
       find.descendant(
         of: find.byType(BrandLogo).first,
@@ -972,7 +973,8 @@ void main() {
     await tester.tap(find.byKey(const Key('free-workout-button')));
     await tester.pumpAndSettle();
 
-    expect(controller.workoutStarted, isTrue);
+    expect(controller.workoutStarted, isFalse);
+    expect(controller.workoutDraft, isTrue);
     expect(controller.workoutTimerStarted, isFalse);
     expect(controller.workout, isEmpty);
     await tester.tap(find.byKey(const Key('active-workout-rename')));
@@ -990,6 +992,8 @@ void main() {
     expect(find.byKey(const Key('pause-workout-button')), findsNothing);
     await tester.tap(find.byKey(const Key('start-workout-timer-button')));
     await tester.pump();
+    expect(controller.workoutStarted, isTrue);
+    expect(controller.workoutDraft, isFalse);
     expect(controller.workoutTimerStarted, isTrue);
     expect(find.byKey(const Key('pause-workout-button')), findsOneWidget);
     expect(find.byKey(const Key('first-action-button')), findsOneWidget);
@@ -1234,6 +1238,57 @@ void main() {
     expect(find.text('斜方肌'), findsOneWidget);
   });
 
+  testWidgets('onboarding muscle selection uses a visible brand color', (
+    tester,
+  ) async {
+    var selectedGroups = <String>{};
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: const Color(0xFFC45112),
+          ).copyWith(primary: const Color(0xFFC45112)),
+        ),
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) => Center(
+              child: SizedBox(
+                width: 220,
+                child: InteractiveMuscleMap(
+                  muscleSets: const {},
+                  height: 320,
+                  selectionMode: true,
+                  selectedGroups: selectedGroups,
+                  onSelectionChanged: (value) =>
+                      setState(() => selectedGroups = value),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final body = find.byKey(const Key('interactive-muscle-body'));
+    final rect = tester.getRect(body);
+    await tester.tapAt(
+      Offset(
+        rect.left + rect.width * (19.5 / 48),
+        rect.top + rect.height * (16.5 / 88),
+      ),
+    );
+    await tester.pump();
+
+    expect(selectedGroups, contains('背'));
+    final selectedOverlay = tester.widget<SvgPicture>(
+      find.byKey(const Key('muscle-overlay-trapezius-selected')),
+    );
+    expect(
+      selectedOverlay.colorFilter,
+      const ColorFilter.mode(Color(0xFFC45112), BlendMode.srcIn),
+    );
+  });
+
   testWidgets(
     'recognition choices use backend capability cards at compact width',
     (tester) async {
@@ -1291,14 +1346,15 @@ void main() {
       find.byKey(const Key('custom-exercise-name')),
       '自定义肩部动作',
     );
-    await tester.enterText(
-      find.byKey(const Key('custom-exercise-muscle')),
-      '三角肌',
-    );
+    await tester.tap(find.byKey(const Key('custom-exercise-muscle')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('肩部').last);
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('custom-exercise-save')));
     await tester.pumpAndSettle();
 
     expect(controller.customExercises.single.name, '自定义肩部动作');
+    expect(controller.customExercises.single.muscle, '肩部');
     final search = tester.widget<TextField>(
       find.byKey(const Key('exercise-picker-search')),
     );
@@ -1882,7 +1938,7 @@ void main() {
   });
 
   testWidgets(
-    'completing the first set automatically starts workout and rest timers',
+    'prepared sets stay disabled until the user starts the workout timer',
     (tester) async {
       final controller = AppController();
       controller.startWorkout(name: '自动开练', autoStartTimer: false);
@@ -1898,7 +1954,19 @@ void main() {
 
       await tester.pumpWidget(KiloApp(initialController: controller));
       final set = exercise.sets.single;
+      expect(controller.workoutStarted, isFalse);
       expect(controller.workoutTimerStarted, isFalse);
+      expect(
+        tester
+            .widget<Checkbox>(find.byKey(Key('set-complete-${set.id}')))
+            .onChanged,
+        isNull,
+      );
+
+      await tester.tap(find.byKey(const Key('start-workout-timer-button')));
+      await tester.pump();
+      expect(controller.workoutStarted, isTrue);
+      expect(controller.workoutTimerStarted, isTrue);
 
       await tester.ensureVisible(find.byKey(Key('set-complete-${set.id}')));
       await tester.tap(find.byKey(Key('set-complete-${set.id}')));
@@ -1908,7 +1976,7 @@ void main() {
       expect(set.completed, isTrue);
       expect(controller.restRunning, isTrue);
       expect(controller.restRemainingSeconds, 45);
-      expect(find.text('训练已开始，本组完成，休息计时已启动'), findsOneWidget);
+      expect(find.text('训练已开始，本组完成，休息计时已启动'), findsNothing);
       controller.finishWorkout();
       await tester.pump(const Duration(milliseconds: 900));
     },

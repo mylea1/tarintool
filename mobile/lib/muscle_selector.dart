@@ -168,13 +168,11 @@ class _InteractiveMuscleMapState extends State<InteractiveMuscleMap> {
     return 'assets/muscle-selector/$gender-$sideName-$slug.svg';
   }
 
-  Color _heat(String group, {bool selected = false}) {
+  Color _heat(BuildContext context, String group, {bool selected = false}) {
     final base = widget.mode == MuscleMapMode.recovery
         ? MusclePalette.recoveryColorFor(widget.muscleSets, group)
         : MusclePalette.volumeColorFor(widget.muscleSets, group);
-    return selected
-        ? Color.alphaBlend(Colors.white.withValues(alpha: .2), base)
-        : base;
+    return selected ? Theme.of(context).colorScheme.primary : base;
   }
 
   void _toggle(String slug) {
@@ -315,9 +313,13 @@ class _InteractiveMuscleMapState extends State<InteractiveMuscleMap> {
                     IgnorePointer(
                       child: SvgPicture.asset(
                         _overlayAsset(region.slug),
+                        key: Key(
+                          'muscle-overlay-${region.slug}-${widget.selectionMode && widget.selectedGroups.contains(overlayGroups[region.slug]) ? 'selected' : 'idle'}',
+                        ),
                         fit: BoxFit.contain,
                         colorFilter: ColorFilter.mode(
                           _heat(
+                            context,
                             overlayGroups[region.slug]!,
                             selected: widget.selectionMode
                                 ? widget.selectedGroups.contains(
@@ -342,6 +344,9 @@ class _InteractiveMuscleMapState extends State<InteractiveMuscleMap> {
       container: true,
       label:
           '可互动${widget.mode == MuscleMapMode.recovery ? '恢复' : '训练量'}肌群图，当前为${side == MuscleMapSide.front ? '正面' : '背面'}',
+      value: selectedLabels.isEmpty
+          ? '未选择训练部位'
+          : '已选择${selectedLabels.join('、')}',
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

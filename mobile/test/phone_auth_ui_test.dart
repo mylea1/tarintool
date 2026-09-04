@@ -158,6 +158,18 @@ Future<void> _enterAfterScroll(
 }
 
 void main() {
+  testWidgets('login header omits the redundant marketing slogan', (
+    tester,
+  ) async {
+    final controller = AppController();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      MaterialApp(home: LoginPage(controller: controller)),
+    );
+
+    expect(find.text('记录每一组，把坚持变成看得见的成长。'), findsNothing);
+  });
+
   setUp(() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
   });

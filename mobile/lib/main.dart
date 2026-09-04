@@ -61,31 +61,31 @@ typedef _KiloPalette = ({
 });
 
 const _lightPalette = (
-  background: Color(0xFFF2F4F6),
-  surface: Color(0xFFF8FAFB),
-  surfaceRaised: Color(0xFFFFFFFF),
-  primary: Color(0xFFD64C0C),
-  primaryBright: Color(0xFFFF6817),
-  primaryContainer: Color(0xFFE8EDF1),
-  ink: Color(0xFF171A1D),
-  muted: Color(0xFF5E6872),
-  hairline: Color(0xFFD7DDE2),
-  live: Color(0xFF2F6F9F),
+  background: Color(0xFFF5F1EB),
+  surface: Color(0xFFFBF8F3),
+  surfaceRaised: Color(0xFFFFFDFC),
+  primary: Color(0xFFC45112),
+  primaryBright: Color(0xFFF47C20),
+  primaryContainer: Color(0xFFEAE3DB),
+  ink: Color(0xFF211D1A),
+  muted: Color(0xFF675F58),
+  hairline: Color(0xFFD9D0C7),
+  live: Color(0xFF386F7A),
   success: Color(0xFF247552),
   successContainer: Color(0xFFDDEFE6),
-  scheduled: Color(0xFFD64C0C),
-  scheduledContainer: Color(0xFFE8EDF1),
-  selected: Color(0xFF394A59),
-  selectedContainer: Color(0xFFE1E7EC),
-  tint: Color(0xFFEDF0F3),
-  shadow: Color(0x2426323C),
+  scheduled: Color(0xFFC45112),
+  scheduledContainer: Color(0xFFF3E4D8),
+  selected: Color(0xFF4B4641),
+  selectedContainer: Color(0xFFE8E1DA),
+  tint: Color(0xFFF0E9E2),
+  shadow: Color(0x242A211B),
   danger: Color(0xFFB3261E),
-  exerciseNote: Color(0xFF9A471B),
-  exerciseNoteContainer: Color(0xFFE8EDF1),
-  setNote: Color(0xFF53616C),
-  setNoteContainer: Color(0xFFE5EAEF),
-  workoutNote: Color(0xFF52606B),
-  workoutNoteContainer: Color(0xFFE9EDF0),
+  exerciseNote: Color(0xFF934618),
+  exerciseNoteContainer: Color(0xFFF2E5DB),
+  setNote: Color(0xFF5E625A),
+  setNoteContainer: Color(0xFFE9E7DF),
+  workoutNote: Color(0xFF5D5853),
+  workoutNoteContainer: Color(0xFFEDE8E2),
 );
 
 const _darkPalette = (
@@ -1677,12 +1677,7 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      strings.text('记录每一组，把坚持变成看得见的成长。'),
-                      style: TextStyle(color: muted),
-                    ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 20),
                     if (showPhone)
                       Card(
                         child: Padding(
@@ -2024,7 +2019,12 @@ class KiloShell extends StatelessWidget {
   String pageSubtitle(BuildContext context) =>
       AppLocalizations.of(context).text(switch (controller.page) {
         PageId.today => '训练、记录和计划概览',
-        PageId.train => controller.workoutStarted ? '保持专注，完成下一组' : '选择计划并开始训练',
+        PageId.train =>
+          controller.workoutStarted
+              ? '保持专注，完成下一组'
+              : controller.liveWorkoutVisible
+              ? '准备训练，开始计时后进入训练状态'
+              : '选择计划并开始训练',
         PageId.records => '训练日历、完成情况和历史记录',
         PageId.exercises => '动作、机位与识别能力',
         PageId.recognition => '动作、机位与识别能力',
@@ -22769,7 +22769,20 @@ Future<Exercise?> _showCustomExercise(
   final name = TextEditingController();
   final english = TextEditingController();
   final equipment = TextEditingController(text: '自定义器械');
-  final muscle = TextEditingController(text: '未分类');
+  const muscleOptions = <String>[
+    '胸部',
+    '背部',
+    '肩部',
+    '臀部',
+    '股四头肌',
+    '腘绳肌',
+    '小腿',
+    '肱二头肌',
+    '肱三头肌',
+    '前臂',
+    '核心',
+  ];
+  var muscle = muscleOptions.first;
   final cue = TextEditingController();
   final result = await showDialog<Exercise>(
     context: context,
@@ -22797,10 +22810,18 @@ Future<Exercise?> _showCustomExercise(
               decoration: const InputDecoration(labelText: '器械'),
             ),
             const SizedBox(height: 8),
-            TextField(
+            DropdownButtonFormField<String>(
               key: const Key('custom-exercise-muscle'),
-              controller: muscle,
-              decoration: const InputDecoration(labelText: '主要肌群'),
+              initialValue: muscle,
+              isExpanded: true,
+              decoration: const InputDecoration(labelText: '主要训练部位 *'),
+              items: [
+                for (final option in muscleOptions)
+                  DropdownMenuItem(value: option, child: Text(option)),
+              ],
+              onChanged: (value) {
+                if (value != null) muscle = value;
+              },
             ),
             const SizedBox(height: 8),
             TextField(
@@ -22825,7 +22846,7 @@ Future<Exercise?> _showCustomExercise(
                 name: name.text.trim(),
                 englishName: english.text.trim(),
                 equipment: equipment.text.trim(),
-                muscle: muscle.text.trim(),
+                muscle: muscle,
                 cue: cue.text.trim(),
               );
               Navigator.pop(context, exercise);
