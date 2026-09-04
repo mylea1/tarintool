@@ -274,30 +274,12 @@ class GymLocationsPage extends StatelessWidget {
   const GymLocationsPage({super.key, required this.controller});
   final AppController controller;
 
-  static const _commonEquipment = <String>[
-    '杠铃',
-    '深蹲架',
-    '卧推架',
-    '史密斯机',
-    'Cable',
-    '哑铃',
-    '可调哑铃',
-    '腿举机',
-    '腿屈伸',
-    '腿弯举',
-    '蝴蝶机',
-    '引体向上杆',
-    '训练凳',
-    '弹力带',
-  ];
-
   Future<void> _edit(
     BuildContext context, [
     GymLocationProfile? existing,
   ]) async {
     final name = TextEditingController(text: existing?.name ?? '');
-    final custom = TextEditingController();
-    final selectedEquipment = <String>[...?existing?.equipment];
+    var clearedExistingName = false;
     final selectedExerciseIds = <String>{...?existing?.exerciseIds};
     try {
       await showModalBottomSheet<void>(
@@ -326,92 +308,13 @@ class GymLocationsPage extends StatelessWidget {
                     TextField(
                       controller: name,
                       textInputAction: TextInputAction.next,
+                      onTap: () {
+                        if (existing == null || clearedExistingName) return;
+                        clearedExistingName = true;
+                        name.clear();
+                      },
                       decoration: const InputDecoration(labelText: '地点名称'),
                     ),
-                    const SizedBox(height: 13),
-                    const Text(
-                      '常用器械',
-                      style: TextStyle(fontWeight: FontWeight.w800),
-                    ),
-                    const SizedBox(height: 7),
-                    Wrap(
-                      spacing: 7,
-                      runSpacing: 7,
-                      children: [
-                        for (final item in _commonEquipment)
-                          FilterChip(
-                            key: Key('gym-equipment-chip-$item'),
-                            label: Text(item),
-                            selected: selectedEquipment.contains(item),
-                            onSelected: (value) => setSheetState(() {
-                              if (value) {
-                                if (!selectedEquipment.contains(item)) {
-                                  selectedEquipment.add(item);
-                                }
-                              } else {
-                                selectedEquipment.remove(item);
-                              }
-                            }),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: custom,
-                      textInputAction: TextInputAction.done,
-                      onSubmitted: (_) {
-                        final values = _splitEquipment(custom.text);
-                        if (values.isEmpty) return;
-                        setSheetState(() {
-                          for (final value in values) {
-                            if (!selectedEquipment.contains(value)) {
-                              selectedEquipment.add(value);
-                            }
-                          }
-                          custom.clear();
-                        });
-                      },
-                      decoration: InputDecoration(
-                        labelText: '自定义器械',
-                        hintText: '例如：划船机、双滑轮（回车添加）',
-                        suffixIcon: IconButton(
-                          key: const Key('add-custom-gym-equipment'),
-                          tooltip: '添加器械',
-                          onPressed: () {
-                            final values = _splitEquipment(custom.text);
-                            if (values.isEmpty) return;
-                            setSheetState(() {
-                              for (final value in values) {
-                                if (!selectedEquipment.contains(value)) {
-                                  selectedEquipment.add(value);
-                                }
-                              }
-                              custom.clear();
-                            });
-                          },
-                          icon: const Icon(Icons.add_rounded),
-                        ),
-                      ),
-                    ),
-                    if (selectedEquipment.isNotEmpty) ...[
-                      const SizedBox(height: 10),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: Wrap(
-                          spacing: 6,
-                          runSpacing: 6,
-                          children: [
-                            for (final item in selectedEquipment)
-                              InputChip(
-                                label: Text(item),
-                                onDeleted: () => setSheetState(
-                                  () => selectedEquipment.remove(item),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ],
                     const SizedBox(height: 16),
                     Row(
                       children: [
@@ -487,10 +390,12 @@ class GymLocationsPage extends StatelessWidget {
                           );
                           return;
                         }
-                        final values = <String>[...selectedEquipment];
-                        for (final value in _splitEquipment(custom.text)) {
-                          if (!values.contains(value)) values.add(value);
-                        }
+                        final values = selectedExerciseIds
+                            .map(controller.exerciseFor)
+                            .map((exercise) => exercise.equipment.trim())
+                            .where((value) => value.isNotEmpty)
+                            .toSet()
+                            .toList(growable: false);
                         await controller.saveGymLocation(
                           GymLocationProfile(
                             id:
@@ -518,15 +423,8 @@ class GymLocationsPage extends StatelessWidget {
       // fields never observe an already-disposed controller.
       await Future<void>.delayed(const Duration(milliseconds: 250));
       name.dispose();
-      custom.dispose();
     }
   }
-
-  List<String> _splitEquipment(String value) => value
-      .split(RegExp(r'[,，、\n]'))
-      .map((item) => item.trim())
-      .where((item) => item.isNotEmpty)
-      .toList(growable: false);
 
   @override
   Widget build(BuildContext context) => Scaffold(

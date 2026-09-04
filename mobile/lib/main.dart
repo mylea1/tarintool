@@ -3379,10 +3379,8 @@ class _HomeMuscleCardState extends State<_HomeMuscleCard> {
                     onTap: () => _selectPage(1),
                   ),
                   const Spacer(),
-                  Text(
-                    _manualSwipe ? '手动查看' : '自动轮切',
-                    style: TextStyle(color: quiet, fontSize: 10),
-                  ),
+                  if (_manualSwipe)
+                    Text('手动查看', style: TextStyle(color: quiet, fontSize: 10)),
                 ],
               ),
               const SizedBox(height: 6),
@@ -4830,16 +4828,42 @@ class _LiveWorkoutTimingPanel extends StatelessWidget {
   String _clock(int seconds) =>
       '${(seconds ~/ 60).toString().padLeft(2, '0')}:${(seconds % 60).toString().padLeft(2, '0')}';
 
+  Future<void> _rename(BuildContext context) async {
+    final value = await showDialog<String>(
+      context: context,
+      builder: (_) =>
+          _ActiveWorkoutRenameDialog(initialName: controller.workoutName),
+    );
+    if (value != null) controller.renameActiveWorkout(value);
+  }
+
   @override
   Widget build(BuildContext context) {
     final elapsed = controller.currentElapsed;
     final textScale = MediaQuery.textScalerOf(context).scale(1);
     final compact = MediaQuery.sizeOf(context).width < 340 || textScale > 1.35;
-    final title = Text(
-      controller.workoutName,
-      maxLines: compact ? 2 : 1,
-      overflow: TextOverflow.ellipsis,
-      style: Theme.of(context).textTheme.titleLarge,
+    final title = InkWell(
+      key: const Key('active-workout-rename'),
+      onTap: () => _rename(context),
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Text(
+                controller.workoutName,
+                maxLines: compact ? 2 : 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+            ),
+            const SizedBox(width: 5),
+            Icon(Icons.edit_outlined, size: 16, color: secondaryInk),
+          ],
+        ),
+      ),
     );
     final titleBlock = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -5105,6 +5129,63 @@ class _LiveWorkoutTimingPanel extends StatelessWidget {
     );
     return card;
   }
+}
+
+class _ActiveWorkoutRenameDialog extends StatefulWidget {
+  const _ActiveWorkoutRenameDialog({required this.initialName});
+
+  final String initialName;
+
+  @override
+  State<_ActiveWorkoutRenameDialog> createState() =>
+      _ActiveWorkoutRenameDialogState();
+}
+
+class _ActiveWorkoutRenameDialogState
+    extends State<_ActiveWorkoutRenameDialog> {
+  late final TextEditingController name;
+  var clearedOriginal = false;
+
+  @override
+  void initState() {
+    super.initState();
+    name = TextEditingController(text: widget.initialName);
+  }
+
+  @override
+  void dispose() {
+    name.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('重命名本次训练'),
+    content: TextField(
+      key: const Key('active-workout-name-field'),
+      controller: name,
+      autofocus: true,
+      textInputAction: TextInputAction.done,
+      onTap: () {
+        if (clearedOriginal) return;
+        clearedOriginal = true;
+        name.clear();
+      },
+      onSubmitted: (value) => Navigator.pop(context, value),
+      decoration: const InputDecoration(labelText: '训练名称'),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('取消'),
+      ),
+      FilledButton(
+        key: const Key('active-workout-rename-save'),
+        onPressed: () => Navigator.pop(context, name.text),
+        child: const Text('保存'),
+      ),
+    ],
+  );
 }
 
 class _CompletionBurst extends StatelessWidget {
@@ -5810,11 +5891,8 @@ class _PreviousExerciseNotes extends StatelessWidget {
       }
     }
     if (performed == null) return const SizedBox.shrink();
-    final setNotes = performed.sets
-        .where((set) => set.completed && set.note.trim().isNotEmpty)
-        .toList(growable: false);
     final hasExerciseNote = performed.note.trim().isNotEmpty;
-    if (!hasExerciseNote && setNotes.isEmpty) return const SizedBox.shrink();
+    if (!hasExerciseNote) return const SizedBox.shrink();
     final date = '${record.date.month}月${record.date.day}日';
     return Container(
       key: Key('previous-notes-$exerciseId'),
@@ -5854,17 +5932,6 @@ class _PreviousExerciseNotes extends StatelessWidget {
               color: exerciseNoteColor,
               background: exerciseNoteContainer,
               maxLines: 3,
-            ),
-          ],
-          for (var index = 0; index < setNotes.length; index++) ...[
-            const SizedBox(height: 5),
-            _NoteCallout(
-              key: Key('previous-set-note-$exerciseId-$index'),
-              label: '第 ${performed.sets.indexOf(setNotes[index]) + 1} 组',
-              text: setNotes[index].note.trim(),
-              color: setNoteColor,
-              background: setNoteContainer,
-              maxLines: 2,
             ),
           ],
         ],
@@ -6417,6 +6484,10 @@ class _SetRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cardio = controller.isCardioExercise(exercise.exerciseId);
+    final previousExact = controller.previousExactSetFor(
+      exercise.exerciseId,
+      index,
+    );
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -6670,6 +6741,17 @@ class _SetRow extends StatelessWidget {
                   ),
                 ],
               ),
+              if (previousExact?.note.trim().isNotEmpty == true) ...[
+                const SizedBox(height: 5),
+                _NoteCallout(
+                  key: Key('previous-set-note-${exercise.exerciseId}-$index'),
+                  label: '上次第 ${index + 1} 组备注',
+                  text: previousExact!.note.trim(),
+                  color: setNoteColor,
+                  background: setNoteContainer,
+                  maxLines: 2,
+                ),
+              ],
               const SizedBox(height: 4),
               Row(
                 children: [
@@ -18848,71 +18930,11 @@ class _WorkoutCelebration extends StatelessWidget {
   final AppController controller;
   final WorkoutRecord record;
 
-  String _duration() {
-    final minutes = record.durationSeconds ~/ 60;
-    final seconds = record.durationSeconds % 60;
-    if (minutes == 0) return '$seconds 秒';
-    return seconds == 0 ? '$minutes 分钟' : '$minutes 分 $seconds 秒';
-  }
-
-  String _volume() =>
-      '${record.volume.toStringAsFixed(record.volume % 1 == 0 ? 0 : 1)} kg';
-
   @override
   Widget build(BuildContext context) {
     final reducedMotion = MediaQuery.disableAnimationsOf(context);
     final mediaHeight = MediaQuery.sizeOf(context).height;
     final dialogMaxHeight = mediaHeight > 0 ? mediaHeight * .92 : 880.0;
-    final metrics = <(String, String, IconData)>[
-      ('训练时长', _duration(), Icons.timer_outlined),
-      ('训练容量', _volume(), Icons.fitness_center_outlined),
-      ('完成组', '${record.effectiveSets} 组', Icons.task_alt_rounded),
-    ];
-    final hero = reducedMotion
-        ? Container(
-            key: const Key('workout-celebration-burst'),
-            width: 62,
-            height: 62,
-            decoration: BoxDecoration(
-              color: const Color(0xFFE5F5EB),
-              shape: BoxShape.circle,
-              border: Border.all(color: const Color(0xFF6DB787)),
-            ),
-            child: const Icon(
-              Icons.check_circle,
-              color: Color(0xFF1E6B45),
-              size: 38,
-            ),
-          )
-        : TweenAnimationBuilder<double>(
-            key: const Key('workout-celebration-burst'),
-            tween: Tween(begin: .72, end: 1),
-            duration: const Duration(milliseconds: 950),
-            curve: Curves.easeOutBack,
-            builder: (context, progress, _) => Transform.scale(
-              scale: progress,
-              child: Container(
-                width: 62,
-                height: 62,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE5F5EB),
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF1E6B45).withValues(alpha: .24),
-                      blurRadius: 16 * progress,
-                      spreadRadius: 2 * progress,
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.check_circle,
-                  color: Color(0xFF1E6B45),
-                  size: 38,
-                ),
-              ),
-            ),
-          );
     final particleLayer = reducedMotion
         ? const SizedBox.shrink()
         : Positioned(
@@ -18951,100 +18973,27 @@ class _WorkoutCelebration extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Center(child: hero),
-                      const SizedBox(height: 10),
                       Text(
                         '训练完成',
                         textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.headlineSmall
                             ?.copyWith(fontWeight: FontWeight.w900, color: ink),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        record.name,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: secondaryInk),
-                      ),
-                      const SizedBox(height: 14),
-                      LayoutBuilder(
-                        builder: (context, metricConstraints) {
-                          final width = (metricConstraints.maxWidth - 20) / 3;
-                          return Wrap(
-                            spacing: 10,
-                            runSpacing: 10,
-                            children: [
-                              for (
-                                var index = 0;
-                                index < metrics.length;
-                                index++
-                              )
-                                _CelebrationMetricReveal(
-                                  index: index,
-                                  reducedMotion: reducedMotion,
-                                  child: SizedBox(
-                                    width: width,
-                                    child: Container(
-                                      margin: EdgeInsets.zero,
-                                      padding: const EdgeInsets.all(10),
-                                      decoration: BoxDecoration(
-                                        color: surfaceRaised,
-                                        borderRadius: BorderRadius.circular(15),
-                                        border: Border.all(color: hairline),
-                                      ),
-                                      child: Row(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.center,
-                                        children: [
-                                          Icon(
-                                            metrics[index].$3,
-                                            color: primary,
-                                            size: 18,
-                                          ),
-                                          const SizedBox(width: 7),
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  metrics[index].$1,
-                                                  maxLines: 1,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                  style: TextStyle(
-                                                    color: quiet,
-                                                    fontSize: 10,
-                                                  ),
-                                                ),
-                                                Text(
-                                                  metrics[index].$2,
-                                                  maxLines: 1,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                  style: TextStyle(
-                                                    color: ink,
-                                                    fontSize: 14,
-                                                    fontWeight: FontWeight.w900,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 14),
-                      _CelebrationExerciseSummary(
-                        controller: controller,
-                        record: record,
+                      const SizedBox(height: 12),
+                      AspectRatio(
+                        key: const Key('workout-celebration-card-preview'),
+                        aspectRatio: workoutResultCardAspectRatio,
+                        child: FittedBox(
+                          fit: BoxFit.contain,
+                          child: SizedBox(
+                            width: 1200,
+                            height: 950,
+                            child: _WorkoutShareCard(
+                              controller: controller,
+                              record: record,
+                            ),
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 10),
                       _WorkoutCompletionAiReview(
@@ -20665,37 +20614,6 @@ class _CelebrationSetRow extends StatelessWidget {
   );
 }
 
-class _CelebrationMetricReveal extends StatelessWidget {
-  const _CelebrationMetricReveal({
-    required this.index,
-    required this.reducedMotion,
-    required this.child,
-  });
-
-  final int index;
-  final bool reducedMotion;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    if (reducedMotion) return child;
-    return TweenAnimationBuilder<double>(
-      key: ValueKey('summary-card-$index'),
-      tween: Tween(begin: 0, end: 1),
-      duration: Duration(milliseconds: 360 + index * 70),
-      curve: Curves.easeOutCubic,
-      builder: (context, progress, child) => Opacity(
-        opacity: progress,
-        child: Transform.translate(
-          offset: Offset(0, 10 * (1 - progress)),
-          child: child,
-        ),
-      ),
-      child: child,
-    );
-  }
-}
-
 String _freeRoutineNameSuggestion(DateTime date) =>
     '自由训练 ${date.month.toString().padLeft(2, '0')}月${date.day.toString().padLeft(2, '0')}日 ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
 
@@ -21153,6 +21071,7 @@ void _showRoutineMeta(
   Routine routine,
 ) {
   final name = TextEditingController(text: routine.name);
+  var clearedOriginalName = false;
   showDialog<void>(
     context: context,
     builder: (context) => AlertDialog(
@@ -21162,6 +21081,11 @@ void _showRoutineMeta(
         children: [
           TextField(
             controller: name,
+            onTap: () {
+              if (clearedOriginalName) return;
+              clearedOriginalName = true;
+              name.clear();
+            },
             decoration: const InputDecoration(labelText: '训练名称'),
           ),
         ],

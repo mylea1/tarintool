@@ -2914,6 +2914,18 @@ class AppController extends ChangeNotifier {
     return completed.isEmpty ? null : completed.last;
   }
 
+  /// Returns only the matching set number from the latest session. Unlike
+  /// [previousSetFor], this never falls back to the final completed set, so a
+  /// note from set one cannot be shown beside a newly added set two.
+  WorkoutSet? previousExactSetFor(String exerciseId, int setIndex) {
+    final latest = _latestExerciseHistory(exerciseId)?.exercise;
+    if (latest == null || setIndex < 0 || setIndex >= latest.sets.length) {
+      return null;
+    }
+    final set = latest.sets[setIndex];
+    return set.completed ? set : null;
+  }
+
   List<WorkoutRecord> exerciseHistoryFor(String exerciseId) {
     final records = history
         .where(
@@ -3176,6 +3188,24 @@ class AppController extends ChangeNotifier {
       persistActiveWorkout();
       notifyListeners();
     }
+  }
+
+  void renameActiveWorkout(String value) {
+    if (!workoutStarted) return;
+    final next = value.trim();
+    if (next.isEmpty || next == workoutName) return;
+    workoutName = next;
+    if (workoutTimerStarted && !workoutPaused) {
+      PlatformTimerBridge.startWorkout(
+        elapsedSeconds: currentElapsed,
+        workoutName: workoutName,
+        exercise: _platformExerciseName(),
+        completedSets: completedSets,
+        totalSets: totalSets,
+      );
+    }
+    persistActiveWorkout();
+    notifyListeners();
   }
 
   void beginWorkoutTimer() {
@@ -5379,7 +5409,7 @@ class AppController extends ChangeNotifier {
     aiToolError = null;
     notifyListeners();
     // With the automatic authorization toggle, do not silently attach the
-    // complete local summary. The model must request one of the three tools;
+    // complete local summary. The model must request one of the read-only tools;
     // an explicitly selected context remains supported for legacy/manual use.
     final summary = selectedTrainingContext;
     final first = await api.answer(
@@ -5394,7 +5424,7 @@ class AppController extends ChangeNotifier {
       conversationId: conversationId,
     );
     if (first.toolCalls.isEmpty) return first;
-    if (first.toolCalls.length > 3) {
+    if (first.toolCalls.length > aiAvailableTools.length) {
       await _rollbackAgentQuota(api, requestId);
       throw const CoachApiException('too_many_ai_tool_calls');
     }

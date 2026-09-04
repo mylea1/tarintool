@@ -242,22 +242,6 @@ class _NutritionCenterPageState extends State<NutritionCenterPage> {
     });
   }
 
-  void _showAdviceDetails(String advice) {
-    showDialog<void>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('今日建议'),
-        content: Text(advice),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('知道了'),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final content = AnimatedBuilder(
@@ -280,7 +264,6 @@ class _NutritionCenterPageState extends State<NutritionCenterPage> {
             advice: _adviceCache[_dayOnly(selectedDate)],
             generating: _generatingAdvice,
             onGenerate: _generateAdvice,
-            onDetails: _showAdviceDetails,
           ),
           if (widget.controller
               .nutritionForDay(selectedDate)
@@ -391,14 +374,13 @@ class _NutritionCenterPageState extends State<NutritionCenterPage> {
   }
 }
 
-class _NutritionAiAdviceModule extends StatelessWidget {
+class _NutritionAiAdviceModule extends StatefulWidget {
   const _NutritionAiAdviceModule({
     required this.controller,
     required this.date,
     required this.advice,
     required this.generating,
     required this.onGenerate,
-    required this.onDetails,
   });
 
   final AppController controller;
@@ -406,7 +388,20 @@ class _NutritionAiAdviceModule extends StatelessWidget {
   final String? advice;
   final bool generating;
   final VoidCallback onGenerate;
-  final ValueChanged<String> onDetails;
+
+  @override
+  State<_NutritionAiAdviceModule> createState() =>
+      _NutritionAiAdviceModuleState();
+}
+
+class _NutritionAiAdviceModuleState extends State<_NutritionAiAdviceModule> {
+  bool expanded = false;
+
+  AppController get controller => widget.controller;
+  DateTime get date => widget.date;
+  String? get advice => widget.advice;
+  bool get generating => widget.generating;
+  VoidCallback get onGenerate => widget.onGenerate;
 
   double _totalCalories(List<NutritionEntry> entries) =>
       entries.fold(0, (sum, entry) => sum + entry.calories);
@@ -542,8 +537,8 @@ class _NutritionAiAdviceModule extends StatelessWidget {
                     Text(
                       advice!,
                       key: const Key('nutrition-ai-advice-content'),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                      maxLines: expanded ? null : 2,
+                      overflow: expanded ? null : TextOverflow.ellipsis,
                       style: const TextStyle(
                         height: 1.35,
                         fontWeight: FontWeight.w700,
@@ -552,12 +547,13 @@ class _NutritionAiAdviceModule extends StatelessWidget {
                     Align(
                       alignment: Alignment.centerLeft,
                       child: TextButton(
-                        onPressed: () => onDetails(advice!),
+                        key: const Key('nutrition-ai-advice-expand'),
+                        onPressed: () => setState(() => expanded = !expanded),
                         style: TextButton.styleFrom(
                           padding: EdgeInsets.zero,
                           minimumSize: const Size(44, 32),
                         ),
-                        child: const Text('查看详情'),
+                        child: Text(expanded ? '收起' : '展开'),
                       ),
                     ),
                   ] else ...[

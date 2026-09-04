@@ -14,7 +14,10 @@ import { sendAliyunSms, smsProviderConfigured } from './sms.mjs';
 const JSON_CONTENT_TYPE = 'application/json; charset=utf-8';
 const MAX_TEXT = 4000;
 const MAX_SUMMARY = 6000;
-const MAX_AGENT_TOOL_RESULTS = 3;
+// Keep this bounded to the five read-only tools published below. A plan
+// request may legitimately need plans, history, recovery, active training and
+// nutrition in one turn; rejecting call four made the advertised API unusable.
+const MAX_AGENT_TOOL_RESULTS = 5;
 const MAX_AGENT_RESULT_BYTES = 12000;
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/u;
 const SMS_CODE_LENGTH = 6;

@@ -19,6 +19,19 @@ import 'package:kilo_strength/training_intelligence.dart';
 import 'package:kilo_strength/product_features.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+class _AdviceCoachApi implements CoachApi {
+  @override
+  Future<CoachAnswer> answer({
+    required String prompt,
+    required bool includeTrainingSummary,
+    String locale = 'zh-CN',
+    String? trainingSummary,
+    List<Map<String, String>> exerciseCatalog = const [],
+    List<Map<String, String>> skills = const [],
+    String? conversationId,
+  }) async => const CoachAnswer(body: '蛋白质分配到三餐，训练前补充主食，训练后安排优质蛋白并继续记录饮水。');
+}
+
 Future<void> _openRoute(WidgetTester tester, String label) async {
   await tester.tap(find.text(label).last);
   await tester.pumpAndSettle();
@@ -48,7 +61,7 @@ void main() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
   });
 
-  testWidgets('existing gym accepts custom equipment from the add button', (
+  testWidgets('gym editor only selects exercises and derives equipment', (
     tester,
   ) async {
     final controller = AppController();
@@ -68,10 +81,8 @@ void main() {
     await tester.tap(find.byKey(const Key('edit-gym-gym-test')));
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.widgetWithText(TextField, '自定义器械'), '划船机');
-    await tester.tap(find.byKey(const Key('add-custom-gym-equipment')));
-    await tester.pump();
-    expect(find.text('划船机'), findsOneWidget);
+    expect(find.text('常用器械'), findsNothing);
+    expect(find.widgetWithText(TextField, '自定义器械'), findsNothing);
 
     final exerciseId = controller.selectableExercises.first.id;
     await tester.ensureVisible(find.byKey(const Key('gym-pick-exercises')));
@@ -85,7 +96,10 @@ void main() {
     await tester.ensureVisible(find.byKey(const Key('save-gym-location')));
     await tester.tap(find.byKey(const Key('save-gym-location')));
     await tester.pumpAndSettle();
-    expect(controller.gymLocations.single.equipment, contains('划船机'));
+    expect(
+      controller.gymLocations.single.equipment,
+      contains(controller.exerciseFor(exerciseId).equipment),
+    );
     expect(controller.gymLocations.single.exerciseIds, contains(exerciseId));
     expect(
       controller.currentGymExercises.map((item) => item.id),
@@ -428,7 +442,10 @@ void main() {
         clearMembershipExpiresAt: true,
       ),
     );
-    final memberController = AppController(accountService: account);
+    final memberController = AppController(
+      accountService: account,
+      coachApi: _AdviceCoachApi(),
+    );
     memberController.trainingProfile = const TrainingProfile(
       gender: 'male',
       age: 30,
@@ -476,6 +493,14 @@ void main() {
     expect(find.text('基础档案已可用于生成第一份建议'), findsOneWidget);
     expect(find.textContaining('蛋白质目标'), findsWidgets);
     expect(find.byKey(const Key('nutrition-ai-advice-locked')), findsNothing);
+    await tester.tap(find.byKey(const Key('nutrition-ai-advice-generate')));
+    await tester.pump(const Duration(milliseconds: 220));
+    await tester.pump();
+    expect(find.text('展开'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('nutrition-ai-advice-expand')));
+    await tester.pump();
+    expect(find.text('收起'), findsOneWidget);
+    expect(find.byType(AlertDialog), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -917,6 +942,17 @@ void main() {
     expect(controller.workoutStarted, isTrue);
     expect(controller.workoutTimerStarted, isFalse);
     expect(controller.workout, isEmpty);
+    await tester.tap(find.byKey(const Key('active-workout-rename')));
+    await tester.pumpAndSettle();
+    final nameField = find.byKey(const Key('active-workout-name-field'));
+    expect(tester.widget<TextField>(nameField).controller!.text, '自由训练');
+    await tester.tap(nameField);
+    await tester.pump();
+    expect(tester.widget<TextField>(nameField).controller!.text, isEmpty);
+    await tester.enterText(nameField, '周四上肢训练');
+    await tester.tap(find.byKey(const Key('active-workout-rename-save')));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(controller.workoutName, '周四上肢训练');
     expect(find.byKey(const Key('start-workout-timer-button')), findsOneWidget);
     expect(find.byKey(const Key('pause-workout-button')), findsNothing);
     await tester.tap(find.byKey(const Key('start-workout-timer-button')));
@@ -1121,6 +1157,7 @@ void main() {
     expect(find.byKey(const Key('home-muscle-map')), findsOneWidget);
     expect(find.byKey(const Key('interactive-muscle-map')), findsOneWidget);
     expect(find.byType(ColorFiltered), findsWidgets);
+    expect(find.byKey(const Key('muscle-head-fill')), findsOneWidget);
     expect(find.bySemanticsLabel('正面人体图'), findsOneWidget);
     await tester.tap(find.bySemanticsLabel('背面人体图'));
     await tester.pump();

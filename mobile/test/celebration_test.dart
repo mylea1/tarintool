@@ -74,22 +74,12 @@ void main() {
     await _openCelebration(tester, controller, reducedMotion: false);
     expect(find.byKey(const Key('workout-celebration')), findsOneWidget);
     expect(find.byKey(const Key('summary-particles')), findsOneWidget);
-    expect(find.byKey(const Key('summary-card-0')), findsOneWidget);
     expect(
-      find.byKey(const Key('workout-celebration-exercises')),
+      find.byKey(const Key('workout-celebration-card-preview')),
       findsOneWidget,
     );
+    expect(find.byKey(const Key('workout-share-card')), findsOneWidget);
     expect(find.text('卧推'), findsWidgets);
-    expect(find.textContaining('kg ×'), findsNothing);
-    await tester.ensureVisible(
-      find.byKey(const Key('workout-celebration-exercise-details-0')),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.byKey(const Key('workout-celebration-exercise-details-0')),
-    );
-    await tester.pumpAndSettle();
-    expect(find.textContaining('kg ×'), findsWidgets);
     expect(
       find.byKey(const Key('workout-completion-ai-review-locked')),
       findsOneWidget,
@@ -113,9 +103,10 @@ void main() {
       viewport: const Size(320, 812),
       textScale: 2,
     );
-    expect(find.text('训练时长'), findsOneWidget);
-    expect(find.text('训练容量'), findsOneWidget);
-    expect(find.text('完成组'), findsOneWidget);
+    expect(
+      find.byKey(const Key('workout-celebration-card-preview')),
+      findsOneWidget,
+    );
     expect(find.text('本次 PR'), findsNothing);
     expect(
       find.byKey(const Key('workout-celebration-records')),
@@ -133,7 +124,10 @@ void main() {
     await _openCelebration(tester, controller, reducedMotion: true);
     expect(find.byKey(const Key('workout-celebration')), findsOneWidget);
     expect(find.byKey(const Key('summary-particles')), findsNothing);
-    expect(find.byKey(const Key('workout-celebration-burst')), findsOneWidget);
+    expect(
+      find.byKey(const Key('workout-celebration-card-preview')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('share card is a separate poster without AI review content', (
@@ -148,7 +142,7 @@ void main() {
     await tester.pumpAndSettle();
 
     final card = find.byKey(const Key('workout-share-card'));
-    expect(card, findsOneWidget);
+    expect(card, findsWidgets);
     expect(
       find.byKey(const Key('workout-share-system-button')),
       findsOneWidget,
@@ -159,7 +153,7 @@ void main() {
     );
     expect(
       find.descendant(of: card, matching: find.textContaining('KILOSTRENGTH')),
-      findsOneWidget,
+      findsWidgets,
     );
   });
 }

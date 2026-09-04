@@ -252,6 +252,16 @@ class _InteractiveMuscleMapState extends State<InteractiveMuscleMap> {
             child: Stack(
               fit: StackFit.expand,
               children: [
+                IgnorePointer(
+                  child: SvgPicture.string(
+                    '<svg viewBox="0 0 660.46 1206.46" xmlns="http://www.w3.org/2000/svg">'
+                    '<ellipse cx="330.23" cy="91" rx="63" ry="88" '
+                    'fill="${Theme.of(context).brightness == Brightness.dark ? '#B8BEC7' : '#E5EBE7'}"/>'
+                    '</svg>',
+                    key: const Key('muscle-head-fill'),
+                    fit: BoxFit.contain,
+                  ),
+                ),
                 ColorFiltered(
                   colorFilter: Theme.of(context).brightness == Brightness.dark
                       ? const ColorFilter.matrix(<double>[

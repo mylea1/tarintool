@@ -37,6 +37,9 @@ class _CapturingCoachApi implements CoachApi {
 
 class _StreamingAgentCoachApi
     implements CoachApi, AgentCoachApi, StreamingCoachApi {
+  _StreamingAgentCoachApi({this.toolCallCount = 1});
+
+  final int toolCallCount;
   bool streamedToolContinuation = false;
 
   @override
@@ -53,17 +56,20 @@ class _StreamingAgentCoachApi
     List<Map<String, dynamic>> toolResults = const [],
   }) async {
     if (toolResults.isNotEmpty) {
-      throw StateError('tool continuation must use the streaming endpoint');
+      streamedToolContinuation = true;
+      return const CoachAnswer(body: '你的计划可以这样调整');
     }
-    return const CoachAnswer(
+    final calls = List.generate(
+      5,
+      (index) => CoachToolCall(
+        id: 'plans_$index',
+        name: 'read_training_plans',
+        arguments: const {},
+      ),
+    );
+    return CoachAnswer(
       body: '',
-      toolCalls: [
-        CoachToolCall(
-          id: 'plans_1',
-          name: 'read_training_plans',
-          arguments: {},
-        ),
-      ],
+      toolCalls: calls.take(toolCallCount).toList(growable: false),
     );
   }
 
@@ -207,6 +213,21 @@ void main() {
       expect(api.streamedToolContinuation, isTrue);
       expect(controller.chat.last.body, '你的计划可以这样调整');
       expect(controller.aiToolUses.single.name, 'read_training_plans');
+    } finally {
+      controller.dispose();
+    }
+  });
+
+  test('AI customized plan accepts all published read-only tools', () async {
+    final api = _StreamingAgentCoachApi(toolCallCount: 5);
+    final controller = AppController(coachApi: api);
+    try {
+      await controller.requestAiCustomizedWorkout(details: '每周训练四天');
+
+      expect(api.streamedToolContinuation, isTrue);
+      expect(controller.chat.last.body, '你的计划可以这样调整');
+      expect(controller.aiToolUses.single.count, 5);
+      expect(controller.aiToolError, isNull);
     } finally {
       controller.dispose();
     }

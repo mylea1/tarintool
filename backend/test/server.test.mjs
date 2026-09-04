@@ -898,11 +898,17 @@ test('AI agent continuation preserves tool message order, consent and one quota 
         choices: [{
           message: {
             content: null,
-            tool_calls: [{
-              id: 'call_read_plans',
+            tool_calls: [
+              ['call_read_plans', 'read_training_plans'],
+              ['call_read_history', 'read_workout_history'],
+              ['call_read_intelligence', 'read_training_intelligence'],
+              ['call_read_active', 'read_active_workout'],
+              ['call_read_nutrition', 'read_nutrition_history'],
+            ].map(([id, name]) => ({
+              id,
               type: 'function',
-              function: { name: 'read_training_plans', arguments: '{}' },
-            }],
+              function: { name, arguments: '{}' },
+            })),
           },
         }],
       }));
@@ -940,10 +946,13 @@ test('AI agent continuation preserves tool message order, consent and one quota 
     const auth = { authorization: `Bearer ${token}` };
     const before = (await fetch(`${isolatedBase}/v1/me/entitlements`, { headers: auth })).json();
     const beforeQuota = (await before).aiRemaining;
-    const availableTools = [{
-      type: 'function',
-      function: { name: 'read_training_plans' },
-    }];
+    const availableTools = [
+      'read_training_plans',
+      'read_workout_history',
+      'read_training_intelligence',
+      'read_active_workout',
+      'read_nutrition_history',
+    ].map((name) => ({ type: 'function', function: { name } }));
     const first = await fetch(`${isolatedBase}/v1/coach/answer`, {
       method: 'POST',
       headers: { ...auth, 'content-type': 'application/json' },
@@ -958,6 +967,7 @@ test('AI agent continuation preserves tool message order, consent and one quota 
     });
     const firstBody = await first.json();
     assert.equal(first.status, 200);
+    assert.equal(firstBody.toolCalls.length, 5);
     assert.equal(firstBody.toolCalls[0].name, 'read_training_plans');
     assert.ok(upstreamBodies[0].messages.some((item) =>
       item.role === 'system'
@@ -974,12 +984,12 @@ test('AI agent continuation preserves tool message order, consent and one quota 
         question: '读取我的训练计划',
         requestId: 'agent-order-1',
         useTrainingData: true,
-        toolResults: [{
-          id: 'call_read_plans',
-          name: 'read_training_plans',
-          arguments: {},
-          result: { tool: 'read_training_plans', plans: [], count: 0 },
-        }],
+        toolResults: firstBody.toolCalls.map((call) => ({
+          id: call.id,
+          name: call.name,
+          arguments: call.arguments,
+          result: { tool: call.name, count: 0 },
+        })),
       }),
     });
     const secondBody = await second.json();
