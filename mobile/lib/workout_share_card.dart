@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
@@ -7,6 +6,7 @@ import 'models.dart';
 
 const workoutShareCardAspectRatio = 12 / 7;
 const workoutResultCardAspectRatio = 1200 / 950;
+const _brandLogoAsset = 'assets/branding/kilo-orange-metal-logo.png';
 
 Color workoutShareAccent(String style) => switch (style) {
   'midnight' => const Color(0xFF5B8CFF),
@@ -436,11 +436,6 @@ class _ShareInformation extends StatelessWidget {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color.lerp(accent, Colors.white, .18)!, accent],
-              ),
               borderRadius: BorderRadius.circular(14),
               boxShadow: [
                 BoxShadow(
@@ -450,10 +445,11 @@ class _ShareInformation extends StatelessWidget {
                 ),
               ],
             ),
-            child: const Icon(
-              Icons.bolt_rounded,
-              color: Colors.white,
-              size: 31,
+            clipBehavior: Clip.antiAlias,
+            child: Image.asset(
+              _brandLogoAsset,
+              fit: BoxFit.cover,
+              semanticLabel: 'KILOSTRENGTH 标志',
             ),
           ),
           const SizedBox(width: 18),
@@ -593,9 +589,36 @@ class _BrandVisual extends StatelessWidget {
   final Color accent;
 
   @override
-  Widget build(BuildContext context) => CustomPaint(
-    painter: _BrandVisualPainter(accent: accent),
-    child: const SizedBox.expand(),
+  Widget build(BuildContext context) => Stack(
+    fit: StackFit.expand,
+    children: [
+      DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: RadialGradient(
+            center: const Alignment(.58, 0),
+            radius: .58,
+            colors: [
+              accent.withValues(alpha: .18),
+              accent.withValues(alpha: .04),
+              Colors.transparent,
+            ],
+          ),
+        ),
+      ),
+      Align(
+        alignment: const Alignment(.68, 0),
+        child: SizedBox.square(
+          dimension: 500,
+          child: ClipOval(
+            child: Image.asset(
+              _brandLogoAsset,
+              fit: BoxFit.cover,
+              semanticLabel: 'KILOSTRENGTH 品牌主视觉',
+            ),
+          ),
+        ),
+      ),
+    ],
   );
 }
 
@@ -710,126 +733,5 @@ class _ShareFoldPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _ShareFoldPainter oldDelegate) =>
-      oldDelegate.accent != accent;
-}
-
-class _BrandVisualPainter extends CustomPainter {
-  const _BrandVisualPainter({required this.accent});
-
-  final Color accent;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width * .79, size.height * .5);
-    final radius = math.min(size.width, size.height) * .31;
-    final glowRect = Rect.fromCircle(center: center, radius: radius * 1.42);
-    canvas.drawCircle(
-      center,
-      radius * 1.42,
-      Paint()
-        ..shader = RadialGradient(
-          colors: [
-            accent.withValues(alpha: .20),
-            accent.withValues(alpha: .05),
-            Colors.transparent,
-          ],
-          stops: const [0, .48, 1],
-        ).createShader(glowRect),
-    );
-    for (final scale in [1.15, 1.38, 1.62]) {
-      canvas.drawCircle(
-        center,
-        radius * scale,
-        Paint()
-          ..color = accent.withValues(alpha: .12)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.3,
-      );
-    }
-
-    final markRect = Rect.fromCircle(center: center, radius: radius * .72);
-    canvas.drawArc(
-      markRect,
-      .18 * math.pi,
-      1.54 * math.pi,
-      false,
-      Paint()
-        ..color = const Color(0xFF111113)
-        ..style = PaintingStyle.stroke
-        ..strokeCap = StrokeCap.round
-        ..strokeWidth = radius * .19,
-    );
-    canvas.drawArc(
-      markRect,
-      .18 * math.pi,
-      1.54 * math.pi,
-      false,
-      Paint()
-        ..shader = const SweepGradient(
-          colors: [
-            Color(0xFF4B4B4E),
-            Color(0xFF111113),
-            Color(0xFFE1E1E3),
-            Color(0xFF171719),
-            Color(0xFF4B4B4E),
-          ],
-        ).createShader(markRect)
-        ..style = PaintingStyle.stroke
-        ..strokeCap = StrokeCap.round
-        ..strokeWidth = radius * .16,
-    );
-    canvas.drawArc(
-      markRect,
-      1.55 * math.pi,
-      .34 * math.pi,
-      false,
-      Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color.lerp(accent, Colors.white, .28)!,
-            accent,
-            Color.lerp(accent, Colors.black, .35)!,
-          ],
-        ).createShader(markRect)
-        ..style = PaintingStyle.stroke
-        ..strokeCap = StrokeCap.round
-        ..strokeWidth = radius * .17,
-    );
-
-    final nodeFill = Paint()..color = const Color(0xFF171719);
-    final edge = Paint()
-      ..color = Color.lerp(accent, Colors.white, .55)!
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.2;
-    final nodes = [
-      center + Offset(-radius * .49, -radius * .42),
-      center + Offset(radius * .20, radius * .64),
-    ];
-    for (final node in nodes) {
-      canvas.drawCircle(node, radius * .105, nodeFill);
-      canvas.drawCircle(node, radius * .105, edge);
-    }
-
-    final triangle = Path()
-      ..moveTo(center.dx + radius * .46, center.dy - radius * .12)
-      ..lineTo(center.dx + radius * .72, center.dy)
-      ..lineTo(center.dx + radius * .46, center.dy + radius * .12)
-      ..close();
-    canvas.drawPath(
-      triangle,
-      Paint()
-        ..shader = const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF5A5A5E), Color(0xFF111113)],
-        ).createShader(triangle.getBounds()),
-    );
-    canvas.drawPath(triangle, edge);
-  }
-
-  @override
-  bool shouldRepaint(covariant _BrandVisualPainter oldDelegate) =>
       oldDelegate.accent != accent;
 }

@@ -2004,7 +2004,7 @@ class AppController extends ChangeNotifier {
   bool livePrEnabled = true;
   String selectedExerciseId = 'bench_press';
   AppLanguage appLanguage = AppLanguage.simplifiedChinese;
-  KiloThemeChoice themeChoice = KiloThemeChoice.warm;
+  bool darkMode = false;
   String search = '';
   String muscleFilter = '全部';
   String equipmentFilter = '全部';
@@ -2810,25 +2810,24 @@ class AppController extends ChangeNotifier {
   Future<void> hydrateTheme() async {
     try {
       final preferences = await SharedPreferences.getInstance();
-      final stored = preferences.getString('kilo_theme_choice');
-      final value = KiloThemeChoice.values.where((item) => item.name == stored);
-      if (_disposed || value.isEmpty) return;
-      themeChoice = value.first;
+      final stored = preferences.getBool('kilo_dark_mode');
+      if (_disposed || stored == null) return;
+      darkMode = stored;
       notifyListeners();
     } catch (_) {
-      // Keep the compatibility palette when storage is unavailable.
+      // Keep light mode when platform storage is unavailable.
     }
   }
 
-  Future<void> setThemeChoice(KiloThemeChoice value) async {
-    if (themeChoice == value) return;
-    themeChoice = value;
+  Future<void> setDarkMode(bool value) async {
+    if (darkMode == value) return;
+    darkMode = value;
     notifyListeners();
     try {
       final preferences = await SharedPreferences.getInstance();
-      await preferences.setString('kilo_theme_choice', value.name);
+      await preferences.setBool('kilo_dark_mode', value);
     } catch (_) {
-      // The in-memory selection remains available in previews/tests.
+      // The in-memory mode remains available in previews/tests.
     }
   }
 

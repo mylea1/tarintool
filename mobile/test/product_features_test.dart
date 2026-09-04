@@ -245,7 +245,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('guide and theme pages expose compact self-service controls', (
+  testWidgets('guide page exposes compact self-service controls', (
     tester,
   ) async {
     final controller = AppController();
@@ -258,13 +258,5 @@ void main() {
     expect(find.byKey(const Key('guide-page')), findsOneWidget);
     expect(find.byKey(const Key('guide-chapter-0')), findsOneWidget);
     expect(find.text('快速开始'), findsOneWidget);
-
-    await tester.pumpWidget(
-      MaterialApp(home: ThemeChoicePage(controller: controller)),
-    );
-    await tester.pump();
-    await tester.tap(find.byKey(const Key('theme-choice-glacier')));
-    await tester.pump();
-    expect(controller.themeChoice, KiloThemeChoice.glacier);
   });
 }

@@ -58,11 +58,11 @@ class AiTrainingHomeCard extends StatelessWidget {
           border: Border.all(
             color: Theme.of(context).colorScheme.outlineVariant,
           ),
-          boxShadow: const [
+          boxShadow: [
             BoxShadow(
-              color: Color(0x120B2B40),
+              color: Theme.of(context).shadowColor.withValues(alpha: .10),
               blurRadius: 24,
-              offset: Offset(0, 10),
+              offset: const Offset(0, 10),
             ),
           ],
         ),
@@ -445,9 +445,9 @@ class GymLocationsPage extends StatelessWidget {
                       selectedExerciseIds.isEmpty
                           ? '尚未添加动作。添加后，训练计划的动作选择器可直接切换到这个健身房。'
                           : '已添加 ${selectedExerciseIds.length} 个动作',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
-                        color: Color(0xFF708494),
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                     ),
                     if (selectedExerciseIds.isNotEmpty) ...[

@@ -195,6 +195,37 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('profile exposes light and dark modes without color themes', (
+    tester,
+  ) async {
+    final controller = AppController();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(KiloApp(initialController: controller));
+    await tester.pumpAndSettle();
+    controller.selectPage(PageId.profile);
+    await tester.pumpAndSettle();
+
+    final modeRow = find.byKey(const Key('profile-dark-mode-toggle'));
+    await tester.scrollUntilVisible(
+      modeRow,
+      500,
+      scrollable: find.byType(Scrollable).last,
+    );
+    expect(modeRow, findsOneWidget);
+    expect(find.text('主题颜色'), findsNothing);
+
+    await tester.tap(
+      find.descendant(of: modeRow, matching: find.byType(Switch)),
+    );
+    await tester.pumpAndSettle();
+
+    expect(controller.darkMode, isTrue);
+    expect(
+      Theme.of(tester.element(find.byType(KiloShell))).brightness,
+      Brightness.dark,
+    );
+  });
+
   test('all reference exercise media assets load', () async {
     expect(catalog, hasLength(1324));
     expect(selectableCatalog.length, lessThan(catalog.length - 300));
@@ -784,7 +815,7 @@ void main() {
     expect(find.textContaining('82.5 kg × 6 次'), findsOneWidget);
   });
 
-  testWidgets('warm orange theme tokens reach shell navigation and inputs', (
+  testWidgets('logo orange light theme reaches shell navigation and inputs', (
     tester,
   ) async {
     final controller = AppController();
@@ -793,15 +824,36 @@ void main() {
 
     final context = tester.element(find.byType(KiloShell));
     final theme = Theme.of(context);
-    expect(theme.scaffoldBackgroundColor, const Color(0xFFFFF7F0));
-    expect(theme.colorScheme.primary, const Color(0xFFD95718));
-    expect(theme.colorScheme.surface, const Color(0xFFFFFFFF));
+    expect(theme.scaffoldBackgroundColor, const Color(0xFFF2F4F6));
+    expect(theme.colorScheme.primary, const Color(0xFFD64C0C));
+    expect(theme.colorScheme.surface, const Color(0xFFF8FAFB));
     expect(
       NavigationBarTheme.of(context).indicatorColor,
-      const Color(0xFFFFE3D2),
+      const Color(0xFFE8EDF1),
     );
     final focusedBorder = theme.inputDecorationTheme.focusedBorder!;
-    expect(focusedBorder.borderSide.color, const Color(0xFFD95718));
+    expect(focusedBorder.borderSide.color, const Color(0xFFD64C0C));
+  });
+
+  testWidgets('logo orange dark theme reaches shell navigation and inputs', (
+    tester,
+  ) async {
+    final controller = AppController()..darkMode = true;
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(KiloApp(initialController: controller));
+
+    final context = tester.element(find.byType(KiloShell));
+    final theme = Theme.of(context);
+    expect(theme.brightness, Brightness.dark);
+    expect(theme.scaffoldBackgroundColor, const Color(0xFF0D0B0A));
+    expect(theme.colorScheme.primary, const Color(0xFFFF7A2F));
+    expect(theme.colorScheme.surface, const Color(0xFF171310));
+    expect(
+      NavigationBarTheme.of(context).indicatorColor,
+      const Color(0xFF4A230F),
+    );
+    final focusedBorder = theme.inputDecorationTheme.focusedBorder!;
+    expect(focusedBorder.borderSide.color, const Color(0xFFFF7A2F));
   });
 
   testWidgets('free training starts empty timer and can add first action', (
@@ -1913,7 +1965,7 @@ void main() {
       );
       expect(
         (completedRow.decoration! as BoxDecoration).color,
-        const Color(0xFFE6F5EC),
+        const Color(0xFFDDEFE6),
       );
 
       final weightField = find.byKey(Key('weight-${set.id}'));
@@ -1940,15 +1992,21 @@ void main() {
         find.byKey(Key('exercise-note-preview-${exercise.id}')),
       );
       await tester.tap(find.byKey(Key('exercise-note-preview-${exercise.id}')));
-      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 400));
       await tester.enterText(
         find.byKey(Key('exercise-note-input-${exercise.id}')),
         '肩胛收紧，器械第 7 档',
       );
-      await tester.tap(find.byKey(Key('exercise-note-save-${exercise.id}')));
-      await tester.pumpAndSettle();
+      final saveExerciseNote = find.byKey(
+        Key('exercise-note-save-${exercise.id}'),
+      );
+      tester.testTextInput.hide();
+      await tester.pump(const Duration(milliseconds: 250));
+      await tester.ensureVisible(saveExerciseNote);
+      await tester.tap(saveExerciseNote);
+      await tester.pump(const Duration(milliseconds: 800));
       expect(exercise.note, '肩胛收紧，器械第 7 档');
-      expect(find.textContaining('器械第 7 档'), findsOneWidget);
+      expect(find.textContaining('器械第 7 档'), findsWidgets);
 
       await tester.ensureVisible(find.byKey(Key('set-complete-${set.id}')));
       await tester.tap(find.byKey(Key('set-complete-${set.id}')));
@@ -2062,7 +2120,7 @@ void main() {
     );
     expect(
       (detailRow.decoration! as BoxDecoration).color,
-      const Color(0xFFE5F5EB),
+      const Color(0xFFDDEFE6),
     );
     expect(find.textContaining('50 kg'), findsWidgets);
     Navigator.of(

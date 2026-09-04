@@ -133,6 +133,18 @@ void main() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
   });
 
+  test('dark appearance mode persists across controller instances', () async {
+    final first = AppController();
+    addTearDown(first.dispose);
+    await first.setDarkMode(true);
+
+    final restored = AppController();
+    addTearDown(restored.dispose);
+    await restored.hydrateTheme();
+
+    expect(restored.darkMode, isTrue);
+  });
+
   test(
     'statistics exercise and metric choices persist per local profile',
     () async {

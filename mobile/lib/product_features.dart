@@ -440,9 +440,9 @@ class _NutritionAiAdviceModule extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 7),
-              const Text(
+              Text(
                 '根据今天的饮食与训练数据生成专属建议。',
-                style: TextStyle(color: Color(0xFF756156), fontSize: 12),
+                style: TextStyle(color: _muted(context), fontSize: 12),
               ),
               const SizedBox(height: 7),
               Row(
@@ -2975,7 +2975,7 @@ class _GuidePageState extends State<GuidePage> {
       title: 'AI 与账号设置',
       icon: Icons.auto_awesome_outlined,
       image: 'assets/branding/xingyu-mark.png',
-      steps: ['在 AI 页开启训练摘要授权', '需要时随时撤销授权', '账号、会员和主题在我的页面管理'],
+      steps: ['在 AI 页开启训练摘要授权', '需要时随时撤销授权', '账号、会员和深色模式在我的页面管理'],
     ),
   ];
 
@@ -3167,97 +3167,6 @@ class _GuideChapterTile extends StatelessWidget {
             ),
           ),
       ],
-    ),
-  );
-}
-
-class ThemeChoicePage extends StatelessWidget {
-  const ThemeChoicePage({super.key, required this.controller});
-  final AppController controller;
-
-  String _label(KiloThemeChoice choice) => switch (choice) {
-    KiloThemeChoice.warm => '暖橙',
-    KiloThemeChoice.glacier => '冰川蓝',
-    KiloThemeChoice.forest => '森氧绿',
-    KiloThemeChoice.titanium => '钛银红',
-  };
-
-  String _caption(KiloThemeChoice choice) => switch (choice) {
-    KiloThemeChoice.warm => '现有配色兼容模式',
-    KiloThemeChoice.glacier => '清透、冷静、适合高频记录',
-    KiloThemeChoice.forest => '柔和、自然、低刺激',
-    KiloThemeChoice.titanium => '中性银灰配竞速红',
-  };
-
-  Color _swatch(KiloThemeChoice choice) => switch (choice) {
-    KiloThemeChoice.warm => const Color(0xFFD95718),
-    KiloThemeChoice.glacier => const Color(0xFF2468C9),
-    KiloThemeChoice.forest => const Color(0xFF21845A),
-    KiloThemeChoice.titanium => const Color(0xFFC8463C),
-  };
-
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    key: const Key('theme-choice-page'),
-    appBar: AppBar(title: const Text('主题颜色')),
-    body: SafeArea(
-      top: false,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 30),
-        children: [
-          Text('选择主题', style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 5),
-          Text(
-            '浅色背景保持一致，按钮、状态和图标会同步变化。',
-            style: TextStyle(color: _muted(context), fontSize: 12),
-          ),
-          const SizedBox(height: 14),
-          RadioGroup<KiloThemeChoice>(
-            groupValue: controller.themeChoice,
-            onChanged: (value) {
-              if (value != null) {
-                unawaited(controller.setThemeChoice(value));
-              }
-            },
-            child: Column(
-              children: [
-                for (final choice in const [
-                  KiloThemeChoice.glacier,
-                  KiloThemeChoice.forest,
-                  KiloThemeChoice.titanium,
-                  KiloThemeChoice.warm,
-                ])
-                  Card(
-                    key: Key('theme-choice-${choice.name}'),
-                    margin: const EdgeInsets.only(bottom: 10),
-                    child: ListTile(
-                      onTap: () => unawaited(controller.setThemeChoice(choice)),
-                      leading: Radio<KiloThemeChoice>(value: choice),
-                      title: Row(
-                        children: [
-                          Container(
-                            width: 16,
-                            height: 16,
-                            decoration: BoxDecoration(
-                              color: _swatch(choice),
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            _label(choice),
-                            style: const TextStyle(fontWeight: FontWeight.w900),
-                          ),
-                        ],
-                      ),
-                      subtitle: Text(_caption(choice)),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
     ),
   );
 }

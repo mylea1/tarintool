@@ -317,7 +317,10 @@ class _InteractiveMuscleMapState extends State<InteractiveMuscleMap> {
                 selectedLabels.join(' · '),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Color(0xFF756156), fontSize: 10),
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontSize: 10,
+                ),
               ),
             ),
         ],
@@ -347,8 +350,8 @@ class _SideButton extends StatelessWidget {
         minimumSize: const Size(0, 44),
         padding: const EdgeInsets.symmetric(horizontal: 4),
         foregroundColor: selected
-            ? const Color(0xFFD95718)
-            : const Color(0xFF756156),
+            ? Theme.of(context).colorScheme.primary
+            : Theme.of(context).colorScheme.onSurfaceVariant,
         textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
       ),
       child: FittedBox(

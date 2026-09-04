@@ -10,14 +10,24 @@ import 'account_membership.dart';
 import 'ai_api.dart';
 import 'controller.dart';
 
-const _paper = Color(0xFFFFF7F0);
-const _ink = Color(0xFF241A15);
-const _muted = Color(0xFF756156);
-const _ember = Color(0xFFD95718);
-const _emberBright = Color(0xFFF36A1D);
-const _emberSoft = Color(0xFFFFE3D2);
-const _line = Color(0xFFEAD9CD);
-const _success = Color(0xFF21845A);
+Color _membershipPaper(BuildContext context) =>
+    Theme.of(context).scaffoldBackgroundColor;
+Color _membershipInk(BuildContext context) =>
+    Theme.of(context).colorScheme.onSurface;
+Color _membershipMuted(BuildContext context) =>
+    Theme.of(context).colorScheme.onSurfaceVariant;
+Color _membershipEmber(BuildContext context) =>
+    Theme.of(context).colorScheme.primary;
+Color _membershipEmberBright(BuildContext context) =>
+    Theme.of(context).colorScheme.secondary;
+Color _membershipEmberSoft(BuildContext context) =>
+    Theme.of(context).colorScheme.primaryContainer;
+Color _membershipLine(BuildContext context) =>
+    Theme.of(context).colorScheme.outlineVariant;
+Color _membershipSuccess(BuildContext context) =>
+    Theme.of(context).brightness == Brightness.dark
+    ? const Color(0xFF75CBA1)
+    : const Color(0xFF247552);
 
 enum MembershipPaywallReason {
   aiQuota,
@@ -51,9 +61,13 @@ class MembershipMark extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: isMember ? _ink : Colors.white,
+        color: isMember
+            ? _membershipInk(context)
+            : Theme.of(context).colorScheme.surface,
         border: Border.all(
-          color: isMember ? _emberBright : _line,
+          color: isMember
+              ? _membershipEmberBright(context)
+              : _membershipLine(context),
           width: size < 24 ? 1.5 : 2,
         ),
         boxShadow: isMember
@@ -65,7 +79,7 @@ class MembershipMark extends StatelessWidget {
             ? Icons.local_fire_department_rounded
             : Icons.person_outline_rounded,
         size: size * .58,
-        color: isMember ? const Color(0xFFFFB47F) : _muted,
+        color: isMember ? const Color(0xFFFFB47F) : _membershipMuted(context),
       ),
     ),
   );
@@ -377,7 +391,7 @@ Future<void> showMembershipPaywall(
     context: context,
     useSafeArea: true,
     isScrollControlled: true,
-    backgroundColor: _paper,
+    backgroundColor: _membershipPaper(context),
     builder: (sheetContext) => SafeArea(
       top: false,
       child: SingleChildScrollView(
@@ -396,7 +410,7 @@ Future<void> showMembershipPaywall(
                 width: 42,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: _line,
+                  color: _membershipLine(context),
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
@@ -407,8 +421,8 @@ Future<void> showMembershipPaywall(
             Text(
               title,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: _ink,
+              style: TextStyle(
+                color: _membershipInk(context),
                 fontSize: 22,
                 fontWeight: FontWeight.w900,
               ),
@@ -417,7 +431,7 @@ Future<void> showMembershipPaywall(
             Text(
               caption,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: _muted),
+              style: TextStyle(color: _membershipMuted(context)),
             ),
             const SizedBox(height: 18),
             const _PaywallBenefit(
@@ -453,7 +467,7 @@ Future<void> showMembershipPaywall(
               },
               style: FilledButton.styleFrom(
                 minimumSize: const Size.fromHeight(52),
-                backgroundColor: _ember,
+                backgroundColor: _membershipEmber(context),
               ),
               child: const Text('查看会员方案'),
             ),
@@ -489,10 +503,10 @@ class _PaywallBenefit extends StatelessWidget {
           width: 38,
           height: 38,
           decoration: BoxDecoration(
-            color: _emberSoft,
+            color: _membershipEmberSoft(context),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Icon(icon, color: _ember, size: 20),
+          child: Icon(icon, color: _membershipEmber(context), size: 20),
         ),
         const SizedBox(width: 11),
         Expanded(
@@ -501,14 +515,17 @@ class _PaywallBenefit extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.w800,
-                  color: _ink,
+                  color: _membershipInk(context),
                 ),
               ),
               Text(
                 caption,
-                style: const TextStyle(fontSize: 12, color: _muted),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: _membershipMuted(context),
+                ),
               ),
             ],
           ),
@@ -566,19 +583,22 @@ class _MembershipCenterPageState extends State<MembershipCenterPage>
   Widget build(BuildContext context) {
     final entitlement = widget.controller.entitlements;
     return Scaffold(
-      backgroundColor: _paper,
-      appBar: AppBar(backgroundColor: _paper, title: const Text('会员中心')),
+      backgroundColor: _membershipPaper(context),
+      appBar: AppBar(
+        backgroundColor: _membershipPaper(context),
+        title: const Text('会员中心'),
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 118),
         children: [
           _MemberHero(entitlement: entitlement),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             '选择适合你的方案',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w900,
-              color: _ink,
+              color: _membershipInk(context),
             ),
           ),
           const SizedBox(height: 4),
@@ -606,7 +626,7 @@ class _MembershipCenterPageState extends State<MembershipCenterPage>
                   onPressed: purchase.restore,
                   child: const Text('恢复购买'),
                 ),
-                const Text('·', style: TextStyle(color: _muted)),
+                Text('·', style: TextStyle(color: _membershipMuted(context))),
               ],
               TextButton(
                 onPressed: () => _showRedeem(context, widget.controller),
@@ -671,8 +691,8 @@ class _MembershipCenterPageState extends State<MembershipCenterPage>
                     : () => purchase.purchase(selected),
                 style: FilledButton.styleFrom(
                   minimumSize: const Size.fromHeight(54),
-                  backgroundColor: _ember,
-                  disabledBackgroundColor: _line,
+                  backgroundColor: _membershipEmber(context),
+                  disabledBackgroundColor: _membershipLine(context),
                 ),
                 child: purchase.loading
                     ? const SizedBox.square(
@@ -814,17 +834,17 @@ class _TrialStatus extends StatelessWidget {
           ? '首次训练解锁的 3 天权益已生效。'
           : '到期时间：${expires.year}.${expires.month.toString().padLeft(2, '0')}.${expires.day.toString().padLeft(2, '0')} ${expires.hour.toString().padLeft(2, '0')}:${expires.minute.toString().padLeft(2, '0')}';
       icon = Icons.bolt_rounded;
-      color = _success;
+      color = _membershipSuccess(context);
     } else if (value.trialClaimed) {
       title = '3 天 PRO 试用已使用';
       detail = '试用期已结束，开通会员即可继续使用高级能力。';
       icon = Icons.lock_clock_outlined;
-      color = _muted;
+      color = _membershipMuted(context);
     } else {
       title = '完成训练，解锁 3 天 PRO';
       detail = '登录后完成首次至少 30 分钟且含有效组的训练后自动解锁。';
       icon = Icons.lock_open_rounded;
-      color = _ember;
+      color = _membershipEmber(context);
     }
     return Container(
       key: const Key('membership-trial-status'),
@@ -849,7 +869,10 @@ class _TrialStatus extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   detail,
-                  style: const TextStyle(color: _muted, fontSize: 12),
+                  style: TextStyle(
+                    color: _membershipMuted(context),
+                    fontSize: 12,
+                  ),
                 ),
               ],
             ),
@@ -870,21 +893,30 @@ class _CloudSyncStatus extends StatelessWidget {
     key: const Key('membership-cloud-sync-status'),
     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
     decoration: BoxDecoration(
-      color: isEnabled ? const Color(0xFFEAF5EF) : Colors.white,
+      color: isEnabled
+          ? _membershipSuccess(context).withValues(alpha: .12)
+          : Theme.of(context).colorScheme.surface,
       borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: isEnabled ? const Color(0xFFB9DDC8) : _line),
+      border: Border.all(
+        color: isEnabled ? const Color(0xFFB9DDC8) : _membershipLine(context),
+      ),
     ),
     child: Row(
       children: [
         Icon(
           isEnabled ? Icons.cloud_done_outlined : Icons.cloud_outlined,
-          color: isEnabled ? _success : _muted,
+          color: isEnabled
+              ? _membershipSuccess(context)
+              : _membershipMuted(context),
         ),
         const SizedBox(width: 10),
         Expanded(
           child: Text(
             isEnabled ? 'PRO 云同步已开启' : 'PRO 解锁多设备云同步',
-            style: const TextStyle(fontWeight: FontWeight.w800, color: _ink),
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              color: _membershipInk(context),
+            ),
           ),
         ),
         Flexible(
@@ -892,7 +924,7 @@ class _CloudSyncStatus extends StatelessWidget {
             isEnabled ? '登录后自动同步' : '会员权益',
             textAlign: TextAlign.end,
             softWrap: true,
-            style: const TextStyle(fontSize: 11, color: _muted),
+            style: TextStyle(fontSize: 11, color: _membershipMuted(context)),
           ),
         ),
       ],
@@ -1002,11 +1034,13 @@ class _PlanCard extends StatelessWidget {
         constraints: const BoxConstraints(minHeight: 140),
         child: Material(
           key: Key('membership-plan-${plan.name}'),
-          color: Colors.white,
+          color: Theme.of(context).colorScheme.surface,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
             side: BorderSide(
-              color: selected ? const Color(0xFFF0A16F) : _line,
+              color: selected
+                  ? const Color(0xFFF0A16F)
+                  : _membershipLine(context),
               width: selected ? 1.5 : 1,
             ),
           ),
@@ -1025,10 +1059,10 @@ class _PlanCard extends StatelessWidget {
                       Expanded(
                         child: Text(
                           title,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w900,
-                            color: _ink,
+                            color: _membershipInk(context),
                           ),
                         ),
                       ),
@@ -1038,7 +1072,9 @@ class _PlanCard extends StatelessWidget {
                             ? Icons.radio_button_checked_rounded
                             : Icons.radio_button_unchecked_rounded,
                         size: 18,
-                        color: selected ? _ember : _muted,
+                        color: selected
+                            ? _membershipEmber(context)
+                            : _membershipMuted(context),
                       ),
                     ],
                   ),
@@ -1050,8 +1086,8 @@ class _PlanCard extends StatelessWidget {
                       price,
                       maxLines: 1,
                       softWrap: false,
-                      style: const TextStyle(
-                        color: _ink,
+                      style: TextStyle(
+                        color: _membershipInk(context),
                         fontSize: 28,
                         fontWeight: FontWeight.w900,
                       ),
@@ -1060,14 +1096,20 @@ class _PlanCard extends StatelessWidget {
                   const SizedBox(height: 3),
                   Text(
                     caption,
-                    style: const TextStyle(color: _muted, fontSize: 11),
+                    style: TextStyle(
+                      color: _membershipMuted(context),
+                      fontSize: 11,
+                    ),
                   ),
                   if (unavailable)
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.only(top: 3),
                       child: Text(
                         '暂不可购买',
-                        style: TextStyle(color: _muted, fontSize: 11),
+                        style: TextStyle(
+                          color: _membershipMuted(context),
+                          fontSize: 11,
+                        ),
                       ),
                     ),
                 ],
@@ -1086,9 +1128,9 @@ class _BenefitsCard extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
-      color: Colors.white,
+      color: Theme.of(context).colorScheme.surface,
       borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: _line),
+      border: Border.all(color: _membershipLine(context)),
     ),
     child: const Column(
       children: [
@@ -1138,7 +1180,7 @@ class _BenefitRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(
     children: [
-      Icon(icon, color: _ember),
+      Icon(icon, color: _membershipEmber(context)),
       const SizedBox(width: 12),
       Expanded(
         child: Column(
@@ -1146,13 +1188,23 @@ class _BenefitRow extends StatelessWidget {
           children: [
             Text(
               title,
-              style: const TextStyle(fontWeight: FontWeight.w800, color: _ink),
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                color: _membershipInk(context),
+              ),
             ),
-            Text(caption, style: const TextStyle(fontSize: 12, color: _muted)),
+            Text(
+              caption,
+              style: TextStyle(fontSize: 12, color: _membershipMuted(context)),
+            ),
           ],
         ),
       ),
-      const Icon(Icons.check_circle_rounded, color: _success, size: 20),
+      Icon(
+        Icons.check_circle_rounded,
+        color: _membershipSuccess(context),
+        size: 20,
+      ),
     ],
   );
 }
@@ -1164,17 +1216,21 @@ class _InlineNotice extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(12),
     decoration: BoxDecoration(
-      color: const Color(0xFFFFF1E8),
+      color: _membershipEmberSoft(context).withValues(alpha: .62),
       borderRadius: BorderRadius.circular(14),
     ),
     child: Row(
       children: [
-        const Icon(Icons.info_outline_rounded, color: _ember, size: 20),
+        Icon(
+          Icons.info_outline_rounded,
+          color: _membershipEmber(context),
+          size: 20,
+        ),
         const SizedBox(width: 9),
         Expanded(
           child: Text(
             message,
-            style: const TextStyle(fontSize: 12, color: _muted),
+            style: TextStyle(fontSize: 12, color: _membershipMuted(context)),
           ),
         ),
       ],
@@ -1240,20 +1296,30 @@ class _MembershipOrdersPageState extends State<MembershipOrdersPage> {
   Widget build(BuildContext context) {
     final orders = widget.controller.membershipOrders;
     return Scaffold(
-      backgroundColor: _paper,
-      appBar: AppBar(backgroundColor: _paper, title: const Text('会员订单')),
+      backgroundColor: _membershipPaper(context),
+      appBar: AppBar(
+        backgroundColor: _membershipPaper(context),
+        title: const Text('会员订单'),
+      ),
       body: orders.isEmpty
-          ? const Center(
+          ? Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.receipt_long_outlined, color: _muted, size: 48),
+                  Icon(
+                    Icons.receipt_long_outlined,
+                    color: _membershipMuted(context),
+                    size: 48,
+                  ),
                   SizedBox(height: 10),
                   Text(
                     '还没有会员订单',
                     style: TextStyle(fontWeight: FontWeight.w800),
                   ),
-                  Text('开通或恢复购买后，订单会显示在这里。', style: TextStyle(color: _muted)),
+                  Text(
+                    '开通或恢复购买后，订单会显示在这里。',
+                    style: TextStyle(color: _membershipMuted(context)),
+                  ),
                 ],
               ),
             )
@@ -1294,11 +1360,12 @@ class _OrderCard extends StatelessWidget {
       MembershipOrderStatus.refunded => '已退款',
     };
     final color = switch (order.status) {
-      MembershipOrderStatus.paid || MembershipOrderStatus.restored => _success,
+      MembershipOrderStatus.paid ||
+      MembershipOrderStatus.restored => _membershipSuccess(context),
       MembershipOrderStatus.failed ||
       MembershipOrderStatus.cancelled ||
-      MembershipOrderStatus.refunded => _muted,
-      _ => _ember,
+      MembershipOrderStatus.refunded => _membershipMuted(context),
+      _ => _membershipEmber(context),
     };
     final plan = switch (order.plan) {
       MembershipPlan.oneMonth => '月度会员',
@@ -1310,9 +1377,9 @@ class _OrderCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: _line),
+        border: Border.all(color: _membershipLine(context)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1324,9 +1391,9 @@ class _OrderCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   plan,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.w900,
-                    color: _ink,
+                    color: _membershipInk(context),
                   ),
                 ),
               ),
@@ -1343,7 +1410,10 @@ class _OrderCard extends StatelessWidget {
                 child: Text(
                   '订单 ${order.id}',
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 11, color: _muted),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: _membershipMuted(context),
+                  ),
                 ),
               ),
               Text(
@@ -1355,7 +1425,7 @@ class _OrderCard extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             '${order.createdAt.year}.${order.createdAt.month}.${order.createdAt.day} ${order.createdAt.hour.toString().padLeft(2, '0')}:${order.createdAt.minute.toString().padLeft(2, '0')}',
-            style: const TextStyle(fontSize: 11, color: _muted),
+            style: TextStyle(fontSize: 11, color: _membershipMuted(context)),
           ),
           if (onCancel != null) ...[
             const SizedBox(height: 10),
@@ -1365,7 +1435,9 @@ class _OrderCard extends StatelessWidget {
                 onPressed: cancelling ? null : onCancel,
                 icon: const Icon(Icons.close_rounded, size: 16),
                 label: const Text('取消待支付订单'),
-                style: OutlinedButton.styleFrom(foregroundColor: _muted),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: _membershipMuted(context),
+                ),
               ),
             ),
           ],
@@ -1381,7 +1453,7 @@ Future<void> _showRedeem(BuildContext context, AppController controller) async {
     context: context,
     useSafeArea: true,
     isScrollControlled: true,
-    backgroundColor: _paper,
+    backgroundColor: _membershipPaper(context),
     builder: (sheetContext) => Padding(
       padding: EdgeInsets.fromLTRB(
         20,
@@ -1398,7 +1470,10 @@ Future<void> _showRedeem(BuildContext context, AppController controller) async {
             style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: 6),
-          const Text('兑换码仅能使用一次，成功后会员会立即生效。', style: TextStyle(color: _muted)),
+          Text(
+            '兑换码仅能使用一次，成功后会员会立即生效。',
+            style: TextStyle(color: _membershipMuted(context)),
+          ),
           const SizedBox(height: 16),
           TextField(
             controller: code,
@@ -1414,7 +1489,7 @@ Future<void> _showRedeem(BuildContext context, AppController controller) async {
           FilledButton(
             style: FilledButton.styleFrom(
               minimumSize: const Size.fromHeight(50),
-              backgroundColor: _ember,
+              backgroundColor: _membershipEmber(context),
             ),
             onPressed: () {
               final result = controller.redeemCode(code.text);

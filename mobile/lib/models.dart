@@ -12,11 +12,6 @@ enum TrainView { workout, plans, history }
 
 enum AiView { chat, recognition }
 
-/// User-selectable light palettes. `warm` remains the compatibility default
-/// for existing installs; new surfaces read semantic Material color tokens so
-/// switching to glacier, forest or titanium updates them consistently.
-enum KiloThemeChoice { warm, glacier, forest, titanium }
-
 @immutable
 class AiSkill {
   const AiSkill({

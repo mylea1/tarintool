@@ -32,36 +32,121 @@ import 'training_intelligence.dart';
 import 'product_features.dart';
 import 'workout_share_card.dart';
 
-// Warm-orange Material 3 tokens. The older names remain as compatibility
-// aliases because the prototype has many focused, purpose-built widgets.
-const paper = Color(0xFFFFF7F0);
-const surface = Color(0xFFFFFFFF);
-const primary = Color(0xFFD95718);
-const primaryBright = Color(0xFFF36A1D);
-const primaryContainer = Color(0xFFFFE3D2);
-const ink = Color(0xFF241A15);
-const muted = Color(0xFF756156);
-const secondaryInk = muted;
-const quiet = muted;
-const cobalt = primary;
-const lime = Color(0xFFB7E34A);
-const orange = primaryBright;
-const success = Color(0xFF21845A);
-const successContainer = Color(0xFFE6F5EC);
-const calendarScheduled = Color(0xFFE65A17);
-const calendarScheduledContainer = Color(0xFFFFE4D2);
-const calendarSelected = Color(0xFF2468C9);
-const calendarSelectedContainer = Color(0xFFE7F0FF);
-const hairline = Color(0xFFEAD9CD);
-const emberTint = Color(0xFFFFEFE4);
-const emberShadow = Color(0x1F8E3D15);
-const danger = Color(0xFFB3261E);
-const exerciseNoteColor = Color(0xFF2459B3);
-const exerciseNoteContainer = Color(0xFFEAF1FF);
-const setNoteColor = Color(0xFF176B4A);
-const setNoteContainer = Color(0xFFE5F5ED);
-const workoutNoteColor = Color(0xFF5F6673);
-const workoutNoteContainer = Color(0xFFF0F2F5);
+typedef _KiloPalette = ({
+  Color background,
+  Color surface,
+  Color surfaceRaised,
+  Color primary,
+  Color primaryBright,
+  Color primaryContainer,
+  Color ink,
+  Color muted,
+  Color hairline,
+  Color live,
+  Color success,
+  Color successContainer,
+  Color scheduled,
+  Color scheduledContainer,
+  Color selected,
+  Color selectedContainer,
+  Color tint,
+  Color shadow,
+  Color danger,
+  Color exerciseNote,
+  Color exerciseNoteContainer,
+  Color setNote,
+  Color setNoteContainer,
+  Color workoutNote,
+  Color workoutNoteContainer,
+});
+
+const _lightPalette = (
+  background: Color(0xFFF2F4F6),
+  surface: Color(0xFFF8FAFB),
+  surfaceRaised: Color(0xFFFFFFFF),
+  primary: Color(0xFFD64C0C),
+  primaryBright: Color(0xFFFF6817),
+  primaryContainer: Color(0xFFE8EDF1),
+  ink: Color(0xFF171A1D),
+  muted: Color(0xFF5E6872),
+  hairline: Color(0xFFD7DDE2),
+  live: Color(0xFF2F6F9F),
+  success: Color(0xFF247552),
+  successContainer: Color(0xFFDDEFE6),
+  scheduled: Color(0xFFD64C0C),
+  scheduledContainer: Color(0xFFE8EDF1),
+  selected: Color(0xFF394A59),
+  selectedContainer: Color(0xFFE1E7EC),
+  tint: Color(0xFFEDF0F3),
+  shadow: Color(0x2426323C),
+  danger: Color(0xFFB3261E),
+  exerciseNote: Color(0xFF9A471B),
+  exerciseNoteContainer: Color(0xFFE8EDF1),
+  setNote: Color(0xFF53616C),
+  setNoteContainer: Color(0xFFE5EAEF),
+  workoutNote: Color(0xFF52606B),
+  workoutNoteContainer: Color(0xFFE9EDF0),
+);
+
+const _darkPalette = (
+  background: Color(0xFF0D0B0A),
+  surface: Color(0xFF171310),
+  surfaceRaised: Color(0xFF211A16),
+  primary: Color(0xFFFF7A2F),
+  primaryBright: Color(0xFFFF9A5C),
+  primaryContainer: Color(0xFF4A230F),
+  ink: Color(0xFFF7EEE8),
+  muted: Color(0xFFC9B8AD),
+  hairline: Color(0xFF4B3B32),
+  live: Color(0xFFF0B45B),
+  success: Color(0xFF75CBA1),
+  successContainer: Color(0xFF173B2D),
+  scheduled: Color(0xFFFF8B48),
+  scheduledContainer: Color(0xFF4B2513),
+  selected: Color(0xFFFFB07A),
+  selectedContainer: Color(0xFF422A1E),
+  tint: Color(0xFF2B1B13),
+  shadow: Color(0x52000000),
+  danger: Color(0xFFFFB4AB),
+  exerciseNote: Color(0xFFFFB184),
+  exerciseNoteContainer: Color(0xFF3D2417),
+  setNote: Color(0xFFE4C187),
+  setNoteContainer: Color(0xFF362C1D),
+  workoutNote: Color(0xFFCFC2BA),
+  workoutNoteContainer: Color(0xFF2A2522),
+);
+
+_KiloPalette _activePalette = _lightPalette;
+
+Color get paper => _activePalette.background;
+Color get surface => _activePalette.surface;
+Color get surfaceRaised => _activePalette.surfaceRaised;
+Color get primary => _activePalette.primary;
+Color get primaryBright => _activePalette.primaryBright;
+Color get primaryContainer => _activePalette.primaryContainer;
+Color get ink => _activePalette.ink;
+Color get muted => _activePalette.muted;
+Color get secondaryInk => muted;
+Color get quiet => muted;
+Color get cobalt => primary;
+Color get lime => _activePalette.live;
+Color get orange => primaryBright;
+Color get success => _activePalette.success;
+Color get successContainer => _activePalette.successContainer;
+Color get calendarScheduled => _activePalette.scheduled;
+Color get calendarScheduledContainer => _activePalette.scheduledContainer;
+Color get calendarSelected => _activePalette.selected;
+Color get calendarSelectedContainer => _activePalette.selectedContainer;
+Color get hairline => _activePalette.hairline;
+Color get emberTint => _activePalette.tint;
+Color get emberShadow => _activePalette.shadow;
+Color get danger => _activePalette.danger;
+Color get exerciseNoteColor => _activePalette.exerciseNote;
+Color get exerciseNoteContainer => _activePalette.exerciseNoteContainer;
+Color get setNoteColor => _activePalette.setNote;
+Color get setNoteContainer => _activePalette.setNoteContainer;
+Color get workoutNoteColor => _activePalette.workoutNote;
+Color get workoutNoteContainer => _activePalette.workoutNoteContainer;
 const kiloAppVersion = '1.0.32';
 const kiloAppBuild = '34';
 const kiloAppVersionLabel = '$kiloAppVersion ($kiloAppBuild)';
@@ -75,7 +160,7 @@ final kiloSourceCommitLabel = kiloSourceCommit == 'unknown'
 const kiloAppNavigationLabel = 'AI 记忆、饮食记录与视频优化';
 const brandName = '形域';
 const brandEnglish = 'XINGYU';
-const brandLogoAsset = 'assets/branding/xingyu-mark.png';
+const brandLogoAsset = 'assets/branding/kilo-orange-metal-logo.png';
 
 void main() => runApp(const KiloApp());
 
@@ -192,6 +277,7 @@ class _KiloAppState extends State<KiloApp> with WidgetsBindingObserver {
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: controller,
     builder: (context, _) {
+      _activePalette = controller.darkMode ? _darkPalette : _lightPalette;
       // Existing widget tests inject a controller to exercise a particular
       // shell route. Real app startup owns its controller and therefore
       // starts at the authentication root until a user signs in.
@@ -215,7 +301,9 @@ class _KiloAppState extends State<KiloApp> with WidgetsBindingObserver {
           AppLocalizations.delegate,
           ...GlobalMaterialLocalizations.delegates,
         ],
-        theme: _themeFor(controller.themeChoice),
+        theme: _themeFor(Brightness.light),
+        darkTheme: _themeFor(Brightness.dark),
+        themeMode: controller.darkMode ? ThemeMode.dark : ThemeMode.light,
         builder: (context, child) => _AppControllerScope(
           controller: controller,
           child: child ?? const SizedBox.shrink(),
@@ -374,7 +462,7 @@ class _TrainingProfileOnboardingPageState
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
         children: [
-          const Icon(Icons.tune_rounded, color: primary, size: 46),
+          Icon(Icons.tune_rounded, color: primary, size: 46),
           const SizedBox(height: 14),
           Text(
             widget.editMode ? '训练与热量资料' : '让形域更了解你',
@@ -490,7 +578,7 @@ class _TrainingProfileOnboardingPageState
             tileColor: surface,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
-              side: const BorderSide(color: hairline),
+              side: BorderSide(color: hairline),
             ),
             value: needsWarmupSets,
             title: const Text('需要热身组'),
@@ -548,10 +636,7 @@ class _TrainingProfileOnboardingPageState
       children: [
         Text('每周训练日（可多选）', style: Theme.of(context).textTheme.labelMedium),
         const SizedBox(height: 3),
-        const Text(
-          '选择后会自动计算每周训练次数',
-          style: TextStyle(fontSize: 11, color: muted),
-        ),
+        Text('选择后会自动计算每周训练次数', style: TextStyle(fontSize: 11, color: muted)),
         const SizedBox(height: 8),
         Wrap(
           spacing: 7,
@@ -587,7 +672,7 @@ class _TrainingProfileOnboardingPageState
           const SizedBox(height: 5),
           Text(
             '每周 $weeklyTrainingDays 天',
-            style: const TextStyle(
+            style: TextStyle(
               color: primary,
               fontSize: 12,
               fontWeight: FontWeight.w800,
@@ -695,67 +780,35 @@ class _TrainingProfileOnboardingPageState
   );
 }
 
-ThemeData _themeFor(KiloThemeChoice choice) {
-  final palette = switch (choice) {
-    KiloThemeChoice.glacier => const (
-      background: Color(0xFFF4F8FC),
-      surface: Color(0xFFFFFFFF),
-      primary: Color(0xFF2468C9),
-      primaryContainer: Color(0xFFDDEBFF),
-      accent: Color(0xFF3E8AE7),
-      ink: Color(0xFF13263D),
-      muted: Color(0xFF5F7186),
-      hairline: Color(0xFFD2DFEC),
-    ),
-    KiloThemeChoice.forest => const (
-      background: Color(0xFFF3F9F5),
-      surface: Color(0xFFFFFFFF),
-      primary: Color(0xFF21845A),
-      primaryContainer: Color(0xFFDDF3E7),
-      accent: Color(0xFF4AA979),
-      ink: Color(0xFF142A20),
-      muted: Color(0xFF61776C),
-      hairline: Color(0xFFD1E4D8),
-    ),
-    KiloThemeChoice.titanium => const (
-      background: Color(0xFFF6F7F8),
-      surface: Color(0xFFFFFFFF),
-      primary: Color(0xFFC8463C),
-      primaryContainer: Color(0xFFFFE1DE),
-      accent: Color(0xFFE36B5F),
-      ink: Color(0xFF25282D),
-      muted: Color(0xFF697078),
-      hairline: Color(0xFFDDE1E5),
-    ),
-    KiloThemeChoice.warm => const (
-      background: paper,
-      surface: surface,
-      primary: primary,
-      primaryContainer: primaryContainer,
-      accent: primaryBright,
-      ink: ink,
-      muted: muted,
-      hairline: hairline,
-    ),
-  };
+ThemeData _themeFor(Brightness brightness) {
+  final palette = brightness == Brightness.dark ? _darkPalette : _lightPalette;
+  final onPrimary = brightness == Brightness.dark
+      ? const Color(0xFF2A1206)
+      : Colors.white;
   return ThemeData(
     useMaterial3: true,
+    brightness: brightness,
     scaffoldBackgroundColor: palette.background,
     colorScheme:
         ColorScheme.fromSeed(
           seedColor: palette.primary,
-          brightness: Brightness.light,
+          brightness: brightness,
         ).copyWith(
           primary: palette.primary,
-          onPrimary: Colors.white,
+          onPrimary: onPrimary,
           primaryContainer: palette.primaryContainer,
           onPrimaryContainer: palette.ink,
-          secondary: palette.accent,
-          onSecondary: Colors.white,
+          secondary: palette.primaryBright,
+          onSecondary: onPrimary,
           secondaryContainer: palette.primaryContainer,
           onSecondaryContainer: palette.ink,
           surface: palette.surface,
           onSurface: palette.ink,
+          surfaceContainer: palette.surface,
+          surfaceContainerHigh: palette.surfaceRaised,
+          surfaceContainerHighest: palette.surfaceRaised,
+          surfaceContainerLowest: palette.background,
+          error: palette.danger,
           outline: palette.hairline,
           outlineVariant: palette.hairline,
         ),
@@ -798,11 +851,11 @@ ThemeData _themeFor(KiloThemeChoice choice) {
         borderRadius: const BorderRadius.all(Radius.circular(12)),
         borderSide: BorderSide(color: palette.primary, width: 2),
       ),
-      errorBorder: const OutlineInputBorder(
+      errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.all(Radius.circular(12)),
         borderSide: BorderSide(color: danger),
       ),
-      focusedErrorBorder: const OutlineInputBorder(
+      focusedErrorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.all(Radius.circular(12)),
         borderSide: BorderSide(color: danger, width: 2),
       ),
@@ -812,7 +865,7 @@ ThemeData _themeFor(KiloThemeChoice choice) {
       floatingLabelStyle: TextStyle(color: palette.primary),
     ),
     cardTheme: CardThemeData(
-      color: palette.surface,
+      color: palette.surfaceRaised,
       elevation: 0,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
@@ -822,6 +875,8 @@ ThemeData _themeFor(KiloThemeChoice choice) {
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: ButtonStyle(
+        backgroundColor: WidgetStatePropertyAll(palette.primary),
+        foregroundColor: WidgetStatePropertyAll(onPrimary),
         minimumSize: WidgetStatePropertyAll(Size(48, 46)),
         padding: WidgetStatePropertyAll(
           EdgeInsets.symmetric(horizontal: 18, vertical: 12),
@@ -838,6 +893,7 @@ ThemeData _themeFor(KiloThemeChoice choice) {
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: ButtonStyle(
+        foregroundColor: WidgetStatePropertyAll(palette.primary),
         minimumSize: WidgetStatePropertyAll(Size(48, 44)),
         side: WidgetStatePropertyAll(BorderSide(color: palette.hairline)),
         textStyle: WidgetStatePropertyAll(
@@ -851,8 +907,57 @@ ThemeData _themeFor(KiloThemeChoice choice) {
       ),
     ),
     dividerTheme: DividerThemeData(color: palette.hairline, thickness: 1),
-    navigationBarTheme: NavigationBarThemeData(
+    appBarTheme: AppBarTheme(
+      backgroundColor: palette.background,
+      foregroundColor: palette.ink,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+    ),
+    bottomSheetTheme: BottomSheetThemeData(
       backgroundColor: palette.surface,
+      surfaceTintColor: Colors.transparent,
+      modalBackgroundColor: palette.surface,
+    ),
+    dialogTheme: DialogThemeData(
+      backgroundColor: palette.surfaceRaised,
+      surfaceTintColor: Colors.transparent,
+    ),
+    snackBarTheme: SnackBarThemeData(
+      backgroundColor: brightness == Brightness.dark
+          ? const Color(0xFFF4EAE4)
+          : const Color(0xFF2B211C),
+      contentTextStyle: TextStyle(
+        color: brightness == Brightness.dark
+            ? const Color(0xFF241914)
+            : Colors.white,
+      ),
+      actionTextColor: palette.primaryBright,
+    ),
+    switchTheme: SwitchThemeData(
+      thumbColor: WidgetStateProperty.resolveWith(
+        (states) =>
+            states.contains(WidgetState.selected) ? onPrimary : palette.muted,
+      ),
+      trackColor: WidgetStateProperty.resolveWith(
+        (states) => states.contains(WidgetState.selected)
+            ? palette.primary
+            : palette.hairline,
+      ),
+    ),
+    chipTheme: ChipThemeData(
+      backgroundColor: palette.surfaceRaised,
+      selectedColor: palette.primaryContainer,
+      side: BorderSide(color: palette.hairline),
+      labelStyle: TextStyle(color: palette.ink),
+      secondaryLabelStyle: TextStyle(color: palette.ink),
+    ),
+    progressIndicatorTheme: ProgressIndicatorThemeData(
+      color: palette.primary,
+      linearTrackColor: palette.primaryContainer,
+      circularTrackColor: palette.primaryContainer,
+    ),
+    navigationBarTheme: NavigationBarThemeData(
+      backgroundColor: palette.surfaceRaised,
       indicatorColor: palette.primaryContainer,
       labelTextStyle: WidgetStatePropertyAll(
         TextStyle(
@@ -952,7 +1057,7 @@ class _BrandSplashPageState extends State<BrandSplashPage>
                   brandName,
                   style: Theme.of(context).textTheme.headlineLarge,
                 ),
-                const Text(
+                Text(
                   brandEnglish,
                   style: TextStyle(
                     color: primary,
@@ -1332,7 +1437,7 @@ class _LoginPageState extends State<LoginPage> {
                       children: [
                         const BrandLogo(size: 66),
                         const SizedBox(width: 12),
-                        const Expanded(
+                        Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -1378,7 +1483,7 @@ class _LoginPageState extends State<LoginPage> {
                     const SizedBox(height: 8),
                     Text(
                       strings.text('记录每一组，把坚持变成看得见的成长。'),
-                      style: const TextStyle(color: muted),
+                      style: TextStyle(color: muted),
                     ),
                     const SizedBox(height: 16),
                     if (showPhone)
@@ -1539,10 +1644,7 @@ class _LoginPageState extends State<LoginPage> {
                                 Text(
                                   visibleError,
                                   softWrap: true,
-                                  style: const TextStyle(
-                                    color: danger,
-                                    fontSize: 12,
-                                  ),
+                                  style: TextStyle(color: danger, fontSize: 12),
                                 ),
                               ],
                               const SizedBox(height: 12),
@@ -1589,10 +1691,7 @@ class _LoginPageState extends State<LoginPage> {
                             padding: const EdgeInsets.symmetric(horizontal: 10),
                             child: Text(
                               strings.text('其他登录方式'),
-                              style: const TextStyle(
-                                color: quiet,
-                                fontSize: 12,
-                              ),
+                              style: TextStyle(color: quiet, fontSize: 12),
                             ),
                           ),
                           const Expanded(child: Divider()),
@@ -1611,7 +1710,7 @@ class _LoginPageState extends State<LoginPage> {
                             style: OutlinedButton.styleFrom(
                               foregroundColor: ink,
                               backgroundColor: Colors.white,
-                              side: const BorderSide(color: ink),
+                              side: BorderSide(color: ink),
                             ),
                             icon: const Icon(Icons.apple, size: 22),
                             label: Text(
@@ -1656,7 +1755,7 @@ class _LoginPageState extends State<LoginPage> {
                       Text(
                         visibleError,
                         textAlign: TextAlign.center,
-                        style: const TextStyle(color: danger, fontSize: 12),
+                        style: TextStyle(color: danger, fontSize: 12),
                       ),
                     ],
                   ],
@@ -2019,7 +2118,7 @@ class _TopBar extends StatelessWidget {
     return Container(
       height: compact ? 50 : 54,
       padding: const EdgeInsets.fromLTRB(14, 0, 8, 0),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: paper,
         border: Border(bottom: BorderSide(color: hairline)),
       ),
@@ -2091,7 +2190,7 @@ class _RestChip extends StatelessWidget {
         ),
         child: Row(
           children: [
-            const Icon(Icons.timer_outlined, size: 16, color: ink),
+            Icon(Icons.timer_outlined, size: 16, color: ink),
             const SizedBox(width: 4),
             Text(
               '$minutes:$seconds',
@@ -2149,7 +2248,7 @@ class SectionTitle extends StatelessWidget {
               if (subtitle != null)
                 Text(
                   AppLocalizations.of(context).text(subtitle!),
-                  style: const TextStyle(fontSize: 12, color: quiet),
+                  style: TextStyle(fontSize: 12, color: quiet),
                 ),
             ],
           ),
@@ -2244,38 +2343,37 @@ void showKiloSnack(
 }
 
 class _StatusChip extends StatelessWidget {
-  const _StatusChip(
-    this.label, {
-    this.color = cobalt,
-    this.icon = Icons.circle,
-  });
+  const _StatusChip(this.label, {this.color, this.icon = Icons.circle});
   final String label;
-  final Color color;
+  final Color? color;
   final IconData icon;
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-    decoration: BoxDecoration(
-      color: color.withValues(alpha: .1),
-      borderRadius: BorderRadius.circular(999),
-      border: Border.all(color: color.withValues(alpha: .25)),
-    ),
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 13, color: color),
-        const SizedBox(width: 5),
-        Text(
-          AppLocalizations.of(context).text(label),
-          style: TextStyle(
-            fontSize: 12,
-            color: color,
-            fontWeight: FontWeight.w700,
+  Widget build(BuildContext context) {
+    final resolvedColor = color ?? cobalt;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: resolvedColor.withValues(alpha: .1),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: resolvedColor.withValues(alpha: .25)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: resolvedColor),
+          const SizedBox(width: 5),
+          Text(
+            AppLocalizations.of(context).text(label),
+            style: TextStyle(
+              fontSize: 12,
+              color: resolvedColor,
+              fontWeight: FontWeight.w700,
+            ),
           ),
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 }
 
 class _ExerciseThumb extends StatelessWidget {
@@ -2294,12 +2392,12 @@ class _ExerciseThumb extends StatelessWidget {
         width: size,
         height: size,
         child: isCustom
-            ? const Icon(Icons.fitness_center_rounded, color: primary)
+            ? Icon(Icons.fitness_center_rounded, color: primary)
             : Image.asset(
                 exerciseAsset(exerciseId),
                 fit: BoxFit.cover,
                 errorBuilder: (context, error, stack) =>
-                    const Icon(Icons.fitness_center, color: cobalt),
+                    Icon(Icons.fitness_center, color: cobalt),
               ),
       ),
     );
@@ -2401,12 +2499,12 @@ class HomePage extends StatelessWidget {
                           '${controller.estimatedDailyCalories == null ? '' : ' / 目标约 ${controller.estimatedDailyCalories!.toStringAsFixed(0)} kcal'}',
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: quiet, fontSize: 12),
+                          style: TextStyle(color: quiet, fontSize: 12),
                         ),
                       ],
                     ),
                   ),
-                  const Icon(Icons.chevron_right_rounded, color: primary),
+                  Icon(Icons.chevron_right_rounded, color: primary),
                 ],
               ),
             ),
@@ -2418,7 +2516,7 @@ class HomePage extends StatelessWidget {
             key: const Key('home-ai-workout'),
             borderRadius: BorderRadius.circular(16),
             onTap: () => _showAiWorkoutPlanner(context, controller),
-            child: const Padding(
+            child: Padding(
               padding: EdgeInsets.all(14),
               child: Row(
                 children: [
@@ -2566,14 +2664,14 @@ class _HomeDayRecordsSection extends StatelessWidget {
                   '${date.year}年${date.month}月${date.day}日 · $status',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: quiet, fontSize: 12),
+                  style: TextStyle(color: quiet, fontSize: 12),
                 ),
                 if (hasScheduledLabel)
                   Text(
                     '计划：$scheduledLabel',
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: quiet, fontSize: 12),
+                    style: TextStyle(color: quiet, fontSize: 12),
                   ),
               ],
             );
@@ -2628,7 +2726,7 @@ class _HomeDayRecordsSection extends StatelessWidget {
                 padding: const EdgeInsets.all(16),
                 child: Text(
                   planned ? '当天有计划，完成后会显示记录。' : '当天没有训练记录。',
-                  style: const TextStyle(color: quiet),
+                  style: TextStyle(color: quiet),
                 ),
               ),
             ),
@@ -2684,7 +2782,7 @@ Future<void> _showNutritionSheet(
                         color: primaryContainer,
                         borderRadius: BorderRadius.circular(99),
                       ),
-                      child: const Text(
+                      child: Text(
                         '按次序记录',
                         style: TextStyle(
                           color: primary,
@@ -2696,7 +2794,7 @@ Future<void> _showNutritionSheet(
                   ],
                 ),
                 const SizedBox(height: 6),
-                const Text(
+                Text(
                   '热量与营养数值可查看食品包装或餐厅信息后填写。',
                   style: TextStyle(color: quiet, fontSize: 12),
                 ),
@@ -2719,7 +2817,7 @@ Future<void> _showNutritionSheet(
                 ),
                 if (selectedPhotoName != null) ...[
                   const SizedBox(height: 5),
-                  const Text(
+                  Text(
                     '照片已添加。单张图片难以准确判断重量，本次请仍人工确认食物和份量。',
                     style: TextStyle(color: quiet, fontSize: 11),
                   ),
@@ -3086,7 +3184,7 @@ class _HomeMuscleCardState extends State<_HomeMuscleCard> {
                   const Spacer(),
                   Text(
                     _manualSwipe ? '手动查看' : '自动轮切',
-                    style: const TextStyle(color: quiet, fontSize: 10),
+                    style: TextStyle(color: quiet, fontSize: 10),
                   ),
                 ],
               ),
@@ -3231,7 +3329,7 @@ class _HomeMuscleMetricPage extends StatelessWidget {
                           child: Text(
                             recovery ? '完成首次训练后显示恢复状态' : '完成训练后显示训练量',
                             textAlign: TextAlign.center,
-                            style: const TextStyle(color: quiet, fontSize: 12),
+                            style: TextStyle(color: quiet, fontSize: 12),
                           ),
                         )
                       : Column(
@@ -3507,7 +3605,7 @@ class _HomeVolumeLegend extends StatelessWidget {
         decoration: BoxDecoration(color: color, shape: BoxShape.circle),
       ),
       const SizedBox(width: 4),
-      Text(label, style: const TextStyle(color: quiet, fontSize: 10)),
+      Text(label, style: TextStyle(color: quiet, fontSize: 10)),
     ],
   );
 }
@@ -3631,7 +3729,7 @@ class _HomeExerciseTrendCardState extends State<_HomeExerciseTrendCard> {
                 ),
               ),
               trailing: id == selectedExerciseId
-                  ? const Icon(Icons.check_rounded, color: primary)
+                  ? Icon(Icons.check_rounded, color: primary)
                   : null,
               onTap: () {
                 if (mounted) setState(() => selectedExerciseId = id);
@@ -3709,7 +3807,7 @@ class _HomeExerciseTrendCardState extends State<_HomeExerciseTrendCard> {
               height: 118,
               width: double.infinity,
               child: points.isEmpty
-                  ? const Center(
+                  ? Center(
                       child: Icon(
                         Icons.show_chart_rounded,
                         color: hairline,
@@ -3777,7 +3875,7 @@ class _HomeExerciseTrendPainter extends CustomPainter {
       final text = TextPainter(
         text: TextSpan(
           text: '${date.month}/${date.day}',
-          style: const TextStyle(color: quiet, fontSize: 9),
+          style: TextStyle(color: quiet, fontSize: 9),
         ),
         textDirection: TextDirection.ltr,
       )..layout();
@@ -3893,12 +3991,12 @@ class _HomeWeekDay extends StatelessWidget {
         ? '计划'
         : '—';
     final background = completed
-        ? const Color(0xFFE2F2ED)
+        ? successContainer
         : planned
         ? calendarScheduledContainer
         : selected
         ? calendarSelectedContainer
-        : Colors.white;
+        : surfaceRaised;
     final borderColor = selected
         ? primary
         : today
@@ -3947,7 +4045,7 @@ class _HomeWeekDay extends StatelessWidget {
               children: [
                 Text(
                   label,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11,
                     color: quiet,
                     fontWeight: FontWeight.w700,
@@ -3962,7 +4060,7 @@ class _HomeWeekDay extends StatelessWidget {
                       '${date.day}',
                       maxLines: 1,
                       softWrap: false,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w900,
                         color: ink,
@@ -4139,11 +4237,7 @@ class _TrainingPlanStatusCard extends StatelessWidget {
             const SizedBox(height: 10),
             Row(
               children: [
-                const Icon(
-                  Icons.location_on_outlined,
-                  size: 18,
-                  color: primary,
-                ),
+                Icon(Icons.location_on_outlined, size: 18, color: primary),
                 const SizedBox(width: 5),
                 Expanded(
                   child: Text(
@@ -4184,11 +4278,7 @@ class _TrainingPlanStatusCard extends StatelessWidget {
                 '今天建议：${snapshot.today.muscles.join(' + ')} · ${snapshot.today.reason}',
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: quiet,
-                  fontSize: 12,
-                  height: 1.35,
-                ),
+                style: TextStyle(color: quiet, fontSize: 12, height: 1.35),
               ),
             ],
           ],
@@ -4315,7 +4405,7 @@ class _RecoveryDetailsPageState extends State<RecoveryDetailsPage> {
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
             ),
             const SizedBox(height: 4),
-            const Text(
+            Text(
               '根据近期有效组、训练强度与距上次训练的时间估算。',
               style: TextStyle(color: quiet, fontSize: 12),
             ),
@@ -4337,12 +4427,12 @@ class _RecoveryDetailsPageState extends State<RecoveryDetailsPage> {
                         ),
                         Text(
                           recovery.isEmpty ? '等待训练数据' : '点击部位查看',
-                          style: const TextStyle(color: quiet, fontSize: 11),
+                          style: TextStyle(color: quiet, fontSize: 11),
                         ),
                       ],
                     ),
                     const SizedBox(height: 4),
-                    const Text(
+                    Text(
                       '训练负荷估算，非医学测量。',
                       style: TextStyle(color: quiet, fontSize: 11),
                     ),
@@ -4411,11 +4501,7 @@ class _RecoveryDetailsPageState extends State<RecoveryDetailsPage> {
                     const SizedBox(height: 4),
                     Text(
                       selected.reason,
-                      style: const TextStyle(
-                        color: quiet,
-                        fontSize: 12,
-                        height: 1.4,
-                      ),
+                      style: TextStyle(color: quiet, fontSize: 12, height: 1.4),
                     ),
                   ],
                 ),
@@ -4447,7 +4533,7 @@ class _UnderlineTabs extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     height: 44,
-    decoration: const BoxDecoration(
+    decoration: BoxDecoration(
       border: Border(bottom: BorderSide(color: hairline)),
     ),
     child: Row(
@@ -4570,7 +4656,7 @@ class _LiveWorkoutTimingPanel extends StatelessWidget {
               : '实时训练 · ${controller.completedSets}/${controller.totalSets} 组',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontSize: 12, color: secondaryInk),
+          style: TextStyle(fontSize: 12, color: secondaryInk),
         ),
       ],
     );
@@ -4645,7 +4731,7 @@ class _LiveWorkoutTimingPanel extends StatelessWidget {
                 final narrow = constraints.maxWidth < 320 || textScale > 1.35;
                 final details = Row(
                   children: [
-                    const Icon(Icons.timer_outlined, color: cobalt, size: 19),
+                    Icon(Icons.timer_outlined, color: cobalt, size: 19),
                     const SizedBox(width: 7),
                     Expanded(
                       child: Column(
@@ -4659,10 +4745,7 @@ class _LiveWorkoutTimingPanel extends StatelessWidget {
                             controller.restExerciseName ?? '当前动作',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: secondaryInk,
-                            ),
+                            style: TextStyle(fontSize: 11, color: secondaryInk),
                           ),
                         ],
                       ),
@@ -4741,7 +4824,7 @@ class _LiveWorkoutTimingPanel extends StatelessWidget {
             padding: const EdgeInsets.only(top: 9, left: 4),
             child: Text(
               '可开始下一组',
-              style: const TextStyle(fontSize: 12, color: secondaryInk),
+              style: TextStyle(fontSize: 12, color: secondaryInk),
             ),
           );
     final controls = LayoutBuilder(
@@ -4812,9 +4895,7 @@ class _LiveWorkoutTimingPanel extends StatelessWidget {
               margin: const EdgeInsets.only(left: 4, right: 4, bottom: 9),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(99),
-                gradient: const LinearGradient(
-                  colors: [primary, primaryBright],
-                ),
+                gradient: LinearGradient(colors: [primary, primaryBright]),
               ),
             ),
             header,
@@ -4930,13 +5011,13 @@ class _WorkoutView extends StatelessWidget {
           padding: const EdgeInsets.all(20),
           child: Column(
             children: [
-              const Icon(Icons.check_circle, color: cobalt, size: 48),
+              Icon(Icons.check_circle, color: cobalt, size: 48),
               const SizedBox(height: 10),
               Text('训练已保存', style: Theme.of(context).textTheme.headlineMedium),
               const SizedBox(height: 5),
               Text(
                 '${controller.history.first.name} · ${controller.history.first.effectiveSets} 个有效组',
-                style: const TextStyle(color: secondaryInk),
+                style: TextStyle(color: secondaryInk),
               ),
               const SizedBox(height: 18),
               PrimaryButton(
@@ -4957,17 +5038,14 @@ class _WorkoutView extends StatelessWidget {
               padding: const EdgeInsets.all(20),
               child: Column(
                 children: [
-                  const Icon(Icons.playlist_add, size: 44, color: quiet),
+                  Icon(Icons.playlist_add, size: 44, color: quiet),
                   const SizedBox(height: 8),
                   const Text(
                     '还没有动作',
                     style: TextStyle(fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 4),
-                  const Text(
-                    '可以先添加动作，也可以直接开始计时。',
-                    style: TextStyle(color: quiet),
-                  ),
+                  Text('可以先添加动作，也可以直接开始计时。', style: TextStyle(color: quiet)),
                   const SizedBox(height: 12),
                   OutlinedButton.icon(
                     key: const Key('first-action-button'),
@@ -5045,7 +5123,7 @@ class _LiveWorkoutControls extends StatelessWidget {
     key: const Key('live-workout-controls'),
     padding: const EdgeInsets.all(8),
     decoration: BoxDecoration(
-      color: Colors.white,
+      color: surface,
       borderRadius: BorderRadius.circular(12),
       border: Border.all(color: hairline),
     ),
@@ -5113,7 +5191,7 @@ class _RestBanner extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Icon(Icons.timer_outlined, color: cobalt),
+                Icon(Icons.timer_outlined, color: cobalt),
                 const SizedBox(width: 9),
                 Expanded(
                   child: Column(
@@ -5129,10 +5207,7 @@ class _RestBanner extends StatelessWidget {
                         exerciseName,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: secondaryInk,
-                        ),
+                        style: TextStyle(fontSize: 12, color: secondaryInk),
                       ),
                     ],
                   ),
@@ -5239,7 +5314,7 @@ class _WorkoutExerciseCard extends StatelessWidget {
                               ),
                             ),
                             if (exercise.supersetId != null)
-                              const Padding(
+                              Padding(
                                 padding: EdgeInsets.only(left: 6),
                                 child: _StatusChip(
                                   '超级组',
@@ -5251,7 +5326,7 @@ class _WorkoutExerciseCard extends StatelessWidget {
                         ),
                         Text(
                           '${definition.muscle} · 休息 ${exercise.restSeconds} 秒',
-                          style: const TextStyle(fontSize: 11, color: quiet),
+                          style: TextStyle(fontSize: 11, color: quiet),
                         ),
                       ],
                     ),
@@ -5326,7 +5401,7 @@ class _WorkoutExerciseCard extends StatelessWidget {
                       ),
                       child: Row(
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.sticky_note_2_outlined,
                             size: 17,
                             color: exerciseNoteColor,
@@ -5339,14 +5414,14 @@ class _WorkoutExerciseCard extends StatelessWidget {
                                   : '动作备注 · ${exercise.note.trim()}',
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: secondaryInk,
                                 fontSize: 11,
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
                           ),
-                          const Icon(
+                          Icon(
                             Icons.edit_outlined,
                             size: 15,
                             color: exerciseNoteColor,
@@ -5554,12 +5629,12 @@ class _PreviousExerciseNotes extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.history_rounded, size: 16, color: quiet),
+              Icon(Icons.history_rounded, size: 16, color: quiet),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   '上次备注 · $date',
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: secondaryInk,
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
@@ -5639,11 +5714,7 @@ class _NoteCallout extends StatelessWidget {
             ),
             maxLines: maxLines,
             overflow: maxLines == null ? null : TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: secondaryInk,
-              fontSize: 11,
-              height: 1.35,
-            ),
+            style: TextStyle(color: secondaryInk, fontSize: 11, height: 1.35),
           ),
         ),
       ],
@@ -5735,7 +5806,7 @@ class _SetTableHeader extends StatelessWidget {
       text,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
-      style: const TextStyle(fontSize: 11, color: quiet),
+      style: TextStyle(fontSize: 11, color: quiet),
     ),
   );
 
@@ -5798,7 +5869,7 @@ Future<void> _showSetNoteEditor(
               ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 4),
-            const Text(
+            Text(
               '记录握距、动作感受、疼痛或器械设置。',
               style: TextStyle(color: secondaryInk, fontSize: 12),
             ),
@@ -5884,7 +5955,7 @@ Future<void> _showExerciseNoteEditor(
               ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 4),
-            const Text(
+            Text(
               '记录握距、器械档位、动作提示或本动作整体感受。',
               style: TextStyle(color: secondaryInk, fontSize: 12),
             ),
@@ -6115,7 +6186,7 @@ class _SetRow extends StatelessWidget {
       InputDecoration(
         isDense: true,
         filled: true,
-        fillColor: completed ? const Color(0xFFE8F6EC) : Colors.white,
+        fillColor: completed ? successContainer : surface,
         enabledBorder: OutlineInputBorder(
           borderSide: BorderSide(
             color: completed ? const Color(0xFF6DB787) : hairline,
@@ -6149,7 +6220,7 @@ class _SetRow extends StatelessWidget {
           duration: const Duration(milliseconds: 220),
           padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 3),
           decoration: BoxDecoration(
-            color: set.completed ? successContainer : Colors.white,
+            color: set.completed ? successContainer : surface,
             borderRadius: BorderRadius.circular(9),
             border: Border.all(
               color: set.completed ? const Color(0xFF6DB787) : hairline,
@@ -6560,7 +6631,7 @@ Future<void> _showSetEffortEditor(
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 6),
-            const Text(
+            Text(
               'RIR 是还能完成的次数；RPE 是主观用力程度。只需记录一种。',
               style: TextStyle(color: quiet),
             ),
@@ -6865,7 +6936,7 @@ class _AiWorkoutPlannerSheetState extends State<_AiWorkoutPlannerSheet> {
             children: [
               Row(
                 children: [
-                  const Icon(Icons.auto_awesome_rounded, color: primary),
+                  Icon(Icons.auto_awesome_rounded, color: primary),
                   const SizedBox(width: 8),
                   const Expanded(
                     child: Text(
@@ -6883,7 +6954,7 @@ class _AiWorkoutPlannerSheetState extends State<_AiWorkoutPlannerSheet> {
                   ),
                 ],
               ),
-              const Text(
+              Text(
                 '可填写目标肌群、时长、器械或限制；不填写时会参考历史生成保守方案。',
                 style: TextStyle(fontSize: 12, color: muted),
               ),
@@ -6991,7 +7062,7 @@ class _RoutineCard extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.only(top: 2),
                     child: Icon(Icons.fitness_center, color: cobalt),
                   ),
@@ -7018,7 +7089,7 @@ class _RoutineCard extends StatelessWidget {
                   summary,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 12, color: quiet),
+                  style: TextStyle(fontSize: 12, color: quiet),
                 ),
               const SizedBox(height: 8),
               Wrap(
@@ -7070,7 +7141,7 @@ class _RoutineStat extends StatelessWidget {
     ),
     child: Text(
       '$label $value',
-      style: const TextStyle(fontSize: 11, color: secondaryInk),
+      style: TextStyle(fontSize: 11, color: secondaryInk),
     ),
   );
 }
@@ -7093,7 +7164,7 @@ class _PlanCard extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.auto_awesome_outlined, color: cobalt),
+              Icon(Icons.auto_awesome_outlined, color: cobalt),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
@@ -7106,12 +7177,12 @@ class _PlanCard extends StatelessWidget {
                     const SizedBox(height: 3),
                     Text(
                       '${session.name} · ${session.exercises} 个动作 · ${session.duration}',
-                      style: const TextStyle(fontSize: 12, color: quiet),
+                      style: TextStyle(fontSize: 12, color: quiet),
                     ),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right, color: quiet),
+              Icon(Icons.chevron_right, color: quiet),
             ],
           ),
         ),
@@ -7171,7 +7242,7 @@ class _RecordTile extends StatelessWidget {
                         color: paper,
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Icon(Icons.event_available, color: cobalt),
+                      child: Icon(Icons.event_available, color: cobalt),
                     ),
                     const SizedBox(width: 11),
                     Expanded(
@@ -7186,12 +7257,12 @@ class _RecordTile extends StatelessWidget {
                           ),
                           Text(
                             '${record.date.month} 月 ${record.date.day} 日 · ${record.startTime} · ${(record.durationSeconds / 60).round()} 分钟',
-                            style: const TextStyle(fontSize: 12, color: quiet),
+                            style: TextStyle(fontSize: 12, color: quiet),
                           ),
                         ],
                       ),
                     ),
-                    const Icon(Icons.chevron_right, color: quiet),
+                    Icon(Icons.chevron_right, color: quiet),
                   ],
                 ),
               ),
@@ -7214,7 +7285,7 @@ class _RecordTile extends StatelessWidget {
                   actionSummary,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 12, color: secondaryInk),
+                  style: TextStyle(fontSize: 12, color: secondaryInk),
                 ),
               ],
               if (exerciseIds.isNotEmpty)
@@ -7262,7 +7333,7 @@ class _RecordSetRow extends StatelessWidget {
       margin: const EdgeInsets.only(top: 5),
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
       decoration: BoxDecoration(
-        color: set.completed ? const Color(0xFFE5F5EB) : Colors.white,
+        color: set.completed ? successContainer : surface,
         borderRadius: BorderRadius.circular(9),
         border: Border.all(
           color: set.completed ? const Color(0xFF6DB787) : hairline,
@@ -7360,7 +7431,7 @@ List<Widget> _nutritionRecordWidgets(
           children: [
             Row(
               children: [
-                const Icon(Icons.local_fire_department_rounded, color: primary),
+                Icon(Icons.local_fire_department_rounded, color: primary),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -7409,7 +7480,7 @@ List<Widget> _nutritionRecordWidgets(
           padding: const EdgeInsets.all(20),
           child: Column(
             children: [
-              const Icon(Icons.restaurant_menu_rounded, color: quiet, size: 32),
+              Icon(Icons.restaurant_menu_rounded, color: quiet, size: 32),
               const SizedBox(height: 8),
               const Text('今天还没有饮食记录'),
               const SizedBox(height: 12),
@@ -7466,7 +7537,7 @@ List<Widget> _nutritionRecordWidgets(
                 await controller.deleteNutritionEntry(entry.id);
                 onChanged();
               },
-              icon: const Icon(Icons.delete_outline_rounded, color: danger),
+              icon: Icon(Icons.delete_outline_rounded, color: danger),
             ),
           ),
         );
@@ -7474,7 +7545,7 @@ List<Widget> _nutritionRecordWidgets(
     const SizedBox(height: 14),
     Card(
       color: primaryContainer.withValues(alpha: 0.45),
-      child: const Padding(
+      child: Padding(
         padding: EdgeInsets.all(14),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -7696,7 +7767,7 @@ class _RecordsPageState extends State<RecordsPage> {
                   ),
                 ],
               ),
-              const Row(
+              Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
                   Text('一', style: TextStyle(fontSize: 11, color: quiet)),
@@ -7807,7 +7878,7 @@ class _RecordsPageState extends State<RecordsPage> {
                               scheduledBodyPart,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: calendarScheduled,
                                 fontSize: 10,
                                 fontWeight: FontWeight.w900,
@@ -7822,7 +7893,7 @@ class _RecordsPageState extends State<RecordsPage> {
                 },
               ),
               const SizedBox(height: 10),
-              const Wrap(
+              Wrap(
                 alignment: WrapAlignment.center,
                 spacing: 12,
                 runSpacing: 7,
@@ -8071,7 +8142,7 @@ class _TrainingStatisticsView extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         if (muscles.isEmpty)
-          const Text('该时段还没有可统计的训练组。', style: TextStyle(color: quiet))
+          Text('该时段还没有可统计的训练组。', style: TextStyle(color: quiet))
         else
           for (final item in muscles.take(7))
             Padding(
@@ -8155,7 +8226,7 @@ class _TrackedStrengthSection extends StatelessWidget {
                 ),
               ),
             ),
-            const Tooltip(
+            Tooltip(
               message: '每次训练只选一个真实完成工作组；重量与次数来自同一组。',
               child: Icon(Icons.info_outline_rounded, size: 17, color: quiet),
             ),
@@ -8182,7 +8253,7 @@ class _TrackedStrengthSection extends StatelessWidget {
                     style: TextStyle(fontWeight: FontWeight.w900),
                   ),
                   const SizedBox(height: 4),
-                  const Text(
+                  Text(
                     '力量或次数的变化会按训练日期绘制，不会默认替你挑动作。',
                     style: TextStyle(color: quiet, fontSize: 12),
                   ),
@@ -8350,7 +8421,7 @@ class _TrackedExerciseGrowthCardState
                           latest == null
                               ? '暂无真实完成工作组'
                               : '最近 ${_dateLabel(latest.date)} · ${_pair(latest)}',
-                          style: const TextStyle(color: quiet, fontSize: 11),
+                          style: TextStyle(color: quiet, fontSize: 11),
                         ),
                       ],
                     ),
@@ -8378,7 +8449,7 @@ class _TrackedExerciseGrowthCardState
             ),
           ),
           if (mixedHistory)
-            const Padding(
+            Padding(
               padding: EdgeInsets.fromLTRB(12, 0, 12, 8),
               child: Text(
                 '检测到不同训练地点，当前趋势已按最近地点分开；不同器械/场地不直接比较。',
@@ -8394,7 +8465,7 @@ class _TrackedExerciseGrowthCardState
                         'statistics-strength-chart-empty-${widget.exerciseId}',
                       ),
                       height: 76,
-                      child: const Center(
+                      child: Center(
                         child: Text(
                           '所选时间段暂无可比较数据',
                           style: TextStyle(color: quiet),
@@ -8428,13 +8499,13 @@ class _TrackedExerciseGrowthCardState
                           ),
                         ),
                         const SizedBox(height: 3),
-                        const Wrap(
+                        Wrap(
                           spacing: 14,
                           runSpacing: 4,
                           children: [
                             _GrowthLegend(color: primary, label: '重量（左轴 kg）'),
                             _GrowthLegend(
-                              color: Color(0xFF428F9B),
+                              color: primaryBright,
                               label: '同组次数（右轴 次）',
                             ),
                           ],
@@ -8446,7 +8517,7 @@ class _TrackedExerciseGrowthCardState
                             key: Key(
                               'statistics-strength-point-${widget.exerciseId}',
                             ),
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: secondaryInk,
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
@@ -8478,7 +8549,7 @@ class _GrowthLegend extends StatelessWidget {
         decoration: BoxDecoration(color: color, shape: BoxShape.circle),
       ),
       const SizedBox(width: 4),
-      Text(label, style: const TextStyle(color: quiet, fontSize: 10)),
+      Text(label, style: TextStyle(color: quiet, fontSize: 10)),
     ],
   );
 }
@@ -8544,16 +8615,12 @@ class _DualAxisGrowthPainter extends CustomPainter {
         pointAt(index, repetitions[index], repsRange),
     ];
     _drawSeries(canvas, weightPoints, primary);
-    _drawSeries(canvas, repsPoints, const Color(0xFF428F9B));
+    _drawSeries(canvas, repsPoints, primaryBright);
     _drawAxisLabels(canvas, size, weightRange, repsRange);
     for (var index = 0; index < points.length; index++) {
       canvas.drawCircle(weightPoints[index], 4, Paint()..color = primary);
       canvas.drawCircle(weightPoints[index], 2, Paint()..color = Colors.white);
-      canvas.drawCircle(
-        repsPoints[index],
-        3.5,
-        Paint()..color = const Color(0xFF428F9B),
-      );
+      canvas.drawCircle(repsPoints[index], 3.5, Paint()..color = primaryBright);
     }
   }
 
@@ -8591,7 +8658,7 @@ class _DualAxisGrowthPainter extends CustomPainter {
     _AxisRange weightRange,
     _AxisRange repsRange,
   ) {
-    const style = TextStyle(color: quiet, fontSize: 9);
+    final style = TextStyle(color: quiet, fontSize: 9);
     void draw(String text, Offset offset, {TextAlign align = TextAlign.left}) {
       final painter = TextPainter(
         text: TextSpan(text: text, style: style),
@@ -8703,7 +8770,7 @@ class _StrengthTrackingPageState extends State<_StrengthTrackingPage> {
     body: ListView(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 30),
       children: [
-        const Text(
+        Text(
           '选择你想在统计首页长期观察的动作，最多 8 个。',
           style: TextStyle(color: quiet, height: 1.4),
         ),
@@ -8739,7 +8806,7 @@ class _StrengthTrackingPageState extends State<_StrengthTrackingPage> {
                 ),
                 subtitle: Text(
                   selected.contains(id) ? '已加入关注' : '未关注',
-                  style: const TextStyle(color: quiet, fontSize: 11),
+                  style: TextStyle(color: quiet, fontSize: 11),
                 ),
                 controlAffinity: ListTileControlAffinity.trailing,
               ),
@@ -9072,11 +9139,7 @@ class _LockedAnalyticsModuleState extends State<_LockedAnalyticsModule> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(
-                      Icons.lock_outline_rounded,
-                      size: 18,
-                      color: primary,
-                    ),
+                    Icon(Icons.lock_outline_rounded, size: 18, color: primary),
                     const SizedBox(width: 7),
                     Expanded(
                       child: Text(
@@ -9104,7 +9167,7 @@ class _LockedAnalyticsModuleState extends State<_LockedAnalyticsModule> {
             const SizedBox(height: 4),
             Text(
               widget.description,
-              style: const TextStyle(color: quiet, fontSize: 12, height: 1.35),
+              style: TextStyle(color: quiet, fontSize: 12, height: 1.35),
             ),
             const SizedBox(height: 4),
           ],
@@ -9216,10 +9279,10 @@ class _LockedPreviewPill extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
     decoration: BoxDecoration(
-      color: Colors.white.withValues(alpha: .75),
+      color: surface.withValues(alpha: .86),
       borderRadius: BorderRadius.circular(99),
     ),
-    child: Text(label, style: const TextStyle(color: quiet, fontSize: 10)),
+    child: Text(label, style: TextStyle(color: quiet, fontSize: 10)),
   );
 }
 
@@ -9317,14 +9380,14 @@ class _InlineMuscleVolumeSection extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: .74),
+        color: surface.withValues(alpha: .86),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: hairline),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
               Expanded(
                 child: Text(
@@ -9336,13 +9399,13 @@ class _InlineMuscleVolumeSection extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 3),
-          const Text(
+          Text(
             '基于近 4 周有效组判断训练不足或偏高。',
             style: TextStyle(color: quiet, fontSize: 10),
           ),
           const SizedBox(height: 9),
           if (visible.isEmpty)
-            const Text('完成训练后，这里会显示真实训练量。', style: TextStyle(color: quiet))
+            Text('完成训练后，这里会显示真实训练量。', style: TextStyle(color: quiet))
           else
             for (final item in visible) ...[
               Row(
@@ -9394,7 +9457,7 @@ class _InlineMuscleVolumeSection extends StatelessWidget {
               ),
             ],
           const SizedBox(height: 2),
-          const Text(
+          Text(
             '训练量用于下一次安排；不会仅凭组数机械增加重量。',
             style: TextStyle(color: quiet, fontSize: 10),
           ),
@@ -9418,7 +9481,7 @@ class _InlineWeeklyReportSection extends StatelessWidget {
     width: double.infinity,
     padding: const EdgeInsets.all(12),
     decoration: BoxDecoration(
-      color: Colors.white.withValues(alpha: .74),
+      color: surface.withValues(alpha: .86),
       borderRadius: BorderRadius.circular(14),
       border: Border.all(color: hairline),
     ),
@@ -9450,7 +9513,7 @@ class _InlineWeeklyReportSection extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 8),
-        Text(report.summary, style: const TextStyle(color: quiet, height: 1.4)),
+        Text(report.summary, style: TextStyle(color: quiet, height: 1.4)),
         if (report.personalRecords.isNotEmpty) ...[
           const SizedBox(height: 7),
           Text('本周 PR：${report.personalRecords.take(3).join(' · ')}'),
@@ -9474,17 +9537,13 @@ class _AnalyticsActionCard extends StatelessWidget {
     width: double.infinity,
     padding: const EdgeInsets.all(12),
     decoration: BoxDecoration(
-      color: Colors.white.withValues(alpha: .74),
+      color: surface.withValues(alpha: .86),
       borderRadius: BorderRadius.circular(13),
       border: Border.all(color: hairline),
     ),
     child: Text(
       text,
-      style: const TextStyle(
-        color: ink,
-        height: 1.45,
-        fontWeight: FontWeight.w700,
-      ),
+      style: TextStyle(color: ink, height: 1.45, fontWeight: FontWeight.w700),
     ),
   );
 }
@@ -9504,14 +9563,14 @@ class _AnalyticsMetric extends StatelessWidget {
     constraints: const BoxConstraints(minHeight: 94),
     padding: const EdgeInsets.all(11),
     decoration: BoxDecoration(
-      color: Colors.white,
+      color: surface,
       borderRadius: BorderRadius.circular(13),
       border: Border.all(color: hairline),
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(color: quiet, fontSize: 12)),
+        Text(label, style: TextStyle(color: quiet, fontSize: 12)),
         const SizedBox(height: 4),
         FittedBox(
           fit: BoxFit.scaleDown,
@@ -9526,7 +9585,7 @@ class _AnalyticsMetric extends StatelessWidget {
           comparison,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(color: primary, fontSize: 11),
+          style: TextStyle(color: primary, fontSize: 11),
         ),
       ],
     ),
@@ -9592,13 +9651,13 @@ class _AnalyticsMiniBar extends StatelessWidget {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Text(label, style: const TextStyle(fontSize: 11, color: quiet)),
+      Text(label, style: TextStyle(fontSize: 11, color: quiet)),
       const SizedBox(height: 5),
       LinearProgressIndicator(
         value: value.clamp(0, 1),
         minHeight: 7,
         borderRadius: BorderRadius.circular(99),
-        color: const Color(0xFF7254B8),
+        color: primary,
         backgroundColor: const Color(0xFFE4DCF4),
       ),
       const SizedBox(height: 4),
@@ -9641,7 +9700,7 @@ class _TrainingNutritionTimeline extends StatelessWidget {
       children: [
         const Text('训练 × 饮食时间轴', style: TextStyle(fontWeight: FontWeight.w900)),
         const SizedBox(height: 3),
-        const Text(
+        Text(
           '柱高为热量相对目标，紫点代表当天训练',
           style: TextStyle(color: quiet, fontSize: 11),
         ),
@@ -9715,7 +9774,7 @@ class _TimelineDay extends StatelessWidget {
           height: 7,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: trained ? const Color(0xFF7254B8) : Colors.transparent,
+            color: trained ? primary : Colors.transparent,
           ),
         ),
         const SizedBox(height: 3),
@@ -9745,7 +9804,7 @@ class _StatisticMetric extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(color: quiet, fontSize: 12)),
+        Text(label, style: TextStyle(color: quiet, fontSize: 12)),
         FittedBox(
           fit: BoxFit.scaleDown,
           alignment: Alignment.centerLeft,
@@ -9754,7 +9813,7 @@ class _StatisticMetric extends StatelessWidget {
               children: [
                 TextSpan(
                   text: value,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 27,
                     fontWeight: FontWeight.w900,
                     color: ink,
@@ -9762,7 +9821,7 @@ class _StatisticMetric extends StatelessWidget {
                 ),
                 TextSpan(
                   text: ' $unit',
-                  style: const TextStyle(color: quiet),
+                  style: TextStyle(color: quiet),
                 ),
               ],
             ),
@@ -10050,7 +10109,7 @@ class _MuscleDetailsPageState extends State<MuscleDetailsPage> {
                     const SizedBox(height: 6),
                     Text(
                       _advice(selected, recovery),
-                      style: const TextStyle(color: quiet, height: 1.45),
+                      style: TextStyle(color: quiet, height: 1.45),
                     ),
                   ],
                 ),
@@ -10077,7 +10136,7 @@ class _MuscleDetailLine extends StatelessWidget {
       children: [
         SizedBox(
           width: 94,
-          child: Text(label, style: const TextStyle(color: quiet)),
+          child: Text(label, style: TextStyle(color: quiet)),
         ),
         Expanded(
           child: Text(
@@ -10396,7 +10455,7 @@ class _FriendsPageState extends State<_FriendsPage> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: const Row(
+      title: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(Icons.people_alt_rounded, color: primary, size: 21),
@@ -10450,7 +10509,7 @@ class _FriendsPageState extends State<_FriendsPage> {
               ),
             ),
           ),
-          const Padding(
+          Padding(
             padding: EdgeInsets.symmetric(horizontal: 18),
             child: Text(
               '只有主动分享的训练内容会出现在这里，训练备注和私人资料不会公开。',
@@ -10504,7 +10563,7 @@ class _FriendsPageState extends State<_FriendsPage> {
                           ].join(' · '),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: quiet, fontSize: 12),
+                          style: TextStyle(color: quiet, fontSize: 12),
                         ),
                     ],
                   ),
@@ -10577,7 +10636,7 @@ class _FriendsPageState extends State<_FriendsPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           '我的用户名',
                           style: TextStyle(color: quiet, fontSize: 12),
                         ),
@@ -10627,7 +10686,7 @@ class _FriendsPageState extends State<_FriendsPage> {
             ),
             onSubmitted: (_) => _searchFriends(),
           ),
-          const Padding(
+          Padding(
             padding: EdgeInsets.fromLTRB(4, 7, 4, 12),
             child: Text(
               '手机号和邮箱需完整输入；用户名支持前缀搜索。联系方式只会脱敏显示。',
@@ -10635,7 +10694,7 @@ class _FriendsPageState extends State<_FriendsPage> {
             ),
           ),
           if (searchAttempted && !searching && searchResults.isEmpty)
-            const Padding(
+            Padding(
               padding: EdgeInsets.symmetric(vertical: 28),
               child: Column(
                 children: [
@@ -10685,7 +10744,7 @@ class _FriendsPageState extends State<_FriendsPage> {
               ),
             ),
           if (friends.isEmpty && pending.isEmpty)
-            const Padding(
+            Padding(
               padding: EdgeInsets.all(30),
               child: Column(
                 children: [
@@ -10716,7 +10775,7 @@ class _FriendsPageState extends State<_FriendsPage> {
       );
     }
     if (plans.isEmpty && activities.isEmpty) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -10772,7 +10831,7 @@ class _FriendsPageState extends State<_FriendsPage> {
                       ),
                       Text(
                         (item['updatedAt'] ?? '').toString().split('T').first,
-                        style: const TextStyle(color: quiet, fontSize: 11),
+                        style: TextStyle(color: quiet, fontSize: 11),
                       ),
                     ],
                   ),
@@ -10787,7 +10846,7 @@ class _FriendsPageState extends State<_FriendsPage> {
             const SizedBox(height: 4),
             Text(
               '$exerciseCount 个动作 · 点击保存后会创建独立副本',
-              style: const TextStyle(color: secondaryInk),
+              style: TextStyle(color: secondaryInk),
             ),
             const SizedBox(height: 12),
             Row(
@@ -10874,7 +10933,7 @@ class _CalendarLegend extends StatelessWidget {
     children: [
       Icon(Icons.circle, size: 8, color: color),
       const SizedBox(width: 4),
-      Text(label, style: const TextStyle(fontSize: 11, color: quiet)),
+      Text(label, style: TextStyle(fontSize: 11, color: quiet)),
     ],
   );
 }
@@ -11040,19 +11099,18 @@ class _ExerciseLibraryPageState extends State<ExerciseLibraryPage> {
                                           exerciseAsset(exercise.id),
                                           fit: BoxFit.cover,
                                           errorBuilder:
-                                              (context, error, stack) =>
-                                                  const Icon(
-                                                    Icons.fitness_center,
-                                                    color: cobalt,
-                                                    size: 34,
-                                                  ),
+                                              (context, error, stack) => Icon(
+                                                Icons.fitness_center,
+                                                color: cobalt,
+                                                size: 34,
+                                              ),
                                         ),
                                       ),
                                       Positioned(
                                         left: 7,
                                         top: 7,
                                         child: DecoratedBox(
-                                          decoration: const BoxDecoration(
+                                          decoration: BoxDecoration(
                                             color: primary,
                                             borderRadius: BorderRadius.all(
                                               Radius.circular(7),
@@ -11108,7 +11166,7 @@ class _ExerciseLibraryPageState extends State<ExerciseLibraryPage> {
                                             : '${exercise.muscle} · ${exercise.equipment}',
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontSize: 11,
                                           color: quiet,
                                         ),
@@ -11180,7 +11238,7 @@ class _MuscleRail extends StatelessWidget {
                   width: controller.muscleFilter == group ? 1.5 : 1,
                 ),
                 boxShadow: controller.muscleFilter == group
-                    ? const [
+                    ? [
                         BoxShadow(
                           color: emberShadow,
                           blurRadius: 10,
@@ -11207,7 +11265,7 @@ class _MuscleRail extends StatelessWidget {
                     alignment: Alignment.center,
                     padding: const EdgeInsets.symmetric(horizontal: 4),
                     decoration: controller.muscleFilter == group
-                        ? const BoxDecoration(
+                        ? BoxDecoration(
                             border: Border(
                               left: BorderSide(color: primary, width: 3),
                             ),
@@ -11267,10 +11325,7 @@ class RecognitionPage extends StatelessWidget {
                             padding: EdgeInsets.all(11),
                             child: CircularProgressIndicator(strokeWidth: 3),
                           )
-                        : const Icon(
-                            Icons.document_scanner_outlined,
-                            color: cobalt,
-                          ),
+                        : Icon(Icons.document_scanner_outlined, color: cobalt),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -11286,7 +11341,7 @@ class RecognitionPage extends StatelessWidget {
                         ),
                         Text(
                           _recognitionDetail(controller),
-                          style: const TextStyle(fontSize: 12, color: quiet),
+                          style: TextStyle(fontSize: 12, color: quiet),
                         ),
                       ],
                     ),
@@ -11386,7 +11441,7 @@ class RecognitionPage extends StatelessWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.tips_and_updates_outlined,
                       size: 18,
                       color: primary,
@@ -11395,7 +11450,7 @@ class RecognitionPage extends StatelessWidget {
                     Expanded(
                       child: Text(
                         controller.selectedRecognitionCamera.hint,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
                           height: 1.45,
                           color: secondaryInk,
@@ -11415,13 +11470,13 @@ class RecognitionPage extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.accessibility_new_rounded,
                       size: 20,
                       color: primary,
                     ),
                     const SizedBox(width: 8),
-                    const Expanded(
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -11522,12 +11577,12 @@ class RecognitionPage extends StatelessWidget {
                   padding: const EdgeInsets.only(top: 8),
                   child: Row(
                     children: [
-                      const Icon(Icons.info_outline, size: 16, color: danger),
+                      Icon(Icons.info_outline, size: 16, color: danger),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
                           controller.mediaError!,
-                          style: const TextStyle(fontSize: 12, color: danger),
+                          style: TextStyle(fontSize: 12, color: danger),
                         ),
                       ),
                       TextButton(
@@ -11547,9 +11602,9 @@ class RecognitionPage extends StatelessWidget {
           padding: const EdgeInsets.all(14),
           child: Row(
             children: [
-              const Icon(Icons.info_outline, color: quiet),
+              Icon(Icons.info_outline, color: quiet),
               const SizedBox(width: 10),
-              const Expanded(
+              Expanded(
                 child: Text(
                   '视频只会在点击开始分析后上传，用于生成本次动作结果。',
                   style: TextStyle(fontSize: 12, color: secondaryInk),
@@ -11572,7 +11627,7 @@ class _RecognitionFieldLabel extends StatelessWidget {
     padding: const EdgeInsets.only(top: 14, bottom: 8),
     child: Text(
       label,
-      style: const TextStyle(
+      style: TextStyle(
         color: secondaryInk,
         fontSize: 12,
         fontWeight: FontWeight.w700,
@@ -11760,7 +11815,7 @@ class _SelectedRecognitionVideoState extends State<_SelectedRecognitionVideo> {
             padding: const EdgeInsets.fromLTRB(12, 8, 5, 8),
             child: Row(
               children: [
-                const Icon(Icons.movie_outlined, size: 18, color: primary),
+                Icon(Icons.movie_outlined, size: 18, color: primary),
                 const SizedBox(width: 7),
                 Expanded(
                   child: Column(
@@ -11777,7 +11832,7 @@ class _SelectedRecognitionVideoState extends State<_SelectedRecognitionVideo> {
                       ),
                       Text(
                         '${widget.sizeLabel} · 点击画面播放',
-                        style: const TextStyle(fontSize: 10, color: quiet),
+                        style: TextStyle(fontSize: 10, color: quiet),
                       ),
                     ],
                   ),
@@ -11865,7 +11920,7 @@ class _RecognitionProcessingPanelState
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
-                      const CircularProgressIndicator(
+                      CircularProgressIndicator(
                         strokeWidth: 3,
                         color: primary,
                         backgroundColor: Color(0xFFF7CBB2),
@@ -11894,7 +11949,7 @@ class _RecognitionProcessingPanelState
                     const SizedBox(height: 2),
                     Text(
                       '已等待 $time · 可以暂时离开此页',
-                      style: const TextStyle(fontSize: 11, color: secondaryInk),
+                      style: TextStyle(fontSize: 11, color: secondaryInk),
                     ),
                   ],
                 ),
@@ -11940,11 +11995,7 @@ class _RecognitionProcessingPanelState
           const SizedBox(height: 8),
           Text(
             _recognitionStageDetail(stage),
-            style: const TextStyle(
-              fontSize: 11,
-              height: 1.45,
-              color: secondaryInk,
-            ),
+            style: TextStyle(fontSize: 11, height: 1.45, color: secondaryInk),
           ),
         ],
       ),
@@ -12033,7 +12084,7 @@ class _RecognitionExerciseChoice extends StatelessWidget {
     final exercise = controller.exerciseFor(capability.exerciseId);
     final selected = controller.recognitionExerciseId == capability.exerciseId;
     return Material(
-      color: selected ? primaryContainer : Colors.white,
+      color: selected ? primaryContainer : surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(15),
         side: BorderSide(
@@ -12071,13 +12122,12 @@ class _RecognitionExerciseChoice extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       '${capability.cameras.length} 个推荐机位',
-                      style: const TextStyle(fontSize: 10, color: quiet),
+                      style: TextStyle(fontSize: 10, color: quiet),
                     ),
                   ],
                 ),
               ),
-              if (selected)
-                const Icon(Icons.check_circle, size: 18, color: primary),
+              if (selected) Icon(Icons.check_circle, size: 18, color: primary),
             ],
           ),
         ),
@@ -12148,14 +12198,14 @@ class _RecognitionSelectedExercise extends StatelessWidget {
                     const SizedBox(height: 3),
                     Text(
                       '${capability.group} · ${capability.cameras.length} 个推荐机位 · 共 ${controller.recognitionCapabilities.length} 个可识别动作',
-                      style: const TextStyle(fontSize: 11, color: quiet),
+                      style: TextStyle(fontSize: 11, color: quiet),
                     ),
                   ],
                 ),
               ),
-              const Icon(Icons.swap_horiz_rounded, color: primary),
+              Icon(Icons.swap_horiz_rounded, color: primary),
               const SizedBox(width: 4),
-              const Text(
+              Text(
                 '更换',
                 style: TextStyle(color: primary, fontWeight: FontWeight.w800),
               ),
@@ -12227,7 +12277,7 @@ class _RecognitionExercisePickerState
             padding: const EdgeInsets.fromLTRB(18, 16, 18, 10),
             child: Row(
               children: [
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -12297,7 +12347,7 @@ class _RecognitionExercisePickerState
                         const SizedBox(height: 7),
                         Text(
                           '$group · ${visible.length} 个动作',
-                          style: const TextStyle(color: quiet, fontSize: 11),
+                          style: TextStyle(color: quiet, fontSize: 11),
                         ),
                         const SizedBox(height: 5),
                         Expanded(
@@ -12347,7 +12397,7 @@ class _RecognitionCameraChoice extends StatelessWidget {
       _ => Icons.view_sidebar_outlined,
     };
     return Material(
-      color: selected ? primaryContainer : Colors.white,
+      color: selected ? primaryContainer : surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
         side: BorderSide(
@@ -12419,7 +12469,7 @@ class _RecognitionResultPage extends StatelessWidget {
                 _recognitionResultSubtitle(controller),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: quiet, fontSize: 11),
+                style: TextStyle(color: quiet, fontSize: 11),
               ),
             ],
           ),
@@ -12548,7 +12598,7 @@ class _RecognitionReport extends StatelessWidget {
               borderRadius: BorderRadius.circular(15),
               border: Border.all(color: hairline),
             ),
-            child: const Row(
+            child: Row(
               children: [
                 Icon(Icons.info_outline_rounded, color: primary, size: 20),
                 SizedBox(width: 8),
@@ -12648,13 +12698,13 @@ class _RecognitionTechniqueScoreCard extends StatelessWidget {
                     ),
                     Text(
                       '$overall',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.w900,
                         color: primary,
                       ),
                     ),
-                    const Text(' / 100', style: TextStyle(color: quiet)),
+                    Text(' / 100', style: TextStyle(color: quiet)),
                   ],
                 ),
                 const SizedBox(height: 10),
@@ -12704,7 +12754,7 @@ class _RecognitionTechniqueScoreCard extends StatelessWidget {
                 const SizedBox(height: 6),
                 Text(
                   _recognitionQualityGuidance(result),
-                  style: const TextStyle(color: quiet, height: 1.45),
+                  style: TextStyle(color: quiet, height: 1.45),
                 ),
               ],
             ),
@@ -12879,7 +12929,7 @@ class _RecognitionEvidenceImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (imageUrl == null) {
-      return const ColoredBox(
+      return ColoredBox(
         color: Color(0xFFF2E8E1),
         child: Center(
           child: Icon(Icons.accessibility_new_rounded, color: quiet, size: 34),
@@ -12910,7 +12960,7 @@ class _RecognitionEvidenceImage extends StatelessWidget {
           ),
         );
       },
-      errorBuilder: (context, error, stackTrace) => const ColoredBox(
+      errorBuilder: (context, error, stackTrace) => ColoredBox(
         color: Color(0xFFF2E8E1),
         child: Center(
           child: Padding(
@@ -12957,7 +13007,7 @@ class _RecognitionCoachSummary extends StatelessWidget {
           Text(
             copy.body,
             key: const Key('recognition-coach-copy'),
-            style: const TextStyle(
+            style: TextStyle(
               color: ink,
               fontSize: 15,
               height: 1.72,
@@ -12976,7 +13026,7 @@ class _RecognitionCoachSummary extends StatelessWidget {
               child: Text(
                 copy.nextSet,
                 key: const Key('recognition-next-set-copy'),
-                style: const TextStyle(
+                style: TextStyle(
                   color: secondaryInk,
                   fontSize: 14,
                   height: 1.65,
@@ -13500,7 +13550,7 @@ class _AiPageState extends State<AiPage> {
                       error: true,
                     ),
                   if (controller.chat.isEmpty && !controller.aiTyping)
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.only(bottom: 10),
                       child: Text(
                         '尚无对话。发送一个问题开始。',
@@ -13692,7 +13742,7 @@ class _AiProBadge extends StatelessWidget {
       borderRadius: BorderRadius.circular(99),
       border: Border.all(color: primary.withValues(alpha: .18)),
     ),
-    child: const Text(
+    child: Text(
       'PRO',
       style: TextStyle(
         color: primary,
@@ -13770,7 +13820,7 @@ Future<void> _showAiSkillToggleSheet(
             ),
           ],
         ),
-        const Text('最多同时启用 3 个，开关会立即作用于下一条消息。', style: TextStyle(color: quiet)),
+        Text('最多同时启用 3 个，开关会立即作用于下一条消息。', style: TextStyle(color: quiet)),
         const SizedBox(height: 8),
         for (final skill in controller.aiSkills)
           SwitchListTile(
@@ -13829,7 +13879,7 @@ class _AiContextPickerState extends State<_AiContextPicker> {
             padding: const EdgeInsets.fromLTRB(18, 18, 8, 8),
             child: Row(
               children: [
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -13864,7 +13914,7 @@ class _AiContextPickerState extends State<_AiContextPicker> {
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 9),
                         child: Material(
-                          color: checked ? emberTint : Colors.white,
+                          color: checked ? emberTint : surface,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(17),
                             side: BorderSide(
@@ -14012,7 +14062,7 @@ class _AiDrawer extends StatelessWidget {
           const Divider(height: 1),
           ListTile(
             key: const Key('ai-settings'),
-            leading: const Icon(Icons.tune, color: cobalt),
+            leading: Icon(Icons.tune, color: cobalt),
             title: const Text('服务与训练授权'),
             subtitle: const Text('URL、授权、场景'),
             onTap: () {
@@ -14039,7 +14089,7 @@ void _showAiSettings(BuildContext context, AppController controller) {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 '填写服务地址后请求 /v1/coach/answer。未配置时仅显示服务未配置状态，不生成示例回答。',
                 style: TextStyle(fontSize: 12, color: secondaryInk),
               ),
@@ -14228,11 +14278,7 @@ class _AiContextSummary extends StatelessWidget {
               detail,
               maxLines: compact ? 1 : 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: secondaryInk,
-                fontSize: 12,
-                height: 1.35,
-              ),
+              style: TextStyle(color: secondaryInk, fontSize: 12, height: 1.35),
             ),
             if (!compact && exerciseDetails.isNotEmpty) ...[
               const SizedBox(height: 8),
@@ -14269,7 +14315,7 @@ class _AiContextSummary extends StatelessWidget {
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.fromLTRB(9, 7, 9, 7),
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   color: Color(0xFFFFF3E9),
                   border: Border(left: BorderSide(color: primary, width: 3)),
                 ),
@@ -14277,7 +14323,7 @@ class _AiContextSummary extends StatelessWidget {
                   '备注：$recordNote',
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 11, color: secondaryInk),
+                  style: TextStyle(fontSize: 11, color: secondaryInk),
                 ),
               ),
             ],
@@ -14311,7 +14357,7 @@ class _AiSettingsPage extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -14341,7 +14387,7 @@ class _AiSettingsPage extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           if (controller.aiSkills.isEmpty)
-            const Padding(
+            Padding(
               padding: EdgeInsets.symmetric(vertical: 24),
               child: Text(
                 '还没有 Skill。新增后可在聊天输入框上方快速启用。',
@@ -14528,28 +14574,25 @@ class _ChatBubble extends StatelessWidget {
               onTapLink: (text, href, title) =>
                   _openMarkdownLink(context, href),
               styleSheet: MarkdownStyleSheet(
-                p: const TextStyle(color: ink, height: 1.45, fontSize: 14),
-                h1: const TextStyle(
+                p: TextStyle(color: ink, height: 1.45, fontSize: 14),
+                h1: TextStyle(
                   color: ink,
                   fontSize: 20,
                   fontWeight: FontWeight.w900,
                 ),
-                h2: const TextStyle(
+                h2: TextStyle(
                   color: ink,
                   fontSize: 17,
                   fontWeight: FontWeight.w900,
                 ),
-                h3: const TextStyle(
+                h3: TextStyle(
                   color: ink,
                   fontSize: 15,
                   fontWeight: FontWeight.w800,
                 ),
-                strong: const TextStyle(
-                  color: ink,
-                  fontWeight: FontWeight.w900,
-                ),
-                listBullet: const TextStyle(color: primary, fontSize: 15),
-                a: const TextStyle(
+                strong: TextStyle(color: ink, fontWeight: FontWeight.w900),
+                listBullet: TextStyle(color: primary, fontSize: 15),
+                a: TextStyle(
                   color: primary,
                   decoration: TextDecoration.underline,
                 ),
@@ -14568,7 +14611,7 @@ class _ChatBubble extends StatelessWidget {
                   const Divider(height: 14),
                   Row(
                     children: [
-                      const Expanded(
+                      Expanded(
                         child: Text(
                           '参考文献',
                           style: TextStyle(
@@ -14600,7 +14643,7 @@ class _ChatBubble extends StatelessWidget {
                           Expanded(
                             child: SelectableText(
                               '${index + 1}. ${message.citations[index]}',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: muted,
                                 fontSize: 11,
                                 height: 1.35,
@@ -14695,7 +14738,7 @@ class _ThinkingIndicatorState extends State<_ThinkingIndicator>
           const SizedBox(width: 5),
           Text(
             '已等待 ${widget.controller.aiWaitingSeconds} 秒',
-            style: const TextStyle(
+            style: TextStyle(
               color: muted,
               fontSize: 12,
               fontWeight: FontWeight.w600,
@@ -14777,7 +14820,7 @@ class _AiPlanCard extends StatelessWidget {
       children: [
         Row(
           children: [
-            const Icon(Icons.calendar_month_outlined, size: 18, color: primary),
+            Icon(Icons.calendar_month_outlined, size: 18, color: primary),
             const SizedBox(width: 6),
             Expanded(
               child: Text(
@@ -14787,7 +14830,7 @@ class _AiPlanCard extends StatelessWidget {
             ),
             Text(
               '${plan.weeks} 周',
-              style: const TextStyle(fontSize: 11, color: muted),
+              style: TextStyle(fontSize: 11, color: muted),
             ),
           ],
         ),
@@ -14805,14 +14848,14 @@ class _AiPlanCard extends StatelessWidget {
                     Expanded(
                       child: Text(
                         '第 ${session.dayOffset + 1} 天 · ${session.name} · ${session.effectiveExerciseIds.length} 个动作',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
                           color: secondaryInk,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
                     ),
-                    const Icon(Icons.chevron_right, size: 17, color: muted),
+                    Icon(Icons.chevron_right, size: 17, color: muted),
                   ],
                 ),
               ),
@@ -14822,7 +14865,7 @@ class _AiPlanCard extends StatelessWidget {
           totalSets > 0
               ? '$totalExercises 个动作 · $totalSets 组 · 已含重量/次数/休息'
               : '$totalExercises 个动作 · 旧计划未包含组次处方',
-          style: const TextStyle(fontSize: 11, color: muted),
+          style: TextStyle(fontSize: 11, color: muted),
         ),
         const SizedBox(height: 5),
         Wrap(
@@ -14872,7 +14915,7 @@ class _AiPlanDetailPage extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           '${plan.weeks} 周 · ${plan.sessions.length} 个训练日',
-          style: const TextStyle(color: muted),
+          style: TextStyle(color: muted),
         ),
         const SizedBox(height: 14),
         for (final session in plan.sessions)
@@ -14894,12 +14937,12 @@ class _AiPlanDetailPage extends StatelessWidget {
                     const SizedBox(height: 3),
                     Text(
                       '${session.totalSets} 组 · 计划容量 ${session.plannedVolume.toStringAsFixed(0)} kg',
-                      style: const TextStyle(color: muted, fontSize: 12),
+                      style: TextStyle(color: muted, fontSize: 12),
                     ),
                   ],
                   const SizedBox(height: 10),
                   if (session.exercises.isEmpty)
-                    const Text(
+                    Text(
                       '这份旧计划只保存了动作。请重新生成一次，即可获得每组重量、次数和休息安排。',
                       style: TextStyle(color: muted, height: 1.4),
                     ),
@@ -14960,7 +15003,7 @@ class _AiPlanExerciseDetail extends StatelessWidget {
                   ),
                   Text(
                     '${exercise.muscle} · ${exercise.equipment}',
-                    style: const TextStyle(color: muted, fontSize: 12),
+                    style: TextStyle(color: muted, fontSize: 12),
                   ),
                 ],
               ),
@@ -14980,16 +15023,12 @@ class _AiPlanExerciseDetail extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(
-                  Icons.tips_and_updates_outlined,
-                  size: 17,
-                  color: primary,
-                ),
+                Icon(Icons.tips_and_updates_outlined, size: 17, color: primary),
                 const SizedBox(width: 7),
                 Expanded(
                   child: Text(
                     '动作提醒 · $note',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
                       height: 1.4,
                       color: secondaryInk,
@@ -15017,7 +15056,7 @@ class _AiPlanExerciseDetail extends StatelessWidget {
                   width: 46,
                   child: Text(
                     '${setIndex + 1} · ${draft.sets[setIndex].type == 'warmup' ? '热身' : '正式'}',
-                    style: const TextStyle(fontSize: 11, color: muted),
+                    style: TextStyle(fontSize: 11, color: muted),
                   ),
                 ),
                 Expanded(
@@ -15028,7 +15067,7 @@ class _AiPlanExerciseDetail extends StatelessWidget {
                 ),
                 Text(
                   '休 ${draft.sets[setIndex].restSeconds}s',
-                  style: const TextStyle(fontSize: 12, color: primary),
+                  style: TextStyle(fontSize: 12, color: primary),
                 ),
               ],
             ),
@@ -15118,10 +15157,7 @@ Future<void> _showPersonalProfileSheet(
                   helperText: '好友动态中会显示这个名称',
                 ),
               ),
-              Text(
-                '登录账号：${user.identifier}',
-                style: const TextStyle(color: quiet),
-              ),
+              Text('登录账号：${user.identifier}', style: TextStyle(color: quiet)),
               if (error != null) ...[
                 const SizedBox(height: 8),
                 Text(
@@ -15292,7 +15328,7 @@ class _AccountMembershipCard extends StatelessWidget {
                             _membershipCaption(quota),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: primary,
                               fontSize: 12,
                               fontWeight: FontWeight.w800,
@@ -15302,7 +15338,7 @@ class _AccountMembershipCard extends StatelessWidget {
                             user.identifier,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(color: quiet, fontSize: 11),
+                            style: TextStyle(color: quiet, fontSize: 11),
                           ),
                         ],
                       ),
@@ -15456,7 +15492,7 @@ class _AccountBenefitsLine extends StatelessWidget {
       Expanded(
         child: Text(
           isEnabled ? 'PRO 云同步已开启' : '训练记录保存在本机 · 可升级 PRO 云同步',
-          style: const TextStyle(color: muted, fontSize: 12),
+          style: TextStyle(color: muted, fontSize: 12),
         ),
       ),
     ],
@@ -15676,19 +15712,17 @@ class ProfilePage extends StatelessWidget {
               ),
               const Divider(height: 1),
               _ProfileSettingRow(
-                key: const Key('profile-theme-entry'),
-                icon: Icons.palette_outlined,
-                title: '主题颜色',
-                caption: switch (controller.themeChoice) {
-                  KiloThemeChoice.warm => '暖橙',
-                  KiloThemeChoice.glacier => '冰川蓝',
-                  KiloThemeChoice.forest => '森氧绿',
-                  KiloThemeChoice.titanium => '钛银红',
-                },
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => ThemeChoicePage(controller: controller),
-                  ),
+                key: const Key('profile-dark-mode-toggle'),
+                icon: controller.darkMode
+                    ? Icons.dark_mode_outlined
+                    : Icons.light_mode_outlined,
+                title: '深色模式',
+                caption: controller.darkMode ? '炭黑与亮橙' : '冷灰白与石墨橙',
+                trailing: Switch(
+                  value: controller.darkMode,
+                  onChanged: (value) {
+                    unawaited(controller.setDarkMode(value));
+                  },
                 ),
               ),
               const Divider(height: 1),
@@ -15773,7 +15807,7 @@ class _ProfileMetric extends StatelessWidget {
           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
         ),
       ),
-      Text(label, style: const TextStyle(fontSize: 11, color: quiet)),
+      Text(label, style: TextStyle(fontSize: 11, color: quiet)),
     ],
   );
 }
@@ -15798,7 +15832,7 @@ class _ProfileQuickAction extends StatelessWidget {
     color: surface,
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(16),
-      side: const BorderSide(color: hairline),
+      side: BorderSide(color: hairline),
     ),
     clipBehavior: Clip.antiAlias,
     child: InkWell(
@@ -15833,12 +15867,12 @@ class _ProfileQuickAction extends StatelessWidget {
                     AppLocalizations.of(context).text(caption),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12, color: quiet),
+                    style: TextStyle(fontSize: 12, color: quiet),
                   ),
                 ],
               ),
             ),
-            trailing ?? const Icon(Icons.chevron_right, size: 18, color: quiet),
+            trailing ?? Icon(Icons.chevron_right, size: 18, color: quiet),
           ],
         ),
       ),
@@ -16014,7 +16048,7 @@ Future<void> _showAdminCreateUserSheet(
                 ),
               ),
               const SizedBox(height: 18),
-              const Row(
+              Row(
                 children: [
                   CircleAvatar(
                     backgroundColor: primaryContainer,
@@ -16115,7 +16149,7 @@ Future<void> _showAdminCreateUserSheet(
                 ),
               if (error != null) ...[
                 const SizedBox(height: 10),
-                Text(error!, style: const TextStyle(color: danger)),
+                Text(error!, style: TextStyle(color: danger)),
               ],
               const SizedBox(height: 18),
               FilledButton.icon(
@@ -16783,7 +16817,7 @@ class _ExerciseDetailSheetState extends State<_ExerciseDetailSheet> {
           children: [
             Row(
               children: [
-                const Icon(Icons.lock_outline_rounded, color: primary),
+                Icon(Icons.lock_outline_rounded, color: primary),
                 const SizedBox(width: 7),
                 const Expanded(
                   child: Text(
@@ -16795,7 +16829,7 @@ class _ExerciseDetailSheetState extends State<_ExerciseDetailSheet> {
               ],
             ),
             const SizedBox(height: 6),
-            const Text(
+            Text(
               '上传动作视频后，查看 ROM、稳定性、对称性、节奏和历史趋势。',
               style: TextStyle(color: quiet, fontSize: 12, height: 1.35),
             ),
@@ -16831,7 +16865,7 @@ class _ExerciseDetailSheetState extends State<_ExerciseDetailSheet> {
           unavailable == null
               ? '上传一次完整动作视频后，这里会记录 ROM、稳定性、对称性、节奏和轨迹。'
               : '最近视频未进入评分曲线：${unavailable.qualityReason}。请完整拍到身体并录制至少一个完整动作周期。',
-          style: const TextStyle(color: quiet, height: 1.45),
+          style: TextStyle(color: quiet, height: 1.45),
         ),
       );
     }
@@ -16889,7 +16923,7 @@ class _ExerciseDetailSheetState extends State<_ExerciseDetailSheet> {
           if (visible.isEmpty)
             Text(
               '该时间范围暂无评分记录，切换“全部”可查看完整历史。',
-              style: const TextStyle(color: quiet, height: 1.4),
+              style: TextStyle(color: quiet, height: 1.4),
             )
           else ...[
             SingleChildScrollView(
@@ -16910,7 +16944,7 @@ class _ExerciseDetailSheetState extends State<_ExerciseDetailSheet> {
                       ),
                     ),
                     if (index > 0)
-                      const Padding(
+                      Padding(
                         padding: EdgeInsets.symmetric(horizontal: 5),
                         child: Icon(
                           Icons.arrow_forward_rounded,
@@ -16958,12 +16992,12 @@ class _ExerciseDetailSheetState extends State<_ExerciseDetailSheet> {
                         Expanded(
                           child: Text(
                             _date(assessment.createdAt),
-                            style: const TextStyle(color: quiet, fontSize: 11),
+                            style: TextStyle(color: quiet, fontSize: 11),
                           ),
                         ),
                         Text(
                           '${assessment.overall}/100',
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: primary,
                             fontWeight: FontWeight.w900,
                           ),
@@ -16981,7 +17015,7 @@ class _ExerciseDetailSheetState extends State<_ExerciseDetailSheet> {
                         '下一次重点：${assessment.nextFocus}',
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: primary,
                           fontSize: 11,
                           height: 1.35,
@@ -17040,7 +17074,7 @@ class _ExerciseDetailSheetState extends State<_ExerciseDetailSheet> {
           const SizedBox(height: 10),
           Text(
             '数据集：${media!.datasetId} · ${media!.attribution}',
-            style: const TextStyle(color: quiet, fontSize: 11),
+            style: TextStyle(color: quiet, fontSize: 11),
           ),
         ],
       ],
@@ -17049,7 +17083,7 @@ class _ExerciseDetailSheetState extends State<_ExerciseDetailSheet> {
 
   Widget _buildHistory(List<WorkoutRecord> records) {
     if (records.isEmpty) {
-      return const _DetailBlock(
+      return _DetailBlock(
         title: '训练记录',
         child: Text(
           '还没有该动作的训练记录。加入一次训练并完成组后，这里会按日期显示真实数据。',
@@ -17083,7 +17117,7 @@ class _ExerciseDetailSheetState extends State<_ExerciseDetailSheet> {
                           child: Text(
                             record.name,
                             textAlign: TextAlign.end,
-                            style: const TextStyle(color: quiet, fontSize: 12),
+                            style: TextStyle(color: quiet, fontSize: 12),
                           ),
                         ),
                       ],
@@ -17101,7 +17135,7 @@ class _ExerciseDetailSheetState extends State<_ExerciseDetailSheet> {
                       const SizedBox(height: 6),
                     ],
                     if (setsFor(record).isEmpty)
-                      const Text(
+                      Text(
                         '这条旧记录未保存该动作的组明细，仅保留训练日期。',
                         style: TextStyle(color: quiet, fontSize: 12),
                       )
@@ -17196,7 +17230,7 @@ class _ExerciseMediaHero extends StatelessWidget {
       width: double.infinity,
       height: 205,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: surface,
         border: Border.all(color: hairline),
       ),
       child: media == null
@@ -17204,7 +17238,7 @@ class _ExerciseMediaHero extends StatelessWidget {
               exerciseAsset(exercise.id),
               fit: BoxFit.contain,
               errorBuilder: (context, error, stack) =>
-                  const Icon(Icons.fitness_center, size: 52, color: cobalt),
+                  Icon(Icons.fitness_center, size: 52, color: cobalt),
             )
           : Image.asset(
               media!.gifPath,
@@ -17214,7 +17248,7 @@ class _ExerciseMediaHero extends StatelessWidget {
                 media!.imagePath,
                 fit: BoxFit.contain,
                 errorBuilder: (context, error, stack) =>
-                    const Icon(Icons.fitness_center, size: 52, color: cobalt),
+                    Icon(Icons.fitness_center, size: 52, color: cobalt),
               ),
             ),
     ),
@@ -17229,16 +17263,13 @@ class _DetailTag extends StatelessWidget {
   @override
   Widget build(BuildContext context) => DecoratedBox(
     decoration: BoxDecoration(
-      color: Colors.white,
+      color: surface,
       borderRadius: BorderRadius.circular(999),
       border: Border.all(color: hairline),
     ),
     child: Padding(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-      child: Text(
-        label,
-        style: const TextStyle(fontSize: 12, color: secondaryInk),
-      ),
+      child: Text(label, style: TextStyle(fontSize: 12, color: secondaryInk)),
     ),
   );
 }
@@ -17271,7 +17302,7 @@ class _DetailStat extends StatelessWidget {
   @override
   Widget build(BuildContext context) => DecoratedBox(
     decoration: BoxDecoration(
-      color: Colors.white,
+      color: surface,
       borderRadius: BorderRadius.circular(14),
       border: Border.all(color: hairline),
     ),
@@ -17281,7 +17312,7 @@ class _DetailStat extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(label, style: const TextStyle(color: quiet, fontSize: 12)),
+          Text(label, style: TextStyle(color: quiet, fontSize: 12)),
           const SizedBox(height: 4),
           Text(
             value,
@@ -17306,7 +17337,7 @@ class _DetailBlock extends StatelessWidget {
     width: double.infinity,
     padding: const EdgeInsets.all(13),
     decoration: BoxDecoration(
-      color: Colors.white,
+      color: surface,
       borderRadius: BorderRadius.circular(14),
       border: Border.all(color: hairline),
     ),
@@ -17439,7 +17470,7 @@ void _showProgress(BuildContext context, AppController controller) {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('进步分析', style: Theme.of(context).textTheme.headlineMedium),
-              const Text(
+              Text(
                 '把最近训练的变化放在同一条线上，看懂下一步该加什么。',
                 style: TextStyle(color: quiet),
               ),
@@ -17483,11 +17514,11 @@ void _showProgress(BuildContext context, AppController controller) {
                   children: [
                     Text(
                       '${records.first.date.month}/${records.first.date.day} · ${records.first.volume.toStringAsFixed(0)} kg',
-                      style: const TextStyle(fontSize: 11, color: quiet),
+                      style: TextStyle(fontSize: 11, color: quiet),
                     ),
                     Text(
                       '${records.last.date.month}/${records.last.date.day} · ${records.last.volume.toStringAsFixed(0)} kg',
-                      style: const TextStyle(fontSize: 11, color: quiet),
+                      style: TextStyle(fontSize: 11, color: quiet),
                     ),
                   ],
                 ),
@@ -17541,14 +17572,14 @@ void _showProgress(BuildContext context, AppController controller) {
                       ),
                     ),
                     subtitle: const Text('最近一次完成 · 结合组别类型和重量复盘'),
-                    trailing: const Icon(Icons.trending_up, color: cobalt),
+                    trailing: Icon(Icons.trending_up, color: cobalt),
                   ),
                 const SizedBox(height: 8),
                 Text(
                   changeRate >= 0
                       ? '你的训练量正在上升。下一次优先保持动作质量，再让正式组增加 1–2 次或小幅加重。'
                       : '训练量暂时回落，不必急着追重量。先检查恢复、有效组和最近动作完成质量。',
-                  style: const TextStyle(color: secondaryInk),
+                  style: TextStyle(color: secondaryInk),
                 ),
               ],
             ],
@@ -17566,7 +17597,7 @@ class _ProgressMetric extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => DecoratedBox(
-    decoration: const BoxDecoration(
+    decoration: BoxDecoration(
       color: paper,
       borderRadius: BorderRadius.all(Radius.circular(10)),
     ),
@@ -17575,7 +17606,7 @@ class _ProgressMetric extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(fontSize: 11, color: quiet)),
+          Text(label, style: TextStyle(fontSize: 11, color: quiet)),
           const SizedBox(height: 2),
           Text(
             value,
@@ -17721,7 +17752,7 @@ class _ActiveRestEditorSheetState extends State<_ActiveRestEditorSheet> {
             const SizedBox(height: 4),
             Text(
               strings.text('保存后立即更新当前倒计时，并默认应用于本次训练后续所有动作和未完成组。'),
-              style: const TextStyle(color: quiet),
+              style: TextStyle(color: quiet),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -17845,10 +17876,7 @@ class _RestEditorSheetState extends State<_RestEditorSheet> {
         children: [
           Text('设置动作休息', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 4),
-          const Text(
-            '0–600 秒；设置为 0 时完成组不启动休息通知。',
-            style: TextStyle(color: quiet),
-          ),
+          Text('0–600 秒；设置为 0 时完成组不启动休息通知。', style: TextStyle(color: quiet)),
           const SizedBox(height: 12),
           TextField(
             key: const Key('rest-seconds-input'),
@@ -18159,12 +18187,12 @@ class _ExercisePickerSheetState extends State<_ExercisePickerSheet> {
                         const SizedBox(height: 7),
                         Text(
                           '${muscleLabels[muscle]} · ${items.length} 个动作',
-                          style: const TextStyle(fontSize: 11, color: quiet),
+                          style: TextStyle(fontSize: 11, color: quiet),
                         ),
                         const SizedBox(height: 3),
                         Expanded(
                           child: items.isEmpty
-                              ? const Center(
+                              ? Center(
                                   child: Text(
                                     '没有匹配动作',
                                     style: TextStyle(color: quiet),
@@ -18279,11 +18307,7 @@ class _FilterRailHeading extends StatelessWidget {
     padding: const EdgeInsets.fromLTRB(7, 4, 7, 5),
     child: Text(
       label,
-      style: const TextStyle(
-        color: quiet,
-        fontSize: 10,
-        fontWeight: FontWeight.w800,
-      ),
+      style: TextStyle(color: quiet, fontSize: 10, fontWeight: FontWeight.w800),
     ),
   );
 }
@@ -18414,7 +18438,7 @@ void _showAbortWorkout(BuildContext context, AppController controller) {
           Text(
             '当前已完成 ${controller.completedSets}/${controller.totalSets} 组，'
             '训练 ${controller.currentElapsed ~/ 60} 分钟。中止后不会生成训练记录，已有计划不会被删除。',
-            style: const TextStyle(color: muted, height: 1.45),
+            style: TextStyle(color: muted, height: 1.45),
           ),
           const SizedBox(height: 18),
           SizedBox(
@@ -18692,7 +18716,7 @@ class _WorkoutCelebration extends StatelessWidget {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         textAlign: TextAlign.center,
-                        style: const TextStyle(color: secondaryInk),
+                        style: TextStyle(color: secondaryInk),
                       ),
                       const SizedBox(height: 14),
                       LayoutBuilder(
@@ -18740,7 +18764,7 @@ class _WorkoutCelebration extends StatelessWidget {
                                                   maxLines: 1,
                                                   overflow:
                                                       TextOverflow.ellipsis,
-                                                  style: const TextStyle(
+                                                  style: TextStyle(
                                                     color: quiet,
                                                     fontSize: 10,
                                                   ),
@@ -18750,7 +18774,7 @@ class _WorkoutCelebration extends StatelessWidget {
                                                   maxLines: 1,
                                                   overflow:
                                                       TextOverflow.ellipsis,
-                                                  style: const TextStyle(
+                                                  style: TextStyle(
                                                     color: ink,
                                                     fontSize: 14,
                                                     fontWeight: FontWeight.w900,
@@ -18940,7 +18964,7 @@ class _WorkoutShareSheetState extends State<_WorkoutShareSheet> {
       height: viewport.height * .92,
       child: Column(
         children: [
-          const Padding(
+          Padding(
             padding: EdgeInsets.fromLTRB(20, 2, 20, 12),
             child: Row(
               children: [
@@ -19029,7 +19053,7 @@ class _WorkoutShareSheetState extends State<_WorkoutShareSheet> {
                   ],
                 ),
                 if (localPhotoPath != null)
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.only(top: 3),
                     child: Text(
                       '自选照片仅用于本机分享，不会上传服务器。',
@@ -19319,7 +19343,7 @@ class _WorkoutPrHistorySummary extends StatelessWidget {
     return Card(
       key: const Key('workout-pr-history-summary'),
       margin: EdgeInsets.zero,
-      color: details.isEmpty ? Colors.white : const Color(0xFFFFF1E5),
+      color: details.isEmpty ? surface : emberTint,
       child: Padding(
         padding: const EdgeInsets.all(13),
         child: Column(
@@ -19344,7 +19368,7 @@ class _WorkoutPrHistorySummary extends StatelessWidget {
                   ),
                 ),
                 if (details.isNotEmpty)
-                  const Text(
+                  Text(
                     'NEW PR',
                     style: TextStyle(
                       color: primary,
@@ -19355,7 +19379,7 @@ class _WorkoutPrHistorySummary extends StatelessWidget {
             ),
             const SizedBox(height: 7),
             if (details.isEmpty)
-              const Text(
+              Text(
                 '本次没有超过同动作历史最佳；首次记录只建立基线，不会被误报为 PR。',
                 style: TextStyle(color: secondaryInk, fontSize: 12),
               )
@@ -19392,10 +19416,7 @@ class _WorkoutPrHistorySummary extends StatelessWidget {
                             ),
                             Text(
                               '${_metricLabel(detail.metric)} · 此前 ${detail.previousValue.toStringAsFixed(detail.previousValue % 1 == 0 ? 0 : 1)} kg（${detail.previousDate.month}月${detail.previousDate.day}日）',
-                              style: const TextStyle(
-                                color: quiet,
-                                fontSize: 11,
-                              ),
+                              style: TextStyle(color: quiet, fontSize: 11),
                             ),
                           ],
                         ),
@@ -19406,7 +19427,7 @@ class _WorkoutPrHistorySummary extends StatelessWidget {
                         children: [
                           Text(
                             _value(detail),
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: primary,
                               fontWeight: FontWeight.w900,
                             ),
@@ -19463,7 +19484,7 @@ class _WorkoutComparisonSummary extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Icon(Icons.compare_arrows_rounded, color: primary),
+                Icon(Icons.compare_arrows_rounded, color: primary),
                 const SizedBox(width: 7),
                 const Expanded(
                   child: Text(
@@ -19476,13 +19497,13 @@ class _WorkoutComparisonSummary extends StatelessWidget {
                     baseline.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: quiet, fontSize: 11),
+                    style: TextStyle(color: quiet, fontSize: 11),
                   ),
               ],
             ),
             const SizedBox(height: 8),
             if (comparison == null)
-              const Text(
+              Text(
                 '暂无包含相同动作的历史训练。完成下一次同类训练后，这里会显示重量、次数、容量和时长变化。',
                 style: TextStyle(color: secondaryInk, fontSize: 12),
               )
@@ -19625,7 +19646,7 @@ class _WorkoutCompletionAiReviewState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Row(
+            Row(
               children: [
                 Icon(Icons.auto_awesome_rounded, color: primary, size: 21),
                 SizedBox(width: 8),
@@ -19662,20 +19683,20 @@ class _WorkoutCompletionAiReviewState
                   key: const Key('workout-ai-review-preview'),
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(height: 1.5, color: secondaryInk),
+                  style: TextStyle(height: 1.5, color: secondaryInk),
                 ),
                 secondChild: MarkdownBody(
                   key: const Key('workout-ai-review-expanded'),
                   data: content,
                   selectable: true,
                   styleSheet: MarkdownStyleSheet(
-                    p: const TextStyle(height: 1.5, color: secondaryInk),
-                    h2: const TextStyle(
+                    p: TextStyle(height: 1.5, color: secondaryInk),
+                    h2: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w900,
                       color: ink,
                     ),
-                    h3: const TextStyle(
+                    h3: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w900,
                       color: ink,
@@ -19709,7 +19730,7 @@ class _WorkoutCompletionAiReviewState
               Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Text(
+                  Text(
                     '训练记录已经保存，但 AI 评价暂时没有生成，不影响本次数据。',
                     style: TextStyle(color: secondaryInk),
                   ),
@@ -19777,7 +19798,7 @@ class _WorkoutCompletionAiReviewState
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.lock_rounded, color: primary, size: 28),
+                    Icon(Icons.lock_rounded, color: primary, size: 28),
                     const SizedBox(height: 5),
                     const Text(
                       '解锁训练后的 AI 评价',
@@ -19811,7 +19832,7 @@ class _ComparisonPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) => DecoratedBox(
     decoration: BoxDecoration(
-      color: Colors.white,
+      color: surface,
       borderRadius: BorderRadius.circular(10),
       border: Border.all(color: const Color(0xFFF0D5BD)),
     ),
@@ -19820,7 +19841,7 @@ class _ComparisonPill extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(color: quiet, fontSize: 10)),
+          Text(label, style: TextStyle(color: quiet, fontSize: 10)),
           const SizedBox(height: 2),
           Text(
             value,
@@ -19863,9 +19884,9 @@ class _CelebrationExerciseSummaryState
         children: [
           Row(
             children: [
-              const Icon(Icons.list_alt_rounded, color: primary, size: 21),
+              Icon(Icons.list_alt_rounded, color: primary, size: 21),
               const SizedBox(width: 7),
-              const Expanded(
+              Expanded(
                 child: Text(
                   '本次完成动作',
                   style: TextStyle(
@@ -19877,7 +19898,7 @@ class _CelebrationExerciseSummaryState
               ),
               Text(
                 '${exercises.length} 个动作',
-                style: const TextStyle(color: quiet, fontSize: 12),
+                style: TextStyle(color: quiet, fontSize: 12),
               ),
             ],
           ),
@@ -19955,7 +19976,7 @@ class _CelebrationExerciseCard extends StatelessWidget {
     return Card(
       key: Key('workout-celebration-exercise-$index'),
       margin: EdgeInsets.zero,
-      color: Colors.white,
+      color: surface,
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         key: Key('workout-celebration-exercise-details-$index'),
@@ -19977,7 +19998,7 @@ class _CelebrationExerciseCard extends StatelessWidget {
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: ink,
                         fontSize: 13,
                         fontWeight: FontWeight.w900,
@@ -19988,12 +20009,12 @@ class _CelebrationExerciseCard extends StatelessWidget {
                       '${completedSets.length} 组 · ${_displayWeight(volume)} kg',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: quiet, fontSize: 10),
+                      style: TextStyle(color: quiet, fontSize: 10),
                     ),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right_rounded, size: 18, color: quiet),
+              Icon(Icons.chevron_right_rounded, size: 18, color: quiet),
             ],
           ),
         ),
@@ -20105,7 +20126,7 @@ class _RecognitionRemoteVideoState extends State<_RecognitionRemoteVideo> {
                               ),
                             ),
                           if (current != null && !current.value.isPlaying)
-                            const Center(
+                            Center(
                               child: CircleAvatar(
                                 radius: 25,
                                 backgroundColor: primary,
@@ -20279,7 +20300,7 @@ class _RecognitionVideoEditorPageState
                     label: Text(playing ? '暂停预览' : '预览所选片段'),
                   ),
                   const SizedBox(height: 8),
-                  const Text(
+                  Text(
                     '拖动两侧把手，只保留需要分析的动作片段。',
                     textAlign: TextAlign.center,
                     style: TextStyle(color: quiet, fontSize: 12),
@@ -20327,7 +20348,7 @@ void _showCelebrationExerciseDetails(
           ),
           if (exercise.note.trim().isNotEmpty) ...[
             const SizedBox(height: 8),
-            Text(exercise.note, style: const TextStyle(color: secondaryInk)),
+            Text(exercise.note, style: TextStyle(color: secondaryInk)),
           ],
           const SizedBox(height: 12),
           for (var index = 0; index < shown.length; index++)
@@ -20376,13 +20397,13 @@ class _CelebrationSetRow extends StatelessWidget {
           ),
           Text(
             '休 ${set.restSeconds}s',
-            style: const TextStyle(color: quiet, fontSize: 11),
+            style: TextStyle(color: quiet, fontSize: 11),
           ),
           if (set.note.trim().isNotEmpty) ...[
             const SizedBox(width: 5),
             Tooltip(
               message: set.note,
-              child: const Icon(
+              child: Icon(
                 Icons.sticky_note_2_outlined,
                 size: 16,
                 color: primary,
@@ -20484,7 +20505,7 @@ void _showCalendarDayActions(
           ),
           if (selectedRecord != null)
             ListTile(
-              leading: const Icon(Icons.check_circle, color: success),
+              leading: Icon(Icons.check_circle, color: success),
               title: const Text('查看训练记录'),
               onTap: () {
                 Navigator.pop(sheetContext);
@@ -20507,7 +20528,7 @@ void _showCalendarDayActions(
             ),
           if (planned)
             ListTile(
-              leading: const Icon(Icons.event_busy_outlined, color: orange),
+              leading: Icon(Icons.event_busy_outlined, color: orange),
               title: const Text('移除排程'),
               onTap: () {
                 controller.unschedule(key);
@@ -20517,7 +20538,7 @@ void _showCalendarDayActions(
             ),
           if (!planned)
             ListTile(
-              leading: const Icon(Icons.add_circle_outline, color: cobalt),
+              leading: Icon(Icons.add_circle_outline, color: cobalt),
               title: const Text('安排训练'),
               onTap: () {
                 Navigator.pop(sheetContext);
@@ -20556,10 +20577,7 @@ void _showScheduleEditor(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text(
-              '快速选择训练部位',
-              style: TextStyle(fontSize: 12, color: muted),
-            ),
+            Text('快速选择训练部位', style: TextStyle(fontSize: 12, color: muted)),
             const SizedBox(height: 8),
             Wrap(
               spacing: 7,
@@ -20636,7 +20654,7 @@ void _showOfficialPlans(BuildContext context, AppController controller) {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('官方单日计划', style: Theme.of(context).textTheme.headlineMedium),
-              const Text(
+              Text(
                 '每个入口都是一节可直接执行的训练。先看详情，再决定使用。',
                 style: TextStyle(color: quiet),
               ),
@@ -20680,13 +20698,10 @@ void _showPlanDetail(
               ),
               Text(
                 '${plan.title} · ${session.exercises} 个动作 · ${session.duration}',
-                style: const TextStyle(color: secondaryInk),
+                style: TextStyle(color: secondaryInk),
               ),
               const SizedBox(height: 4),
-              const Text(
-                '单日训练详情',
-                style: TextStyle(fontSize: 12, color: quiet),
-              ),
+              Text('单日训练详情', style: TextStyle(fontSize: 12, color: quiet)),
               const SizedBox(height: 12),
               Expanded(
                 child: ListView(
@@ -20764,7 +20779,7 @@ void _showRoutineDetail(
               ),
               Text(
                 '${routine.exercises.length} 个动作 · ${routine.exercises.fold<int>(0, (sum, item) => sum + item.sets.length)} 组',
-                style: const TextStyle(color: quiet),
+                style: TextStyle(color: quiet),
               ),
               const SizedBox(height: 12),
               Expanded(
@@ -20800,7 +20815,7 @@ void _showRoutineDetail(
                                   ),
                                   Text(
                                     '${exercise.restSeconds}s',
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 12,
                                       color: quiet,
                                     ),
@@ -20834,7 +20849,7 @@ void _showRoutineDetail(
                         ),
                       ),
                     if (routine.exercises.isEmpty)
-                      const Text(
+                      Text(
                         '\u8FD9\u4E2A\u8BA1\u5212\u8FD8\u6CA1\u6709\u52A8\u4F5C',
                         style: TextStyle(color: quiet),
                       ),
@@ -21071,7 +21086,7 @@ class _RoutineEditorPageState extends State<_RoutineEditorPage> {
             const SizedBox(height: 6),
             Text(
               '${draft.exercises.length} 个动作 · 返回不会修改原计划',
-              style: const TextStyle(color: quiet, fontSize: 12),
+              style: TextStyle(color: quiet, fontSize: 12),
             ),
             const SizedBox(height: 8),
             Expanded(
@@ -21255,7 +21270,7 @@ class _RoutineExerciseEditor extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 3),
-          const Text(
+          Text(
             '动作设置',
             style: TextStyle(
               color: quiet,
@@ -21277,7 +21292,7 @@ class _RoutineExerciseEditor extends StatelessWidget {
             },
           ),
           const SizedBox(height: 6),
-          const Text(
+          Text(
             '组设置',
             style: TextStyle(
               color: quiet,
@@ -21343,7 +21358,7 @@ class _RoutineActionMenuLabel extends StatelessWidget {
     children: [
       Icon(icon, size: 18, color: destructive ? danger : null),
       const SizedBox(width: 8),
-      Text(label, style: destructive ? const TextStyle(color: danger) : null),
+      Text(label, style: destructive ? TextStyle(color: danger) : null),
     ],
   );
 }
@@ -21373,7 +21388,7 @@ class _RoutineSetEditorBase extends StatelessWidget {
           children: [
             SizedBox(
               width: 24,
-              child: Text('${index + 1}', style: const TextStyle(color: quiet)),
+              child: Text('${index + 1}', style: TextStyle(color: quiet)),
             ),
             SizedBox(
               width: typeWidth,
@@ -21576,7 +21591,7 @@ class _RoutineSetEditor extends _RoutineSetEditorBase {
                     width: 22,
                     child: Text(
                       '${index + 1}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: quiet,
                         fontSize: 12,
                         fontWeight: FontWeight.w800,
@@ -21770,7 +21785,7 @@ class _DraftPlanComposerState extends State<_DraftPlanComposer> {
             const SizedBox(height: 5),
             Text(
               '${draft.exercises.length} 个动作 · 保存后才会加入我的计划',
-              style: const TextStyle(color: quiet, fontSize: 12),
+              style: TextStyle(color: quiet, fontSize: 12),
             ),
             if (error != null)
               Padding(
@@ -21876,7 +21891,7 @@ void _showExerciseHistory(
                         ),
                         Text(
                           '${records.length} 次历史 · 点击查看当时完整备注',
-                          style: const TextStyle(color: quiet, fontSize: 12),
+                          style: TextStyle(color: quiet, fontSize: 12),
                         ),
                       ],
                     ),
@@ -21949,7 +21964,7 @@ void _showExerciseHistory(
                                     ),
                                   ),
                                 ),
-                                const Icon(
+                                Icon(
                                   Icons.chevron_right,
                                   color: quiet,
                                   size: 20,
@@ -21961,7 +21976,7 @@ void _showExerciseHistory(
                               best == null
                                   ? '${completed.length} 组完成'
                                   : '${completed.length} 组 · 最佳 ${_displayWeight(best.weight)} kg × ${best.reps}',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: secondaryInk,
                                 fontSize: 12,
                               ),
@@ -22120,7 +22135,7 @@ void _showRecordDetail(
               ),
               const SizedBox(height: 6),
               if (details.isEmpty)
-                const Text('这条记录没有保存动作明细。', style: TextStyle(color: quiet))
+                Text('这条记录没有保存动作明细。', style: TextStyle(color: quiet))
               else
                 for (final exercise in details)
                   Card(
@@ -22165,7 +22180,7 @@ void _showRecordDetail(
                               ),
                             ),
                           if (exercise.sets.isEmpty)
-                            const Text(
+                            Text(
                               '\u8BA1\u5212\u91CD\u91CF\u672A\u8BB0\u5F55\uFF08\u65E7\u8BB0\u5F55\u672A\u4FDD\u5B58\u7EC4\u660E\u7EC6\uFF09',
                               style: TextStyle(fontSize: 12, color: quiet),
                             ),
@@ -22322,7 +22337,7 @@ class _RecordTechniqueSummary extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Icon(Icons.analytics_outlined, size: 18, color: primary),
+                Icon(Icons.analytics_outlined, size: 18, color: primary),
                 const SizedBox(width: 6),
                 const Expanded(
                   child: Text(
@@ -22332,10 +22347,7 @@ class _RecordTechniqueSummary extends StatelessWidget {
                 ),
                 Text(
                   scoreText,
-                  style: const TextStyle(
-                    color: primary,
-                    fontWeight: FontWeight.w900,
-                  ),
+                  style: TextStyle(color: primary, fontWeight: FontWeight.w900),
                 ),
               ],
             ),
@@ -22345,7 +22357,7 @@ class _RecordTechniqueSummary extends StatelessWidget {
                 assessment.qualityReason.isEmpty
                     ? '视频证据不足，未生成可靠评分。'
                     : assessment.qualityReason,
-                style: const TextStyle(color: quiet, height: 1.35),
+                style: TextStyle(color: quiet, height: 1.35),
               )
             else ...[
               Wrap(
@@ -22364,7 +22376,7 @@ class _RecordTechniqueSummary extends StatelessWidget {
                   '最需改善：${assessment.issues.take(2).join('；')}',
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: quiet, height: 1.35),
+                  style: TextStyle(color: quiet, height: 1.35),
                 ),
               ],
               if (assessment.nextFocus.trim().isNotEmpty) ...[
@@ -22373,7 +22385,7 @@ class _RecordTechniqueSummary extends StatelessWidget {
                   '下一次重点：${assessment.nextFocus}',
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: primary,
                     fontWeight: FontWeight.w700,
                     height: 1.35,
@@ -22403,7 +22415,7 @@ void _showAllHistory(BuildContext context, AppController controller) {
               Text('全部训练历史', style: Theme.of(context).textTheme.headlineMedium),
               Text(
                 '${controller.history.length} 次训练 · 点击查看动作与每组数据',
-                style: const TextStyle(color: quiet),
+                style: TextStyle(color: quiet),
               ),
               const SizedBox(height: 10),
               Expanded(
