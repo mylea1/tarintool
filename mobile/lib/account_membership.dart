@@ -708,6 +708,7 @@ class AccountService extends ChangeNotifier {
     }
     persistence = adapter;
     _refreshEntitlements();
+    _persist();
     notifyListeners();
   }
 

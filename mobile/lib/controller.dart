@@ -5273,11 +5273,6 @@ class AppController extends ChangeNotifier {
       api.restoreSession(session, accountIdentifier: user.identifier);
     }
     _remoteIdentifier = user.identifier;
-    unawaited(
-      fetchFriendIdentitiesRemote().catchError(
-        (Object _) => <String, dynamic>{},
-      ),
-    );
     notifyListeners();
   }
 
