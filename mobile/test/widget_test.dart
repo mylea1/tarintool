@@ -1776,6 +1776,7 @@ void main() {
 
     await tester.pumpWidget(KiloApp(initialController: controller));
     await tester.ensureVisible(find.byKey(Key('delete-set-${completed.id}')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(Key('delete-set-${completed.id}')));
     await tester.pumpAndSettle();
     expect(find.text('这组已完成，删除后训练统计会同步更新。'), findsOneWidget);
@@ -1784,6 +1785,7 @@ void main() {
     expect(exercise.sets, isNot(contains(completed)));
 
     await tester.ensureVisible(find.byKey(Key('delete-set-${unfinished.id}')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(Key('delete-set-${unfinished.id}')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(Key('confirm-delete-set-${unfinished.id}')));

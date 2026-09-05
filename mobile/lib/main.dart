@@ -2072,7 +2072,10 @@ class KiloShell extends StatelessWidget {
             ),
             Positioned.fill(
               child: Padding(
-                padding: EdgeInsets.only(bottom: reservedBottom),
+                padding: EdgeInsets.only(
+                  bottom: reservedBottom +
+                      (controller.page == PageId.train && controller.liveWorkoutVisible ? 64 : 0),
+                ),
                 child: GestureDetector(
                   behavior: HitTestBehavior.translucent,
                   onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
