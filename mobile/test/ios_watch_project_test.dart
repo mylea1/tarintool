@@ -3,8 +3,9 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  final projectFile = File('ios/Runner.xcodeproj/project.pbxproj');
+
   test('Watch app target uses the single-target watchOS product type', () {
-    final projectFile = File('ios/Runner.xcodeproj/project.pbxproj');
     expect(projectFile.existsSync(), isTrue);
 
     final project = projectFile.readAsStringSync();
@@ -20,6 +21,21 @@ void main() {
     expect(
       target.group(1),
       isNot(contains('com.apple.product-type.application.watchapp2')),
+    );
+  });
+
+  test('Runner connectivity source path is relative to the Runner group', () {
+    final project = projectFile.readAsStringSync();
+
+    expect(
+      project,
+      contains(
+        'path = KiloWatchConnectivityManager.swift; sourceTree = "<group>";',
+      ),
+    );
+    expect(
+      project,
+      isNot(contains('path = Runner/KiloWatchConnectivityManager.swift;')),
     );
   });
 }

@@ -112,7 +112,7 @@
 		EBA200000000000000000004 /* KiloLiveActivityWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KiloLiveActivity/KiloLiveActivityWidget.swift; sourceTree = "<group>"; };
 		EBA200000000000000000005 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = KiloLiveActivity/Info.plist; sourceTree = "<group>"; };
 		EBA200000000000000000006 /* KiloLiveActivityExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = KiloLiveActivityExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
-		WCH200000000000000000001 /* KiloWatchConnectivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Runner/KiloWatchConnectivityManager.swift; sourceTree = "<group>"; };
+		WCH200000000000000000001 /* KiloWatchConnectivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KiloWatchConnectivityManager.swift; sourceTree = "<group>"; };
 		WCH200000000000000000002 /* KiloWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KiloWatchApp.swift; sourceTree = "<group>"; };
 		WCH200000000000000000003 /* WatchWorkoutModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchWorkoutModel.swift; sourceTree = "<group>"; };
 		WCH200000000000000000004 /* WorkoutWatchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutWatchView.swift; sourceTree = "<group>"; };
