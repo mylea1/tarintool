@@ -153,8 +153,8 @@ Color get setNoteColor => _activePalette.setNote;
 Color get setNoteContainer => _activePalette.setNoteContainer;
 Color get workoutNoteColor => _activePalette.workoutNote;
 Color get workoutNoteContainer => _activePalette.workoutNoteContainer;
-const kiloAppVersion = '1.0.32';
-const kiloAppBuild = '34';
+const kiloAppVersion = '1.0.34';
+const kiloAppBuild = '36';
 const kiloAppVersionLabel = '$kiloAppVersion ($kiloAppBuild)';
 const kiloSourceCommit = String.fromEnvironment(
   'KILO_SOURCE_COMMIT',
@@ -1991,21 +1991,30 @@ class _LoginMethodIcon extends StatelessWidget {
   );
 }
 
-class KiloShell extends StatelessWidget {
+class KiloShell extends StatefulWidget {
   const KiloShell({super.key, required this.controller});
   final AppController controller;
 
+  @override
+  State<KiloShell> createState() => _KiloShellState();
+}
+
+class _KiloShellState extends State<KiloShell> {
+  AppController get controller => widget.controller;
+  Offset coachOffset = Offset.zero;
+  Offset coachDragStart = Offset.zero;
+
   static const pages = <PageId>[
     PageId.today,
-    PageId.train,
+    PageId.records,
     PageId.exercises,
     PageId.ai,
     PageId.profile,
   ];
-  static const labels = ['主页', '训练', '动作', 'AI', '我的'];
+  static const labels = ['主页', '记录', '动作', 'AI', '我的'];
   static const icons = [
     Icons.home_outlined,
-    Icons.fitness_center_outlined,
+    Icons.bar_chart_outlined,
     Icons.menu_book_outlined,
     Icons.forum_outlined,
     Icons.person_outline,
@@ -2013,7 +2022,8 @@ class KiloShell extends StatelessWidget {
 
   int get navIndex => switch (controller.page) {
     PageId.today => 0,
-    PageId.train || PageId.records => 1,
+    PageId.train => -1,
+    PageId.records => 1,
     PageId.exercises => 2,
     PageId.ai => 3,
     PageId.recognition => 2,
@@ -2052,7 +2062,7 @@ class KiloShell extends StatelessWidget {
     final body = switch (controller.page) {
       PageId.today => HomePage(controller: controller),
       PageId.train => TrainPage(controller: controller),
-      PageId.records => TrainPage(controller: controller),
+      PageId.records => RecordsPage(controller: controller, embedded: true),
       PageId.exercises => ExerciseLibraryPage(controller: controller),
       // Recognition is no longer a top-level destination. It is opened from
       // an exercise detail/record, so a stale legacy enum value falls back to
@@ -2062,14 +2072,19 @@ class KiloShell extends StatelessWidget {
       PageId.profile => ProfilePage(controller: controller),
     };
     return Scaffold(
-      appBar: PreferredSize(
-        preferredSize: Size.fromHeight(compact ? 50 : 54),
-        child: SafeArea(
-          child: _TopBar(controller: controller, title: pageTitle(context)),
-        ),
-      ),
+      appBar: controller.page == PageId.profile
+          ? null
+          : PreferredSize(
+              preferredSize: Size.fromHeight(compact ? 50 : 54),
+              child: SafeArea(
+                child: _TopBar(
+                  controller: controller,
+                  title: pageTitle(context),
+                ),
+              ),
+            ),
       body: SafeArea(
-        top: false,
+        top: controller.page == PageId.profile,
         child: Stack(
           children: [
             Positioned.fill(
@@ -2083,14 +2098,7 @@ class KiloShell extends StatelessWidget {
             ),
             Positioned.fill(
               child: Padding(
-                padding: EdgeInsets.only(
-                  bottom:
-                      reservedBottom +
-                      (controller.page == PageId.train &&
-                              controller.liveWorkoutVisible
-                          ? 64
-                          : 0),
-                ),
+                padding: EdgeInsets.only(bottom: reservedBottom),
                 child: GestureDetector(
                   behavior: HitTestBehavior.translucent,
                   onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
@@ -2100,7 +2108,7 @@ class KiloShell extends StatelessWidget {
             ),
             Positioned(
               left: compact ? 12 : 16,
-              right: compact ? 12 : 16,
+              right: compact ? 80 : 90,
               bottom: 3,
               child: _FloatingBottomNavigation(
                 selectedIndex: navIndex,
@@ -2111,24 +2119,71 @@ class KiloShell extends StatelessWidget {
                 icons: icons,
                 compact: compact,
                 onDestinationSelected: (index) {
-                  if (index == navIndex) return;
+                  if (pages[index] == controller.page) return;
                   controller.selectPage(pages[index]);
                 },
+              ),
+            ),
+            Positioned(
+              right: 12,
+              bottom: 7,
+              child: SizedBox.square(
+                dimension: compact ? 60 : 64,
+                child: FloatingActionButton(
+                  key: const Key('global-training-entry'),
+                  heroTag: 'global-training',
+                  shape: const CircleBorder(),
+                  backgroundColor: primary,
+                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                  tooltip: '训练计划与实时训练',
+                  onPressed: () {
+                    if (controller.workoutStarted) {
+                      controller.openLiveWorkout();
+                    } else {
+                      controller.selectPage(PageId.train);
+                      controller.selectTrainView(TrainView.plans);
+                    }
+                  },
+                  child: Text(
+                    AppLocalizations.of(context).text('训练'),
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                ),
               ),
             ),
             if (controller.page == PageId.train &&
                 controller.liveWorkoutVisible)
               Positioned(
-                right: 16,
-                bottom: reservedBottom + 12,
-                child: FloatingActionButton.small(
-                  key: const Key('workout-coach-open'),
-                  heroTag: 'workout-coach',
-                  tooltip: '本次训练 AI 教练',
-                  onPressed: () => _showWorkoutCoach(context, controller),
-                  child: const Text(
-                    'AI',
-                    style: TextStyle(fontWeight: FontWeight.w800),
+                right: (16 - coachOffset.dx).clamp(
+                  8.0,
+                  (MediaQuery.sizeOf(context).width - 64).clamp(
+                    8.0,
+                    double.infinity,
+                  ),
+                ),
+                bottom: (reservedBottom + 12 - coachOffset.dy).clamp(
+                  reservedBottom + 8,
+                  (MediaQuery.sizeOf(context).height -
+                          MediaQuery.viewInsetsOf(context).bottom -
+                          180)
+                      .clamp(reservedBottom + 8, double.infinity),
+                ),
+                child: GestureDetector(
+                  onLongPressStart: (_) => coachDragStart = coachOffset,
+                  onLongPressMoveUpdate: (details) => setState(
+                    () =>
+                        coachOffset = coachDragStart + details.offsetFromOrigin,
+                  ),
+                  child: FloatingActionButton.small(
+                    key: const Key('workout-coach-open'),
+                    shape: const CircleBorder(),
+                    heroTag: 'workout-coach',
+
+                    onPressed: () => _showWorkoutCoach(context, controller),
+                    child: const Text(
+                      'AI',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
                   ),
                 ),
               ),
@@ -2211,7 +2266,7 @@ class _FloatingBottomNavigation extends StatelessWidget {
                         ),
                       ),
                       child: NavigationBar(
-                        selectedIndex: selectedIndex,
+                        selectedIndex: selectedIndex < 0 ? 0 : selectedIndex,
                         onDestinationSelected: onDestinationSelected,
                         destinations: [
                           for (var i = 0; i < labels.length; i++)
@@ -2233,23 +2288,25 @@ class _FloatingBottomNavigation extends StatelessWidget {
                 ),
               ),
             ),
-            AnimatedPositioned(
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeInOutCubic,
-              left:
-                  slotWidth * selectedIndex + (slotWidth - indicatorWidth) / 2,
-              top: (constraints.maxHeight - indicatorHeight) / 2,
-              width: indicatorWidth,
-              height: indicatorHeight,
-              child: IgnorePointer(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: primaryContainer.withValues(alpha: .65),
-                    borderRadius: BorderRadius.circular(31),
+            if (selectedIndex >= 0)
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOutCubic,
+                left:
+                    slotWidth * selectedIndex +
+                    (slotWidth - indicatorWidth) / 2,
+                top: (constraints.maxHeight - indicatorHeight) / 2,
+                width: indicatorWidth,
+                height: indicatorHeight,
+                child: IgnorePointer(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: primaryContainer.withValues(alpha: .65),
+                      borderRadius: BorderRadius.circular(31),
+                    ),
                   ),
                 ),
               ),
-            ),
             Positioned(
               left: 0,
               right: 0,
@@ -2392,6 +2449,17 @@ class _TopBar extends StatelessWidget {
               tooltip: AppLocalizations.of(context).text('新建自定义动作'),
               onPressed: () => _showCustomExercise(context, controller),
               icon: const Icon(Icons.add),
+            ),
+          if (controller.page == PageId.today)
+            TextButton.icon(
+              key: const Key('home-friends-entry'),
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => _FriendsPage(controller: controller),
+                ),
+              ),
+              icon: const Icon(Icons.people_alt_outlined),
+              label: const Text('好友'),
             ),
         ],
       ),
@@ -4408,7 +4476,6 @@ class TrainPage extends StatelessWidget {
     final showingHistory = controller.trainView == TrainView.history;
     return Column(
       children: [
-        _TrainTopTabs(controller: controller),
         Expanded(
           child: showingHistory
               ? RecordsPage(controller: controller, embedded: true)
@@ -4746,118 +4813,6 @@ class _RecoveryDetailsPageState extends State<RecoveryDetailsPage> {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _UnderlineTab {
-  const _UnderlineTab({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-}
-
-class _UnderlineTabs extends StatelessWidget {
-  const _UnderlineTabs({super.key, required this.items, required this.labels});
-  final List<_UnderlineTab> items;
-  final List<String> labels;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    height: 44,
-    decoration: BoxDecoration(
-      border: Border(bottom: BorderSide(color: hairline)),
-    ),
-    child: Row(
-      children: [
-        for (var index = 0; index < items.length; index++)
-          Expanded(
-            child: Semantics(
-              button: true,
-              selected: items[index].selected,
-              label: labels[index],
-              child: InkWell(
-                key: Key(items[index].label),
-                onTap: items[index].onTap,
-                child: Container(
-                  constraints: const BoxConstraints(minHeight: 44),
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    border: Border(
-                      bottom: BorderSide(
-                        color: items[index].selected
-                            ? cobalt
-                            : Colors.transparent,
-                        width: 3,
-                      ),
-                    ),
-                  ),
-                  child: Text(
-                    labels[index],
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: items[index].selected ? ink : quiet,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-      ],
-    ),
-  );
-}
-
-class _TrainTopTabs extends StatelessWidget {
-  const _TrainTopTabs({required this.controller});
-  final AppController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    if (controller.trainView.index >= 0) {
-      final selected = controller.trainView == TrainView.history
-          ? TrainView.history
-          : TrainView.plans;
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-        child: _UnderlineTabs(
-          key: const Key('train-top-tabs'),
-          labels: const ['\u8BA1\u5212', '\u8BB0\u5F55'],
-          items: [
-            _UnderlineTab(
-              label: 'train-plan',
-              selected: selected == TrainView.plans,
-              onTap: () => controller.selectTrainView(TrainView.plans),
-            ),
-            _UnderlineTab(
-              label: 'train-history',
-              selected: selected == TrainView.history,
-              onTap: () => controller.selectTrainView(TrainView.history),
-            ),
-          ],
-        ),
-      );
-    }
-    final selected = controller.trainView == TrainView.history
-        ? TrainView.history
-        : TrainView.plans;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      child: SegmentedButton<TrainView>(
-        key: const Key('train-top-tabs'),
-        segments: const [
-          ButtonSegment(value: TrainView.plans, label: Text('计划')),
-          ButtonSegment(value: TrainView.history, label: Text('记录')),
-        ],
-        selected: {selected},
-        onSelectionChanged: (value) => controller.selectTrainView(value.first),
       ),
     );
   }
@@ -8422,10 +8377,7 @@ class _TrainingStatisticsView extends StatelessWidget {
               ),
             ),
         const SizedBox(height: 15),
-        _TrackedStrengthSection(
-          controller: controller,
-          range: selectedRange,
-        ),
+        _TrackedStrengthSection(controller: controller, range: selectedRange),
       ],
     );
   }
@@ -14820,7 +14772,7 @@ Future<void> _showPersonalProfileSheet(
 ) async {
   final user = controller.currentUser;
   if (user == null) return;
-  final name = TextEditingController(text: user.displayName);
+  final name = TextEditingController(text: user.visibleName);
   var avatarPath = user.avatarPath;
   var saving = false;
   String? error;
@@ -14894,7 +14846,7 @@ Future<void> _showPersonalProfileSheet(
                   helperText: '好友动态中会显示这个名称',
                 ),
               ),
-              Text('登录账号：${user.identifier}', style: TextStyle(color: quiet)),
+              Text('形域 ID：${user.publicId}', style: TextStyle(color: quiet)),
               if (error != null) ...[
                 const SizedBox(height: 8),
                 Text(
@@ -14990,224 +14942,183 @@ class _AccountMembershipCard extends StatelessWidget {
       );
     }
     final textScale = MediaQuery.textScalerOf(context).scale(1);
-    return Card(
+    return Column(
       key: const Key('account-membership-card'),
-      color: emberTint,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final compact = constraints.maxWidth < 390 || textScale > 1.35;
-                final identity = Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 28,
+                backgroundColor: primaryContainer,
+                backgroundImage: user.avatarPath?.isNotEmpty == true
+                    ? FileImage(File(user.avatarPath!))
+                    : null,
+                child: user.avatarPath?.isNotEmpty == true
+                    ? null
+                    : Text(user.visibleName.characters.first),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Stack(
-                      clipBehavior: Clip.none,
+                    Text(
+                      user.visibleName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '形域 ID ${user.publicId}',
+                      style: TextStyle(color: quiet, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                key: const Key('edit-personal-profile'),
+                tooltip: '修改用户名和头像',
+                onPressed: () => _showPersonalProfileSheet(context, controller),
+                icon: const Icon(Icons.edit_outlined),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        Card(
+          color: const Color(0xFF252323),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            key: const Key('redeem-membership-button'),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => MembershipCenterPage(controller: controller),
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Container(
-                          width: 46,
-                          height: 46,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: ink,
-                            borderRadius: BorderRadius.circular(14),
+                        Text(
+                          quota.isMember ? '形域 PRO' : '开启形域 PRO',
+                          style: const TextStyle(
+                            color: Color(0xFFFFBC83),
+                            fontSize: 22,
+                            fontWeight: FontWeight.w900,
                           ),
-                          child: user.avatarPath?.isNotEmpty == true
-                              ? ClipRRect(
-                                  borderRadius: BorderRadius.circular(14),
-                                  child: Image.file(
-                                    File(user.avatarPath!),
-                                    width: 46,
-                                    height: 46,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, _, _) => const Icon(
-                                      Icons.person_rounded,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                )
-                              : Text(
-                                  user.displayName.isEmpty
-                                      ? '形'
-                                      : user.displayName.characters.first,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                                ),
                         ),
-                        Positioned(
-                          right: -5,
-                          bottom: -5,
-                          child: MembershipMark(
-                            isMember: quota.isMember,
-                            size: 19,
+                        const SizedBox(height: 8),
+                        Text(
+                          quota.isMember
+                              ? _membershipCaption(quota)
+                              : '专注训练，看见每一次进步',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          quota.isMember
+                              ? '${_membershipLabel(quota.membership)} · 管理会员 ›'
+                              : '了解会员权益 ›',
+                          style: const TextStyle(
+                            color: Color(0xFFEACDB9),
+                            fontSize: 12,
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            user.displayName,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.titleLarge,
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            _membershipCaption(quota),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: primary,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          Text(
-                            user.identifier,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(color: quiet, fontSize: 11),
-                          ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      key: const Key('edit-personal-profile'),
-                      tooltip: '修改用户名和头像',
-                      onPressed: () =>
-                          _showPersonalProfileSheet(context, controller),
-                      icon: const Icon(Icons.edit_outlined),
-                    ),
-                  ],
-                );
-                final badge = _StatusChip(
-                  _membershipLabel(quota.membership),
-                  color: quota.membership == MembershipPlan.free
-                      ? muted
-                      : primary,
-                  icon: quota.membership == MembershipPlan.free
-                      ? Icons.person_outline
-                      : Icons.workspace_premium,
-                );
-                if (compact) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      identity,
-                      const SizedBox(height: 8),
-                      Align(alignment: Alignment.centerLeft, child: badge),
-                    ],
-                  );
-                }
-                return Row(
-                  children: [
-                    Expanded(child: identity),
-                    const SizedBox(width: 12),
-                    badge,
-                  ],
-                );
-              },
-            ),
-            const SizedBox(height: 11),
-            _AccountBenefitsLine(isEnabled: controller.cloudSyncAllowed),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: FilledButton.icon(
-                    key: const Key('redeem-membership-button'),
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) =>
-                            MembershipCenterPage(controller: controller),
-                      ),
-                    ),
-                    icon: const Icon(Icons.confirmation_number_outlined),
-                    label: Text(quota.isMember ? '管理会员' : '升级 PRO'),
                   ),
-                ),
-                const SizedBox(width: 8),
-                IconButton.outlined(
-                  key: const Key('logout-button'),
-                  tooltip: '\u9000\u51fa\u767b\u5f55',
-                  onPressed: controller.logout,
-                  icon: const Icon(Icons.logout),
-                ),
-              ],
-            ),
-            if (user.isAdmin) ...[
-              const Divider(height: 18),
-              const Row(
-                children: [
-                  Icon(Icons.admin_panel_settings_outlined, size: 18),
-                  SizedBox(width: 6),
-                  Text(
-                    '\u7ba1\u7406\u5458\u5de5\u5177',
-                    style: TextStyle(fontWeight: FontWeight.w800),
+                  const SizedBox(width: 8),
+                  Image.asset(
+                    'assets/branding/kilo-orange-metal-logo.png',
+                    width: 76,
+                    height: 76,
+                    fit: BoxFit.contain,
                   ),
                 ],
               ),
-              const SizedBox(height: 6),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final compact =
-                      constraints.maxWidth < 330 || textScale > 1.35;
-                  final buttons = <Widget>[
-                    FilledButton.icon(
-                      key: const Key('admin-create-user-button'),
-                      onPressed: () =>
-                          _showAdminCreateUserSheet(context, controller),
-                      icon: const Icon(
-                        Icons.person_add_alt_1_rounded,
-                        size: 18,
-                      ),
-                      label: const Text('创建账号'),
-                    ),
-                    OutlinedButton(
-                      key: const Key('admin-grant-membership-button'),
-                      onPressed: () =>
-                          _showAdminGrantDialog(context, controller),
-                      child: const Text('\u5f00\u901a\u4f1a\u5458'),
-                    ),
-                    OutlinedButton(
-                      key: const Key('admin-generate-code-button'),
-                      onPressed: () =>
-                          _showAdminCodeDialog(context, controller),
-                      child: const Text('\u751f\u6210\u5151\u6362\u7801'),
-                    ),
-                  ];
-                  if (compact) {
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        for (
-                          var index = 0;
-                          index < buttons.length;
-                          index++
-                        ) ...[
-                          buttons[index],
-                          if (index < buttons.length - 1)
-                            const SizedBox(height: 8),
-                        ],
-                      ],
-                    );
-                  }
-                  return Wrap(spacing: 8, runSpacing: 8, children: buttons);
-                },
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: _AccountBenefitsLine(
+                isEnabled: controller.cloudSyncAllowed,
               ),
-            ],
+            ),
+            IconButton(
+              key: const Key('logout-button'),
+              tooltip: '退出登录',
+              onPressed: controller.logout,
+              icon: const Icon(Icons.logout),
+            ),
           ],
         ),
-      ),
+        if (user.isAdmin) ...[
+          const Divider(height: 18),
+          const Row(
+            children: [
+              Icon(Icons.admin_panel_settings_outlined, size: 18),
+              SizedBox(width: 6),
+              Text(
+                '\u7ba1\u7406\u5458\u5de5\u5177',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final compact = constraints.maxWidth < 330 || textScale > 1.35;
+              final buttons = <Widget>[
+                FilledButton.icon(
+                  key: const Key('admin-create-user-button'),
+                  onPressed: () =>
+                      _showAdminCreateUserSheet(context, controller),
+                  icon: const Icon(Icons.person_add_alt_1_rounded, size: 18),
+                  label: const Text('创建账号'),
+                ),
+                OutlinedButton(
+                  key: const Key('admin-grant-membership-button'),
+                  onPressed: () => _showAdminGrantDialog(context, controller),
+                  child: const Text('\u5f00\u901a\u4f1a\u5458'),
+                ),
+                OutlinedButton(
+                  key: const Key('admin-generate-code-button'),
+                  onPressed: () => _showAdminCodeDialog(context, controller),
+                  child: const Text('\u751f\u6210\u5151\u6362\u7801'),
+                ),
+              ];
+              if (compact) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (var index = 0; index < buttons.length; index++) ...[
+                      buttons[index],
+                      if (index < buttons.length - 1) const SizedBox(height: 8),
+                    ],
+                  ],
+                );
+              }
+              return Wrap(spacing: 8, runSpacing: 8, children: buttons);
+            },
+          ),
+        ],
+      ],
     );
   }
 }
@@ -18149,19 +18060,11 @@ class _WorkoutCelebration extends StatelessWidget {
                             ?.copyWith(fontWeight: FontWeight.w900, color: ink),
                       ),
                       const SizedBox(height: 12),
-                      AspectRatio(
+                      KeyedSubtree(
                         key: const Key('workout-celebration-card-preview'),
-                        aspectRatio: workoutResultCardAspectRatio,
-                        child: FittedBox(
-                          fit: BoxFit.contain,
-                          child: SizedBox(
-                            width: 1200,
-                            height: 950,
-                            child: _WorkoutShareCard(
-                              controller: controller,
-                              record: record,
-                            ),
-                          ),
+                        child: _WorkoutShareCard(
+                          controller: controller,
+                          record: record,
                         ),
                       ),
                       const SizedBox(height: 10),
@@ -18351,23 +18254,13 @@ class _WorkoutShareSheetState extends State<_WorkoutShareSheet> {
               child: Center(
                 child: SizedBox(
                   width: maxPreviewWidth,
-                  child: AspectRatio(
-                    aspectRatio: workoutResultCardAspectRatio,
-                    child: FittedBox(
-                      fit: BoxFit.contain,
-                      child: RepaintBoundary(
-                        key: boundaryKey,
-                        child: SizedBox(
-                          width: 1200,
-                          height: 950,
-                          child: _WorkoutShareCard(
-                            controller: widget.controller,
-                            record: widget.record,
-                            cardStyle: cardStyle,
-                            localPhotoPath: localPhotoPath,
-                          ),
-                        ),
-                      ),
+                  child: RepaintBoundary(
+                    key: boundaryKey,
+                    child: _WorkoutShareCard(
+                      controller: widget.controller,
+                      record: widget.record,
+                      cardStyle: cardStyle,
+                      localPhotoPath: localPhotoPath,
                     ),
                   ),
                 ),
@@ -18504,9 +18397,7 @@ class _WorkoutShareCard extends StatelessWidget {
           : (completedSets / totalSets * 100).round(),
       exerciseNames: [
         for (final exercise in record.exercises)
-          controller.displayExerciseName(
-            controller.exerciseFor(exercise.exerciseId),
-          ),
+          '''${controller.displayExerciseName(controller.exerciseFor(exercise.exerciseId))} · ${exercise.sets.where((set) => set.completed).length} 组''',
       ],
       cardStyle: cardStyle,
       localPhotoPath: localPhotoPath,

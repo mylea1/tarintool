@@ -357,7 +357,7 @@ void main() {
     expect(find.byType(NavigationBar), findsOneWidget);
     expect(find.byType(NavigationDestination), findsNWidgets(5));
     expect(find.byKey(const Key('home-overview-section')), findsOneWidget);
-    expect(find.text('今日训练'), findsOneWidget);
+    expect(find.text('今日安排'), findsOneWidget);
     expect(find.text('本周训练'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.text('本周肌群'),
@@ -412,11 +412,13 @@ void main() {
 
     expect(find.byKey(const Key('ai-training-home-card')), findsOneWidget);
     expect(find.byKey(const Key('home-overview-section')), findsOneWidget);
-    expect(find.text('今日训练建议'), findsOneWidget);
+    expect(find.text('今日安排'), findsOneWidget);
     expect(find.byKey(const Key('home-why-training')), findsOneWidget);
     expect(find.byKey(const Key('home-start-today-workout')), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('home-why-training')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('了解 PRO 训练建议'));
     await tester.pumpAndSettle();
     expect(find.text('这项能力属于形域 PRO'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -431,8 +433,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('暂无训练数据'), findsOneWidget);
-    expect(find.text('暂无训练数据，是否使用推荐计划完成第一次训练？'), findsOneWidget);
-    expect(find.text('使用推荐计划完成第一次训练'), findsOneWidget);
+    expect(find.text('选择计划，或从自由训练开始'), findsOneWidget);
+    expect(find.text('选择训练计划'), findsOneWidget);
     final recommendation = find.byKey(const Key('ai-training-home-card'));
     // Muscle-map labels remain valid even before any history exists. Only the
     // recommendation must avoid presenting invented target muscle groups.

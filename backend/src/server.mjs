@@ -2621,7 +2621,7 @@ async function handleRequest(req, res, ctx) {
     const identities = ctx.db.prepare('SELECT * FROM user_identities WHERE user_id = ? ORDER BY kind')
       .all(user.id)
       .map(publicIdentity);
-    writeJson(res, 200, { identities }, req, ctx.cfg); return;
+    writeJson(res, 200, { identities, publicId: user.public_id }, req, ctx.cfg); return;
   }
   if (req.method === 'PUT' && url.pathname === '/v1/me/username') {
     const user = authenticate(req, ctx);

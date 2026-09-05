@@ -143,11 +143,13 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('82 分钟'), findsOneWidget);
-    expect(find.text('8400 kg'), findsOneWidget);
-    expect(find.text('100%'), findsOneWidget);
+    expect(find.text('82'), findsOneWidget);
+    expect(find.text('分钟'), findsOneWidget);
+    expect(find.text('8.4T'), findsOneWidget);
+    expect(find.text('训练量'), findsOneWidget);
+    expect(find.text('100%'), findsNothing);
     expect(find.text('高位下拉'), findsOneWidget);
-    expect(find.text('还有 2 个动作 ›'), findsOneWidget);
+    expect(find.text('弯举'), findsOneWidget);
     expect(find.byKey(const Key('social-footer')), findsNothing);
     expect(tester.takeException(), isNull);
   });
@@ -177,6 +179,13 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('social-footer')), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('workout-result-card')),
+        matching: find.byKey(const Key('social-footer')),
+      ),
+      findsNothing,
+    );
     expect(find.text('28'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

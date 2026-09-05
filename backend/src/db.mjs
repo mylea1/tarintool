@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Database from 'better-sqlite3';
+import { randomInt } from 'node:crypto';
 import { nowIso, hashPassword, randomId } from './security.mjs';
 
 const migrationPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'migrations', '001_init.sql');
@@ -256,6 +257,30 @@ export function openDatabase(databasePath) {
     db.exec('ALTER TABLE entitlements ADD COLUMN trial_workout_id TEXT');
   }
   const userColumns = db.prepare('PRAGMA table_info(users)').all();
+  if (!userColumns.some((column) => column.name === 'public_id')) {
+    db.exec('ALTER TABLE users ADD COLUMN public_id TEXT');
+  }
+  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS users_public_id_unique ON users(public_id)');
+  const allocatedPublicIds = new Set(db.prepare('SELECT public_id FROM users WHERE public_id IS NOT NULL').all().map(row => row.public_id));
+  db.function('new_public_account_id', () => {
+    for (let attempt = 0; attempt < 100; attempt++) {
+      const candidate = String(randomInt(1000000000, 10000000000));
+      if (!allocatedPublicIds.has(candidate)) {
+        allocatedPublicIds.add(candidate);
+        return candidate;
+      }
+    }
+    throw new Error('public_account_id_exhausted');
+  });
+  db.exec(`UPDATE users SET public_id = new_public_account_id() WHERE public_id IS NULL;
+    CREATE TRIGGER IF NOT EXISTS users_assign_public_id AFTER INSERT ON users
+    WHEN NEW.public_id IS NULL BEGIN
+      UPDATE users SET public_id = new_public_account_id(),
+        display_name = CASE WHEN display_name LIKE 'apple:%' OR display_name LIKE 'phone:%' OR display_name LIKE 'google:%'
+          THEN '形域用户' ELSE display_name END WHERE id = NEW.id;
+    END;
+    UPDATE users SET display_name = '形域用户' WHERE display_name LIKE 'apple:%'
+      OR display_name LIKE 'phone:%' OR display_name LIKE 'google:%';`);
   if (!userColumns.some((column) => column.name === 'avatar_key')) {
     db.exec('ALTER TABLE users ADD COLUMN avatar_key TEXT');
   }
@@ -422,6 +447,7 @@ export function publicUser(row) {
   if (!row) return null;
   return {
     id: row.id,
+    publicId: row.public_id,
     identifier: row.identifier,
     displayName: row.display_name,
     role: row.role,

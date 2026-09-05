@@ -48,197 +48,102 @@ class AiTrainingHomeCard extends StatelessWidget {
         ? today.estimatedMinutes
         : 0;
     final isMember = controller.entitlements?.isMember == true;
+    final colors = Theme.of(context).colorScheme;
     return KeyedSubtree(
       key: const Key('home-overview-section'),
-      child: Container(
+      child: Card(
         key: const Key('ai-training-home-card'),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: Theme.of(context).colorScheme.outlineVariant,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Theme.of(context).shadowColor.withValues(alpha: .10),
-              blurRadius: 24,
-              offset: const Offset(0, 10),
-            ),
-          ],
-        ),
         child: Padding(
-          padding: const EdgeInsets.all(18),
+          padding: const EdgeInsets.all(14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Row(
                 children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primaryContainer,
-                      borderRadius: BorderRadius.circular(11),
-                    ),
-                    child: Icon(
-                      Icons.auto_awesome_rounded,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
+                  Icon(
+                    Icons.event_note_outlined,
+                    color: colors.primary,
+                    size: 20,
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 8),
                   const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '今日训练',
-                          style: TextStyle(
-                            color: Colors.black54,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        Text(
-                          '今日训练建议',
-                          style: TextStyle(fontWeight: FontWeight.w900),
-                        ),
-                      ],
+                    child: Text(
+                      '今日安排',
+                      style: TextStyle(fontWeight: FontWeight.w800),
                     ),
                   ),
-                  const _ProPill(),
+                  if (active)
+                    Text(
+                      '训练中',
+                      style: TextStyle(color: colors.primary, fontSize: 12),
+                    ),
                 ],
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 10),
               Text(
                 title,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w900,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
               ),
-              const SizedBox(height: 7),
+              const SizedBox(height: 4),
               Text(
                 active
-                    ? '训练进行中，记录完成情况后会更新下一次建议。'
-                    : !hasTrainingData
-                    ? '暂无训练数据，是否使用推荐计划完成第一次训练？'
+                    ? '完成 ${controller.completedSets}/${controller.totalSets} 组 · $count 个动作'
                     : planned
-                    ? '按当前计划准备动作，训练后会结合实际表现继续调整。'
-                    : '先选择或生成一节训练，之后这里会显示动作和时间。',
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  height: 1.4,
-                ),
-              ),
-              const SizedBox(height: 14),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _MetricPill(
-                    icon: Icons.fitness_center_rounded,
-                    label: count == 0 ? '尚未安排动作' : '$count 个动作',
-                  ),
-                  _MetricPill(
-                    icon: Icons.schedule_rounded,
-                    label: minutes == 0 ? '时间待定' : '约 $minutes 分钟',
-                  ),
-                  if (hasTrainingData)
-                    for (final muscle in today.muscles.take(2))
-                      _MetricPill(icon: Icons.bolt_rounded, label: muscle),
-                ],
+                    ? '$count 个动作 · 约 $minutes 分钟'
+                    : '选择计划，或从自由训练开始',
+                style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13),
               ),
               const SizedBox(height: 10),
-              if (isMember)
-                Container(
-                  key: const Key('home-why-training'),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.primaryContainer.withValues(alpha: .35),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(
-                        Icons.lightbulb_outline_rounded,
-                        size: 17,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                      const SizedBox(width: 7),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              '为什么这样安排？',
-                              style: TextStyle(fontWeight: FontWeight.w800),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              hasTrainingData
-                                  ? _conciseMemberReason(today)
-                                  : '完成第一次训练后，AI 才会根据你的真实记录给出安排理由。',
-                              style: TextStyle(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurfaceVariant,
-                                height: 1.35,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              else
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: TextButton.icon(
-                    key: const Key('home-why-training'),
-                    onPressed: () => showMembershipPaywall(
-                      context,
-                      controller: controller,
-                      reason: MembershipPaywallReason.premiumFeature,
-                    ),
-                    icon: const Icon(Icons.lock_outline_rounded, size: 16),
-                    label: const Text('为什么这样安排？'),
-                  ),
+              FilledButton.icon(
+                key: const Key('home-start-today-workout'),
+                onPressed: active
+                    ? controller.openLiveWorkout
+                    : todayRoutine == null
+                    ? () => _openPlanEntry(context, controller)
+                    : () => controller.startRoutine(todayRoutine),
+                icon: const Icon(Icons.play_arrow_rounded, size: 18),
+                label: Text(
+                  active
+                      ? '继续今日训练'
+                      : planned
+                      ? '开始今日训练'
+                      : '选择训练计划',
                 ),
-              const SizedBox(height: 14),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  key: const Key('home-start-today-workout'),
-                  onPressed: active
-                      ? controller.openLiveWorkout
-                      : !hasTrainingData || todayRoutine == null
-                      ? () => _openPlanEntry(context, controller)
-                      : () => controller.startRoutine(todayRoutine),
-                  icon: Icon(
-                    active
-                        ? Icons.play_arrow_rounded
-                        : todayRoutine == null
-                        ? Icons.auto_awesome_outlined
-                        : Icons.play_arrow_rounded,
+              ),
+              ExpansionTile(
+                key: const Key('home-why-training'),
+                tilePadding: EdgeInsets.zero,
+                dense: true,
+                visualDensity: VisualDensity.compact,
+                title: const Text('查看训练建议', style: TextStyle(fontSize: 12)),
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: isMember
+                        ? Text(
+                            hasTrainingData
+                                ? _conciseMemberReason(today)
+                                : '完成第一次训练后，将根据真实记录给出安排建议。',
+                            style: TextStyle(
+                              color: colors.onSurfaceVariant,
+                              fontSize: 13,
+                            ),
+                          )
+                        : TextButton.icon(
+                            onPressed: () => showMembershipPaywall(
+                              context,
+                              controller: controller,
+                              reason: MembershipPaywallReason.premiumFeature,
+                            ),
+                            icon: const Icon(Icons.lock_outline, size: 16),
+                            label: const Text('了解 PRO 训练建议'),
+                          ),
                   ),
-                  label: Text(
-                    active
-                        ? '继续今日训练'
-                        : !hasTrainingData || todayRoutine == null
-                        ? '使用推荐计划完成第一次训练'
-                        : '开始今日训练',
-                  ),
-                ),
+                ],
               ),
             ],
           ),
@@ -611,50 +516,5 @@ class _GymExerciseThumb extends StatelessWidget {
               color: Theme.of(context).colorScheme.primary,
             ),
           ),
-  );
-}
-
-class _MetricPill extends StatelessWidget {
-  const _MetricPill({required this.icon, required this.label});
-  final IconData icon;
-  final String label;
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-    decoration: BoxDecoration(
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      borderRadius: BorderRadius.circular(99),
-    ),
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 14),
-        const SizedBox(width: 5),
-        Text(
-          label,
-          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
-        ),
-      ],
-    ),
-  );
-}
-
-class _ProPill extends StatelessWidget {
-  const _ProPill();
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-    decoration: BoxDecoration(
-      color: Theme.of(context).colorScheme.primaryContainer,
-      borderRadius: BorderRadius.circular(99),
-    ),
-    child: Text(
-      'PRO',
-      style: TextStyle(
-        fontSize: 10,
-        fontWeight: FontWeight.w900,
-        color: Theme.of(context).colorScheme.primary,
-      ),
-    ),
   );
 }

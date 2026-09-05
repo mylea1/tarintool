@@ -1,0 +1,37 @@
+--- a/backend/src/db.mjs
++++ b/backend/src/db.mjs
+@@ -4,0 +5 @@
++import { randomInt } from 'node:crypto';
+@@ -286,0 +288,25 @@
++  const userColumns = db.prepare('PRAGMA table_info(users)').all();
++  if (!userColumns.some((column) => column.name === 'public_id')) {
++    db.exec('ALTER TABLE users ADD COLUMN public_id TEXT');
++  }
++  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS users_public_id_unique ON users(public_id)');
++  const allocatedPublicIds = new Set(db.prepare('SELECT public_id FROM users WHERE public_id IS NOT NULL').all().map(row => row.public_id));
++  db.function('new_public_account_id', () => {
++    for (let attempt = 0; attempt < 100; attempt++) {
++      const candidate = String(randomInt(1000000000, 10000000000));
++      if (!allocatedPublicIds.has(candidate)) {
++        allocatedPublicIds.add(candidate);
++        return candidate;
++      }
++    }
++    throw new Error('public_account_id_exhausted');
++  });
++  db.exec(`UPDATE users SET public_id = new_public_account_id() WHERE public_id IS NULL;
++    CREATE TRIGGER IF NOT EXISTS users_assign_public_id AFTER INSERT ON users
++    WHEN NEW.public_id IS NULL BEGIN
++      UPDATE users SET public_id = new_public_account_id(),
++        display_name = CASE WHEN display_name LIKE 'apple:%' OR display_name LIKE 'phone:%' OR display_name LIKE 'google:%'
++          THEN '形域用户' ELSE display_name END WHERE id = NEW.id;
++    END;
++    UPDATE users SET display_name = '形域用户' WHERE display_name LIKE 'apple:%'
++      OR display_name LIKE 'phone:%' OR display_name LIKE 'google:%';`);
+@@ -414,0 +441 @@
++    publicId: row.public_id,
+--- a/backend/src/server.mjs
++++ b/backend/src/server.mjs
+@@ -2564 +2564 @@
+-    writeJson(res, 200, { identities }, req, ctx.cfg); return;
++    writeJson(res, 200, { identities, publicId: user.public_id }, req, ctx.cfg); return;

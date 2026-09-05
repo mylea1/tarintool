@@ -6,6 +6,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import 'ai_api.dart';
+import 'account_membership.dart';
 import 'controller.dart';
 import 'exercise_media.dart';
 import 'membership_ui.dart';
@@ -3362,7 +3363,7 @@ class _WorkoutActivityPostPreview extends StatelessWidget {
     completionPercent: post.completionPercent,
     exerciseNames: [
       for (final exercise in post.exerciseSummary)
-        exercise.name.isEmpty ? exercise.exerciseId : exercise.name,
+        '${exercise.name.isEmpty ? exercise.exerciseId : exercise.name} · ${exercise.sets} 组',
     ],
     cardStyle: post.cardStyle,
     socialFooter: socialFooter,
@@ -3471,7 +3472,10 @@ class _WorkoutActivityCardState extends State<WorkoutActivityCard> {
       if (post.caption.trim().isNotEmpty) ...[
         Text(
           post.caption.trim(),
-          style: const TextStyle(color: Colors.white, height: 1.35),
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurface,
+            height: 1.35,
+          ),
         ),
         const SizedBox(height: 12),
       ],
@@ -3489,7 +3493,10 @@ class _WorkoutActivityCardState extends State<WorkoutActivityCard> {
                 ),
                 child: Text(
                   '${entry.key} ${entry.value}',
-                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
+                    fontSize: 12,
+                  ),
                 ),
               ),
           ],
@@ -3502,7 +3509,7 @@ class _WorkoutActivityCardState extends State<WorkoutActivityCard> {
             key: Key('workout-activity-like-${post.id}'),
             onPressed: busy ? null : _like,
             style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.white,
+              foregroundColor: Theme.of(context).colorScheme.onSurface,
               side: const BorderSide(color: Color(0xFF55585E)),
             ),
             icon: Icon(
@@ -3529,7 +3536,9 @@ class _WorkoutActivityCardState extends State<WorkoutActivityCard> {
             child: OutlinedButton.icon(
               onPressed: null,
               style: OutlinedButton.styleFrom(
-                disabledForegroundColor: Colors.white,
+                disabledForegroundColor: Theme.of(
+                  context,
+                ).colorScheme.onSurface,
                 side: const BorderSide(color: Color(0xFF55585E)),
               ),
               icon: const Icon(Icons.emoji_emotions_outlined, size: 18),
@@ -3583,7 +3592,9 @@ class _WorkoutActivityCardState extends State<WorkoutActivityCard> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        post.ownerName,
+                        safeAccountName(post.ownerName),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(fontWeight: FontWeight.w900),
                       ),
                       Text(

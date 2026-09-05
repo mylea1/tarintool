@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -69,6 +70,21 @@ class PhoneCodeChallenge {
   final int expiresInSeconds;
 }
 
+String safeAccountName(String value) {
+  final clean = value.trim();
+  if (clean.isEmpty ||
+      RegExp(
+        r'^(apple:|phone:|google:|usr_)|^[a-f0-9_-]{20,}$',
+        caseSensitive: false,
+      ).hasMatch(clean)) {
+    return '形域用户';
+  }
+  return clean;
+}
+
+String _newPublicAccountId() =>
+    '${1 + Random.secure().nextInt(9)}${Random.secure().nextInt(1000000000).toString().padLeft(9, '0')}';
+
 class AccountUser {
   const AccountUser({
     required this.id,
@@ -77,6 +93,7 @@ class AccountUser {
     required this.isAdmin,
     this.provider = AuthProvider.phone,
     this.avatarPath,
+    this.publicId = '',
   });
 
   final String id;
@@ -85,6 +102,8 @@ class AccountUser {
   final bool isAdmin;
   final AuthProvider provider;
   final String? avatarPath;
+  final String publicId;
+  String get visibleName => safeAccountName(displayName);
 
   Map<String, Object?> toMap() => {
     'id': id,
@@ -93,6 +112,7 @@ class AccountUser {
     'isAdmin': isAdmin,
     'provider': provider.name,
     'avatarPath': avatarPath,
+    'publicId': publicId,
   };
 
   factory AccountUser.fromMap(Map<String, dynamic> map) => AccountUser(
@@ -105,6 +125,9 @@ class AccountUser {
       orElse: () => AuthProvider.phone,
     ),
     avatarPath: map['avatarPath']?.toString(),
+    publicId: (map['publicId']?.toString().isNotEmpty == true)
+        ? map['publicId'].toString()
+        : _newPublicAccountId(),
   );
 }
 
@@ -540,6 +563,7 @@ class AccountService extends ChangeNotifier {
            (allowTestAdmin ?? testAdminEnabled) && testAdminEnabled {
     _restore(persistence?.read());
     _refreshEntitlements();
+    if (_users.isNotEmpty) _persist();
   }
 
   AccountPersistence persistence;
@@ -733,11 +757,13 @@ class AccountService extends ChangeNotifier {
     required String displayName,
     required bool isAdmin,
     AuthProvider provider = AuthProvider.phone,
+    String? publicId,
   }) => _login(
     identifier: identifier.trim(),
     displayName: displayName.trim().isEmpty ? identifier.trim() : displayName,
     provider: provider,
     isAdmin: isAdmin,
+    publicId: publicId,
   );
 
   AuthResult loginWithApple() => const AuthResult.failure(
@@ -756,7 +782,11 @@ class AccountService extends ChangeNotifier {
     notifyListeners();
   }
 
-  AccountUser? updateCurrentProfile({String? displayName, String? avatarPath}) {
+  AccountUser? updateCurrentProfile({
+    String? displayName,
+    String? avatarPath,
+    String? publicId,
+  }) {
     final current = currentUser;
     if (current == null) return null;
     final cleanName = displayName?.trim();
@@ -769,6 +799,7 @@ class AccountService extends ChangeNotifier {
       isAdmin: current.isAdmin,
       provider: current.provider,
       avatarPath: avatarPath ?? current.avatarPath,
+      publicId: publicId ?? current.publicId,
     );
     _users[current.id] = updated;
     _persist();
@@ -781,6 +812,7 @@ class AccountService extends ChangeNotifier {
     required String displayName,
     required AuthProvider provider,
     required bool isAdmin,
+    String? publicId,
   }) {
     final normalizedIdentifier = identifier.toLowerCase();
     final id = normalizedIdentifier.startsWith('${provider.name}:')
@@ -796,6 +828,11 @@ class AccountService extends ChangeNotifier {
       isAdmin: isAdmin,
       provider: provider,
       avatarPath: previous?.avatarPath,
+      publicId:
+          publicId ??
+          (previous?.publicId.isNotEmpty == true
+              ? previous!.publicId
+              : _newPublicAccountId()),
     );
     _users[id] = user;
     _currentUserId = id;

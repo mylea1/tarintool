@@ -31,12 +31,12 @@ const String defaultCoachApiBaseUrl = String.fromEnvironment(
 
 String _userFacingDisplayName(Object? raw, String identifier) {
   final value = raw?.toString().trim() ?? '';
-  if (value.isEmpty) return identifier;
+  if (value.isEmpty) return '形域用户';
   final machineLike = RegExp(
     r'^(usr_|phone:|apple:|google:)|^[a-f0-9_-]{20,}$',
     caseSensitive: false,
   ).hasMatch(value);
-  return machineLike ? identifier : value;
+  return machineLike ? '形域用户' : value;
 }
 
 class PlatformTimerBridge {
@@ -744,6 +744,7 @@ class AppController extends ChangeNotifier {
       }
       final result = accountService.loginAuthenticatedRemote(
         identifier: identifier,
+        publicId: user['publicId']?.toString(),
         displayName: _userFacingDisplayName(user['displayName'], identifier),
         isAdmin: user['role'] == 'admin',
         provider: AuthProvider.apple,
@@ -847,7 +848,12 @@ class AppController extends ChangeNotifier {
     if (api is! HttpCoachApi) {
       throw const CoachApiException('friends_unavailable');
     }
-    return api.fetchFriendIdentities();
+    final payload = await api.fetchFriendIdentities();
+    final publicId = payload['publicId']?.toString();
+    if (publicId != null && RegExp(r'^\d{10}$').hasMatch(publicId)) {
+      accountService.updateCurrentProfile(publicId: publicId);
+    }
+    return payload;
   }
 
   Future<Map<String, dynamic>> updateFriendUsernameRemote(
@@ -883,6 +889,11 @@ class AppController extends ChangeNotifier {
   Future<void> hydrateRemoteAvatar() async {
     final user = currentUser;
     if (user == null || _storedRemoteSession == null) return;
+    try {
+      await fetchFriendIdentitiesRemote();
+    } catch (_) {
+      // An offline refresh keeps the persisted public identity available.
+    }
     try {
       final api = await _activeCoachApi();
       if (api is! HttpCoachApi) return;
@@ -1294,6 +1305,7 @@ class AppController extends ChangeNotifier {
     }
     final result = accountService.loginAuthenticatedRemote(
       identifier: canonicalIdentifier,
+      publicId: user['publicId']?.toString(),
       displayName: _userFacingDisplayName(
         user['displayName'],
         canonicalIdentifier.isEmpty ? fallbackIdentifier : canonicalIdentifier,
@@ -3472,7 +3484,7 @@ class AppController extends ChangeNotifier {
   void selectPage(PageId next) {
     switch (next) {
       case PageId.records:
-        page = PageId.train;
+        page = PageId.records;
         trainView = TrainView.history;
       case PageId.recognition:
         // Video analysis is opened from an exercise/record detail. Keep a
@@ -3498,7 +3510,7 @@ class AppController extends ChangeNotifier {
   void selectTrainView(TrainView next) {
     trainView = next;
     if (next != TrainView.workout) {
-      page = PageId.train;
+      page = next == TrainView.history ? PageId.records : PageId.train;
       liveWorkoutVisible = false;
     }
     notifyListeners();
@@ -3559,8 +3571,20 @@ class AppController extends ChangeNotifier {
           ),
         );
       for (final exercise in workout) {
-        for (final set in exercise.sets) {
+        final previous = _latestExerciseHistory(exercise.exerciseId)?.exercise;
+        // A saved workout may become a plan. Historical notes stay in the
+        // previous-session panel; preserve genuinely new plan instructions.
+        if (previous != null && exercise.note.trim() == previous.note.trim()) {
+          exercise.note = '';
+        }
+        for (var index = 0; index < exercise.sets.length; index++) {
+          final set = exercise.sets[index];
           set.completed = false;
+          if (previous != null &&
+              index < previous.sets.length &&
+              set.note.trim() == previous.sets[index].note.trim()) {
+            set.note = '';
+          }
         }
       }
     }
@@ -5249,6 +5273,11 @@ class AppController extends ChangeNotifier {
       api.restoreSession(session, accountIdentifier: user.identifier);
     }
     _remoteIdentifier = user.identifier;
+    unawaited(
+      fetchFriendIdentitiesRemote().catchError(
+        (Object _) => <String, dynamic>{},
+      ),
+    );
     notifyListeners();
   }
 
