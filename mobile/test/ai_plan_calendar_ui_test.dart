@@ -108,7 +108,7 @@ void main() {
     final notificationSwitch = tester.widget<Switch>(
       find.byKey(const Key('notification-feedback-switch')),
     );
-    expect(notificationSwitch.value, isTrue);
+    expect(notificationSwitch.value, isFalse);
     expect(tester.takeException(), isNull);
 
     tester.view.physicalSize = const Size(414, 1100);

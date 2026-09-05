@@ -1975,6 +1975,7 @@ void main() {
       expect(controller.workoutTimerStarted, isTrue);
 
       await tester.ensureVisible(find.byKey(Key('set-complete-${set.id}')));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(Key('set-complete-${set.id}')));
       await tester.pump();
 
@@ -2005,12 +2006,14 @@ void main() {
       await tester.pumpWidget(KiloApp(initialController: controller));
       final set = exercise.sets.single;
       await tester.ensureVisible(find.byKey(Key('set-complete-${set.id}')));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(Key('set-complete-${set.id}')));
       await tester.pump();
       expect(controller.completionBurstActive, isTrue);
       expect(find.byKey(const Key('completion-burst')), findsOneWidget);
       final burstId = controller.completionBurstId;
       await tester.ensureVisible(find.byKey(Key('set-complete-${set.id}')));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(Key('set-complete-${set.id}')));
       await tester.pump();
       expect(controller.completionBurstId, burstId);
@@ -2150,6 +2153,8 @@ void main() {
       expect(find.byKey(Key('previous-set-${set.id}')), findsOneWidget);
       expect(find.text('67.5×6'), findsOneWidget);
 
+      await tester.ensureVisible(find.byKey(Key('set-type-${set.id}')));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(Key('set-type-${set.id}')));
       await tester.pumpAndSettle();
       expect(
@@ -2173,6 +2178,7 @@ void main() {
       expect(find.textContaining('窄握，最后两次速度变慢'), findsOneWidget);
 
       await tester.ensureVisible(find.byKey(Key('set-complete-${set.id}')));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(Key('set-complete-${set.id}')));
       await tester.pump();
       expect(set.completed, isTrue);
@@ -2210,6 +2216,7 @@ void main() {
       await tester.ensureVisible(
         find.byKey(Key('exercise-note-preview-${exercise.id}')),
       );
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(Key('exercise-note-preview-${exercise.id}')));
       await tester.pump(const Duration(milliseconds: 400));
       await tester.enterText(
@@ -2228,6 +2235,7 @@ void main() {
       expect(find.textContaining('器械第 7 档'), findsWidgets);
 
       await tester.ensureVisible(find.byKey(Key('set-complete-${set.id}')));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(Key('set-complete-${set.id}')));
       await tester.pump();
       expect(set.completed, isFalse);
