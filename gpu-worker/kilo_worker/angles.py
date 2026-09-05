@@ -55,26 +55,29 @@ def assess_exercise_evidence(
     minimum_confidence: float = 0.25,
     minimum_detection_rate: float = 0.55,
     minimum_angle_range: float = 35.0,
+    confirmed_cycle_minimum_range: float | None = None,
 ) -> EvidenceAssessment:
     """Reject clips that contain a pose but not enough exercise evidence.
 
-    A visible person is not proof that the selected exercise occurred. A clip
-    is assessable only after the target joint is visible often enough, moves
-    through a meaningful range, and completes at least one full cycle.
+    A visible person is not proof that the selected exercise occurred. Confirmed
+    exercise-specific phases may support partial evaluation without counting.
+    A generic range gate must not contradict an exercise's own cycle thresholds.
     """
     detection_rate = (
         detected_frames / inference_frames if inference_frames > 0 else 0.0
     )
-    angle_range = (
-        float(max(angle_samples) - min(angle_samples)) if angle_samples else 0.0
-    )
+    valid_angles = [float(value) for value in angle_samples if math.isfinite(value)]
+    angle_range = max(valid_angles) - min(valid_angles) if valid_angles else 0.0
+    cycles = complete_cycles if complete_cycles is not None else int(repetitions or 0)
+    range_floor = minimum_angle_range
+    if cycles > 0 and confirmed_cycle_minimum_range is not None:
+        range_floor = min(range_floor, max(8.0, confirmed_cycle_minimum_range))
     if detected_frames < 6 or detection_rate < minimum_detection_rate:
         return EvidenceAssessment(False, "insufficient_landmarks", angle_range)
     if confidence < minimum_confidence:
         return EvidenceAssessment(False, "insufficient_pose_quality", angle_range)
-    if len(angle_samples) < 6 or angle_range < minimum_angle_range:
+    if len(valid_angles) < 6 or angle_range < range_floor:
         return EvidenceAssessment(False, "insufficient_motion", angle_range)
-    cycles = complete_cycles if complete_cycles is not None else int(repetitions or 0)
     if cycles < 1:
         phases = tuple(dict.fromkeys(str(value) for value in visible_phases if value))
         if partial_cycles > 0 or {"extended", "pulled"}.issubset(phases):

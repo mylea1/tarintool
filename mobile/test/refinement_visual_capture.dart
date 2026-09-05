@@ -98,7 +98,7 @@ void main() {
     await _snapshot(tester, 'plan-375');
   });
 
-  testWidgets('render real statistics collapsed and expanded', (tester) async {
+  testWidgets('render real statistics weight and reps', (tester) async {
     _viewport(tester, 375);
     final controller = AppController();
     addTearDown(controller.dispose);
@@ -116,13 +116,19 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    final card = find.byKey(const Key('tracked-exercise-card-bench_press'));
-    await tester.ensureVisible(card);
-    await _snapshot(tester, 'growth-collapsed-375');
-    await tester.tap(card);
+    final chart = find.byKey(
+      const Key('statistics-strength-chart-bench_press'),
+    );
+    await tester.ensureVisible(chart);
     await tester.pumpAndSettle();
-    await tester.ensureVisible(card);
-    await _snapshot(tester, 'growth-expanded-375');
+    await _snapshot(tester, 'growth-weight-375');
+    final metric = find.byKey(const Key('tracked-metric-bench_press-reps'));
+    await tester.ensureVisible(metric);
+    await tester.pumpAndSettle();
+    await tester.tap(metric);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(chart);
+    await _snapshot(tester, 'growth-reps-375');
   });
 
   for (final width in [320.0, 375.0]) {

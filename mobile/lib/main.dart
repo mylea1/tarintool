@@ -21,18 +21,22 @@ import 'ai_api.dart';
 import 'controller.dart';
 import 'exercise_media.dart';
 import 'exercise_growth.dart';
+import 'trend_chart.dart';
+import 'trend_data.dart';
 import 'link_utils.dart';
 import 'membership_ui.dart';
 import 'models.dart';
 import 'muscle_palette.dart';
 import 'muscle_selector.dart';
 import 'recognition_api.dart';
+import 'recognition_score_policy.dart';
 import 'ai_training_ui.dart';
 import 'training_intelligence.dart';
 import 'product_features.dart';
 import 'workout_share_card.dart';
 
 part 'workout_coach_ui.dart';
+part 'training_trend_ui.dart';
 
 typedef _KiloPalette = ({
   Color background,
@@ -222,13 +226,17 @@ class _KiloAppState extends State<KiloApp> with WidgetsBindingObserver {
       final entitlement = await controller.refreshRemoteEntitlements().timeout(
         const Duration(seconds: 5),
       );
-      if (entitlement?.isMember == true) {
+      if (entitlement?.cloudSyncReadable == true ||
+          entitlement?.isMember == true) {
         await controller.restoreCloudBackup().timeout(
           const Duration(seconds: 5),
         );
       }
       await controller.hydrateAppLanguage().timeout(const Duration(seconds: 3));
       await controller.hydrateTheme().timeout(const Duration(seconds: 3));
+      await controller.hydrateNotificationPreference().timeout(
+        const Duration(seconds: 5),
+      );
       await controller.hydrateAiSkills().timeout(const Duration(seconds: 3));
       await controller.hydrateWorkoutHistory().timeout(
         const Duration(seconds: 3),
@@ -248,7 +256,10 @@ class _KiloAppState extends State<KiloApp> with WidgetsBindingObserver {
       await controller.hydratePersonalAgentData().timeout(
         const Duration(seconds: 3),
       );
-      if (controller.entitlements?.isMember == true) {
+      await controller.hydrateRemoteAvatar().timeout(
+        const Duration(seconds: 5),
+      );
+      if (controller.cloudSyncAllowed) {
         unawaited(controller.backupUserData());
       }
     } catch (_) {
@@ -2073,8 +2084,12 @@ class KiloShell extends StatelessWidget {
             Positioned.fill(
               child: Padding(
                 padding: EdgeInsets.only(
-                  bottom: reservedBottom +
-                      (controller.page == PageId.train && controller.liveWorkoutVisible ? 64 : 0),
+                  bottom:
+                      reservedBottom +
+                      (controller.page == PageId.train &&
+                              controller.liveWorkoutVisible
+                          ? 64
+                          : 0),
                 ),
                 child: GestureDetector(
                   behavior: HitTestBehavior.translucent,
@@ -2101,14 +2116,20 @@ class KiloShell extends StatelessWidget {
                 },
               ),
             ),
-            if (controller.page == PageId.train && controller.liveWorkoutVisible)
+            if (controller.page == PageId.train &&
+                controller.liveWorkoutVisible)
               Positioned(
-                right: 16, bottom: reservedBottom + 12,
+                right: 16,
+                bottom: reservedBottom + 12,
                 child: FloatingActionButton.small(
                   key: const Key('workout-coach-open'),
-                  heroTag: 'workout-coach', tooltip: '本次训练 AI 教练',
+                  heroTag: 'workout-coach',
+                  tooltip: '本次训练 AI 教练',
                   onPressed: () => _showWorkoutCoach(context, controller),
-                  child: const Text('AI', style: TextStyle(fontWeight: FontWeight.w800)),
+                  child: const Text(
+                    'AI',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
                 ),
               ),
           ],
@@ -2589,9 +2610,15 @@ class _StatusChip extends StatelessWidget {
 }
 
 class _ExerciseThumb extends StatelessWidget {
-  const _ExerciseThumb({super.key, required this.exerciseId, this.size = 42});
+  const _ExerciseThumb({
+    super.key,
+    required this.exerciseId,
+    this.size = 42,
+    this.openDetails = true,
+  });
   final String exerciseId;
   final double size;
+  final bool openDetails;
   @override
   Widget build(BuildContext context) {
     final isCustom = exerciseId.startsWith('custom-');
@@ -2613,7 +2640,7 @@ class _ExerciseThumb extends StatelessWidget {
               ),
       ),
     );
-    if (controller == null) return thumbnail;
+    if (controller == null || !openDetails) return thumbnail;
     final exercise = controller.exerciseFor(exerciseId);
     return Semantics(
       button: true,
@@ -6067,7 +6094,10 @@ class _SetColumns {
   factory _SetColumns.fromWidth(double width) {
     final compact = width < 340;
     // Include horizontal padding and borders when fitting narrow phones.
-    final scale = math.min(1.0, math.max(0.0, (width - 8) / (compact ? 260 : 322)));
+    final scale = math.min(
+      1.0,
+      math.max(0.0, (width - 8) / (compact ? 260 : 322)),
+    );
     return _SetColumns(
       compact: compact,
       group: (compact ? 52 : 64) * scale,
@@ -8394,540 +8424,11 @@ class _TrainingStatisticsView extends StatelessWidget {
         const SizedBox(height: 15),
         _TrackedStrengthSection(
           controller: controller,
-          records: records,
-          metric: controller.trackedExerciseMetric,
+          range: selectedRange,
         ),
       ],
     );
   }
-}
-
-class _TrackedStrengthSection extends StatelessWidget {
-  const _TrackedStrengthSection({
-    required this.controller,
-    required this.records,
-    this.metric = 'estimated1rm',
-  });
-
-  final AppController controller;
-  final List<WorkoutRecord> records;
-  // Kept for compatibility with persisted preferences and older callers. The
-  // visible overview is now always the paired weight × reps growth view.
-  final String metric;
-
-  Future<void> _manage(BuildContext context) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => _StrengthTrackingPage(controller: controller),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) => AnimatedBuilder(
-    animation: controller,
-    builder: (context, _) => _buildContent(context),
-  );
-
-  Widget _buildContent(BuildContext context) {
-    final tracked = controller.trackedExerciseIds;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Expanded(
-              child: Text(
-                '动作成长',
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ),
-            Tooltip(
-              message: '每次训练只选一个真实完成工作组；重量与次数来自同一组。',
-              child: Icon(Icons.info_outline_rounded, size: 17, color: quiet),
-            ),
-            const SizedBox(width: 3),
-            TextButton.icon(
-              key: const Key('manage-tracked-exercises'),
-              onPressed: () => _manage(context),
-              icon: const Icon(Icons.tune_rounded, size: 18),
-              label: const Text('管理'),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        if (tracked.isEmpty)
-          Card(
-            key: const Key('tracked-exercise-empty'),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 15, 14, 15),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Text(
-                    '选择你想长期关注的动作',
-                    style: TextStyle(fontWeight: FontWeight.w900),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '力量或次数的变化会按训练日期绘制，不会默认替你挑动作。',
-                    style: TextStyle(color: quiet, fontSize: 12),
-                  ),
-                  const SizedBox(height: 10),
-                  OutlinedButton.icon(
-                    key: const Key('tracked-exercise-empty-manage'),
-                    onPressed: () => _manage(context),
-                    icon: const Icon(Icons.add_rounded),
-                    label: const Text('添加关注动作'),
-                  ),
-                ],
-              ),
-            ),
-          )
-        else
-          for (final exerciseId in tracked.take(3))
-            _TrackedExerciseGrowthCard(
-              key: Key('tracked-exercise-card-$exerciseId'),
-              controller: controller,
-              exerciseId: exerciseId,
-              points: buildExerciseGrowthSeries(
-                records,
-                exerciseId,
-                definition: controller.exerciseFor(exerciseId),
-                engine: controller.intelligenceEngine,
-              ),
-            ),
-        if (tracked.length > 3) ...[
-          const SizedBox(height: 4),
-          TextButton(
-            onPressed: () => _manage(context),
-            child: Text('查看全部 ${tracked.length} 个关注动作'),
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-class _TrackedExerciseGrowthCard extends StatefulWidget {
-  const _TrackedExerciseGrowthCard({
-    super.key,
-    required this.controller,
-    required this.exerciseId,
-    required this.points,
-  });
-
-  final AppController controller;
-  final String exerciseId;
-  final List<ExerciseGrowthPoint> points;
-
-  @override
-  State<_TrackedExerciseGrowthCard> createState() =>
-      _TrackedExerciseGrowthCardState();
-}
-
-class _TrackedExerciseGrowthCardState
-    extends State<_TrackedExerciseGrowthCard> {
-  var expanded = false;
-  int? selectedPointIndex;
-
-  List<ExerciseGrowthPoint> get points =>
-      comparableExerciseGrowthSeries(widget.points);
-
-  String _dateLabel(DateTime value) => '${value.month}/${value.day}';
-
-  String _pair(ExerciseGrowthPoint point) => point.pairLabel;
-
-  String _changeText(List<ExerciseGrowthPoint> values) {
-    if (values.isEmpty) return '所选时间段暂无有效工作组记录';
-    if (values.length == 1) return '已记录 1 次，再完成同器械训练后显示变化';
-    final first = values.first;
-    final latest = values.last;
-    if (first.isBodyweight && latest.isBodyweight) {
-      final repsDelta = latest.reps - first.reps;
-      if (repsDelta == 0) return '次数保持 ${latest.reps} 次';
-      return '次数 ${repsDelta > 0 ? '+' : ''}$repsDelta 次（重量均为自重）';
-    }
-    final weightDelta = latest.weight - first.weight;
-    final repsDelta = latest.reps - first.reps;
-    final parts = <String>[];
-    if (weightDelta.abs() >= .05) {
-      parts.add(
-        '重量 ${weightDelta > 0 ? '+' : ''}${formatGrowthNumber(weightDelta)} kg',
-      );
-    }
-    if (repsDelta != 0) {
-      parts.add('次数 ${repsDelta > 0 ? '+' : ''}$repsDelta 次');
-    }
-    return parts.isEmpty ? '重量与次数保持 ${_pair(latest)}' : parts.join(' · ');
-  }
-
-  void _toggleExpanded() => setState(() {
-    expanded = !expanded;
-    if (!expanded) selectedPointIndex = null;
-  });
-
-  void _selectPoint(TapUpDetails details, Size size) {
-    final values = points;
-    if (values.isEmpty || size.width <= 0) return;
-    const left = 34.0;
-    final right = math.max(left + 1, size.width - 28).toDouble();
-    final firstDate = values.first.date;
-    final lastDate = values.last.date;
-    final span = lastDate.difference(firstDate).inMilliseconds;
-    final tapX = details.localPosition.dx.clamp(left, right).toDouble();
-    var nearest = 0;
-    var nearestDistance = double.infinity;
-    for (var index = 0; index < values.length; index++) {
-      final ratio = span <= 0
-          ? .5
-          : values[index].date.difference(firstDate).inMilliseconds / span;
-      final x = left + (right - left) * ratio;
-      final distance = (tapX - x).abs();
-      if (distance < nearestDistance) {
-        nearest = index;
-        nearestDistance = distance;
-      }
-    }
-    setState(() => selectedPointIndex = nearest);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final exercise = widget.controller.exerciseFor(widget.exerciseId);
-    final name = widget.controller.displayExerciseName(exercise);
-    final allPoints = widget.points;
-    final values = points;
-    final latest = values.lastOrNull;
-    final mixedHistory = hasMixedExerciseGrowthHistory(allPoints);
-    final selected =
-        selectedPointIndex == null ||
-            selectedPointIndex! < 0 ||
-            selectedPointIndex! >= values.length
-        ? null
-        : values[selectedPointIndex!];
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          InkWell(
-            key: Key('tracked-exercise-toggle-${widget.exerciseId}'),
-            onTap: _toggleExpanded,
-            borderRadius: BorderRadius.circular(14),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 9),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _ExerciseThumb(exerciseId: widget.exerciseId, size: 42),
-                  const SizedBox(width: 9),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          name,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontWeight: FontWeight.w900),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          latest == null
-                              ? '暂无真实完成工作组'
-                              : '最近 ${_dateLabel(latest.date)} · ${_pair(latest)}',
-                          style: TextStyle(color: quiet, fontSize: 11),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Icon(
-                    expanded
-                        ? Icons.keyboard_arrow_up_rounded
-                        : Icons.keyboard_arrow_down_rounded,
-                    color: quiet,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-            child: Text(
-              _changeText(values),
-              style: TextStyle(
-                color: values.length < 2 ? quiet : primary,
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-          if (mixedHistory)
-            Padding(
-              padding: EdgeInsets.fromLTRB(12, 0, 12, 8),
-              child: Text(
-                '检测到不同训练地点，当前趋势已按最近地点分开；不同器械/场地不直接比较。',
-                style: TextStyle(color: quiet, fontSize: 11, height: 1.35),
-              ),
-            ),
-          if (expanded)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
-              child: values.isEmpty
-                  ? SizedBox(
-                      key: Key(
-                        'statistics-strength-chart-empty-${widget.exerciseId}',
-                      ),
-                      height: 76,
-                      child: Center(
-                        child: Text(
-                          '所选时间段暂无可比较数据',
-                          style: TextStyle(color: quiet),
-                        ),
-                      ),
-                    )
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        LayoutBuilder(
-                          builder: (context, constraints) => GestureDetector(
-                            key: Key(
-                              'statistics-strength-chart-${widget.exerciseId}',
-                            ),
-                            behavior: HitTestBehavior.opaque,
-                            onTapUp: (details) => _selectPoint(
-                              details,
-                              Size(constraints.maxWidth, 190),
-                            ),
-                            child: Semantics(
-                              label: '重量和次数双轴趋势图，点击数据点查看同组配对',
-                              child: SizedBox(
-                                height: 190,
-                                child: CustomPaint(
-                                  painter: _DualAxisGrowthPainter(
-                                    points: values,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Wrap(
-                          spacing: 14,
-                          runSpacing: 4,
-                          children: [
-                            _GrowthLegend(color: primary, label: '重量（左轴 kg）'),
-                            _GrowthLegend(
-                              color: primaryBright,
-                              label: '同组次数（右轴 次）',
-                            ),
-                          ],
-                        ),
-                        if (selected != null) ...[
-                          const SizedBox(height: 6),
-                          Text(
-                            '详情 · ${_dateLabel(selected.date)} · ${_pair(selected)}',
-                            key: Key(
-                              'statistics-strength-point-${widget.exerciseId}',
-                            ),
-                            style: TextStyle(
-                              color: secondaryInk,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _GrowthLegend extends StatelessWidget {
-  const _GrowthLegend({required this.color, required this.label});
-
-  final Color color;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Container(
-        width: 8,
-        height: 8,
-        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-      ),
-      const SizedBox(width: 4),
-      Text(label, style: TextStyle(color: quiet, fontSize: 10)),
-    ],
-  );
-}
-
-class _DualAxisGrowthPainter extends CustomPainter {
-  const _DualAxisGrowthPainter({required this.points});
-
-  final List<ExerciseGrowthPoint> points;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (points.isEmpty || size.width <= 0 || size.height <= 0) return;
-    const leftPad = 34.0;
-    const rightPad = 28.0;
-    const topPad = 17.0;
-    const bottomPad = 29.0;
-    final chartWidth = math
-        .max(1.0, size.width - leftPad - rightPad)
-        .toDouble();
-    final chartHeight = math
-        .max(1.0, size.height - topPad - bottomPad)
-        .toDouble();
-    final firstDate = points.first.date;
-    final lastDate = points.last.date;
-    final dateSpan = lastDate.difference(firstDate).inMilliseconds;
-    final weights = points.map((point) => point.weight).toList(growable: false);
-    final repetitions = points
-        .map((point) => point.reps.toDouble())
-        .toList(growable: false);
-    final weightRange = _axisRange(weights);
-    final repsRange = _axisRange(repetitions);
-    final grid = Paint()
-      ..color = hairline
-      ..strokeWidth = 1;
-    for (var index = 0; index < 3; index++) {
-      final y = topPad + chartHeight * index / 2;
-      canvas.drawLine(
-        Offset(leftPad, y),
-        Offset(size.width - rightPad, y),
-        grid,
-      );
-    }
-
-    Offset pointAt(int index, double value, _AxisRange range) {
-      final dateRatio = dateSpan <= 0
-          ? .5
-          : points[index].date.difference(firstDate).inMilliseconds / dateSpan;
-      final x = leftPad + chartWidth * dateRatio;
-      final valueRatio = ((value - range.low) / (range.high - range.low)).clamp(
-        0.0,
-        1.0,
-      );
-      final y = topPad + chartHeight * (1 - valueRatio);
-      return Offset(x, y);
-    }
-
-    final weightPoints = [
-      for (var index = 0; index < points.length; index++)
-        pointAt(index, weights[index], weightRange),
-    ];
-    final repsPoints = [
-      for (var index = 0; index < points.length; index++)
-        pointAt(index, repetitions[index], repsRange),
-    ];
-    _drawSeries(canvas, weightPoints, primary);
-    _drawSeries(canvas, repsPoints, primaryBright);
-    _drawAxisLabels(canvas, size, weightRange, repsRange);
-    for (var index = 0; index < points.length; index++) {
-      canvas.drawCircle(weightPoints[index], 4, Paint()..color = primary);
-      canvas.drawCircle(weightPoints[index], 2, Paint()..color = Colors.white);
-      canvas.drawCircle(repsPoints[index], 3.5, Paint()..color = primaryBright);
-    }
-  }
-
-  _AxisRange _axisRange(List<double> values) {
-    final minValue = values.reduce((a, b) => math.min(a, b).toDouble());
-    final maxValue = values.reduce((a, b) => math.max(a, b).toDouble());
-    final spread = maxValue - minValue;
-    final padding = spread == 0
-        ? math.max(1.0, minValue.abs() * .12).toDouble()
-        : spread * .16;
-    return _AxisRange(
-      low: math.max(0, minValue - padding).toDouble(),
-      high: maxValue + padding,
-    );
-  }
-
-  void _drawSeries(Canvas canvas, List<Offset> points, Color color) {
-    if (points.length < 2) return;
-    final line = Paint()
-      ..color = color
-      ..strokeWidth = 3
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..style = PaintingStyle.stroke;
-    final path = Path()..moveTo(points.first.dx, points.first.dy);
-    for (final point in points.skip(1)) {
-      path.lineTo(point.dx, point.dy);
-    }
-    canvas.drawPath(path, line);
-  }
-
-  void _drawAxisLabels(
-    Canvas canvas,
-    Size size,
-    _AxisRange weightRange,
-    _AxisRange repsRange,
-  ) {
-    final style = TextStyle(color: quiet, fontSize: 9);
-    void draw(String text, Offset offset, {TextAlign align = TextAlign.left}) {
-      final painter = TextPainter(
-        text: TextSpan(text: text, style: style),
-        textDirection: TextDirection.ltr,
-        textAlign: align,
-      )..layout();
-      painter.paint(canvas, offset);
-    }
-
-    draw('kg', const Offset(2, 0));
-    draw('次', Offset(size.width - 18, 0));
-    for (var index = 0; index < 3; index++) {
-      final ratio = 1 - index / 2;
-      final y = 17 + (size.height - 17 - 29) * index / 2 - 5;
-      draw(
-        formatGrowthNumber(
-          weightRange.low + (weightRange.high - weightRange.low) * ratio,
-        ),
-        Offset(0, y),
-      );
-      draw(
-        formatGrowthNumber(
-          repsRange.low + (repsRange.high - repsRange.low) * ratio,
-        ),
-        Offset(size.width - 25, y),
-        align: TextAlign.right,
-      );
-    }
-    final first = points.first;
-    final last = points.last;
-    draw('${first.date.month}/${first.date.day}', Offset(27, size.height - 17));
-    if (last != first) {
-      draw(
-        '${last.date.month}/${last.date.day}',
-        Offset(size.width - 52, size.height - 17),
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _DualAxisGrowthPainter oldDelegate) =>
-      oldDelegate.points != points;
-}
-
-class _AxisRange {
-  const _AxisRange({required this.low, required this.high});
-
-  final double low;
-  final double high;
 }
 
 class _StrengthTrackingPage extends StatefulWidget {
@@ -8949,7 +8450,7 @@ class _StrengthTrackingPageState extends State<_StrengthTrackingPage> {
   }
 
   List<String> get candidates {
-    final ids = <String>{};
+    final ids = <String>{...widget.controller.trackedExerciseIds};
     for (final record in widget.controller.history) {
       for (final exercise in record.exercises) {
         if (exercise.sets.any((set) => set.completed)) {
@@ -9018,7 +8519,11 @@ class _StrengthTrackingPageState extends State<_StrengthTrackingPage> {
                     }
                   });
                 },
-                secondary: _ExerciseThumb(exerciseId: id, size: 42),
+                secondary: _ExerciseThumb(
+                  exerciseId: id,
+                  size: 42,
+                  openDetails: false,
+                ),
                 title: Text(
                   widget.controller.displayExerciseName(
                     widget.controller.exerciseFor(id),
@@ -12906,25 +12411,10 @@ class _RecognitionTechniqueScoreCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final raw = result.metrics['scores'];
-    final scores = raw is Map
-        ? Map<String, dynamic>.from(raw)
-        : const <String, dynamic>{};
-    int score(String key) =>
-        ((scores[key] as num?)?.round() ?? 0).clamp(0, 100);
-    final values = <String, int>{
-      '动作幅度': score('rom'),
-      '稳定性': score('stability'),
-      '左右对称': score('symmetry'),
-      '节奏控制': score('tempo'),
-      '动作轨迹': score('trajectory'),
-    };
-    final overall = score('overall');
-    final scoreable =
-        result.assessment == 'assessable' &&
-        result.confidence >= .6 &&
-        overall > 0 &&
-        values.values.every((value) => value > 0);
+    final policy = RecognitionScorePolicy(result);
+    final values = policy.available;
+    final overall = policy.score('overall');
+    final scoreable = overall != null || values.isNotEmpty;
     return Container(
       key: const Key('recognition-technique-score'),
       width: double.infinity,
@@ -12938,25 +12428,26 @@ class _RecognitionTechniqueScoreCard extends StatelessWidget {
           ? Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Row(
-                  children: [
-                    const Expanded(
-                      child: Text(
-                        '综合动作评分',
-                        style: TextStyle(fontWeight: FontWeight.w900),
+                if (overall != null)
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          '综合动作评分',
+                          style: TextStyle(fontWeight: FontWeight.w900),
+                        ),
                       ),
-                    ),
-                    Text(
-                      '$overall',
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w900,
-                        color: primary,
+                      Text(
+                        '$overall',
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w900,
+                          color: primary,
+                        ),
                       ),
-                    ),
-                    Text(' / 100', style: TextStyle(color: quiet)),
-                  ],
-                ),
+                      Text(' / 100', style: TextStyle(color: quiet)),
+                    ],
+                  ),
                 const SizedBox(height: 10),
                 for (final entry in values.entries)
                   Padding(
@@ -12997,9 +12488,9 @@ class _RecognitionTechniqueScoreCard extends StatelessWidget {
           : Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  '本次不输出动作评分',
-                  style: TextStyle(fontWeight: FontWeight.w900),
+                Text(
+                  policy.title,
+                  style: const TextStyle(fontWeight: FontWeight.w900),
                 ),
                 const SizedBox(height: 6),
                 Text(
@@ -13013,17 +12504,7 @@ class _RecognitionTechniqueScoreCard extends StatelessWidget {
 }
 
 String _recognitionQualityGuidance(RecognitionResult result) {
-  final reason = result.evidenceReason.toLowerCase();
-  if (reason.contains('short') || reason.contains('cycle')) {
-    return '视频过短或没有完整动作周期。请录制至少一次完整的起始—发力—还原过程。';
-  }
-  if (reason.contains('frame') || reason.contains('body')) {
-    return '身体没有完整进入画面。请确保头、躯干、髋、膝和脚在动作全程可见。';
-  }
-  if (reason.contains('camera') || reason.contains('angle')) {
-    return '拍摄角度不适合该动作。请按机位提示重新拍摄，并避免器械遮挡关节。';
-  }
-  return '当前视频不足以可靠判断全部技术维度。请保持镜头稳定、身体完整入镜，并录制完整动作周期。';
+  return RecognitionScorePolicy(result).guidance;
 }
 
 class _RecognitionEvidenceGallery extends StatelessWidget {
@@ -15084,7 +14565,8 @@ class _AiPlanCard extends StatelessWidget {
             ),
             IconButton(
               tooltip: '调整或重新生成计划',
-              onPressed: () => _openCoachPlanEditor(context, controller, plan: plan),
+              onPressed: () =>
+                  _openCoachPlanEditor(context, controller, plan: plan),
               icon: const Icon(Icons.refresh, size: 20),
             ),
           ],
@@ -15900,11 +15382,20 @@ class ProfilePage extends StatelessWidget {
                   trailing: Switch(
                     key: const Key('notification-feedback-switch'),
                     value: controller.androidNotifications,
-                    onChanged: (value) {
-                      controller.androidNotifications = value;
-                      controller.refresh();
-                      showKiloSnack(context, value ? '训练提醒已开启' : '训练提醒已关闭');
-                    },
+                    onChanged: controller.notificationPreferenceBusy
+                        ? null
+                        : (value) async {
+                            final enabled = await controller
+                                .setNotificationsEnabled(value);
+                            if (!context.mounted) return;
+                            showKiloSnack(
+                              context,
+                              enabled
+                                  ? '训练提醒已开启，每天 20:00 提醒'
+                                  : (controller.notificationPreferenceError ??
+                                        '训练提醒已关闭'),
+                            );
+                          },
                   ),
                 ),
               ],
@@ -17627,253 +17118,6 @@ class _DetailActions extends StatelessWidget {
         onPressed: onAdd,
       ),
     ],
-  );
-}
-
-class _ProgressTrendPainter extends CustomPainter {
-  const _ProgressTrendPainter(this.values);
-  final List<double> values;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final gridPaint = Paint()
-      ..color = hairline
-      ..strokeWidth = 1;
-    final linePaint = Paint()
-      ..color = cobalt
-      ..strokeWidth = 3
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-    final fillPaint = Paint()
-      ..color = cobalt.withValues(alpha: .10)
-      ..style = PaintingStyle.fill;
-    for (var row = 1; row < 4; row++) {
-      final y = size.height * row / 4;
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
-    }
-    if (values.isEmpty) return;
-    final minValue = values.reduce((a, b) => a < b ? a : b);
-    final maxValue = values.reduce((a, b) => a > b ? a : b);
-    final span = (maxValue - minValue).abs() < .01 ? 1 : maxValue - minValue;
-    final points = <Offset>[];
-    for (var index = 0; index < values.length; index++) {
-      final x = values.length == 1
-          ? size.width / 2
-          : size.width * index / (values.length - 1);
-      final y =
-          size.height -
-          ((values[index] - minValue) / span).clamp(.08, .92) * size.height;
-      points.add(Offset(x, y));
-    }
-    final line = Path()..moveTo(points.first.dx, points.first.dy);
-    for (final point in points.skip(1)) {
-      line.lineTo(point.dx, point.dy);
-    }
-    final area = Path.from(line)
-      ..lineTo(points.last.dx, size.height)
-      ..lineTo(points.first.dx, size.height)
-      ..close();
-    canvas.drawPath(area, fillPaint);
-    canvas.drawPath(line, linePaint);
-    final dotPaint = Paint()..color = cobalt;
-    for (final point in points) {
-      canvas.drawCircle(point, 4, dotPaint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _ProgressTrendPainter oldDelegate) =>
-      oldDelegate.values != values;
-}
-
-void _showProgress(BuildContext context, AppController controller) {
-  final records = controller.history.reversed.toList();
-  final volumes = records.map((record) => record.volume).toList();
-  final latest = controller.history.isEmpty ? null : controller.history.first;
-  final firstVolume = volumes.isEmpty ? 0 : volumes.first;
-  final latestVolume = volumes.isEmpty ? 0 : volumes.last;
-  final changeRate = firstVolume == 0
-      ? 0.0
-      : (latestVolume - firstVolume) / firstVolume * 100;
-  var plannedSets = 0;
-  var achievedPlannedSets = 0;
-  var plannedDeltaTotal = 0.0;
-  for (final record in controller.history) {
-    for (final exercise in record.exercises) {
-      for (final set in exercise.sets) {
-        final planned = set.plannedWeight;
-        if (planned == null) continue;
-        plannedSets++;
-        final delta = set.weight - planned;
-        plannedDeltaTotal += delta;
-        if (delta >= 0) achievedPlannedSets++;
-      }
-    }
-  }
-  final plannedAchievement = plannedSets == 0
-      ? '\u8BA1\u5212\u91CD\u91CF\u672A\u8BB0\u5F55'
-      : '${(achievedPlannedSets / plannedSets * 100).toStringAsFixed(0)}%';
-  final averagePlannedDelta = plannedSets == 0
-      ? '\u8BA1\u5212\u91CD\u91CF\u672A\u8BB0\u5F55'
-      : '${plannedDeltaTotal / plannedSets >= 0 ? '+' : ''}${(plannedDeltaTotal / plannedSets).toStringAsFixed(1)} kg';
-  showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    builder: (context) => SafeArea(
-      child: SizedBox(
-        height: MediaQuery.sizeOf(context).height * .86,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('进步分析', style: Theme.of(context).textTheme.headlineMedium),
-              Text(
-                '把最近训练的变化放在同一条线上，看懂下一步该加什么。',
-                style: TextStyle(color: quiet),
-              ),
-              const SizedBox(height: 14),
-              if (volumes.isEmpty)
-                const Card(
-                  child: Padding(
-                    padding: EdgeInsets.all(18),
-                    child: Text('还没有足够的训练数据。完成一次训练后，这里会显示趋势和动作表现。'),
-                  ),
-                )
-              else ...[
-                const Text(
-                  '训练量趋势',
-                  style: TextStyle(fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 6),
-                SizedBox(
-                  key: const Key('progress-trend-chart'),
-                  height: 170,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: primaryContainer,
-                      borderRadius: BorderRadius.all(Radius.circular(14)),
-                      border: Border.fromBorderSide(
-                        BorderSide(color: hairline),
-                      ),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-                      child: CustomPaint(
-                        painter: _ProgressTrendPainter(volumes),
-                        child: const SizedBox.expand(),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      '${records.first.date.month}/${records.first.date.day} · ${records.first.volume.toStringAsFixed(0)} kg',
-                      style: TextStyle(fontSize: 11, color: quiet),
-                    ),
-                    Text(
-                      '${records.last.date.month}/${records.last.date.day} · ${records.last.volume.toStringAsFixed(0)} kg',
-                      style: TextStyle(fontSize: 11, color: quiet),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                GridView.count(
-                  crossAxisCount: 2,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  mainAxisSpacing: 8,
-                  crossAxisSpacing: 8,
-                  childAspectRatio: 2.2,
-                  children: [
-                    _ProgressMetric(
-                      label: '\u8BA1\u5212\u8FBE\u6210',
-                      value: plannedAchievement,
-                    ),
-                    _ProgressMetric(
-                      label: '\u5E73\u5747\u91CD\u91CF\u5DEE',
-                      value: averagePlannedDelta,
-                    ),
-                    _ProgressMetric(
-                      label: '最近训练量',
-                      value: '${latestVolume.toStringAsFixed(0)} kg',
-                    ),
-                    _ProgressMetric(
-                      label: '有效组',
-                      value: '${latest?.effectiveSets ?? 0}',
-                    ),
-                    _ProgressMetric(
-                      label: '记录变化',
-                      value:
-                          '${changeRate >= 0 ? '+' : ''}${changeRate.toStringAsFixed(1)}%',
-                    ),
-                    _ProgressMetric(label: '训练次数', value: '${records.length}'),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  '关键动作表现',
-                  style: TextStyle(fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 6),
-                for (final exerciseId
-                    in (latest?.exerciseIds ?? const <String>[]).take(3))
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: _ExerciseThumb(exerciseId: exerciseId, size: 38),
-                    title: Text(
-                      controller.displayExerciseName(
-                        controller.exerciseFor(exerciseId),
-                      ),
-                    ),
-                    subtitle: const Text('最近一次完成 · 结合组别类型和重量复盘'),
-                    trailing: Icon(Icons.trending_up, color: cobalt),
-                  ),
-                const SizedBox(height: 8),
-                Text(
-                  changeRate >= 0
-                      ? '你的训练量正在上升。下一次优先保持动作质量，再让正式组增加 1–2 次或小幅加重。'
-                      : '训练量暂时回落，不必急着追重量。先检查恢复、有效组和最近动作完成质量。',
-                  style: TextStyle(color: secondaryInk),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    ),
-  );
-}
-
-class _ProgressMetric extends StatelessWidget {
-  const _ProgressMetric({required this.label, required this.value});
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) => DecoratedBox(
-    decoration: BoxDecoration(
-      color: paper,
-      borderRadius: BorderRadius.all(Radius.circular(10)),
-    ),
-    child: Padding(
-      padding: const EdgeInsets.all(10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: TextStyle(fontSize: 11, color: quiet)),
-          const SizedBox(height: 2),
-          Text(
-            value,
-            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
-          ),
-        ],
-      ),
-    ),
   );
 }
 
@@ -20968,9 +20212,14 @@ void _showRoutineDetail(
                 style: Theme.of(context).textTheme.headlineMedium,
               ),
               TextButton.icon(
-                onPressed: () => _openCoachPlanEditor(context, controller,
-                  plan: controller.coachPlanFromRoutines(routine.name, 1, [routine]),
-                  originalRoutine: routine),
+                onPressed: () => _openCoachPlanEditor(
+                  context,
+                  controller,
+                  plan: controller.coachPlanFromRoutines(routine.name, 1, [
+                    routine,
+                  ]),
+                  originalRoutine: routine,
+                ),
                 icon: const Icon(Icons.refresh, size: 18),
                 label: const Text('AI 调整计划'),
               ),

@@ -153,6 +153,7 @@ export function openDatabase(databasePath) {
         user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
         membership TEXT NOT NULL DEFAULT 'free' CHECK (membership IN ('free', 'oneMonth', 'yearly', 'threeMonths', 'forever')),
         membership_expires_at TEXT,
+        cloud_retention_expires_at TEXT,
         ai_day_key TEXT NOT NULL,
         ai_remaining INTEGER NOT NULL DEFAULT 3 CHECK (ai_remaining >= 0),
         recognition_remaining INTEGER NOT NULL DEFAULT 5 CHECK (recognition_remaining >= 0),
@@ -239,6 +240,12 @@ export function openDatabase(databasePath) {
   // installations that were upgraded through an older entitlement schema.
   const entitlementColumns = db.prepare('PRAGMA table_info(entitlements)').all();
   const entitlementColumnNames = new Set(entitlementColumns.map((column) => column.name));
+  if (!entitlementColumnNames.has('cloud_retention_expires_at')) {
+    db.exec('ALTER TABLE entitlements ADD COLUMN cloud_retention_expires_at TEXT');
+    db.exec(`UPDATE entitlements
+      SET cloud_retention_expires_at = datetime(membership_expires_at, '+30 days')
+      WHERE membership_expires_at IS NOT NULL`);
+  }
   if (!entitlementColumnNames.has('trial_started_at')) {
     db.exec('ALTER TABLE entitlements ADD COLUMN trial_started_at TEXT');
   }
@@ -247,6 +254,10 @@ export function openDatabase(databasePath) {
   }
   if (!entitlementColumnNames.has('trial_workout_id')) {
     db.exec('ALTER TABLE entitlements ADD COLUMN trial_workout_id TEXT');
+  }
+  const userColumns = db.prepare('PRAGMA table_info(users)').all();
+  if (!userColumns.some((column) => column.name === 'avatar_key')) {
+    db.exec('ALTER TABLE users ADD COLUMN avatar_key TEXT');
   }
   // These tables were added after the first release. CREATE IF NOT EXISTS is
   // deliberately used so existing production databases remain untouched.
@@ -371,7 +382,6 @@ export function refreshEntitlement(db, row, at = new Date()) {
   let expires = row.membership_expires_at;
   if (membership !== 'free' && membership !== 'forever' && (!expires || new Date(expires) <= at)) {
     membership = 'free';
-    expires = null;
   }
   const day = stamp.slice(0, 10);
   const week = isoWeekKey(at);
@@ -416,6 +426,7 @@ export function publicUser(row) {
     displayName: row.display_name,
     role: row.role,
     authProvider: row.auth_provider,
+    avatarAvailable: Boolean(row.avatar_key),
     createdAt: row.created_at,
   };
 }
@@ -429,9 +440,18 @@ export function publicEntitlement(row) {
     new Date(trialExpiresAt) > at,
   );
   const trialClaimed = Boolean(row.trial_started_at || row.trial_expires_at || row.trial_workout_id);
+  const cloudRetentionExpiresAt = row.cloud_retention_expires_at || null;
+  const cloudSyncReadable = membershipActive(row, at) || Boolean(
+    cloudRetentionExpiresAt &&
+    !Number.isNaN(new Date(cloudRetentionExpiresAt).getTime()) &&
+    new Date(cloudRetentionExpiresAt) > at,
+  );
   return {
     membership: row.membership,
     membershipExpiresAt: row.membership_expires_at,
+    cloudRetentionExpiresAt,
+    cloudSyncReadable,
+    cloudSyncWritable: membershipActive(row, at),
     trialStartedAt: row.trial_started_at || null,
     trialExpiresAt,
     trialWorkoutId: row.trial_workout_id || null,

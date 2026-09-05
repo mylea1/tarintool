@@ -48,6 +48,13 @@ npm start
 - 识别任务为 `create -> upload -> queued -> processing -> completed/failed` 状态机。上传 token 仅 15 分钟有效；计算节点只接受 `KILO_GPU_API_KEY`，原始视频、overlay、preview 和事件证据图均经过大小、MIME、路径及所有者校验。artifact 支持 `PUT` 流式上传（`x-artifact-kind: overlay|preview|evidence`；证据图另带 `x-artifact-id`），大文件不受 JSON body 限制。结果事件以 `startMs/peakMs/endMs/displayTime` 定位，完整 overlay 默认关闭。
 - 训练摘要只有请求显式 `useTrainingData: true` 时才注入 AI；对话仅发送近期窗口和可选 `memory_summary`，不会每次上传全部历史。
 
+## 推送、头像与 Pro 云端保留
+
+- App 的“通知反馈”默认关闭；用户开启后才申请系统权限并注册 FCM token。关闭会同时取消每日 20:00 本地提醒并删除服务器 token。
+- 后端使用 FCM HTTP v1 同时发送 Android 推送和经 Firebase/APNs 转发的 iOS 推送。生产环境需配置 `FIREBASE_PROJECT_ID`、`FIREBASE_CLIENT_EMAIL`、`FIREBASE_PRIVATE_KEY`；私钥不得进入客户端或 Git。
+- 头像通过登录态保护的 `PUT/GET/DELETE /v1/me/avatar` 保存到持久媒体目录，客户端登录后下载到应用私有目录，因此可跨设备和重装恢复。
+- Pro 期间云同步可读写。开通时客户端会回填本机已有的全部训练记录和计划，包括开通 Pro 之前的数据；到期后 30 天内只读，超过期限后服务端清理该用户的同步实体。
+
 ## 训练方法知识库测试
 
 部署或更新后执行 `npm run seed:knowledge`，会同时写入通用知识与 `knowledge/training-framework.zh-CN.json`。新增内容只保留训练思想、计划结构、进退阶、恢复和安全边界，不启用人物角色、称呼或语言模仿。在 App 的现有 AI 对话中直接输入以下内容即可测试，无需更新客户端：

@@ -6,6 +6,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:video_compress/video_compress.dart';
 
 import 'account_membership.dart';
@@ -15,6 +16,8 @@ import 'ai_api.dart';
 import 'natural_workout_parser.dart';
 import 'models.dart';
 import 'recognition_api.dart';
+import 'recognition_score_policy.dart';
+import 'push_notifications.dart';
 import 'secure_session_store.dart';
 import 'workout_history_persistence.dart';
 import 'training_intelligence.dart';
@@ -243,6 +246,35 @@ class PlatformTimerBridge {
       // UI state remains authoritative when the system capability is unavailable.
     }
   }
+
+  static Future<bool> configureNotifications(bool enabled) async {
+    try {
+      return await _channel.invokeMethod<bool>('configureNotifications', {
+            'enabled': enabled,
+          }) ??
+          enabled;
+    } on MissingPluginException {
+      return enabled;
+    } on PlatformException catch (_) {
+      return false;
+    }
+  }
+
+  static Future<void> showNotification({
+    required String title,
+    required String body,
+  }) async {
+    try {
+      await _channel.invokeMethod<void>('showNotification', {
+        'title': title,
+        'body': body,
+      });
+    } on MissingPluginException {
+      // Foreground push display is unavailable in widget tests.
+    } on PlatformException catch (_) {
+      // Background notifications are still displayed by the operating system.
+    }
+  }
 }
 
 class AppController extends ChangeNotifier {
@@ -324,7 +356,13 @@ class AppController extends ChangeNotifier {
   int get recognitionRemaining => accountService.recognitionRemaining;
   List<MembershipOrder> get membershipOrders => accountService.membershipOrders;
   bool get cloudSyncAllowed =>
-      _remoteEntitlementsFresh && entitlements?.isMember == true;
+      _remoteEntitlementsFresh &&
+      (entitlements?.cloudSyncWritable == true ||
+          entitlements?.isMember == true);
+  bool get cloudRestoreAllowed =>
+      _remoteEntitlementsFresh &&
+      (entitlements?.cloudSyncReadable == true ||
+          entitlements?.isMember == true);
 
   MembershipOrder? createMembershipOrder({
     required MembershipPlan plan,
@@ -831,12 +869,36 @@ class AppController extends ChangeNotifier {
     if (cleanName.isEmpty) throw const CoachApiException('username_required');
     if (_storedRemoteSession != null) {
       await updateFriendUsernameRemote(cleanName);
+      if (avatarPath?.isNotEmpty == true) {
+        final api = await _activeCoachApi();
+        if (api is HttpCoachApi) await api.uploadAvatar(avatarPath!);
+      }
     }
     accountService.updateCurrentProfile(
       displayName: cleanName,
       avatarPath: avatarPath,
     );
     notifyListeners();
+  }
+
+  Future<void> hydrateRemoteAvatar() async {
+    final user = currentUser;
+    if (user == null || _storedRemoteSession == null) return;
+    try {
+      final api = await _activeCoachApi();
+      if (api is! HttpCoachApi) return;
+      final bytes = await api.fetchAvatar();
+      if (bytes == null || bytes.isEmpty || currentUser?.id != user.id) return;
+      final directory = await getApplicationSupportDirectory();
+      final file = File(
+        '${directory.path}${Platform.pathSeparator}avatar-${user.id.hashCode}.jpg',
+      );
+      await file.writeAsBytes(bytes, flush: true);
+      accountService.updateCurrentProfile(avatarPath: file.path);
+      if (!_disposed) notifyListeners();
+    } catch (_) {
+      // A cached local avatar remains usable while the remote image is absent.
+    }
   }
 
   Future<Map<String, dynamic>> searchFriendsRemote(String query) async {
@@ -1426,7 +1488,6 @@ class AppController extends ChangeNotifier {
       // Keep local data usable, but do not read cloud data without a fresh
       // server entitlement response.
     }
-    if (entitlement?.isMember == true) await restoreCloudBackup();
     await Future.wait([
       hydrateWorkoutHistory(force: true),
       hydrateActiveWorkout(),
@@ -1435,16 +1496,32 @@ class AppController extends ChangeNotifier {
       hydrateAiSkills(),
       hydrateAiConversations(force: true),
       hydratePersonalAgentData(),
+      hydrateRemoteAvatar(),
     ]);
+    if (entitlement?.cloudSyncReadable == true ||
+        entitlement?.isMember == true) {
+      await restoreCloudBackup();
+      await Future.wait([
+        hydrateWorkoutHistory(force: true),
+        hydrateTrainingLibrary(force: true),
+      ]);
+    }
+    if (entitlement?.cloudSyncWritable == true ||
+        entitlement?.isMember == true) {
+      await backupUserData();
+    }
+    if (androidNotifications) unawaited(_activateNotifications());
   }
 
   Future<void> restoreCloudBackup() async {
     final userId = currentUser?.id;
-    if (userId == null || userId.isEmpty || !cloudSyncAllowed) return;
+    if (userId == null || userId.isEmpty || !cloudRestoreAllowed) return;
     try {
       final api = await _activeCoachApi();
       if (api is! HttpCoachApi) return;
       final entities = await api.fetchSyncEntities('settings');
+      final workoutEntities = await api.fetchSyncEntities('workout');
+      final planEntities = await api.fetchSyncEntities('plan');
       Map<String, dynamic>? backup;
       for (final entity in entities) {
         if (entity['entityId'] == _cloudBackupEntityId &&
@@ -1454,13 +1531,71 @@ class AppController extends ChangeNotifier {
           break;
         }
       }
-      if (backup == null || currentUser?.id != userId) return;
+      if (currentUser?.id != userId) return;
+      backup ??= <String, dynamic>{};
       final localHistory = await workoutHistoryPersistence.read(userId);
-      if (localHistory.isEmpty) {
-        final restored = decodeWorkoutRecords(backup['workoutHistory']);
-        if (restored.isNotEmpty) {
-          await workoutHistoryPersistence.write(userId, restored);
-        }
+      final restored = workoutEntities
+          .where((item) => item['deleted'] != true)
+          .expand((item) => decodeWorkoutRecords([item['payload']]))
+          .toList(growable: false);
+      final legacy = decodeWorkoutRecords(backup['workoutHistory']);
+      final cloudHistory = restored.isNotEmpty ? restored : legacy;
+      final mergedHistory = <String, WorkoutRecord>{
+        for (final record in cloudHistory) record.id: record,
+        // The device copy wins conflicts while missing cloud records are added.
+        for (final record in localHistory) record.id: record,
+      }.values.toList(growable: false)..sort((a, b) => b.date.compareTo(a.date));
+      if (mergedHistory.length != localHistory.length) {
+        await workoutHistoryPersistence.write(userId, mergedHistory);
+      }
+      final localLibrary = await trainingLibraryPersistence.read(userId);
+      final cloudRoutines = planEntities
+          .where((item) => item['deleted'] != true && item['payload'] is Map)
+          .expand(
+            (item) => decodeTrainingLibrary({
+              'routines': [item['payload']],
+            }).routines,
+          )
+          .toList(growable: false);
+      final legacyLibrary = decodeTrainingLibrary(backup['trainingLibrary']);
+      final remoteRoutines = cloudRoutines.isNotEmpty
+          ? cloudRoutines
+          : legacyLibrary.routines;
+      final cloudFolders =
+          (backup['routineFolders'] as List<dynamic>? ?? const [])
+              .map((item) => item.toString())
+              .where((item) => item.isNotEmpty)
+              .toList(growable: false);
+      final cloudLabels = (backup['scheduledLabels'] is Map)
+          ? Map<String, String>.from(
+              (backup['scheduledLabels'] as Map).map(
+                (key, value) => MapEntry(key.toString(), value.toString()),
+              ),
+            )
+          : const <String, String>{};
+      final mergedRoutines = <String, Routine>{
+        for (final routine in remoteRoutines) routine.id: routine,
+        for (final routine in localLibrary.routines) routine.id: routine,
+      }.values.toList(growable: false);
+      if (mergedRoutines.length != localLibrary.routines.length ||
+          (localLibrary.routineFolders.isEmpty && cloudFolders.isNotEmpty) ||
+          (localLibrary.scheduledLabels.isEmpty && cloudLabels.isNotEmpty)) {
+        await trainingLibraryPersistence.write(
+          userId,
+          TrainingLibrarySnapshot(
+            routines: mergedRoutines,
+            routineFolders: localLibrary.routineFolders.isNotEmpty
+                ? localLibrary.routineFolders
+                : (cloudFolders.isNotEmpty
+                      ? cloudFolders
+                      : legacyLibrary.routineFolders),
+            scheduledLabels: localLibrary.scheduledLabels.isNotEmpty
+                ? localLibrary.scheduledLabels
+                : (cloudLabels.isNotEmpty
+                      ? cloudLabels
+                      : legacyLibrary.scheduledLabels),
+          ),
+        );
       }
       final preferences = await SharedPreferences.getInstance();
       final aiKey = 'xingyu.ai-conversations.v1.$userId';
@@ -1518,7 +1653,10 @@ class AppController extends ChangeNotifier {
         payload: {
           'schemaVersion': 1,
           'updatedAt': DateTime.now().toUtc().toIso8601String(),
-          'workoutHistory': encodeWorkoutRecords(history),
+          // Workouts and plans are stored as individual sync entities below.
+          // Keeping them out of settings avoids the 2 MiB request ceiling.
+          'routineFolders': routineFolders,
+          'scheduledLabels': scheduledLabels,
           if (rawAi?.isNotEmpty == true) 'aiConversations': jsonDecode(rawAi!),
           if (rawProfile?.isNotEmpty == true)
             'trainingProfile': jsonDecode(rawProfile!),
@@ -1529,6 +1667,41 @@ class AppController extends ChangeNotifier {
             'trainingIntelligence': jsonDecode(rawIntelligence!),
         },
       );
+      final workoutCloud = await api.fetchSyncEntities('workout');
+      final workoutRevisions = {
+        for (final item in workoutCloud)
+          item['entityId']?.toString() ?? '':
+              (item['revision'] as num?)?.toInt() ?? 0,
+      };
+      for (final record in history) {
+        await api.upsertSyncEntity(
+          entityType: 'workout',
+          entityId: record.id,
+          baseRevision: workoutRevisions[record.id] ?? 0,
+          payload: encodeWorkoutRecords([record]).first,
+        );
+      }
+      final planCloud = await api.fetchSyncEntities('plan');
+      final planRevisions = {
+        for (final item in planCloud)
+          item['entityId']?.toString() ?? '':
+              (item['revision'] as num?)?.toInt() ?? 0,
+      };
+      for (final routine in routines) {
+        final encoded = encodeTrainingLibrary(
+          TrainingLibrarySnapshot(
+            routines: [routine],
+            routineFolders: const [],
+            scheduledLabels: const {},
+          ),
+        );
+        await api.upsertSyncEntity(
+          entityType: 'plan',
+          entityId: routine.id,
+          baseRevision: planRevisions[routine.id] ?? 0,
+          payload: (encoded['routines'] as List).first as Map<String, dynamic>,
+        );
+      }
     } catch (_) {
       // Sync must never interrupt training or chat. A later write retries it.
     }
@@ -2136,7 +2309,86 @@ class AppController extends ChangeNotifier {
   }
 
   bool liveActivity = true;
-  bool androidNotifications = true;
+  bool androidNotifications = false;
+  bool notificationPreferenceBusy = false;
+  String? notificationPreferenceError;
+
+  Future<void> hydrateNotificationPreference() async {
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      androidNotifications =
+          preferences.getBool('kilo.notifications.enabled') ?? false;
+      if (androidNotifications) unawaited(_activateNotifications());
+      if (!_disposed) notifyListeners();
+    } catch (_) {
+      // Keep the default while platform preferences are unavailable.
+    }
+  }
+
+  Future<bool> setNotificationsEnabled(bool enabled) async {
+    if (notificationPreferenceBusy) return androidNotifications;
+    notificationPreferenceBusy = true;
+    notificationPreferenceError = null;
+    notifyListeners();
+    var accepted = true;
+    try {
+      if (enabled) {
+        accepted = await _activateNotifications();
+      } else {
+        accepted = await PlatformTimerBridge.configureNotifications(false);
+        final registration = await const PushNotificationRegistrar()
+            .unregister();
+        if (registration.token?.isNotEmpty == true &&
+            _storedRemoteSession != null) {
+          final api = await _activeCoachApi();
+          if (api is HttpCoachApi) {
+            await api.unregisterPushToken(registration.token!);
+          }
+        }
+      }
+      androidNotifications = enabled && accepted;
+      final preferences = await SharedPreferences.getInstance();
+      await preferences.setBool(
+        'kilo.notifications.enabled',
+        androidNotifications,
+      );
+      if (enabled && !accepted) notificationPreferenceError = '系统通知权限未开启';
+    } catch (_) {
+      accepted = false;
+      notificationPreferenceError = '通知服务暂时不可用';
+    } finally {
+      notificationPreferenceBusy = false;
+      if (!_disposed) notifyListeners();
+    }
+    return androidNotifications;
+  }
+
+  Future<bool> _activateNotifications() async {
+    final localAccepted = await PlatformTimerBridge.configureNotifications(
+      true,
+    );
+    if (!localAccepted) return false;
+    final registration = await const PushNotificationRegistrar().register(
+      onForegroundMessage: (message) => PlatformTimerBridge.showNotification(
+        title: message.notification?.title ?? '形域',
+        body: message.notification?.body ?? '你有一条新的训练消息',
+      ),
+    );
+    if (registration.token?.isNotEmpty == true &&
+        _storedRemoteSession != null) {
+      final api = await _activeCoachApi();
+      if (api is HttpCoachApi) {
+        await api.registerPushToken(
+          platform:
+              registration.platform ?? (Platform.isIOS ? 'ios' : 'android'),
+          token: registration.token!,
+        );
+      }
+    }
+    // Local reminders are useful even before Firebase is configured.
+    return true;
+  }
+
   bool batchMode = false;
   final Set<String> selectedSetIds = <String>{};
   String? selectedPlanFolder;
@@ -4759,12 +5011,8 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> _recordTechniqueAssessment(RecognitionResult result) async {
-    final rawScores = result.metrics['scores'];
-    final scores = rawScores is Map
-        ? Map<String, dynamic>.from(rawScores)
-        : const <String, dynamic>{};
-    int score(String key) =>
-        ((scores[key] as num?)?.round() ?? 0).clamp(0, 100);
+    final policy = RecognitionScorePolicy(result);
+    int score(String key) => policy.score(key) ?? 0;
     final requiredScores = [
       score('overall'),
       score('rom'),
@@ -4776,10 +5024,7 @@ class AppController extends ChangeNotifier {
     // Never synthesize a technique score from event count or confidence.
     // A curve point exists only when the recognition backend supplied every
     // requested motion dimension and the video was assessable.
-    final scoreable =
-        result.assessment == 'assessable' &&
-        result.confidence >= .6 &&
-        requiredScores.every((value) => value > 0);
+    final scoreable = policy.canRecordCompleteScore;
     final review = result.aiReview;
     techniqueAssessments.insert(
       0,
@@ -4795,11 +5040,7 @@ class AppController extends ChangeNotifier {
         tempo: scoreable ? requiredScores[4] : 0,
         trajectory: scoreable ? requiredScores[5] : 0,
         videoPath: selectedMediaPath,
-        qualityReason: scoreable
-            ? ''
-            : (result.evidenceReason.isNotEmpty
-                  ? result.evidenceReason
-                  : '视频未提供足够的完整动作证据'),
+        qualityReason: scoreable ? '' : policy.historyReason,
         strengths: review?.strengths ?? const [],
         issues: review?.risks ?? const [],
         nextFocus: review?.nextSet ?? '',

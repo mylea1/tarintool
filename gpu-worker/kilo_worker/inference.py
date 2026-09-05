@@ -14,6 +14,7 @@ from ultralytics import YOLO
 
 from .action_compatibility import assess_action_compatibility
 from .angles import EvidenceAssessment, assess_exercise_evidence
+from .exercise_rules import NEW_EXERCISE_RULES
 from .events import (
     MotionEvent,
     PoseSample,
@@ -278,6 +279,7 @@ class PoseAnalyzer:
             samples,
             confidence_floor=self.confidence,
         )
+        exercise_rule = NEW_EXERCISE_RULES.get(exercise_id.lower())
         evidence = assess_exercise_evidence(
             complete_cycles=event_analysis.complete_motion_cycles,
             partial_cycles=event_analysis.partial_motion_cycles,
@@ -286,6 +288,10 @@ class PoseAnalyzer:
             detected_frames=detected_frames,
             inference_frames=inference_frames,
             angle_samples=event_analysis.primary_angles,
+            confirmed_cycle_minimum_range=(
+                abs(exercise_rule.exit - exercise_rule.enter)
+                if exercise_rule is not None else None
+            ),
         )
         if not compatibility.compatible:
             evidence = EvidenceAssessment(
@@ -1065,7 +1071,18 @@ class PoseAnalyzer:
                             points,
                             scores,
                         )
-                        for side, chain in (("left", LEFT_ARM), ("right", RIGHT_ARM)):
+                        # Compare the same anatomical side only. Transplanting
+                        # the opposite arm fabricates joint positions and hides
+                        # real asymmetry, even when its confidence is higher.
+                        for chain in (target_chain,):
+                            root_distance = float(np.linalg.norm(
+                                points[chain[0]] - original.points[chain[0]]
+                            ))
+                            arm_scale = float(np.linalg.norm(
+                                original.points[chain[1]] - original.points[chain[0]]
+                            ))
+                            if root_distance > max(12.0, arm_scale * 0.30):
+                                continue
                             score = self._single_frame_chain_score(
                                 candidate,
                                 chain,
@@ -1078,24 +1095,11 @@ class PoseAnalyzer:
                     continue
                 _, mode, points, scores, source_chain = best
                 sample = repaired[index]
-                source_shoulder = source_chain[0]
-                target_shoulder = target_chain[0]
-                source_anchor = points[source_shoulder].copy()
-                target_anchor = sample.points[target_shoulder].copy()
-                # Keep the already tracked shoulder as the chain root.  The
-                # fallback may use the other visible arm, so copying absolute
-                # coordinates would create a side-switch jump.  Transfer the
-                # shoulder-relative arm vectors instead.
-                for source_landmark, target_landmark in zip(
-                    source_chain[1:], target_chain[1:]
-                ):
-                    sample.points[target_landmark] = (
-                        target_anchor + points[source_landmark] - source_anchor
-                    )
-                    sample.scores[target_landmark] = min(
-                        float(sample.scores[target_shoulder]),
-                        float(scores[source_landmark]),
-                    )
+                # Preserve the detector's actual pixel coordinates, including
+                # its shoulder root. Never translate a limb to a new location.
+                for target_landmark in source_chain:
+                    sample.points[target_landmark] = points[target_landmark]
+                    sample.scores[target_landmark] = scores[target_landmark]
                     if sample.inferred is not None:
                         sample.inferred[target_landmark] = False
                 metrics["replacedFrames"] += 1

@@ -65,6 +65,9 @@ export function loadConfig(env = process.env) {
     aliyunSmsSignName: env.ALIYUN_SMS_SIGN_NAME || '',
     aliyunSmsTemplateCode: env.ALIYUN_SMS_TEMPLATE_CODE || '',
     aliyunSmsCodeParam: env.ALIYUN_SMS_CODE_PARAM || 'code',
+    firebaseProjectId: env.FIREBASE_PROJECT_ID || '',
+    firebaseClientEmail: env.FIREBASE_CLIENT_EMAIL || '',
+    firebasePrivateKey: env.FIREBASE_PRIVATE_KEY || '',
   });
 }
 

@@ -797,6 +797,60 @@ class HttpCoachApi
         .toList(growable: false);
   }
 
+  Future<void> registerPushToken({
+    required String platform,
+    required String token,
+  }) async {
+    final response = await _client
+        .post(
+          _endpoint('/v1/push-tokens'),
+          headers: _authHeaders,
+          body: jsonEncode({'platform': platform, 'token': token}),
+        )
+        .timeout(requestTimeout);
+    _decodeJsonResponse(response, 'push_token_register');
+  }
+
+  Future<void> unregisterPushToken(String token) async {
+    final request = http.Request('DELETE', _endpoint('/v1/push-tokens'))
+      ..headers.addAll(_authHeaders)
+      ..body = jsonEncode({'token': token});
+    final streamed = await _client.send(request).timeout(requestTimeout);
+    final response = await http.Response.fromStream(streamed);
+    _decodeJsonResponse(response, 'push_token_unregister');
+  }
+
+  Future<void> uploadAvatar(String path) async {
+    final file = File(path);
+    if (!await file.exists()) throw const CoachApiException('avatar_not_found');
+    final extension = path.toLowerCase().split('.').last;
+    final contentType = switch (extension) {
+      'png' => 'image/png',
+      'webp' => 'image/webp',
+      _ => 'image/jpeg',
+    };
+    final request = http.Request('PUT', _endpoint('/v1/me/avatar'))
+      ..headers.addAll({
+        'Authorization': 'Bearer $_sessionToken',
+        'Content-Type': contentType,
+      })
+      ..bodyBytes = await file.readAsBytes();
+    final streamed = await _client.send(request).timeout(requestTimeout);
+    final response = await http.Response.fromStream(streamed);
+    _decodeJsonResponse(response, 'avatar_upload');
+  }
+
+  Future<List<int>?> fetchAvatar() async {
+    final response = await _client
+        .get(_endpoint('/v1/me/avatar'), headers: _authHeaders)
+        .timeout(requestTimeout);
+    if (response.statusCode == 404) return null;
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw _coachServerException(response.statusCode, response.body, 'avatar');
+    }
+    return response.bodyBytes;
+  }
+
   Future<Map<String, dynamic>> upsertSyncEntity({
     required String entityType,
     required String entityId,

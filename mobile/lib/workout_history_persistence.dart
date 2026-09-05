@@ -15,6 +15,29 @@ List<WorkoutRecord> decodeWorkoutRecords(Object? value) => value is List
           .toList(growable: false)
     : const [];
 
+Map<String, dynamic> encodeTrainingLibrary(TrainingLibrarySnapshot snapshot) =>
+    {
+      'routines': snapshot.routines.map(_routineToMap).toList(growable: false),
+      'routineFolders': snapshot.routineFolders,
+      'scheduledLabels': snapshot.scheduledLabels,
+    };
+
+TrainingLibrarySnapshot decodeTrainingLibrary(Object? value) {
+  if (value is! Map) return _emptyTrainingLibrary();
+  final map = Map<String, dynamic>.from(value);
+  return TrainingLibrarySnapshot(
+    routines: _asMapList(map['routines']).map(_routineFromMap).toList(),
+    routineFolders: _asStringList(map['routineFolders']),
+    scheduledLabels: map['scheduledLabels'] is Map
+        ? Map<String, String>.from(
+            (map['scheduledLabels'] as Map).map(
+              (key, value) => MapEntry(key.toString(), value.toString()),
+            ),
+          )
+        : const {},
+  );
+}
+
 abstract class WorkoutHistoryPersistence {
   Future<List<WorkoutRecord>> read(String userId);
 

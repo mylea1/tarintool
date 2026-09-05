@@ -707,9 +707,34 @@ void main() {
     await controller.refreshRemoteEntitlements();
     await controller.backupUserData();
     expect(controller.cloudSyncAllowed, isTrue);
-    expect(api.syncReads, 1);
+    // Settings, workout records and training plans are restored independently.
+    expect(api.syncReads, 3);
     expect(api.syncWrites, 1);
   });
+
+  test(
+    'notification feedback preference persists across controllers',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final first = AppController(
+        accountService: AccountService(),
+        recognitionApi: UnconfiguredRecognitionApi(),
+      );
+      expect(await first.setNotificationsEnabled(true), isTrue);
+      first.dispose();
+
+      final second = AppController(
+        accountService: AccountService(),
+        recognitionApi: UnconfiguredRecognitionApi(),
+      );
+      addTearDown(second.dispose);
+      await second.hydrateNotificationPreference();
+      expect(second.androidNotifications, isTrue);
+      expect(await second.setNotificationsEnabled(false), isFalse);
+      final preferences = await SharedPreferences.getInstance();
+      expect(preferences.getBool('kilo.notifications.enabled'), isFalse);
+    },
+  );
 
   test('persisted test admin is removed when the release gate is disabled', () {
     final persistence = InMemoryAccountPersistence();

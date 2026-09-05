@@ -890,29 +890,31 @@ void main() {
     );
     expect(
       find.byKey(const Key('tracked-exercise-card-lat_pulldown')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const Key('statistics-strength-chart-bench_press')),
       findsOneWidget,
     );
-    expect(find.byKey(const Key('tracked-metric-reps')), findsNothing);
-    expect(find.text('最大重量与 PR'), findsNothing);
-    expect(find.byKey(const Key('tracked-pr-manage')), findsNothing);
+    expect(find.textContaining('82.5 kg × 6 次'), findsNWidgets(2));
+    final picker = find.byKey(const Key('tracked-exercise-picker'));
+    await tester.ensureVisible(picker);
+    await tester.pumpAndSettle();
+    await tester.tap(picker);
+    await tester.pumpAndSettle();
+    final option = find.byKey(const Key('tracked-picker-option-lat_pulldown'));
+    expect(tester.widget<ListTile>(option).leading, isNotNull);
+    await tester.tap(option);
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('statistics-strength-chart-lat_pulldown')),
+      findsOneWidget,
+    );
     expect(
       find.byKey(const Key('statistics-strength-chart-bench_press')),
       findsNothing,
     );
-    expect(find.textContaining('82.5 kg × 6 次'), findsOneWidget);
-    final trackedToggle = find.byKey(
-      const Key('tracked-exercise-toggle-bench_press'),
-    );
-    await tester.drag(find.byType(ListView).first, const Offset(0, -700));
-    await tester.pumpAndSettle();
-    expect(tester.getRect(trackedToggle).center.dy, lessThan(600));
-    await tester.tap(trackedToggle);
-    await tester.pumpAndSettle();
-    expect(
-      find.byKey(const Key('statistics-strength-chart-bench_press')),
-      findsOneWidget,
-    );
-    expect(find.textContaining('82.5 kg × 6 次'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('pearl logo light theme reaches shell navigation and inputs', (
@@ -1458,6 +1460,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('recognition-result-page')), findsOneWidget);
+      expect(find.text('本次不输出动作评分'), findsNothing);
+      expect(find.text('动作反馈'), findsOneWidget);
       expect(
         find.byKey(const Key('recognition-coach-summary')),
         findsOneWidget,

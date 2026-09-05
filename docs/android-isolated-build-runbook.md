@@ -24,6 +24,54 @@
 
 只有已经在相同提交上单独通过质量检查时，才可以临时添加 `-SkipQualityChecks`。正常交付不得跳过 `flutter analyze` 和 `flutter test`。
 
+## 工作区未提交改动的打包流程
+
+标准脚本只接受 Git 提交。需要验证尚未提交的移动端改动时，不得直接从共享工作区打包，也不得为了打包污染当前暂存区。使用独立 Git 索引生成一个临时提交对象，再把该对象交给标准隔离脚本。临时提交不会切换分支、不会移动 `HEAD`，也不会修改当前暂存区。
+
+在仓库根目录执行以下 PowerShell 命令：
+
+```powershell
+$repoRoot = (Get-Location).Path
+$snapshotIndex = Join-Path ([IO.Path]::GetTempPath()) "xingyu-apk-snapshot-$([guid]::NewGuid().ToString('N')).index"
+$previousIndex = $env:GIT_INDEX_FILE
+
+try {
+  $env:GIT_INDEX_FILE = $snapshotIndex
+  git read-tree HEAD
+  git add -- mobile
+  $snapshotTree = (git write-tree).Trim()
+  $snapshotParent = (git rev-parse HEAD).Trim()
+  $snapshotCommit = ("Local Android APK source snapshot`n" | git commit-tree $snapshotTree -p $snapshotParent).Trim()
+  if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($snapshotCommit)) {
+    throw 'Unable to create the temporary Android source commit.'
+  }
+} finally {
+  if ($null -eq $previousIndex) {
+    Remove-Item Env:GIT_INDEX_FILE -ErrorAction SilentlyContinue
+  } else {
+    $env:GIT_INDEX_FILE = $previousIndex
+  }
+  Remove-Item -LiteralPath $snapshotIndex -Force -ErrorAction SilentlyContinue
+}
+
+.\mobile\tool\build_android_debug_isolated.ps1 -Flavor cn -Commit $snapshotCommit
+```
+
+这套快照只纳入 `mobile/` 当前内容，后端、网站、`artifacts/` 和其他工作区文件不会进入 APK。`git add` 使用独立索引，仍会遵循 `.gitignore`；执行后应再次运行 `git status --short`，确认真实暂存区没有变化。
+
+临时提交对象不是分支上的正式提交，Git 后续可能回收它。交付记录应保存脚本输出的完整快照提交 ID、当前 `HEAD`、APK 文件名、SHA256、渠道、API 地址和测试结果。正式发布或需要长期追溯的包，应先把源代码正常提交，再直接以正式提交运行标准脚本。
+
+### 质量检查例外
+
+默认仍由标准脚本在同一快照中依次执行完整的静态分析和全量测试。只有全量测试存在已经在旧代码基线独立复现、且与本次改动无关的已知失败时，才允许改为：
+
+1. 在同一快照中运行 `flutter analyze`。
+2. 运行覆盖本次改动的相关测试，并记录测试文件、通过数量和日志。
+3. 保存全量失败与旧代码基线复现的证据。
+4. 再使用 `-SkipQualityChecks` 构建，并在交付说明中明确列出未通过的全量测试。
+
+不得因测试耗时、依赖下载慢或临时失败而使用该例外，也不得把相关测试通过描述成全量测试通过。
+
 ## 脚本保证的构建边界
 
 1. 使用 `git archive` 从指定提交生成源码快照，未提交的工作区改动不会进入 APK。
@@ -87,11 +135,27 @@ SocketException: Invalid argument: connect
 - targetSdk：36
 - API：`https://api.kilostrength.cn`
 
+同日使用工作区快照流程生成并验证折线图改版包：
+
+- APK：`xingyu-1.0.33-build35-fix-dark-mode-phone-workout-ui-400a1f5-cn-debug.apk`
+- 工作区快照：`400a1f53fb02aac2078be8c5983ae3618900ba91`
+- 快照父提交：`b2f67223f26590bb0fcb97a075412fcb16a1327e`
+- 大小：315,258,841 字节
+- SHA256：`ec0f8d21b8d05d83618b314a16d1d217a7ea0f0d054ec714d5fe296d5001e309`
+- 包名：`com.kilostrength.kilo_strength`
+- 版本：`1.0.33 (35)`
+- minSdk：24
+- targetSdk：36
+- API：`https://api.kilostrength.cn`
+- 验证：静态分析通过，22 项折线图及相关测试通过；4 项既有全量测试失败已在旧图表基线复现
+- 真机：当时没有连接 Android 设备，未执行安装、启动和核心训练流程冒烟测试
+
 ## 交付前核验
 
 每次打包完成后至少核对：
 
 - 脚本输出的源码提交是预期提交。
+- 工作区快照构建需确认临时提交中的关键源码与当前文件一致，并记录其父提交。
 - APK 文件名中的版本、构建号、分支和渠道正确。
 - `.sha256` 与重新执行 `Get-FileHash -Algorithm SHA256 <APK>` 的结果一致。
 - APK 包名、`versionCode`、`versionName`、minSdk 和 targetSdk 正确。

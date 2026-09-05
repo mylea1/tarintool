@@ -8,6 +8,32 @@ from kilo_worker.angles import (
 
 
 class AngleTests(unittest.TestCase):
+    def test_exercise_cycle_gate_is_not_overridden_by_generic_35_degrees(self):
+        result = assess_exercise_evidence(
+            complete_cycles=2, confidence=.7, detected_frames=30,
+            inference_frames=30, angle_samples=(110, 115, 121, 130, 128, 110),
+            confirmed_cycle_minimum_range=20,
+        )
+        self.assertTrue(result.assessable)
+        self.assertTrue(result.can_count_repetitions)
+
+    def test_smaller_range_does_not_invent_a_cycle(self):
+        result = assess_exercise_evidence(
+            complete_cycles=0, confidence=.7, detected_frames=30,
+            inference_frames=30, angle_samples=(110, 115, 121, 130, 128, 110),
+            confirmed_cycle_minimum_range=20,
+        )
+        self.assertFalse(result.assessable)
+
+    def test_invalid_angles_cannot_satisfy_sample_count(self):
+        result = assess_exercise_evidence(
+            complete_cycles=1, confidence=.7, detected_frames=30,
+            inference_frames=30, angle_samples=(90, 140, float('nan'),
+                float('nan'), float('inf'), float('-inf')),
+        )
+        self.assertFalse(result.assessable)
+        self.assertEqual(result.angle_range, 50)
+
     def test_joint_angle(self) -> None:
         self.assertAlmostEqual(joint_angle((1, 0), (0, 0), (0, 1)), 90.0)
         self.assertAlmostEqual(joint_angle((-1, 0), (0, 0), (1, 0)), 180.0)

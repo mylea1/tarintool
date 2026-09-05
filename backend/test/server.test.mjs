@@ -854,6 +854,10 @@ test('administrator remains quota-exempt when recognition balance is zero', asyn
 });
 
 test('sync is user-scoped and stale revisions conflict', async () => {
+  const syncUsers = server.context.db.prepare("SELECT id FROM users WHERE identifier IN ('first-user', 'second-user')").all();
+  for (const row of syncUsers) {
+    server.context.db.prepare("UPDATE entitlements SET membership = 'forever', membership_expires_at = NULL, cloud_retention_expires_at = NULL WHERE user_id = ?").run(row.id);
+  }
   const first = await api('/v1/sync/workout/w1', { method: 'PUT', headers: { authorization: `Bearer ${userToken}` }, body: JSON.stringify({ revision: 1, payload: { sets: 3 } }) });
   assert.equal(first.response.status, 200);
   const stale = await api('/v1/sync/workout/w1', { method: 'PUT', headers: { authorization: `Bearer ${userToken}` }, body: JSON.stringify({ revision: 1, payload: { sets: 4 } }) });
@@ -862,6 +866,111 @@ test('sync is user-scoped and stale revisions conflict', async () => {
   assert.equal(hidden.body.entities.some((item) => item.entityId === 'w1'), false);
   const deleted = await api('/v1/sync/workout/w1?revision=1', { method: 'DELETE', headers: { authorization: `Bearer ${userToken}` } });
   assert.equal(deleted.response.status, 200); assert.equal(deleted.body.deleted, true);
+});
+
+test('Pro cloud keeps plans and pre-membership workouts, then becomes read-only for 30 days', async () => {
+  const identifier = `cloud-${Date.now()}`;
+  const registered = await api('/v1/auth/register', { method: 'POST', body: JSON.stringify({ identifier, password: 'abcd' }) });
+  assert.equal(registered.response.status, 201);
+  const token = registered.body.session.token;
+  const headers = { authorization: `Bearer ${token}` };
+  const beforePro = await api('/v1/sync', {
+    method: 'POST', headers,
+    body: JSON.stringify({ entityType: 'workout', entityId: 'pre-pro-workout', baseRevision: 0, payload: { completedAt: '2026-08-01T10:00:00.000Z', sets: 12 } }),
+  });
+  assert.equal(beforePro.response.status, 403);
+  assert.equal(beforePro.body.error, 'membership_required');
+
+  const grant = await api('/v1/admin/memberships/grant', {
+    method: 'POST', headers: { authorization: `Bearer ${adminToken}` },
+    body: JSON.stringify({ identifier, plan: 'oneMonth' }),
+  });
+  assert.equal(grant.response.status, 200);
+  assert.equal(grant.body.entitlement.cloudSyncWritable, true);
+  assert.equal(grant.body.entitlement.cloudSyncReadable, true);
+
+  // The record predates Pro but is uploaded when the client performs its first
+  // full local backfill after membership activation.
+  const workout = await api('/v1/sync', {
+    method: 'POST', headers,
+    body: JSON.stringify({ entityType: 'workout', entityId: 'pre-pro-workout', baseRevision: 0, payload: { completedAt: '2026-08-01T10:00:00.000Z', sets: 12 } }),
+  });
+  const plan = await api('/v1/sync', {
+    method: 'POST', headers,
+    body: JSON.stringify({ entityType: 'plan', entityId: 'plan-cloud-1', baseRevision: 0, payload: { id: 'plan-cloud-1', name: '四日训练计划', exercises: [] } }),
+  });
+  assert.equal(workout.response.status, 200);
+  assert.equal(plan.response.status, 200);
+
+  const userId = server.context.db.prepare('SELECT id FROM users WHERE identifier = ?').get(identifier).id;
+  const retention = new Date(Date.now() + 29 * 86400000).toISOString();
+  server.context.db.prepare("UPDATE entitlements SET membership = 'oneMonth', membership_expires_at = ?, cloud_retention_expires_at = ? WHERE user_id = ?")
+    .run(new Date(Date.now() - 86400000).toISOString(), retention, userId);
+  const readablePlans = await api('/v1/sync?entityType=plan', { headers });
+  const readableWorkouts = await api('/v1/sync?entityType=workout', { headers });
+  assert.equal(readablePlans.response.status, 200);
+  assert.equal(readablePlans.body.entities[0].entityId, 'plan-cloud-1');
+  assert.equal(readableWorkouts.body.entities[0].entityId, 'pre-pro-workout');
+  const deniedWrite = await api('/v1/sync', {
+    method: 'POST', headers,
+    body: JSON.stringify({ entityType: 'plan', entityId: 'plan-cloud-2', baseRevision: 0, payload: { name: '过期后写入' } }),
+  });
+  assert.equal(deniedWrite.response.status, 403);
+  assert.equal(deniedWrite.body.error, 'membership_required');
+
+  server.context.db.prepare('UPDATE entitlements SET cloud_retention_expires_at = ? WHERE user_id = ?')
+    .run(new Date(Date.now() - 1000).toISOString(), userId);
+  const expiredRead = await api('/v1/sync?entityType=plan', { headers });
+  assert.equal(expiredRead.response.status, 403);
+  assert.equal(expiredRead.body.error, 'cloud_retention_expired');
+  assert.equal(server.context.db.prepare('SELECT COUNT(*) AS count FROM sync_entities WHERE user_id = ?').get(userId).count, 0);
+});
+
+test('avatar bytes are private, durable and recoverable after login', async () => {
+  const png = Buffer.from('89504e470d0a1a0a0000000d49484452', 'hex');
+  const uploaded = await fetch(`${base}/v1/me/avatar`, {
+    method: 'PUT',
+    headers: { authorization: `Bearer ${memberToken}`, 'content-type': 'image/png' },
+    body: png,
+  });
+  assert.equal(uploaded.status, 200);
+  assert.equal((await uploaded.json()).user.avatarAvailable, true);
+  const downloaded = await fetch(`${base}/v1/me/avatar`, { headers: { authorization: `Bearer ${memberToken}` } });
+  assert.equal(downloaded.status, 200);
+  assert.deepEqual(Buffer.from(await downloaded.arrayBuffer()), png);
+  assert.equal((await fetch(`${base}/v1/me/avatar`)).status, 401);
+});
+
+test('push tokens register, dispatch friend events and unregister', async () => {
+  const delivered = [];
+  server.context.pushSender = async (message) => { delivered.push(message); };
+  const registeredToken = await api('/v1/push-tokens', {
+    method: 'POST',
+    headers: { authorization: `Bearer ${memberToken}` },
+    body: JSON.stringify({ platform: 'android', token: 'test-device-token' }),
+  });
+  assert.equal(registeredToken.response.status, 200);
+  const requesterId = `push-${Date.now()}`;
+  const requester = await api('/v1/auth/register', {
+    method: 'POST', body: JSON.stringify({ identifier: requesterId, password: 'abcd' }),
+  });
+  const request = await api('/v1/friends/requests', {
+    method: 'POST',
+    headers: { authorization: `Bearer ${requester.body.session.token}` },
+    body: JSON.stringify({ identifier: '123' }),
+  });
+  assert.equal(request.response.status, 201);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(delivered.length, 1);
+  assert.equal(delivered[0].token, 'test-device-token');
+  assert.equal(delivered[0].data.type, 'friend_request');
+  const removed = await api('/v1/push-tokens', {
+    method: 'DELETE',
+    headers: { authorization: `Bearer ${memberToken}` },
+    body: JSON.stringify({ token: 'test-device-token' }),
+  });
+  assert.equal(removed.response.status, 200);
+  assert.equal(server.context.db.prepare('SELECT COUNT(*) AS count FROM push_tokens WHERE token = ?').get('test-device-token').count, 0);
 });
 
 test('AI missing configuration rolls quota back and does not persist a fake answer', async () => {

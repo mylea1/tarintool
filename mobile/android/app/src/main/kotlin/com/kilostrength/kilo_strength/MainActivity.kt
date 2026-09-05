@@ -22,6 +22,7 @@ class MainActivity : FlutterActivity() {
     private var timerChannel: MethodChannel? = null
     private var skipReceiver: BroadcastReceiver? = null
     private var notificationPermissionRequested = false
+    private var notificationPreferenceResult: MethodChannel.Result? = null
     private var pendingWorkoutOpen = false
     private val timerPreferences by lazy { getSharedPreferences("workout_timer", Context.MODE_PRIVATE) }
 
@@ -36,6 +37,32 @@ class MainActivity : FlutterActivity() {
         ).also { channel ->
             channel.setMethodCallHandler { call, result ->
                 when (call.method) {
+                    "showNotification" -> {
+                        TrainingReminderReceiver.show(
+                            this,
+                            call.argument<String>("title") ?: "形域",
+                            call.argument<String>("body") ?: "你有一条新的训练消息",
+                        )
+                        result.success(null)
+                    }
+                    "configureNotifications" -> {
+                        val enabled = call.argument<Boolean>("enabled") == true
+                        if (enabled) {
+                            if (needsNotificationPermission() && !notificationPermissionRequested) {
+                                notificationPermissionRequested = true
+                                notificationPreferenceResult = result
+                                requestPermissions(
+                                    arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                                    NOTIFICATION_PERMISSION_REQUEST_CODE,
+                                )
+                                return@setMethodCallHandler
+                            }
+                            TrainingReminderReceiver.schedule(this)
+                        } else {
+                            TrainingReminderReceiver.cancel(this)
+                        }
+                        result.success(enabled)
+                    }
                     "consumePendingWorkoutOpen" -> {
                         val pending = pendingWorkoutOpen
                         pendingWorkoutOpen = false
@@ -169,6 +196,12 @@ class MainActivity : FlutterActivity() {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode != NOTIFICATION_PERMISSION_REQUEST_CODE) return
         notificationPermissionRequested = false
+        val granted = grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED
+        notificationPreferenceResult?.let { pending ->
+            notificationPreferenceResult = null
+            if (granted) TrainingReminderReceiver.schedule(this)
+            pending.success(granted)
+        }
     }
 
     private fun enqueueServiceCommand(intent: Intent) {

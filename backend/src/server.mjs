@@ -11,6 +11,7 @@ import { hashPassword, verifyPassword, sha256, safeEqualText, nowIso, randomId, 
 import { LocalStorage, extensionForType } from './storage.mjs';
 import { ConcurrencyGate, QueueCapacityError } from './concurrency.mjs';
 import { sendAliyunSms, smsProviderConfigured } from './sms.mjs';
+import { createFcmSender } from './push.mjs';
 
 const JSON_CONTENT_TYPE = 'application/json; charset=utf-8';
 const MAX_TEXT = 4000;
@@ -45,6 +46,15 @@ const SMS_RATE_LIMITS = [
   { scope: 'ip', windowMs: 60 * 60 * 1000, limit: 20 },
   { scope: 'ip', windowMs: 24 * 60 * 60 * 1000, limit: 100 },
 ];
+
+function notifyUser(ctx, userId, notification) {
+  const tokens = ctx.db.prepare('SELECT token FROM push_tokens WHERE user_id = ?').all(userId);
+  for (const { token } of tokens) {
+    Promise.resolve(ctx.pushSender({ token, ...notification })).catch(() => {
+      // Push delivery is best effort and must never fail the user action.
+    });
+  }
+}
 const PASSWORD_FAILURE_LIMITS = [
   { scope: 'identifier', windowMs: 15 * 60 * 1000, limit: 5 },
   { scope: 'ip', windowMs: 15 * 60 * 1000, limit: 20 },
@@ -1414,6 +1424,39 @@ function requireActiveMembership(db, userId) {
   return entitlement;
 }
 
+const CLOUD_RETENTION_DAYS = 30;
+
+function cloudRetentionFor(expiresAt) {
+  if (!expiresAt) return null;
+  const expires = new Date(expiresAt);
+  if (Number.isNaN(expires.getTime())) return null;
+  return new Date(expires.getTime() + CLOUD_RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString();
+}
+
+function purgeExpiredCloudData(db, at = nowIso()) {
+  return db.prepare(`DELETE FROM sync_entities
+    WHERE user_id IN (
+      SELECT user_id FROM entitlements
+      WHERE membership != 'forever'
+        AND membership_expires_at IS NOT NULL
+        AND datetime(membership_expires_at) <= datetime(?)
+        AND cloud_retention_expires_at IS NOT NULL
+        AND datetime(cloud_retention_expires_at) <= datetime(?)
+    )`).run(at, at).changes;
+}
+
+function requireCloudSyncAccess(db, userId, { write = false } = {}) {
+  const entitlement = ensureEntitlement(db, userId);
+  if (membershipActive(entitlement)) return entitlement;
+  if (write) throw httpError(403, 'membership_required');
+  const retention = Date.parse(entitlement.cloud_retention_expires_at || '');
+  if (!Number.isFinite(retention) || retention <= Date.now()) {
+    purgeExpiredCloudData(db);
+    throw httpError(403, 'cloud_retention_expired');
+  }
+  return entitlement;
+}
+
 function membershipFor(db, userId, plan) {
   const current = ensureEntitlement(db, userId);
   const currentActive = membershipActive(current);
@@ -1462,12 +1505,13 @@ function activateMembershipTrial(db, userId, { workoutId, durationSeconds, effec
   const startedAt = new Date();
   const startedAtIso = startedAt.toISOString();
   const expiresAt = new Date(startedAt.getTime() + 72 * 60 * 60 * 1000).toISOString();
+  const retentionExpiresAt = cloudRetentionFor(expiresAt);
   db.prepare(`UPDATE entitlements SET trial_started_at = ?, trial_expires_at = ?,
-    trial_workout_id = ?, recognition_weekly_grant = 3,
+    trial_workout_id = ?, cloud_retention_expires_at = ?, recognition_weekly_grant = 3,
     ai_remaining = CASE WHEN ai_remaining < 20 THEN 20 ELSE ai_remaining END,
     updated_at = ? WHERE user_id = ? AND trial_started_at IS NULL
       AND trial_expires_at IS NULL AND trial_workout_id IS NULL`)
-    .run(startedAtIso, expiresAt, workoutId, startedAtIso, userId);
+    .run(startedAtIso, expiresAt, workoutId, retentionExpiresAt, startedAtIso, userId);
   const updated = ensureEntitlement(db, userId, startedAt);
   return {
     activated: true,
@@ -1479,10 +1523,13 @@ function activateMembershipTrial(db, userId, { workoutId, durationSeconds, effec
 
 function grantMembership(db, userId, plan) {
   const grant = membershipFor(db, userId, plan);
+  const retentionExpiresAt = grant.membership === 'forever'
+    ? null
+    : cloudRetentionFor(grant.membershipExpiresAt);
   db.prepare(`UPDATE entitlements SET membership = ?, membership_expires_at = ?,
-    recognition_weekly_grant = ?, ai_remaining = CASE WHEN ai_remaining < 20 THEN 20 ELSE ai_remaining END,
+    cloud_retention_expires_at = ?, recognition_weekly_grant = ?, ai_remaining = CASE WHEN ai_remaining < 20 THEN 20 ELSE ai_remaining END,
     updated_at = ? WHERE user_id = ?`)
-    .run(grant.membership, grant.membershipExpiresAt, grant.membership !== 'free' ? 3 : 1, nowIso(), userId);
+    .run(grant.membership, grant.membershipExpiresAt, retentionExpiresAt, grant.membership !== 'free' ? 3 : 1, nowIso(), userId);
   return publicEntitlement(ensureEntitlement(db, userId));
 }
 
@@ -1965,7 +2012,7 @@ function applyVerifiedAppleMembership(db, userId, plan, transaction) {
   ensureEntitlement(db, userId);
   if (plan === 'forever') {
     db.prepare(`UPDATE entitlements SET membership = 'forever', membership_expires_at = NULL,
-      recognition_weekly_grant = 3,
+      cloud_retention_expires_at = NULL, recognition_weekly_grant = 3,
       ai_remaining = CASE WHEN ai_remaining < 20 THEN 20 ELSE ai_remaining END,
       updated_at = ? WHERE user_id = ?`).run(nowIso(), userId);
     return publicEntitlement(ensureEntitlement(db, userId));
@@ -1982,10 +2029,10 @@ function applyVerifiedAppleMembership(db, userId, plan, transaction) {
     ? current.membership
     : plan;
   db.prepare(`UPDATE entitlements SET membership = ?, membership_expires_at = ?,
-    recognition_weekly_grant = 3,
+    cloud_retention_expires_at = ?, recognition_weekly_grant = 3,
     ai_remaining = CASE WHEN ai_remaining < 20 THEN 20 ELSE ai_remaining END,
     updated_at = ? WHERE user_id = ?`)
-    .run(effectivePlan, effectiveExpires, nowIso(), userId);
+    .run(effectivePlan, effectiveExpires, cloudRetentionFor(effectiveExpires), nowIso(), userId);
   return publicEntitlement(ensureEntitlement(db, userId));
 }
 
@@ -2086,9 +2133,9 @@ function applyCheckinMembershipReward(db, userId, at = new Date()) {
   const expires = new Date(currentExpires.getTime() + 15 * 24 * 60 * 60 * 1000).toISOString();
   const membership = current.membership === 'free' ? 'oneMonth' : current.membership;
   db.prepare(`UPDATE entitlements SET membership = ?, membership_expires_at = ?,
-    recognition_weekly_grant = 3,
+    cloud_retention_expires_at = ?, recognition_weekly_grant = 3,
     ai_remaining = CASE WHEN ai_remaining < 20 THEN 20 ELSE ai_remaining END,
-    updated_at = ? WHERE user_id = ?`).run(membership, expires, nowIso(), userId);
+    updated_at = ? WHERE user_id = ?`).run(membership, expires, cloudRetentionFor(expires), nowIso(), userId);
   return publicEntitlement(ensureEntitlement(db, userId, at));
 }
 
@@ -2932,6 +2979,11 @@ async function handleRequest(req, res, ctx) {
       ON CONFLICT(pair_key) DO UPDATE SET sender_user_id=excluded.sender_user_id,
         receiver_user_id=excluded.receiver_user_id, status='pending', updated_at=excluded.updated_at`)
       .run(id, pairKey, user.id, target.id, stamp, stamp);
+    notifyUser(ctx, target.id, {
+      title: '新的好友申请',
+      body: `${user.display_name || '一位用户'}想添加你为训练好友`,
+      data: { type: 'friend_request', requestId: id },
+    });
     writeJson(res, 201, { request: { id, status: 'pending' } }, req, ctx.cfg); return;
   }
   const friendAcceptMatch = url.pathname.match(/^\/v1\/friends\/requests\/([^/]+)\/accept$/);
@@ -2941,6 +2993,11 @@ async function handleRequest(req, res, ctx) {
       .get(friendAcceptMatch[1], user.id);
     if (!request) throw httpError(404, 'friend_request_not_found');
     ctx.db.prepare("UPDATE friend_requests SET status = 'accepted', updated_at = ? WHERE id = ?").run(nowIso(), request.id);
+    notifyUser(ctx, request.sender_user_id, {
+      title: '好友申请已通过',
+      body: `${user.display_name || '训练好友'}已通过你的好友申请`,
+      data: { type: 'friend_accepted', requestId: request.id },
+    });
     writeJson(res, 200, { request: { id: request.id, status: 'accepted' } }, req, ctx.cfg); return;
   }
 
@@ -2994,6 +3051,14 @@ async function handleRequest(req, res, ctx) {
     const stamp = nowIso();
     ctx.db.prepare('INSERT INTO friend_workout_post_comments (id, post_id, user_id, emoji, created_at) VALUES (?, ?, ?, ?, ?)')
       .run(id, postId, user.id, emoji, stamp);
+    const owner = ctx.db.prepare('SELECT owner_user_id FROM friend_workout_posts WHERE id = ?').get(postId);
+    if (owner?.owner_user_id && owner.owner_user_id !== user.id) {
+      notifyUser(ctx, owner.owner_user_id, {
+        title: '训练动态有新互动',
+        body: `${user.display_name || '训练好友'}回应了你的训练 ${emoji}`,
+        data: { type: 'workout_comment', postId },
+      });
+    }
     const count = ctx.db.prepare('SELECT COUNT(*) AS count FROM friend_workout_post_comments WHERE post_id = ?').get(postId).count;
     writeJson(res, 201, { comment: { id, postId, userId: user.id, emoji, createdAt: stamp }, commentCount: Number(count) }, req, ctx.cfg); return;
   }
@@ -3009,8 +3074,16 @@ async function handleRequest(req, res, ctx) {
         ctx.db.prepare('DELETE FROM friend_workout_post_likes WHERE post_id = ? AND user_id = ?').run(postId, user.id);
         liked = false;
       } else {
-        ctx.db.prepare('INSERT OR IGNORE INTO friend_workout_post_likes (post_id, user_id, created_at) VALUES (?, ?, ?)')
-          .run(postId, user.id, nowIso());
+        const inserted = ctx.db.prepare('INSERT OR IGNORE INTO friend_workout_post_likes (post_id, user_id, created_at) VALUES (?, ?, ?)')
+          .run(postId, user.id, nowIso()).changes > 0;
+        const owner = ctx.db.prepare('SELECT owner_user_id FROM friend_workout_posts WHERE id = ?').get(postId);
+        if (inserted && owner?.owner_user_id && owner.owner_user_id !== user.id) {
+          notifyUser(ctx, owner.owner_user_id, {
+            title: '训练动态获赞',
+            body: `${user.display_name || '训练好友'}赞了你的训练`,
+            data: { type: 'workout_like', postId },
+          });
+        }
       }
     } else {
       ctx.db.prepare('DELETE FROM friend_workout_post_likes WHERE post_id = ? AND user_id = ?').run(postId, user.id);
@@ -3085,20 +3158,22 @@ async function handleRequest(req, res, ctx) {
 
   const entity = parseEntity(url.pathname);
   if (req.method === 'GET' && url.pathname === '/v1/sync') {
-    const user = authenticate(req, ctx); const entityType = url.searchParams.get('entityType'); if (!ALLOWED_ENTITIES.has(entityType)) throw httpError(400, 'entity_type_required'); const since = Number(url.searchParams.get('sinceRevision') || url.searchParams.get('since') || 0); const rows = since ? ctx.db.prepare('SELECT * FROM sync_entities WHERE user_id = ? AND entity_type = ? AND revision > ? ORDER BY revision').all(user.id, entityType, since) : ctx.db.prepare('SELECT * FROM sync_entities WHERE user_id = ? AND entity_type = ? ORDER BY revision').all(user.id, entityType); writeJson(res, 200, { entityType, entities: rows.map(syncPublic) }, req, ctx.cfg); return;
+    const user = authenticate(req, ctx); requireCloudSyncAccess(ctx.db, user.id); const entityType = url.searchParams.get('entityType'); if (!ALLOWED_ENTITIES.has(entityType)) throw httpError(400, 'entity_type_required'); const since = Number(url.searchParams.get('sinceRevision') || url.searchParams.get('since') || 0); const rows = since ? ctx.db.prepare('SELECT * FROM sync_entities WHERE user_id = ? AND entity_type = ? AND revision > ? ORDER BY revision').all(user.id, entityType, since) : ctx.db.prepare('SELECT * FROM sync_entities WHERE user_id = ? AND entity_type = ? ORDER BY revision').all(user.id, entityType); writeJson(res, 200, { entityType, entities: rows.map(syncPublic) }, req, ctx.cfg); return;
   }
   if (req.method === 'POST' && url.pathname === '/v1/sync') {
-    const user = authenticate(req, ctx); const body = await readBody(req, ctx.cfg.maxJsonBytes); const entityType = requireString(body.entityType || body.type, 'entity_type_required', 30); const entityId = requireString(body.entityId || body.id, 'entity_id_required', 200); if (!ALLOWED_ENTITIES.has(entityType)) throw httpError(400, 'unknown_entity'); const payload = body.payload === undefined ? body.data : body.payload; const deleted = body.deleted === true; if (!deleted && (payload === undefined || payload === null || typeof payload !== 'object')) throw httpError(400, 'payload_required');
+    const user = authenticate(req, ctx); requireCloudSyncAccess(ctx.db, user.id, { write: true }); const body = await readBody(req, ctx.cfg.maxJsonBytes); const entityType = requireString(body.entityType || body.type, 'entity_type_required', 30); const entityId = requireString(body.entityId || body.id, 'entity_id_required', 200); if (!ALLOWED_ENTITIES.has(entityType)) throw httpError(400, 'unknown_entity'); const payload = body.payload === undefined ? body.data : body.payload; const deleted = body.deleted === true; if (!deleted && (payload === undefined || payload === null || typeof payload !== 'object')) throw httpError(400, 'payload_required');
     const result = transaction(ctx.db, () => { const current = ctx.db.prepare('SELECT * FROM sync_entities WHERE user_id = ? AND entity_type = ? AND entity_id = ?').get(user.id, entityType, entityId); let expected; if (body.baseRevision !== undefined || body.expectedRevision !== undefined) expected = body.baseRevision ?? body.expectedRevision; else if (current) { if (body.revision === undefined || Number(body.revision) <= current.revision) throw httpError(409, 'revision_conflict', { current: syncPublic(current) }); expected = current.revision; } else expected = 0; if (current && Number(expected) !== current.revision) throw httpError(409, 'revision_conflict', { current: syncPublic(current) }); const revision = current ? current.revision + 1 : Math.max(1, Number(body.revision) || 1); const stamp = nowIso(); ctx.db.prepare(`INSERT INTO sync_entities (user_id, entity_type, entity_id, revision, payload_json, deleted_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(user_id, entity_type, entity_id) DO UPDATE SET revision=excluded.revision, payload_json=excluded.payload_json, deleted_at=excluded.deleted_at, updated_at=excluded.updated_at`).run(user.id, entityType, entityId, revision, JSON.stringify(payload ?? {}), deleted ? stamp : null, stamp); return ctx.db.prepare('SELECT * FROM sync_entities WHERE user_id = ? AND entity_type = ? AND entity_id = ?').get(user.id, entityType, entityId); });
     writeJson(res, 200, syncPublic(result), req, ctx.cfg); return;
   }
   if (entity) {
     const user = authenticate(req, ctx); if (!ALLOWED_ENTITIES.has(entity.type)) throw httpError(404, 'unknown_entity');
     if (req.method === 'GET' && !entity.id) {
+      requireCloudSyncAccess(ctx.db, user.id);
       const since = Number(url.searchParams.get('sinceRevision') || url.searchParams.get('since') || 0); const rows = since ? ctx.db.prepare('SELECT * FROM sync_entities WHERE user_id = ? AND entity_type = ? AND revision > ? ORDER BY revision').all(user.id, entity.type, since) : ctx.db.prepare('SELECT * FROM sync_entities WHERE user_id = ? AND entity_type = ? ORDER BY revision').all(user.id, entity.type);
       writeJson(res, 200, { entityType: entity.type, entities: rows.map(syncPublic) }, req, ctx.cfg); return;
     }
     if ((req.method === 'PUT' || req.method === 'PATCH' || req.method === 'POST') && entity.id) {
+      requireCloudSyncAccess(ctx.db, user.id, { write: true });
       const body = await readBody(req, ctx.cfg.maxJsonBytes); const payload = body.payload === undefined ? body.data : body.payload; const deleted = body.deleted === true;
       if (!deleted && (payload === undefined || payload === null || typeof payload !== 'object')) throw httpError(400, 'payload_required');
       const result = transaction(ctx.db, () => {
@@ -3123,6 +3198,7 @@ async function handleRequest(req, res, ctx) {
       writeJson(res, 200, syncPublic(result), req, ctx.cfg); return;
     }
     if (req.method === 'DELETE' && entity.id) {
+      requireCloudSyncAccess(ctx.db, user.id, { write: true });
       const current = ctx.db.prepare('SELECT * FROM sync_entities WHERE user_id = ? AND entity_type = ? AND entity_id = ?').get(user.id, entity.type, entity.id); if (!current) throw httpError(404, 'entity_not_found');
       const expected = Number(url.searchParams.get('revision') || current.revision); if (expected !== current.revision) throw httpError(409, 'revision_conflict');
       const stamp = nowIso(); ctx.db.prepare('UPDATE sync_entities SET revision = revision + 1, deleted_at = ?, updated_at = ? WHERE user_id = ? AND entity_type = ? AND entity_id = ? AND revision = ?').run(stamp, stamp, user.id, entity.type, entity.id, expected);
@@ -3388,6 +3464,58 @@ ${languageInstruction}
   if (req.method === 'POST' && url.pathname === '/v1/push-tokens') {
     const user = authenticate(req, ctx); const body = await readBody(req, ctx.cfg.maxJsonBytes); const platform = requireString(body.platform, 'platform_required', 20); const token = requireString(body.token, 'token_required', 2048); if (!['ios', 'android'].includes(platform)) throw httpError(400, 'invalid_platform'); const tokenHash = sha256(token, ctx.cfg.sessionPepper); ctx.db.prepare(`INSERT INTO push_tokens (user_id, platform, token_hash, token, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(user_id, token_hash) DO UPDATE SET platform=excluded.platform, token=excluded.token, updated_at=excluded.updated_at`).run(user.id, platform, tokenHash, token, nowIso()); writeJson(res, 200, { registered: true, platform }, req, ctx.cfg); return;
   }
+  if (req.method === 'DELETE' && url.pathname === '/v1/push-tokens') {
+    const user = authenticate(req, ctx); const body = await readBody(req, ctx.cfg.maxJsonBytes); const token = requireString(body.token, 'token_required', 2048); const tokenHash = sha256(token, ctx.cfg.sessionPepper); ctx.db.prepare('DELETE FROM push_tokens WHERE user_id = ? AND token_hash = ?').run(user.id, tokenHash); writeJson(res, 200, { registered: false }, req, ctx.cfg); return;
+  }
+  if (url.pathname === '/v1/me/avatar' && req.method === 'PUT') {
+    const user = authenticate(req, ctx);
+    const contentType = String(req.headers['content-type'] || '').split(';')[0].toLowerCase();
+    const avatarTypes = new Map([
+      ['image/jpeg', '.jpg'], ['image/png', '.png'], ['image/webp', '.webp'],
+    ]);
+    if (!avatarTypes.has(contentType)) throw httpError(415, 'unsupported_avatar_type');
+    const maxBytes = 5 * 1024 * 1024;
+    if (Number(req.headers['content-length'] || 0) > maxBytes) throw httpError(413, 'avatar_too_large', { maxBytes });
+    const current = ctx.db.prepare('SELECT avatar_key FROM users WHERE id = ?').get(user.id);
+    const key = `avatars/${user.id}/profile${avatarTypes.get(contentType)}`;
+    try {
+      await ctx.storage.putStream(key, req, { maxBytes });
+    } catch (error) {
+      if (error?.code === 'upload_too_large') throw httpError(413, 'avatar_too_large', { maxBytes });
+      throw error;
+    }
+    if (ctx.storage.stat(key).size === 0) {
+      await ctx.storage.remove(key);
+      throw httpError(400, 'empty_avatar');
+    }
+    ctx.db.prepare('UPDATE users SET avatar_key = ? WHERE id = ?').run(key, user.id);
+    if (current?.avatar_key && current.avatar_key !== key) {
+      try { await ctx.storage.remove(current.avatar_key); } catch { /* stale avatar is harmless */ }
+    }
+    writeJson(res, 200, { uploaded: true, user: publicUser(ctx.db.prepare('SELECT * FROM users WHERE id = ?').get(user.id)) }, req, ctx.cfg); return;
+  }
+  if (url.pathname === '/v1/me/avatar' && req.method === 'GET') {
+    const user = authenticate(req, ctx);
+    const row = ctx.db.prepare('SELECT avatar_key FROM users WHERE id = ?').get(user.id);
+    if (!row?.avatar_key || !ctx.storage.exists(row.avatar_key)) throw httpError(404, 'avatar_not_found');
+    const stat = ctx.storage.stat(row.avatar_key);
+    res.writeHead(200, {
+      'content-length': stat.size,
+      'content-type': mediaContentType(row.avatar_key),
+      'cache-control': 'private, max-age=300',
+      'x-content-type-options': 'nosniff',
+    });
+    ctx.storage.createReadStream(row.avatar_key).pipe(res); return;
+  }
+  if (url.pathname === '/v1/me/avatar' && req.method === 'DELETE') {
+    const user = authenticate(req, ctx);
+    const row = ctx.db.prepare('SELECT avatar_key FROM users WHERE id = ?').get(user.id);
+    ctx.db.prepare('UPDATE users SET avatar_key = NULL WHERE id = ?').run(user.id);
+    if (row?.avatar_key) {
+      try { await ctx.storage.remove(row.avatar_key); } catch { /* database state is authoritative */ }
+    }
+    writeJson(res, 200, { deleted: true }, req, ctx.cfg); return;
+  }
 
   // Food recognition uses the configured OpenAI-compatible vision service.
   // The streamed job form is the production path for multiple full-size
@@ -3638,10 +3766,16 @@ export function createApp(options = {}) {
   const smsSender = smsSenderInjected
     ? options.smsSender
     : ({ phone }) => sendAliyunSms({ phone, config: cfg });
-  const ctx = { cfg, db, storage, aiGate, smsSender, smsSenderInjected, friendSearchWindows: new Map() };
+  const pushSender = typeof options.pushSender === 'function'
+    ? options.pushSender
+    : createFcmSender(cfg);
+  const ctx = { cfg, db, storage, aiGate, smsSender, smsSenderInjected, pushSender, friendSearchWindows: new Map() };
+  purgeExpiredCloudData(db);
+  const cloudRetentionTimer = setInterval(() => purgeExpiredCloudData(db), 24 * 60 * 60 * 1000);
+  cloudRetentionTimer.unref();
   const server = createServer((req, res) => handleRequest(req, res, ctx).catch((error) => writeError(res, error, req, cfg)));
   server.context = ctx;
-  server.closeGracefully = async () => { await new Promise((resolve) => server.close(resolve)); closeDatabase(db); };
+  server.closeGracefully = async () => { clearInterval(cloudRetentionTimer); await new Promise((resolve) => server.close(resolve)); closeDatabase(db); };
   return server;
 }
 

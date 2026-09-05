@@ -40,6 +40,52 @@ import UserNotifications
       )
     }
     channel.setMethodCallHandler { call, result in
+      if call.method == "showNotification" {
+        let arguments = call.arguments as? [String: Any] ?? [:]
+        let content = UNMutableNotificationContent()
+        content.title = arguments["title"] as? String ?? "形域"
+        content.body = arguments["body"] as? String ?? "你有一条新的训练消息"
+        content.sound = .default
+        UNUserNotificationCenter.current().add(
+          UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
+        ) { error in
+          DispatchQueue.main.async { result(error == nil ? nil : FlutterError(code: "notification_failed", message: error?.localizedDescription, details: nil)) }
+        }
+        return
+      }
+      if call.method == "configureNotifications" {
+        let arguments = call.arguments as? [String: Any] ?? [:]
+        let enabled = arguments["enabled"] as? Bool ?? false
+        let center = UNUserNotificationCenter.current()
+        if !enabled {
+          center.removePendingNotificationRequests(withIdentifiers: ["kilo.daily.training.reminder"])
+          center.removeDeliveredNotifications(withIdentifiers: ["kilo.daily.training.reminder"])
+          result(true)
+          return
+        }
+        center.requestAuthorization(options: [.alert, .badge, .sound]) { granted, _ in
+          guard granted else {
+            DispatchQueue.main.async { result(false) }
+            return
+          }
+          let content = UNMutableNotificationContent()
+          content.title = "今天也为自己完成一次训练"
+          content.body = "打开形域，记录今天的训练进度。"
+          content.sound = .default
+          var components = DateComponents()
+          components.hour = 20
+          let request = UNNotificationRequest(
+            identifier: "kilo.daily.training.reminder",
+            content: content,
+            trigger: UNCalendarNotificationTrigger(dateMatching: components, repeats: true)
+          )
+          center.removePendingNotificationRequests(withIdentifiers: ["kilo.daily.training.reminder"])
+          center.add(request) { error in
+            DispatchQueue.main.async { result(error == nil) }
+          }
+        }
+        return
+      }
       if call.method == "getAppleWatchStatus" {
         result(KiloWatchConnectivityManager.shared.isPairedAndInstalled)
         return

@@ -10,7 +10,11 @@ import 'controller.dart';
 import 'exercise_media.dart';
 import 'membership_ui.dart';
 import 'models.dart';
+import 'trend_chart.dart';
+import 'trend_data.dart';
 import 'workout_share_card.dart';
+
+part 'weight_trend_ui.dart';
 
 DateTime _dayOnly(DateTime value) =>
     DateTime(value.year, value.month, value.day);
@@ -1112,32 +1116,21 @@ class _NutritionQuickAction extends StatelessWidget {
 }
 
 class _WeightPoint {
-  const _WeightPoint(this.day, this.value);
-
-  final DateTime day;
-  final double value;
+  const _WeightPoint(this.entry);
+  final WeightEntry entry;
+  DateTime get day => _dayOnly(entry.recordedAt);
+  double get value => entry.weightKg;
 }
 
 List<_WeightPoint> _dailyWeightPoints(
   AppController controller, {
   required DateTime start,
   required DateTime end,
-}) {
-  final byDay = <DateTime, WeightEntry>{};
-  for (final entry in controller.weightEntriesBetween(start, end)) {
-    final day = _dayOnly(entry.recordedAt);
-    final previous = byDay[day];
-    if (previous == null || entry.recordedAt.isAfter(previous.recordedAt)) {
-      byDay[day] = entry;
-    }
-  }
-  final points =
-      byDay.entries
-          .map((item) => _WeightPoint(item.key, item.value.weightKg))
-          .toList()
-        ..sort((a, b) => a.day.compareTo(b.day));
-  return points;
-}
+}) => dailyWeightRecords(
+  controller.weightEntries,
+  start,
+  end,
+).map(_WeightPoint.new).toList();
 
 class _WeightOverviewCard extends StatefulWidget {
   const _WeightOverviewCard({
@@ -1206,9 +1199,9 @@ class _WeightOverviewCardState extends State<_WeightOverviewCard> {
     final before = previous;
     final chartPoints = points;
     final first = chartPoints.firstOrNull;
-    final sevenDayDelta = first == null || current == null
+    final sevenDayDelta = chartPoints.length < 2
         ? null
-        : current.weightKg - first.value;
+        : chartPoints.last.value - first!.value;
     return Card(
       key: const Key('nutrition-weight-card'),
       child: Padding(
@@ -1256,42 +1249,33 @@ class _WeightOverviewCardState extends State<_WeightOverviewCard> {
                 ),
               )
             else ...[
-              Row(
+              Wrap(
+                spacing: 24,
+                runSpacing: 12,
                 children: [
-                  Expanded(
-                    child: _WeightSummaryMetric(
-                      label: '当前体重',
-                      value: '${current.weightKg.toStringAsFixed(1)} kg',
-                    ),
+                  _WeightSummaryMetric(
+                    label: '最近记录 · ${trendDate(current.recordedAt)}',
+                    value: '${current.weightKg.toStringAsFixed(1)} kg',
                   ),
-                  Expanded(
-                    child: _WeightSummaryMetric(
-                      label: '较上次',
-                      value: before == null
-                          ? '—'
-                          : _signedWeight(current.weightKg - before.weightKg),
-                      color: _trendColor(
-                        context,
-                        before == null ? 0 : current.weightKg - before.weightKg,
-                      ),
-                    ),
+                  _WeightSummaryMetric(
+                    label: '较上次',
+                    value: before == null
+                        ? '—'
+                        : _signedWeight(current.weightKg - before.weightKg),
+                    color: _muted(context),
                   ),
-                  Expanded(
-                    child: _WeightSummaryMetric(
-                      label: '近${range == '7' ? '7' : range}天',
-                      value: sevenDayDelta == null
-                          ? '—'
-                          : _signedWeight(sevenDayDelta),
-                      color: _trendColor(context, sevenDayDelta ?? 0),
-                    ),
+                  _WeightSummaryMetric(
+                    label: chartPoints.length < 2
+                        ? '所选期间变化'
+                        : '${trendDate(chartPoints.first.day)}—${trendDate(chartPoints.last.day)}',
+                    value: sevenDayDelta == null
+                        ? '—'
+                        : _signedWeight(sevenDayDelta),
+                    color: _muted(context),
                   ),
                 ],
               ),
               const SizedBox(height: 10),
-              _WeightChart(
-                key: const Key('nutrition-weight-chart'),
-                points: chartPoints,
-              ),
             ],
             const SizedBox(height: 8),
             Row(
@@ -1304,7 +1288,7 @@ class _WeightOverviewCardState extends State<_WeightOverviewCard> {
                         key: Key('nutrition-weight-range-$value'),
                         onPressed: () => setState(() => range = value),
                         style: OutlinedButton.styleFrom(
-                          minimumSize: const Size(0, 34),
+                          minimumSize: const Size(0, 44),
                           padding: EdgeInsets.zero,
                           backgroundColor: range == value
                               ? _primaryContainer(
@@ -1323,6 +1307,17 @@ class _WeightOverviewCardState extends State<_WeightOverviewCard> {
                   ),
               ],
             ),
+            const SizedBox(height: 12),
+            if (current != null)
+              _WeightChart(
+                key: const Key('nutrition-weight-chart'),
+                points: chartPoints,
+                controller: widget.controller,
+                start: _dayOnly(
+                  widget.date,
+                ).subtract(Duration(days: int.parse(range) - 1)),
+                end: _dayOnly(widget.date),
+              ),
           ],
         ),
       ),
@@ -1333,11 +1328,7 @@ class _WeightOverviewCardState extends State<_WeightOverviewCard> {
 String _signedWeight(double value) =>
     '${value >= 0 ? '+' : ''}${value.toStringAsFixed(1)} kg';
 
-Color _trendColor(BuildContext context, double value) => value == 0
-    ? _muted(context)
-    : value < 0
-    ? const Color(0xFF21845A)
-    : _primary(context);
+Color _trendColor(BuildContext context, double value) => _muted(context);
 
 class _WeightSummaryMetric extends StatelessWidget {
   const _WeightSummaryMetric({
@@ -1368,123 +1359,6 @@ class _WeightSummaryMetric extends StatelessWidget {
       ),
     ],
   );
-}
-
-class _WeightChart extends StatelessWidget {
-  const _WeightChart({super.key, required this.points});
-
-  final List<_WeightPoint> points;
-
-  @override
-  Widget build(BuildContext context) {
-    if (points.isEmpty) {
-      return SizedBox(
-        height: 132,
-        child: Center(
-          child: Text('该时间段暂无数据', style: TextStyle(color: _muted(context))),
-        ),
-      );
-    }
-    return Column(
-      children: [
-        SizedBox(
-          height: 132,
-          width: double.infinity,
-          child: CustomPaint(painter: _WeightChartPainter(points)),
-        ),
-        const SizedBox(height: 2),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            for (final point in _chartLabels(points))
-              Text(
-                '${point.day.month}/${point.day.day}',
-                style: TextStyle(color: _muted(context), fontSize: 10),
-              ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-List<_WeightPoint> _chartLabels(List<_WeightPoint> points) {
-  if (points.length <= 4) return points;
-  return [points.first, points[points.length ~/ 2], points.last];
-}
-
-class _WeightChartPainter extends CustomPainter {
-  _WeightChartPainter(this.points);
-
-  final List<_WeightPoint> points;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    const padding = EdgeInsets.fromLTRB(7, 10, 7, 8);
-    final chart = Rect.fromLTWH(
-      padding.left,
-      padding.top,
-      size.width - padding.left - padding.right,
-      size.height - padding.top - padding.bottom,
-    );
-    final values = points.map((point) => point.value).toList();
-    final minValue = values.reduce(math.min);
-    final maxValue = values.reduce(math.max);
-    final span = math.max(maxValue - minValue, .8);
-    final line = Paint()
-      ..color = const Color(0xFFE96A45)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.1
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-    final grid = Paint()
-      ..color = const Color(0xFFEFE3DA)
-      ..strokeWidth = 1;
-    for (var index = 0; index < 3; index++) {
-      final y = chart.top + chart.height * index / 2;
-      canvas.drawLine(Offset(chart.left, y), Offset(chart.right, y), grid);
-    }
-    Offset pointAt(int index) {
-      final x = points.length == 1
-          ? chart.center.dx
-          : chart.left + chart.width * index / (points.length - 1);
-      final y =
-          chart.bottom -
-          ((points[index].value - minValue) / span) * chart.height;
-      return Offset(x, y);
-    }
-
-    final path = Path()..moveTo(pointAt(0).dx, pointAt(0).dy);
-    for (var index = 1; index < points.length; index++) {
-      path.lineTo(pointAt(index).dx, pointAt(index).dy);
-    }
-    canvas.drawPath(path, line);
-    for (var index = 0; index < points.length; index++) {
-      final point = pointAt(index);
-      final isLast = index == points.length - 1;
-      canvas.drawCircle(
-        point,
-        isLast ? 5 : 3.5,
-        Paint()
-          ..color = isLast ? Colors.white : line.color
-          ..style = isLast ? PaintingStyle.fill : PaintingStyle.fill,
-      );
-      if (isLast) {
-        canvas.drawCircle(
-          point,
-          5,
-          Paint()
-            ..color = line.color
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 2,
-        );
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _WeightChartPainter oldDelegate) =>
-      oldDelegate.points != points;
 }
 
 class _WeightDetailsPage extends StatefulWidget {
@@ -1531,15 +1405,27 @@ class _WeightDetailsPageState extends State<_WeightDetailsPage> {
         child: AnimatedBuilder(
           animation: controller,
           builder: (context, _) {
-            final entries = [...controller.weightEntries]
-              ..sort((a, b) => b.recordedAt.compareTo(a.recordedAt));
-            final current = entries.firstOrNull;
-            final initial = entries.isEmpty ? null : entries.last;
-            final total = current == null || initial == null
-                ? null
-                : current.weightKg - initial.weightKg;
             final now = _dayOnly(DateTime.now());
-            final chartStart = _weightRangeStart(range, entries, now);
+            final allEntries = [...controller.weightEntries]
+              ..sort((a, b) => b.recordedAt.compareTo(a.recordedAt));
+            final chartStart = _weightRangeStart(range, allEntries, now);
+            final entries = allEntries
+                .where(
+                  (e) =>
+                      !_dayOnly(e.recordedAt).isBefore(chartStart) &&
+                      !_dayOnly(e.recordedAt).isAfter(now),
+                )
+                .toList();
+            final current = entries.firstOrNull;
+            final daily = _dailyWeightPoints(
+              controller,
+              start: chartStart,
+              end: now,
+            );
+            final initial = daily.firstOrNull?.entry;
+            final total = daily.length < 2
+                ? null
+                : daily.last.value - daily.first.value;
             return ListView(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 30),
               children: [
@@ -1551,19 +1437,21 @@ class _WeightDetailsPageState extends State<_WeightDetailsPage> {
                       runSpacing: 12,
                       children: [
                         _WeightSummaryMetric(
-                          label: '当前体重',
+                          label: current == null
+                              ? '最近记录'
+                              : '最近记录 · ${trendDate(current.recordedAt)}',
                           value: current == null
                               ? '—'
                               : '${current.weightKg.toStringAsFixed(1)} kg',
                         ),
                         _WeightSummaryMetric(
-                          label: '初始体重',
+                          label: '范围内首次',
                           value: initial == null
                               ? '—'
                               : '${initial.weightKg.toStringAsFixed(1)} kg',
                         ),
                         _WeightSummaryMetric(
-                          label: '总变化',
+                          label: '所选期间变化',
                           value: total == null ? '—' : _signedWeight(total),
                           color: _trendColor(context, total ?? 0),
                         ),
@@ -1572,21 +1460,30 @@ class _WeightDetailsPageState extends State<_WeightDetailsPage> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                SegmentedButton<String>(
+                Wrap(
                   key: const Key('weight-details-range'),
-                  segments: const [
-                    ButtonSegment(value: '7', label: Text('7天')),
-                    ButtonSegment(value: '30', label: Text('30天')),
-                    ButtonSegment(value: '90', label: Text('90天')),
-                    ButtonSegment(value: 'all', label: Text('全部')),
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final item in const [
+                      ('7', '7天'),
+                      ('30', '30天'),
+                      ('90', '90天'),
+                      ('all', '全部'),
+                    ])
+                      ChoiceChip(
+                        label: Text(item.$2),
+                        selected: range == item.$1,
+                        onSelected: (_) => setState(() => range = item.$1),
+                      ),
                   ],
-                  selected: {range},
-                  onSelectionChanged: (value) =>
-                      setState(() => range = value.first),
                 ),
                 const SizedBox(height: 12),
                 _WeightChart(
                   key: const Key('weight-details-chart'),
+                  controller: controller,
+                  start: chartStart,
+                  end: now,
                   points: _dailyWeightPoints(
                     controller,
                     start: chartStart,

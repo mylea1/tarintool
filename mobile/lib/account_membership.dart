@@ -145,6 +145,9 @@ class EntitlementSnapshot {
     required this.recognitionWeeklyGrant,
     required this.aiPeriodKey,
     required this.recognitionWeekKey,
+    this.cloudRetentionExpiresAt,
+    this.cloudSyncReadable = false,
+    this.cloudSyncWritable = false,
   });
 
   factory EntitlementSnapshot.free({
@@ -174,6 +177,9 @@ class EntitlementSnapshot {
   final int recognitionWeeklyGrant;
   final String aiPeriodKey;
   final String recognitionWeekKey;
+  final DateTime? cloudRetentionExpiresAt;
+  final bool cloudSyncReadable;
+  final bool cloudSyncWritable;
 
   bool isTrialActiveAt(DateTime at) => trialExpiresAt?.isAfter(at) == true;
 
@@ -201,6 +207,9 @@ class EntitlementSnapshot {
     int? recognitionWeeklyGrant,
     String? aiPeriodKey,
     String? recognitionWeekKey,
+    DateTime? cloudRetentionExpiresAt,
+    bool? cloudSyncReadable,
+    bool? cloudSyncWritable,
   }) => EntitlementSnapshot(
     membership: membership ?? this.membership,
     membershipExpiresAt: clearMembershipExpiresAt
@@ -216,6 +225,10 @@ class EntitlementSnapshot {
         recognitionWeeklyGrant ?? this.recognitionWeeklyGrant,
     aiPeriodKey: aiPeriodKey ?? this.aiPeriodKey,
     recognitionWeekKey: recognitionWeekKey ?? this.recognitionWeekKey,
+    cloudRetentionExpiresAt:
+        cloudRetentionExpiresAt ?? this.cloudRetentionExpiresAt,
+    cloudSyncReadable: cloudSyncReadable ?? this.cloudSyncReadable,
+    cloudSyncWritable: cloudSyncWritable ?? this.cloudSyncWritable,
   );
 
   Map<String, Object?> toMap() => {
@@ -230,6 +243,9 @@ class EntitlementSnapshot {
     'recognitionWeeklyGrant': recognitionWeeklyGrant,
     'aiPeriodKey': aiPeriodKey,
     'recognitionWeekKey': recognitionWeekKey,
+    'cloudRetentionExpiresAt': cloudRetentionExpiresAt?.toIso8601String(),
+    'cloudSyncReadable': cloudSyncReadable,
+    'cloudSyncWritable': cloudSyncWritable,
   };
 
   factory EntitlementSnapshot.fromMap(Map<String, dynamic> map) {
@@ -268,6 +284,11 @@ class EntitlementSnapshot {
       ),
       aiPeriodKey: (map['aiPeriodKey'] ?? '').toString(),
       recognitionWeekKey: (map['recognitionWeekKey'] ?? '').toString(),
+      cloudRetentionExpiresAt: DateTime.tryParse(
+        (map['cloudRetentionExpiresAt'] ?? '').toString(),
+      ),
+      cloudSyncReadable: map['cloudSyncReadable'] == true || member,
+      cloudSyncWritable: map['cloudSyncWritable'] == true || member,
     );
   }
 }
