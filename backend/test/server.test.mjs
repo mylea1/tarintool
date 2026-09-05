@@ -5,7 +5,7 @@ import fs from 'node:fs/promises';
 import { createServer as createHttpServer } from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
-import { isAcademicKnowledgeSource, parseAiSkills, recognitionEvidenceAssessment, startServer } from '../src/server.mjs';
+import { isAcademicKnowledgeSource, parseAiSkills, parseClientToolResults, recognitionEvidenceAssessment, startServer } from '../src/server.mjs';
 import { assertProductionConfiguration } from '../src/config.mjs';
 import { loadConfig } from '../src/config.mjs';
 
@@ -16,6 +16,34 @@ let adminToken;
 let memberToken;
 let userToken;
 let user2Token;
+
+test('AI tool continuations accept large device results but bound model context', () => {
+  const parsed = parseClientToolResults([{
+    id: 'call_history',
+    name: 'read_workout_history',
+    arguments: { limit: 20 },
+    result: {
+      tool: 'read_workout_history',
+      records: [{ name: '大容量训练记录', note: '训练备注'.repeat(4000) }],
+    },
+  }]);
+
+  assert.equal(parsed.length, 1);
+  assert.ok(parsed[0].resultContent.length <= 12000);
+  assert.match(parsed[0].resultContent, /tool result truncated/u);
+});
+
+test('AI tool continuations still reject abusive device payloads', () => {
+  assert.throws(
+    () => parseClientToolResults([{
+      id: 'call_history',
+      name: 'read_workout_history',
+      arguments: { limit: 20 },
+      result: { note: 'x'.repeat(256001) },
+    }]),
+    (error) => error?.status === 413 && error?.message === 'ai_tool_result_too_large',
+  );
+});
 
 async function api(pathname, options = {}) {
   const headers = { ...(options.body !== undefined ? { 'content-type': 'application/json' } : {}), ...(options.headers || {}) };

@@ -6,6 +6,42 @@ import 'package:http/testing.dart';
 import 'package:kilo_strength/ai_api.dart';
 
 void main() {
+  test('small AI tool results keep their structured payload', () {
+    final original = [
+      {
+        'id': 'call_profile',
+        'name': 'read_training_profile',
+        'arguments': <String, dynamic>{},
+        'result': {'tool': 'read_training_profile', 'goal': '增肌'},
+      },
+    ];
+
+    final compacted = compactCoachToolResults(original);
+
+    expect(compacted, equals(original));
+  });
+
+  test('large AI tool results are compacted before transport', () {
+    final compacted = compactCoachToolResults([
+      {
+        'id': 'call_history',
+        'name': 'read_workout_history',
+        'arguments': {'limit': 20},
+        'result': {
+          'tool': 'read_workout_history',
+          'records': [
+            {'name': '大容量训练记录', 'note': List.filled(5000, '训练备注').join()},
+          ],
+        },
+      },
+    ]);
+
+    final result = compacted.single['result'] as Map<String, dynamic>;
+    expect(result['truncated'], true);
+    expect(jsonEncode(result).length, lessThanOrEqualTo(10000));
+    expect(result['previewJson'], contains('read_workout_history'));
+  });
+
   test('official plans are fetched from the public backend endpoint', () async {
     final client = MockClient((request) async {
       expect(request.method, 'GET');

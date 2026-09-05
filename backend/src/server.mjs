@@ -31,7 +31,8 @@ function officialTrainingPlans() {
   }
   return payload;
 }
-const MAX_AGENT_RESULT_BYTES = 12000;
+const MAX_AGENT_MODEL_RESULT_CHARS = 12000;
+const MAX_AGENT_CLIENT_RESULT_CHARS = 256000;
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/u;
 const SMS_CODE_LENGTH = 6;
 const SMS_CODE_TTL_MS = 5 * 60 * 1000;
@@ -1618,7 +1619,13 @@ function parseModelToolCalls(rawCalls) {
   });
 }
 
-function parseClientToolResults(value) {
+function agentToolResultContent(resultJson) {
+  if (resultJson.length <= MAX_AGENT_MODEL_RESULT_CHARS) return resultJson;
+  const marker = '\n...[tool result truncated to protect the AI context]';
+  return `${resultJson.slice(0, MAX_AGENT_MODEL_RESULT_CHARS - marker.length)}${marker}`;
+}
+
+export function parseClientToolResults(value) {
   if (value === undefined) return [];
   if (!Array.isArray(value) || value.length > MAX_AGENT_TOOL_RESULTS) throw httpError(400, 'invalid_ai_tool_results');
   return value.map((item) => {
@@ -1628,8 +1635,14 @@ function parseClientToolResults(value) {
     if (!Object.prototype.hasOwnProperty.call(item, 'result')) throw httpError(400, 'tool_result_required');
     let resultJson;
     try { resultJson = JSON.stringify(item.result); } catch { throw httpError(400, 'invalid_ai_tool_result'); }
-    if (resultJson.length > MAX_AGENT_RESULT_BYTES) throw httpError(413, 'ai_tool_result_too_large');
-    return { id, name, arguments: argumentsValue, result: item.result };
+    if (resultJson.length > MAX_AGENT_CLIENT_RESULT_CHARS) throw httpError(413, 'ai_tool_result_too_large');
+    return {
+      id,
+      name,
+      arguments: argumentsValue,
+      result: item.result,
+      resultContent: agentToolResultContent(resultJson),
+    };
   });
 }
 
@@ -3199,7 +3212,7 @@ async function handleRequest(req, res, ctx) {
             role: 'tool',
             tool_call_id: item.id,
             name: item.name,
-            content: JSON.stringify(item.result).slice(0, MAX_AGENT_RESULT_BYTES),
+            content: item.resultContent,
           });
         }
       }
@@ -3310,7 +3323,7 @@ ${languageInstruction}
             role: 'tool',
             tool_call_id: item.id,
             name: item.name,
-            content: JSON.stringify(item.result).slice(0, MAX_AGENT_RESULT_BYTES),
+            content: item.resultContent,
           });
         }
       }

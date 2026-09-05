@@ -8,6 +8,40 @@ import 'account_membership.dart';
 import 'models.dart';
 import 'secure_session_store.dart';
 
+const int maxCoachToolResultTransportChars = 10000;
+
+/// Keeps device-side tool continuations below the server's context budget.
+/// Small results remain structured and unchanged. Oversized results retain a
+/// readable prefix so older servers can still answer instead of rejecting the
+/// entire training-plan request.
+List<Map<String, dynamic>> compactCoachToolResults(
+  List<Map<String, dynamic>> toolResults, {
+  int maxResultChars = maxCoachToolResultTransportChars,
+}) {
+  return toolResults
+      .map((item) {
+        final result = item['result'];
+        final encoded = jsonEncode(result);
+        if (encoded.length <= maxResultChars) return item;
+
+        var previewLength = encoded.length < 7000 ? encoded.length : 7000;
+        Map<String, dynamic> compacted;
+        do {
+          compacted = {
+            'tool': item['name']?.toString() ?? 'unknown',
+            'truncated': true,
+            'originalCharacters': encoded.length,
+            'previewJson': encoded.substring(0, previewLength),
+          };
+          if (jsonEncode(compacted).length <= maxResultChars) break;
+          previewLength -= 512;
+        } while (previewLength > 0);
+
+        return {...item, 'result': compacted};
+      })
+      .toList(growable: false);
+}
+
 class CoachAnswer {
   const CoachAnswer({
     required this.body,
@@ -872,6 +906,7 @@ class HttpCoachApi
   }) {
     final controller = StreamController<CoachStreamEvent>();
     final client = http.Client();
+    final transportToolResults = compactCoachToolResults(toolResults);
     controller.onListen = () async {
       try {
         final token = _sessionToken;
@@ -904,7 +939,8 @@ class HttpCoachApi
                   'requestId': requestId!.trim(),
                 if (conversationId?.trim().isNotEmpty == true)
                   'conversationId': conversationId!.trim(),
-                if (toolResults.isNotEmpty) 'toolResults': toolResults,
+                if (transportToolResults.isNotEmpty)
+                  'toolResults': transportToolResults,
               });
         final response = await client.send(request).timeout(requestTimeout);
         if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -985,6 +1021,7 @@ class HttpCoachApi
     if (token == null || token.isEmpty) {
       throw const CoachApiException('coach_unauthenticated');
     }
+    final transportToolResults = compactCoachToolResults(toolResults);
     late final http.Response response;
     try {
       response = await _client
@@ -1010,7 +1047,8 @@ class HttpCoachApi
               if (skills.isNotEmpty) 'skills': skills,
               if (includeTrainingSummary && availableTools.isNotEmpty)
                 'availableTools': availableTools,
-              if (toolResults.isNotEmpty) 'toolResults': toolResults,
+              if (transportToolResults.isNotEmpty)
+                'toolResults': transportToolResults,
             }),
           )
           .timeout(requestTimeout);
