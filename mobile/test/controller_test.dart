@@ -598,6 +598,7 @@ void main() {
 
     final controller = AppController();
     try {
+      await controller.refreshAppleWatchStatus();
       final exercise = controller.createBlankWorkoutExercise(
         'bench_press',
         'watch-bench',

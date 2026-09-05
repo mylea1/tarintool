@@ -15486,23 +15486,6 @@ class ProfilePage extends StatelessWidget {
               ),
               const Divider(height: 1),
               _ProfileSettingRow(
-                icon: Icons.watch_outlined,
-                title: 'Apple Watch',
-                caption: controller.appleWatch
-                    ? '已配对，训练与组间休息会自动同步'
-                    : '未检测到已安装形域的配对手表',
-                trailing: Icon(
-                  controller.appleWatch
-                      ? Icons.check_circle_rounded
-                      : Icons.info_outline_rounded,
-                  color: controller.appleWatch
-                      ? Theme.of(context).colorScheme.primary
-                      : null,
-                ),
-                onTap: () => unawaited(controller.refreshAppleWatchStatus()),
-              ),
-              const Divider(height: 1),
-              _ProfileSettingRow(
                 icon: Icons.privacy_tip_outlined,
                 title: '隐私与 AI 授权',
                 caption: controller.aiUseTrainingData

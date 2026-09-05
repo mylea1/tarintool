@@ -257,14 +257,12 @@
 				97C146EC1CF9000F007C117D /* Resources */,
 				9705A1C41CF9048500538489 /* Embed Frameworks */,
 				EBA400000000000000000004 /* Embed App Extensions */,
-				WCH400000000000000000004 /* Embed Watch Content */,
 				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 				EBA800000000000000000001 /* PBXTargetDependency */,
-				WCH800000000000000000001 /* PBXTargetDependency */,
 			);
 			name = Runner;
 			packageProductDependencies = (
@@ -451,7 +449,6 @@
 				7884E8682EC3CC0700C636F2 /* SceneDelegate.swift in Sources */,
 				EBA100000000000000000001 /* KiloLiveActivityManager.swift in Sources */,
 				EBA100000000000000000002 /* KiloLiveActivityAttributes.swift in Sources */,
-				WCH100000000000000000001 /* KiloWatchConnectivityManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

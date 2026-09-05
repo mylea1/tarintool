@@ -311,7 +311,6 @@ class AppController extends ChangeNotifier {
     this.accountService.addListener(_handleAccountChanged);
     _observedAccountUserId = currentUser?.id;
     unawaited(loadRecognitionCapabilities());
-    unawaited(refreshAppleWatchStatus());
   }
 
   final AccountService accountService;
