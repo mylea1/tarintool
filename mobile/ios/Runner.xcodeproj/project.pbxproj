@@ -306,7 +306,7 @@
 			name = KiloWatch;
 			productName = KiloWatch;
 			productReference = WCH200000000000000000005 /* KiloWatch.app */;
-			productType = "com.apple.product-type.application.watchapp2";
+			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
 
@@ -877,7 +877,6 @@
 				DEVELOPMENT_TEAM = Y726TUG6G3;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "形域";
-				INFOPLIST_KEY_WKApplication = YES;
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.kilostrength.kiloStrength;
 				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
 				PRODUCT_BUNDLE_IDENTIFIER = com.kilostrength.kiloStrength.watchkitapp;
@@ -901,7 +900,6 @@
 				DEVELOPMENT_TEAM = Y726TUG6G3;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "形域";
-				INFOPLIST_KEY_WKApplication = YES;
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.kilostrength.kiloStrength;
 				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
 				PRODUCT_BUNDLE_IDENTIFIER = com.kilostrength.kiloStrength.watchkitapp;
@@ -923,7 +921,6 @@
 				DEVELOPMENT_TEAM = Y726TUG6G3;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "形域";
-				INFOPLIST_KEY_WKApplication = YES;
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.kilostrength.kiloStrength;
 				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
 				PRODUCT_BUNDLE_IDENTIFIER = com.kilostrength.kiloStrength.watchkitapp;
