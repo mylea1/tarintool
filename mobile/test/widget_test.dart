@@ -356,8 +356,8 @@ void main() {
     await tester.pumpWidget(KiloApp(initialController: controller));
     expect(find.byType(NavigationBar), findsOneWidget);
     expect(find.byType(NavigationDestination), findsNWidgets(5));
-    expect(find.byKey(const Key('home-overview-section')), findsOneWidget);
-    expect(find.text('今日安排'), findsOneWidget);
+    expect(find.byKey(const Key('home-overview-section')), findsNothing);
+    expect(find.text('今日安排'), findsNothing);
     expect(find.text('本周训练'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.text('本周肌群'),
@@ -402,50 +402,20 @@ void main() {
     },
   );
 
-  testWidgets('home keeps one today recommendation and gates the why link', (
+  testWidgets('home keeps muscle map and moves today arrangement to training', (
     tester,
   ) async {
     final controller = AppController();
     addTearDown(controller.dispose);
     await tester.pumpWidget(KiloApp(initialController: controller));
     await tester.pumpAndSettle();
-
-    expect(find.byKey(const Key('ai-training-home-card')), findsOneWidget);
-    expect(find.byKey(const Key('home-overview-section')), findsOneWidget);
+    expect(find.byKey(const Key('ai-training-home-card')), findsNothing);
+    expect(find.text('今日安排'), findsNothing);
+    expect(find.byKey(const Key('home-muscle-card')), findsOneWidget);
+    controller.selectPage(PageId.train);
+    await tester.pumpAndSettle();
     expect(find.text('今日安排'), findsOneWidget);
-    expect(find.byKey(const Key('home-why-training')), findsOneWidget);
-    expect(find.byKey(const Key('home-start-today-workout')), findsOneWidget);
-
-    await tester.tap(find.byKey(const Key('home-why-training')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('了解 PRO 训练建议'));
-    await tester.pumpAndSettle();
-    expect(find.text('这项能力属于形域 PRO'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('home explains that the first recommendation needs real data', (
-    tester,
-  ) async {
-    final controller = AppController();
-    addTearDown(controller.dispose);
-    await tester.pumpWidget(KiloApp(initialController: controller));
-    await tester.pumpAndSettle();
-
-    expect(find.text('暂无训练数据'), findsOneWidget);
-    expect(find.text('选择计划，或从自由训练开始'), findsOneWidget);
-    expect(find.text('选择训练计划'), findsOneWidget);
-    final recommendation = find.byKey(const Key('ai-training-home-card'));
-    // Muscle-map labels remain valid even before any history exists. Only the
-    // recommendation must avoid presenting invented target muscle groups.
-    expect(
-      find.descendant(of: recommendation, matching: find.text('胸')),
-      findsNothing,
-    );
-    expect(
-      find.descendant(of: recommendation, matching: find.text('背')),
-      findsNothing,
-    );
+    expect(find.byKey(const Key('training-start-today')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -2249,7 +2219,7 @@ void main() {
     },
   );
 
-  testWidgets('routine cards expose details, one start action, and more menu', (
+  testWidgets('routine cards expose details, selection, cover and more menu', (
     tester,
   ) async {
     final controller = AppController();
@@ -2268,7 +2238,7 @@ void main() {
     await tester.drag(find.byType(Scrollable).last, const Offset(0, -220));
     await tester.pumpAndSettle();
     expect(find.byKey(Key('routine-card-${routine.id}')), findsOneWidget);
-    expect(find.byKey(Key('routine-start-${routine.id}')), findsOneWidget);
+    expect(find.byKey(Key('routine-select-${routine.id}')), findsOneWidget);
     expect(find.byKey(Key('routine-more-${routine.id}')), findsOneWidget);
     await tester.tap(find.byKey(Key('routine-card-${routine.id}')));
     await tester.pumpAndSettle();
@@ -2330,7 +2300,7 @@ void main() {
     await tester.scrollUntilVisible(
       find.byKey(Key('record-tile-${record.id}')),
       320,
-      scrollable: find.byType(Scrollable).first,
+      scrollable: find.byType(Scrollable).last,
     );
     expect(find.byKey(Key('record-tile-${record.id}')), findsOneWidget);
     expect(find.textContaining('500 kg'), findsOneWidget);

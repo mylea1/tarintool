@@ -424,6 +424,7 @@ Map<String, dynamic> _routineToMap(Routine routine) => {
   'id': routine.id,
   'name': routine.name,
   'folder': routine.folder,
+  'coverImage': routine.coverImage,
   'updatedAt': routine.updatedAt.toIso8601String(),
   'exercises': routine.exercises.map(_exerciseToMap).toList(),
 };
@@ -432,6 +433,7 @@ Routine _routineFromMap(Map<String, dynamic> map) => Routine(
   id: map['id']?.toString() ?? '',
   name: map['name']?.toString() ?? '训练计划',
   folder: map['folder']?.toString() ?? '',
+  coverImage: map['coverImage'] as String?,
   updatedAt:
       DateTime.tryParse(map['updatedAt']?.toString() ?? '') ?? DateTime.now(),
   exercises: _asMapList(map['exercises']).map(_exerciseFromMap).toList(),

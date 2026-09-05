@@ -262,7 +262,8 @@ void main() {
       final result = engine.calculate(
         history: const [],
         exercises: const [exercise],
-        routines: [
+        routines: const [],
+        officialRoutines: [
           routine(id: 'push', name: 'Push', exerciseId: 'bench_press'),
         ],
         techniques: const [],
@@ -301,12 +302,13 @@ void main() {
         ),
       ],
       exercises: const [backExercise, legExercise],
-      routines: [
+      routines: const [],
+      officialRoutines: [
         routine(id: 'pull', name: 'Pull', exerciseId: 'barbell_row'),
         routine(id: 'legs', name: 'Legs', exerciseId: 'barbell_squat'),
       ],
       techniques: const [],
-      profile: const TrainingProfile(),
+      profile: const TrainingProfile(focusMuscles: ['背', '股四头']),
       scheduledRoutineName: 'Pull',
       now: now,
     );

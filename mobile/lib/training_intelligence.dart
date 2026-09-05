@@ -244,6 +244,7 @@ class TrainingIntelligenceEngine {
     required List<WorkoutRecord> history,
     required List<Exercise> exercises,
     required List<Routine> routines,
+    List<Routine> officialRoutines = const [],
     required List<TechniqueAssessment> techniques,
     required TrainingProfile profile,
     String? scheduledRoutineName,
@@ -265,6 +266,7 @@ class TrainingIntelligenceEngine {
         history: history,
         exercises: exercises,
         routines: routines,
+        officialRoutines: officialRoutines,
         recovery: recovery,
         volume: volume,
         profile: profile,
@@ -472,6 +474,7 @@ class TrainingIntelligenceEngine {
     required List<WorkoutRecord> history,
     required List<Exercise> exercises,
     required List<Routine> routines,
+    List<Routine> officialRoutines = const [],
     required List<MuscleRecovery> recovery,
     required List<MuscleVolume> volume,
     required TrainingProfile profile,
@@ -479,152 +482,178 @@ class TrainingIntelligenceEngine {
     DateTime? now,
   }) {
     final clock = now ?? DateTime.now();
-    final hasCompletedTraining = TrainingKnowledgeRules.hasCompletedSet(
-      history,
+    final hasData =
+        TrainingKnowledgeRules.hasCompletedSet(history) ||
+        profile.hasRecommendationBaseline;
+    final exerciseMap = {for (final e in exercises) e.id: e};
+    final recoveryMap = {for (final r in recovery) r.muscle: r.percent};
+    final recent = _recentMuscles(history, exerciseMap, now: clock);
+    Set<String> expand(List<String> values) => values
+        .expand(
+          (v) => switch (v) {
+            '腿' || '腿部' => ['股四头', '腘绳肌', '臀', '小腿'],
+            '手臂' => ['二头', '三头'],
+            _ => [v.replaceAll('部', '')],
+          },
+        )
+        .toSet();
+    final excluded = expand(profile.excludedMuscles);
+    final focus = expand(profile.focusMuscles).difference(excluded);
+    final reduced = expand(profile.reducedMuscles);
+    final requiredCoverage = <String>{
+      '胸',
+      '背',
+      '肩',
+      '股四头',
+      ...focus,
+    }.difference(excluded);
+    final blockedExercises = {
+      ...profile.dislikedExerciseIds,
+      ...profile.unavailableExerciseIds,
+    };
+    bool allowed(Routine r) {
+      if (r.exercises.isEmpty ||
+          r.exercises.any(
+            (e) =>
+                !exerciseMap.containsKey(e.exerciseId) ||
+                blockedExercises.contains(e.exerciseId),
+          )) {
+        return false;
+      }
+      final groups = _routineMuscles(r, exerciseMap);
+      return groups.isNotEmpty && groups.intersection(excluded).isEmpty;
+    }
+
+    final personal = routines
+        .where((r) => r.folder != '官方计划' && allowed(r))
+        .toList();
+    final official = <String, Routine>{
+      for (final r in officialRoutines.where(allowed)) r.id: r,
+      for (final r in routines.where((r) => r.folder == '官方计划' && allowed(r)))
+        r.id: r,
+    }.values.toList();
+    final coverage = personal
+        .expand((r) => _routineMuscles(r, exerciseMap))
+        .toSet();
+    String coverageGroup(String muscle) =>
+        {'股四头', '腘绳肌', '臀', '小腿'}.contains(muscle) ? '腿' : muscle;
+    final personalReady =
+        requiredCoverage.isNotEmpty &&
+        coverage
+            .map(coverageGroup)
+            .toSet()
+            .containsAll(requiredCoverage.map(coverageGroup));
+    bool ready(Routine r) => _routineMuscles(r, exerciseMap).every(
+      (m) =>
+          (recoveryMap[m] ?? 100) >=
+          TrainingKnowledgeRules.minimumRecoveryForPrimary,
     );
-    if (!hasCompletedTraining && !profile.hasRecommendationBaseline) {
-      return const DailyTrainingRecommendation(
-        title: '暂无训练数据',
-        muscles: [],
-        reason: '完成基础训练档案后，系统会先按目标与偏好生成建议。',
+    List<Routine> ranked(List<Routine> source) {
+      var pool = source.where(ready).toList();
+      final fresh = pool
+          .where(
+            (r) => !_routineMuscles(
+              r,
+              exerciseMap,
+            ).any((m) => _isRecent(recent[m], clock)),
+          )
+          .toList();
+      if (fresh.isNotEmpty) pool = fresh;
+      double score(Routine r) {
+        final groups = _routineMuscles(r, exerciseMap);
+        final average =
+            groups.fold<double>(0, (n, m) => n + (recoveryMap[m] ?? 100)) /
+            groups.length;
+        final weekly = groups.fold<double>(
+          0,
+          (n, m) =>
+              n +
+              (volume.where((v) => v.muscle == m).firstOrNull?.effectiveSets ??
+                  0),
+        );
+        final minutes =
+            r.exercises.fold<int>(0, (n, e) => n + e.sets.length) * 3 +
+            r.exercises.length * 2;
+        return average +
+            groups.intersection(focus).length * 12 -
+            groups.intersection(reduced).length * 25 -
+            weekly / groups.length -
+            (minutes - profile.sessionMinutes).abs() * .3;
+      }
+
+      pool.sort((a, b) {
+        final result = score(b).compareTo(score(a));
+        return result != 0 ? result : a.id.compareTo(b.id);
+      });
+      return pool;
+    }
+
+    final primary = ranked(personalReady ? personal : official);
+    final fallback = ranked(personalReady ? official : personal);
+    // Incomplete personal libraries are never used as an automatic fallback.
+    final candidates = primary.isNotEmpty
+        ? primary
+        : personalReady
+        ? fallback
+        : <Routine>[];
+    final freshAvailable = [...personal, ...official]
+        .where(ready)
+        .any(
+          (r) => !_routineMuscles(
+            r,
+            exerciseMap,
+          ).any((m) => _isRecent(recent[m], clock)),
+        );
+    final manual = [...personal, ...official]
+        .where(
+          (r) =>
+              r.name == preferredRoutineName &&
+              ready(r) &&
+              (!freshAvailable ||
+                  !_routineMuscles(
+                    r,
+                    exerciseMap,
+                  ).any((m) => _isRecent(recent[m], clock))),
+        )
+        .firstOrNull;
+    final restDay =
+        profile.preferredWeekdays.isNotEmpty &&
+        !profile.preferredWeekdays.contains(clock.weekday);
+    final best = manual ?? (restDay ? null : candidates.firstOrNull);
+    if (best == null) {
+      return DailyTrainingRecommendation(
+        title: restDay
+            ? '今天是休息日'
+            : !hasData && official.isEmpty
+            ? '暂无训练数据'
+            : '暂无合适的训练计划',
+        muscles: const [],
+        reason: restDay
+            ? '按你的训练日期偏好安排休息；也可以手动选择训练。'
+            : !personalReady && official.isEmpty
+            ? '个人计划尚未覆盖训练偏好，等待可用的官方计划；你仍可手动选择计划。'
+            : '当前计划未满足部位偏好或恢复条件，可先恢复或手动选择训练。',
         estimatedMinutes: 0,
         exerciseCount: 0,
-        hasTrainingData: false,
+        hasTrainingData: hasData,
       );
     }
-    final recoveryMap = {
-      for (final item in recovery) item.muscle: item.percent,
-    };
-    final volumeMap = {for (final item in volume) item.muscle: item};
-    final exerciseMap = {for (final item in exercises) item.id: item};
-    final recentMuscles = _recentMuscles(history, exerciseMap, now: clock);
-    final recentRoutineIds = <String>{};
-    for (final routine in routines) {
-      if (_wasRoutineRecentlyPerformed(routine, history, now: clock)) {
-        recentRoutineIds.add(routine.id);
-      }
-    }
-    final ranked = [...muscles]
-      ..sort((a, b) {
-        final ar = recoveryMap[a] ?? 100;
-        final br = recoveryMap[b] ?? 100;
-        final av =
-            (volumeMap[a]?.status == '训练不足' ? 15 : 0) +
-            (profile.focusMuscles.contains(a) ? 12 : 0) -
-            (profile.reducedMuscles.contains(a) ? 12 : 0) -
-            (_isRecent(recentMuscles[a], clock) ? 100 : 0);
-        final bv =
-            (volumeMap[b]?.status == '训练不足' ? 15 : 0) +
-            (profile.focusMuscles.contains(b) ? 12 : 0) -
-            (profile.reducedMuscles.contains(b) ? 12 : 0) -
-            (_isRecent(recentMuscles[b], clock) ? 100 : 0);
-        return (br + bv).compareTo(ar + av);
-      });
-    final recovered = ranked
-        .where((item) => (recoveryMap[item] ?? 100) >= 60)
-        .toList();
-    // A recently trained muscle is excluded whenever another recovered
-    // candidate exists. Only if every recovered option is recent do we allow
-    // continuity, and the reason below makes that trade-off explicit.
-    final fresh = recovered
-        .where((item) => !_isRecent(recentMuscles[item], clock))
-        .toList();
-    final selected = (fresh.isNotEmpty ? fresh : recovered)
-        .take(TrainingKnowledgeRules.maxPrimaryMuscles)
-        .toList();
-    Routine? best;
-    if (preferredRoutineName != null) {
-      best = routines
-          .where((item) => item.name == preferredRoutineName)
-          .firstOrNull;
-      if (best != null) {
-        final plannedMuscles = _routineMuscles(best, exerciseMap);
-        final recoveredPlan = plannedMuscles.every(
-          (muscle) =>
-              (recoveryMap[muscle] ?? 100) >=
-              TrainingKnowledgeRules.minimumRecoveryForPrimary,
-        );
-        final recentPlan = plannedMuscles.any(
-          (muscle) => _isRecent(recentMuscles[muscle], clock),
-        );
-        if (!recoveredPlan || (recentPlan && fresh.isNotEmpty)) best = null;
-        if (best != null && recentRoutineIds.contains(best.id)) best = null;
-      }
-    }
-    var bestHits = -1;
-    for (final routine in best == null ? routines : const <Routine>[]) {
-      if (recentRoutineIds.contains(routine.id)) continue;
-      final plannedMuscles = _routineMuscles(routine, exerciseMap);
-      final hasFatiguedPrimary = plannedMuscles.any(
-        (muscle) =>
-            (recoveryMap[muscle] ?? 100) <
-            TrainingKnowledgeRules.minimumRecoveryForPrimary,
-      );
-      if (hasFatiguedPrimary) continue;
-      final hasRecentPrimary = plannedMuscles.any(
-        (muscle) => _isRecent(recentMuscles[muscle], clock),
-      );
-      if (hasRecentPrimary && fresh.isNotEmpty) continue;
-      final hits = routine.exercises.where((performed) {
-        final definition = exerciseMap[performed.exerciseId];
-        return definition != null &&
-            selected.any((m) => _muscleFactor(definition, m) >= 1);
-      }).length;
-      if (hits > bestHits) {
-        best = routine;
-        bestHits = hits;
-      }
-    }
-    final recommendedMuscles = best == null
-        ? selected
-        : best.exercises
-              .map((performed) => exerciseMap[performed.exerciseId])
-              .whereType<Exercise>()
-              .expand(
-                (definition) => muscles.where(
-                  (muscle) => _muscleFactor(definition, muscle) >= 1,
-                ),
-              )
-              .toSet()
-              .take(3)
-              .toList();
-    final title =
-        best?.name ??
-        (selected.isEmpty ? '今天先恢复' : '${selected.join(' + ')}训练');
-    final count = best?.exercises.length ?? (selected.isEmpty ? 0 : 5);
-    final recentFallback = fresh.isEmpty && recovered.isNotEmpty;
+    final groups = _routineMuscles(best, exerciseMap).toList();
     return DailyTrainingRecommendation(
-      title: title,
-      muscles: recommendedMuscles,
-      reason: !hasCompletedTraining
-          ? '这是依据你的${_goalLabel(profile.goal)}目标、每周 ${profile.preferredWeekdays.length} 天、'
-                '单次 ${profile.sessionMinutes} 分钟和重点肌群生成的首份建议；完成后会再按真实表现调整。'
-          : '${recommendedMuscles.map((m) => '$m恢复 ${recoveryMap[m] ?? 100}%').join('，')}'
-                '${recentFallback ? '；近期主要肌群均在冷却窗口内，已优先延续可恢复计划' : ''}'
-                '；'
-                '${preferredRoutineName == best?.name ? '已承接今天或最近漏掉的计划，' : ''}'
-                '同时优先补足近4周训练量较低的肌群。',
-      estimatedMinutes: best == null
-          ? profile.sessionMinutes
-          : (best.exercises.fold<int>(
-                          0,
-                          (sum, item) => sum + item.sets.length,
-                        ) *
-                        3 +
-                    count * 2)
-                .clamp(20, 100),
-      exerciseCount: count,
-      routineId: best?.id,
+      title: best.name,
+      muscles: groups,
+      reason:
+          '${history.isEmpty ? '依据训练偏好提供首份建议；' : ''}${best.folder == '官方计划' ? '从官方计划中选择' : '从个人计划中选择'}，按实际动作匹配部位，已排除不想训练的部位；'
+          '${groups.map((m) => '$m恢复估算 ${recoveryMap[m] ?? 100}%').join('，')}。',
+      estimatedMinutes:
+          (best.exercises.fold<int>(0, (n, e) => n + e.sets.length) * 3 +
+                  best.exercises.length * 2)
+              .clamp(10, 180),
+      exerciseCount: best.exercises.length,
+      routineId: best.id,
+      hasTrainingData: hasData,
     );
   }
-
-  String _goalLabel(String? goal) => switch (goal) {
-    'muscle_gain' => '增肌',
-    'fat_loss' => '减脂',
-    'body_recomp' => '塑形',
-    'strength' => '力量',
-    _ => '当前',
-  };
 
   Map<String, DateTime> _recentMuscles(
     List<WorkoutRecord> history,
@@ -643,7 +672,7 @@ class TrainingIntelligenceEngine {
         final definition = exerciseMap[performed.exerciseId];
         if (definition == null) continue;
         for (final muscle in muscles) {
-          if (_muscleFactor(definition, muscle) < 1) continue;
+          if (!_primaryMuscles(definition).contains(muscle)) continue;
           final previous = result[muscle];
           if (previous == null || record.date.isAfter(previous)) {
             result[muscle] = record.date;
@@ -654,33 +683,30 @@ class TrainingIntelligenceEngine {
     return result;
   }
 
-  bool _wasRoutineRecentlyPerformed(
-    Routine routine,
-    List<WorkoutRecord> history, {
-    required DateTime now,
-  }) {
-    final routineExercises = routine.exercises
-        .map((item) => item.exerciseId)
-        .toSet();
-    if (routineExercises.isEmpty) return false;
-    for (final record in history) {
-      final ageHours = now.difference(record.date).inMinutes / 60;
-      if (ageHours < 0 ||
-          ageHours > TrainingKnowledgeRules.recentStimulusCooldownHours ||
-          !TrainingKnowledgeRules.hasCompletedSet([record])) {
-        continue;
-      }
-      if (record.name.trim() == routine.name.trim()) return true;
-      final performed = record.exercises
-          .where((item) => item.sets.any((set) => set.completed))
-          .map((item) => item.exerciseId)
-          .toSet();
-      if (performed.isEmpty) continue;
-      final overlap = routineExercises.intersection(performed).length;
-      final denominator = math.min(routineExercises.length, performed.length);
-      if (denominator > 0 && overlap / denominator >= .75) return true;
+  Set<String> _primaryMuscles(Exercise exercise) {
+    // Use catalog anatomy fields, never the routine/exercise marketing title.
+    final tags = '${exercise.muscle}|${exercise.family}'.toLowerCase();
+    final result = <String>{};
+    const aliases = <String, List<String>>{
+      '胸': ['胸', 'chest', 'pectoral'],
+      '背': ['背', 'back', 'latissimus'],
+      '肩': ['肩', '三角', 'shoulder', 'deltoid'],
+      '二头': ['二头', 'biceps'],
+      '三头': ['三头', 'triceps'],
+      '股四头': ['股四头', 'quadriceps'],
+      '腘绳肌': ['腘绳', 'hamstring'],
+      '臀': ['臀', 'glute'],
+      '小腿': ['小腿', 'calf', 'calves'],
+      '核心': ['核心', '腹', 'core', 'abdominal'],
+    };
+    for (final entry in aliases.entries) {
+      if (entry.value.any(tags.contains)) result.add(entry.key);
     }
-    return false;
+    if (result.intersection({'股四头', '腘绳肌', '臀', '小腿'}).isEmpty &&
+        (tags.contains('腿') || tags.contains('leg'))) {
+      result.add('股四头');
+    }
+    return result;
   }
 
   Set<String> _routineMuscles(
@@ -689,10 +715,7 @@ class TrainingIntelligenceEngine {
   ) => routine.exercises
       .map((item) => exerciseMap[item.exerciseId])
       .whereType<Exercise>()
-      .expand(
-        (definition) =>
-            muscles.where((muscle) => _muscleFactor(definition, muscle) >= 1),
-      )
+      .expand(_primaryMuscles)
       .toSet();
 
   bool _isRecent(DateTime? value, DateTime now) {

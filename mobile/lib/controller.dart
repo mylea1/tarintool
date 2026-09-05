@@ -2045,6 +2045,7 @@ class AppController extends ChangeNotifier {
                   .map((exercise) => exercise.copyForPlan())
                   .toList(),
               updatedAt: routine.updatedAt,
+              coverImage: routine.coverImage,
             ),
           )
           .toList(growable: false),
@@ -2445,11 +2446,47 @@ class AppController extends ChangeNotifier {
         .toList(growable: false);
   }
 
+  List<Routine> get officialTrainingRoutines => [
+    for (final plan in officialPlans)
+      for (var index = 0; index < plan.sessions.length; index++)
+        Routine(
+          id: 'official-${plan.id}-$index',
+          name: '${plan.title} · ${plan.sessions[index].name}',
+          folder: '官方计划',
+          updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
+          exercises: [
+            for (final id in plan.sessions[index].exerciseIds)
+              WorkoutExercise(
+                id: 'official-${plan.id}-$index-$id',
+                exerciseId: id,
+                restSeconds: 120,
+                sets: List.generate(
+                  3,
+                  (setIndex) => WorkoutSet(
+                    id: 'official-${plan.id}-$index-$id-$setIndex',
+                    weight: 0,
+                    plannedWeight: 0,
+                    restSeconds: 120,
+                  ),
+                ),
+              ),
+          ],
+        ),
+  ];
+
+  List<Routine> get todayPlanCandidates => [
+    ...routines,
+    ...officialTrainingRoutines.where(
+      (r) => !routines.any((saved) => saved.id == r.id),
+    ),
+  ];
+
   TrainingIntelligenceSnapshot get trainingIntelligence =>
       intelligenceEngine.calculate(
         history: history,
         exercises: allExercises,
         routines: routines,
+        officialRoutines: officialTrainingRoutines,
         techniques: techniqueAssessments,
         profile: trainingProfile,
         scheduledRoutineName: _nextScheduledRoutineName(),
@@ -2461,19 +2498,6 @@ class AppController extends ChangeNotifier {
         '${value.year.toString().padLeft(4, '0')}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
     final today = scheduledLabels[key(now)];
     if (today != null) return today;
-    // A missed planned session remains the next candidate for up to seven
-    // days. Completing a record with the same name consumes that candidate.
-    for (var offset = 1; offset <= 7; offset++) {
-      final day = now.subtract(Duration(days: offset));
-      final planned = scheduledLabels[key(day)];
-      if (planned == null) continue;
-      final completed = history.any(
-        (record) =>
-            record.name == planned &&
-            !record.date.isBefore(DateTime(day.year, day.month, day.day)),
-      );
-      if (!completed) return planned;
-    }
     return null;
   }
 
@@ -3102,9 +3126,14 @@ class AppController extends ChangeNotifier {
     officialPlansLoading = true;
     officialPlansError = null;
 
-    final preferences = await SharedPreferences.getInstance();
+    SharedPreferences? preferences;
+    try {
+      preferences = await SharedPreferences.getInstance();
+    } catch (_) {
+      // A cache failure must not block the catalog request or training page.
+    }
     if (officialPlans.isEmpty) {
-      final cached = preferences.getString(cacheKey);
+      final cached = preferences?.getString(cacheKey);
       if (cached != null && cached.isNotEmpty) {
         try {
           final payload = jsonDecode(cached);
@@ -3114,7 +3143,7 @@ class AppController extends ChangeNotifier {
           officialPlans = _parseOfficialPlans(rawPlans);
           if (!_disposed && officialPlans.isNotEmpty) notifyListeners();
         } catch (_) {
-          await preferences.remove(cacheKey);
+          await preferences?.remove(cacheKey);
         }
       }
     }
@@ -3132,7 +3161,7 @@ class AppController extends ChangeNotifier {
         throw const FormatException('official_plans_empty');
       }
       officialPlans = loaded;
-      await preferences.setString(cacheKey, jsonEncode({'plans': rawPlans}));
+      await preferences?.setString(cacheKey, jsonEncode({'plans': rawPlans}));
     } catch (_) {
       officialPlansError = officialPlans.isEmpty
           ? '官方计划暂时无法加载，请稍后重试'
@@ -4698,6 +4727,17 @@ class AppController extends ChangeNotifier {
         updatedAt: DateTime.now(),
       ),
     );
+    _persistTrainingLibrary();
+    notifyListeners();
+  }
+
+  void updateRoutineCover(Routine routine, String? image) {
+    if (!routines.contains(routine)) {
+      if (!routine.id.startsWith('official-')) return;
+      routines.add(routine);
+    }
+    routine.coverImage = image;
+    routine.updatedAt = DateTime.now();
     _persistTrainingLibrary();
     notifyListeners();
   }

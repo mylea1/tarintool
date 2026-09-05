@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
@@ -360,6 +361,7 @@ class _TrainingProfileOnboardingPageState
   bool needsWarmupSets = true;
   final Set<String> focusMuscles = {};
   final Set<String> reducedMuscles = {};
+  final Set<String> excludedMuscles = {};
   final age = TextEditingController();
   final years = TextEditingController();
   final height = TextEditingController();
@@ -406,6 +408,7 @@ class _TrainingProfileOnboardingPageState
     needsWarmupSets = profile.needsWarmupSets;
     focusMuscles.addAll(profile.focusMuscles);
     reducedMuscles.addAll(profile.reducedMuscles);
+    excludedMuscles.addAll(profile.excludedMuscles);
     dislikedExercises.text = profile.dislikedExerciseIds.join('、');
     unavailableExercises.text = profile.unavailableExerciseIds.join('、');
   }
@@ -474,6 +477,7 @@ class _TrainingProfileOnboardingPageState
       needsWarmupSets: needsWarmupSets,
       focusMuscles: focusMuscles.toList(),
       reducedMuscles: reducedMuscles.toList(),
+      excludedMuscles: excludedMuscles.toList(),
       dislikedExerciseIds: _splitProfileValues(dislikedExercises.text),
       unavailableExerciseIds: _splitProfileValues(unavailableExercises.text),
     );
@@ -687,9 +691,11 @@ class _TrainingProfileOnboardingPageState
                     const SizedBox(height: 10),
                     SegmentedButton<String>(
                       key: const Key('profile-muscle-preference-mode'),
+                      showSelectedIcon: false,
                       segments: const [
                         ButtonSegment(value: 'focus', label: Text('重点训练')),
                         ButtonSegment(value: 'reduced', label: Text('减少训练')),
+                        ButtonSegment(value: 'excluded', label: Text('不练部位')),
                       ],
                       selected: {musclePreferenceKind},
                       onSelectionChanged: (value) =>
@@ -708,18 +714,27 @@ class _TrainingProfileOnboardingPageState
                       selectionMode: true,
                       selectedGroups: musclePreferenceKind == 'focus'
                           ? focusMuscles
+                          : musclePreferenceKind == 'excluded'
+                          ? excludedMuscles
                           : reducedMuscles,
                       onSelectionChanged: (selected) => setState(() {
                         final target = musclePreferenceKind == 'focus'
                             ? focusMuscles
+                            : musclePreferenceKind == 'excluded'
+                            ? excludedMuscles
                             : reducedMuscles;
-                        final opposite = musclePreferenceKind == 'focus'
-                            ? reducedMuscles
-                            : focusMuscles;
                         target
                           ..clear()
                           ..addAll(selected);
-                        opposite.removeAll(selected);
+                        for (final group in [
+                          focusMuscles,
+                          reducedMuscles,
+                          excludedMuscles,
+                        ]) {
+                          if (!identical(group, target)) {
+                            group.removeAll(selected);
+                          }
+                        }
                         validationError = null;
                       }),
                     ),
@@ -729,7 +744,7 @@ class _TrainingProfileOnboardingPageState
                       style: const TextStyle(fontWeight: FontWeight.w700),
                     ),
                     Text(
-                      '减少：${reducedMuscles.isEmpty ? '无' : reducedMuscles.join('、')}',
+                      '减少：${reducedMuscles.isEmpty ? '无' : reducedMuscles.join('、')} · 不练：${excludedMuscles.isEmpty ? '无' : excludedMuscles.join('、')}',
                       style: TextStyle(color: muted, fontSize: 12),
                     ),
                   ],
@@ -2764,8 +2779,6 @@ class HomePage extends StatelessWidget {
     }
     return PageFrame(
       children: [
-        AiTrainingHomeCard(controller: controller),
-        const SizedBox(height: 16),
         SectionTitle(
           '本周训练',
           action:
@@ -4453,9 +4466,21 @@ class _ParticlePainter extends CustomPainter {
       oldDelegate.reducedMotion != reducedMotion;
 }
 
-class TrainPage extends StatelessWidget {
+class TrainPage extends StatefulWidget {
   const TrainPage({super.key, required this.controller});
   final AppController controller;
+  @override
+  State<TrainPage> createState() => _TrainPageState();
+}
+
+class _TrainPageState extends State<TrainPage> {
+  AppController get controller => widget.controller;
+  @override
+  void initState() {
+    super.initState();
+    unawaited(controller.loadOfficialPlans());
+  }
+
   @override
   Widget build(BuildContext context) {
     if (controller.liveWorkoutVisible) {
@@ -4483,7 +4508,7 @@ class TrainPage extends StatelessWidget {
                   children: [
                     _TrainingPlanStatusCard(controller: controller),
                     const SizedBox(height: 14),
-                    SectionTitle('我的训练计划', subtitle: '选择一节训练后进入独立实时记录界面'),
+                    const SectionTitle('其他训练方式'),
                     _PlansView(controller: controller),
                   ],
                 ),
@@ -4495,60 +4520,114 @@ class TrainPage extends StatelessWidget {
 
 class _TrainingPlanStatusCard extends StatelessWidget {
   const _TrainingPlanStatusCard({required this.controller});
-
   final AppController controller;
 
   @override
   Widget build(BuildContext context) {
     final snapshot = controller.trainingIntelligence;
-    final recovery = snapshot.recovery.take(4).toList(growable: false);
-    final gym = controller.currentGym;
+    final member = controller.entitlements?.isMember == true;
+    final routine = controller.todayPlanCandidates
+        .where((r) => r.id == snapshot.today.routineId)
+        .firstOrNull;
+    final active = controller.workoutStarted;
+    final exercises = active
+        ? controller.workout
+        : routine?.exercises ?? <WorkoutExercise>[];
+    final sets = exercises.fold<int>(0, (sum, e) => sum + e.sets.length);
+    final minutes = (sets * 3 + exercises.length * 2).clamp(10, 180);
+    final muscles = exercises
+        .map(
+          (e) => controller.muscleGroupFor(
+            controller.exerciseFor(e.exerciseId).muscle,
+          ),
+        )
+        .toSet();
+    final recovery = snapshot.recovery
+        .where((r) => muscles.contains(r.muscle))
+        .take(3);
     return Card(
       key: const Key('plan-today-status'),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 13, 14, 12),
+        padding: const EdgeInsets.all(14),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Row(
               children: [
                 const Expanded(
                   child: Text(
-                    '今日状态',
-                    style: TextStyle(fontWeight: FontWeight.w900),
+                    '今日安排',
+                    style: TextStyle(fontWeight: FontWeight.w800),
                   ),
                 ),
-                TextButton(
-                  key: const Key('plan-open-recovery'),
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) =>
-                          RecoveryDetailsPage(controller: controller),
-                    ),
+                if (!active)
+                  TextButton(
+                    onPressed: () => _chooseTodayRoutine(context, controller),
+                    child: const Text('更换计划'),
                   ),
-                  child: const Text('查看恢复'),
-                ),
+                if (active) const Text('训练中'),
               ],
             ),
-            Wrap(
-              spacing: 7,
-              runSpacing: 7,
+            const SizedBox(height: 6),
+            Row(
               children: [
-                for (final item in recovery)
-                  _RecoveryMiniPill(muscle: item.muscle, percent: item.percent),
+                if (routine != null && !active) ...[
+                  _RoutineCover(
+                    controller: controller,
+                    routine: routine,
+                    size: 76,
+                  ),
+                  const SizedBox(width: 12),
+                ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        active
+                            ? controller.workoutName
+                            : routine?.name ?? snapshot.today.title,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        active
+                            ? '完成 ${controller.completedSets} / ${controller.totalSets} 组'
+                            : routine == null
+                            ? snapshot.today.reason
+                            : '${routine.folder == '官方计划' ? '官方计划' : '我的计划'} · ${exercises.length} 个动作 · $sets 组 · 约 $minutes 分钟',
+                        style: TextStyle(color: quiet, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 10),
+            if (recovery.isNotEmpty)
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  for (final item in recovery)
+                    _RecoveryMiniPill(
+                      muscle: item.muscle,
+                      percent: item.percent,
+                    ),
+                  const Text('恢复估算', style: TextStyle(fontSize: 11)),
+                ],
+              ),
             Row(
               children: [
-                Icon(Icons.location_on_outlined, size: 18, color: primary),
+                Icon(Icons.location_on_outlined, size: 17, color: primary),
                 const SizedBox(width: 5),
                 Expanded(
                   child: Text(
-                    gym == null ? '今天在哪训练？' : '当前：${gym.name}',
+                    controller.currentGym?.name ?? '今天在哪训练？',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                 ),
                 if (controller.gymLocations.isNotEmpty)
@@ -4556,14 +4635,11 @@ class _TrainingPlanStatusCard extends StatelessWidget {
                     key: const Key('plan-gym-switcher'),
                     tooltip: '切换训练地点',
                     onSelected: controller.selectGym,
-                    itemBuilder: (context) => [
-                      for (final location in controller.gymLocations)
-                        PopupMenuItem<String>(
-                          value: location.id,
-                          child: Text(location.name),
-                        ),
+                    itemBuilder: (_) => [
+                      for (final gym in controller.gymLocations)
+                        PopupMenuItem(value: gym.id, child: Text(gym.name)),
                     ],
-                    icon: const Icon(Icons.swap_vert_rounded, size: 20),
+                    icon: const Icon(Icons.swap_vert_rounded),
                   ),
                 TextButton(
                   key: const Key('plan-open-gyms'),
@@ -4572,20 +4648,164 @@ class _TrainingPlanStatusCard extends StatelessWidget {
                       builder: (_) => GymLocationsPage(controller: controller),
                     ),
                   ),
-                  child: Text(gym == null ? '添加' : '管理'),
+                  child: const Text('管理'),
                 ),
               ],
             ),
-            if (snapshot.today.muscles.isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Text(
-                '今天建议：${snapshot.today.muscles.join(' + ')} · ${snapshot.today.reason}',
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: quiet, fontSize: 12, height: 1.35),
+            if (member)
+              ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                dense: true,
+                title: const Text('AI 训练建议', style: TextStyle(fontSize: 12)),
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Text(
+                      snapshot.today.reason,
+                      style: TextStyle(color: quiet, fontSize: 12),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            FilledButton.icon(
+              key: const Key('training-start-today'),
+              onPressed: active
+                  ? controller.openLiveWorkout
+                  : routine == null
+                  ? () => _chooseTodayRoutine(context, controller)
+                  : routine.exercises.isEmpty
+                  ? null
+                  : () => controller.startRoutine(routine),
+              icon: const Icon(Icons.play_arrow_rounded),
+              label: Text(
+                active
+                    ? '继续今日训练'
+                    : routine == null
+                    ? '选择训练计划'
+                    : '开始今日训练',
+              ),
+            ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+void _chooseTodayRoutine(BuildContext context, AppController controller) {
+  showModalBottomSheet<void>(
+    context: context,
+    useSafeArea: true,
+    isScrollControlled: true,
+    builder: (sheetContext) => SafeArea(
+      child: SizedBox(
+        height: MediaQuery.sizeOf(context).height * .65,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            const SectionTitle('选择今日计划'),
+            if (controller.todayPlanCandidates.isEmpty)
+              const Text('还没有计划，可先新建计划或开始自由训练。'),
+            for (final routine in controller.todayPlanCandidates)
+              ListTile(
+                leading: _RoutineCover(
+                  controller: controller,
+                  routine: routine,
+                  size: 48,
+                ),
+                title: Text(routine.name),
+                subtitle: Text('${routine.exercises.length} 个动作'),
+                onTap: () {
+                  controller.schedule(DateTime.now(), routine.name);
+                  Navigator.pop(sheetContext);
+                },
+              ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+class _RoutineCover extends StatelessWidget {
+  const _RoutineCover({
+    required this.controller,
+    required this.routine,
+    this.size = 64,
+  });
+  final AppController controller;
+  final Routine routine;
+  final double size;
+
+  Future<void> _pick(BuildContext context) async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        withData: true,
+      );
+      if (result == null) return;
+      final file = result.files.single;
+      final bytes = file.bytes;
+      if (bytes == null || bytes.isEmpty || bytes.length > 15 * 1024 * 1024) {
+        if (context.mounted) showKiloSnack(context, '请选择不超过 15 MB 的图片');
+        return;
+      }
+      final codec = await ui.instantiateImageCodec(
+        bytes,
+        targetWidth: 480,
+        allowUpscaling: false,
+      );
+      try {
+        final frame = await codec.getNextFrame();
+        try {
+          final data = await frame.image.toByteData(
+            format: ui.ImageByteFormat.png,
+          );
+          if (data != null && context.mounted) {
+            controller.updateRoutineCover(
+              routine,
+              base64Encode(data.buffer.asUint8List()),
+            );
+          }
+        } finally {
+          frame.image.dispose();
+        }
+      } finally {
+        codec.dispose();
+      }
+    } catch (_) {
+      if (context.mounted) showKiloSnack(context, '图片无法读取，请换一张图片重试');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    Widget fallback() => Image.asset(brandLogoAsset, fit: BoxFit.cover);
+    Widget picture = fallback();
+    if (routine.coverImage != null) {
+      try {
+        picture = Image.memory(
+          base64Decode(routine.coverImage!),
+          fit: BoxFit.cover,
+          errorBuilder: (_, error, stack) => fallback(),
+        );
+      } catch (_) {
+        picture = fallback();
+      }
+    }
+    return Semantics(
+      button: true,
+      label: '更换${routine.name}封面',
+      child: Tooltip(
+        message: '点击更换计划封面',
+        child: InkWell(
+          key: Key('routine-cover-${routine.id}'),
+          onTap: () => _pick(context),
+          borderRadius: BorderRadius.circular(12),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: SizedBox(width: size, height: size, child: picture),
+          ),
         ),
       ),
     );
@@ -5804,67 +6024,19 @@ class _WorkoutExerciseCard extends StatelessWidget {
 class _ProgressionRecommendationCard extends StatelessWidget {
   const _ProgressionRecommendationCard({required this.recommendation});
   final ProgressionRecommendation recommendation;
-
   @override
-  Widget build(BuildContext context) => Container(
+  Widget build(BuildContext context) => Padding(
     key: Key('progression-${recommendation.exerciseId}'),
-    width: double.infinity,
-    margin: const EdgeInsets.only(bottom: 9),
-    padding: const EdgeInsets.all(10),
-    decoration: BoxDecoration(
-      color: Theme.of(
-        context,
-      ).colorScheme.primaryContainer.withValues(alpha: .55),
-      borderRadius: BorderRadius.circular(11),
-      border: Border.all(
-        color: Theme.of(context).colorScheme.primary.withValues(alpha: .18),
+    padding: const EdgeInsets.only(bottom: 9),
+    child: Text(
+      recommendation.weight > 0
+          ? '推荐重量 · ${_displayWeight(recommendation.weight)} kg'
+          : '推荐重量 · 待建立训练记录',
+      style: TextStyle(
+        color: Theme.of(context).colorScheme.primary,
+        fontSize: 12,
+        fontWeight: FontWeight.w700,
       ),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(
-              Icons.auto_awesome_rounded,
-              size: 16,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Text(
-                recommendation.weight <= 0
-                    ? recommendation.decision
-                    : '${recommendation.decision} · ${_displayWeight(recommendation.weight)} kg × ${recommendation.targetMin}–${recommendation.targetMax} · ${recommendation.sets} 组',
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 5),
-        Material(
-          color: Colors.transparent,
-          child: ExpansionTile(
-            key: Key('progression-why-${recommendation.exerciseId}'),
-            tilePadding: EdgeInsets.zero,
-            childrenPadding: EdgeInsets.zero,
-            dense: true,
-            title: const Text('为什么推荐这个重量？', style: TextStyle(fontSize: 11)),
-            children: [
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  recommendation.reason,
-                  style: const TextStyle(fontSize: 11, height: 1.4),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
     ),
   );
 }
@@ -7003,7 +7175,7 @@ class _PlansView extends StatelessWidget {
       children: [
         LayoutBuilder(
           builder: (context, constraints) {
-            final freeWorkout = FilledButton.icon(
+            final freeWorkout = OutlinedButton.icon(
               key: const Key('free-workout-button'),
               onPressed: () {
                 controller.startWorkout(name: '自由训练', autoStartTimer: false);
@@ -7234,22 +7406,15 @@ class _RoutineCard extends StatelessWidget {
   const _RoutineCard({required this.controller, required this.routine});
   final AppController controller;
   final Routine routine;
-
   @override
   Widget build(BuildContext context) {
-    final setCount = routine.exercises.fold<int>(
-      0,
-      (sum, exercise) => sum + exercise.sets.length,
-    );
-    final estimateMinutes = (setCount * 3 + routine.exercises.length * 2).clamp(
-      10,
-      180,
-    );
+    final count = routine.exercises.fold<int>(0, (n, e) => n + e.sets.length);
+    final minutes = (count * 3 + routine.exercises.length * 2).clamp(10, 180);
     final summary = routine.exercises
         .take(3)
         .map(
-          (exercise) => controller.displayExerciseName(
-            controller.exerciseFor(exercise.exerciseId),
+          (e) => controller.displayExerciseName(
+            controller.exerciseFor(e.exerciseId),
           ),
         )
         .join(' · ');
@@ -7260,68 +7425,57 @@ class _RoutineCard extends StatelessWidget {
         onTap: () => _showRoutineDetail(context, controller, routine),
         borderRadius: BorderRadius.circular(16),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 13, 10, 11),
-          child: Column(
+          padding: const EdgeInsets.all(12),
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: EdgeInsets.only(top: 2),
-                    child: Icon(Icons.fitness_center, color: cobalt),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      routine.name,
-                      style: const TextStyle(fontWeight: FontWeight.w800),
+              _RoutineCover(controller: controller, routine: routine),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            routine.name,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                        ),
+                        IconButton(
+                          key: Key('routine-more-${routine.id}'),
+                          tooltip: '计划更多操作',
+                          onPressed: () =>
+                              _showRoutineActions(context, controller, routine),
+                          icon: const Icon(Icons.more_horiz),
+                        ),
+                      ],
+                    ),
+                    Text(
+                      summary,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: quiet, fontSize: 12),
                     ),
-                  ),
-                  IconButton(
-                    key: Key('routine-more-${routine.id}'),
-                    tooltip: '计划更多操作',
-                    onPressed: () =>
-                        _showRoutineActions(context, controller, routine),
-                    icon: const Icon(Icons.more_horiz),
-                  ),
-                ],
-              ),
-              if (summary.isNotEmpty)
-                Text(
-                  summary,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 12, color: quiet),
-                ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  _RoutineStat(
-                    label: '动作',
-                    value: '${routine.exercises.length}',
-                  ),
-                  _RoutineStat(label: '组数', value: '$setCount'),
-                  _RoutineStat(label: '预计', value: '$estimateMinutes 分钟'),
-                ],
-              ),
-              const SizedBox(height: 9),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  key: Key('routine-start-${routine.id}'),
-                  onPressed: routine.exercises.isEmpty
-                      ? null
-                      : () {
-                          controller.startRoutine(routine);
-                          showKiloSnack(context, '已开始 ${routine.name}');
+                    Text(
+                      '${routine.exercises.length} 个动作 · $count 组 · 约 $minutes 分钟',
+                      style: TextStyle(color: quiet, fontSize: 11),
+                    ),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        key: Key('routine-select-${routine.id}'),
+                        onPressed: () {
+                          controller.schedule(DateTime.now(), routine.name);
+                          showKiloSnack(context, '已选择今日计划：${routine.name}');
                         },
-                  icon: const Icon(Icons.play_arrow, size: 18),
-                  label: const Text('开始'),
+                        child: const Text('选择 ›'),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -7838,32 +7992,38 @@ class _RecordsPageState extends State<RecordsPage> {
     mode = controller.consumeRecordsInitialMode();
   }
 
-  Widget _modeSwitch() => SingleChildScrollView(
-    scrollDirection: Axis.horizontal,
-    child: Center(
-      child: SegmentedButton<String>(
-        key: const Key('records-statistics-tabs'),
-        segments: const [
-          ButtonSegment(
-            value: 'training',
-            icon: Icon(Icons.calendar_month_outlined),
-            label: Text('训练'),
+  Widget _modeSwitch() => LayoutBuilder(
+    builder: (context, constraints) {
+      return SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: SizedBox(
+          width: math.max(300, constraints.maxWidth),
+          child: SegmentedButton<String>(
+            key: const Key('records-statistics-tabs'),
+            showSelectedIcon: false,
+            segments: const [
+              ButtonSegment(
+                value: 'training',
+                icon: Icon(Icons.calendar_month_outlined),
+                label: Text('训练'),
+              ),
+              ButtonSegment(
+                value: 'nutrition',
+                icon: Icon(Icons.restaurant_outlined),
+                label: Text('饮食'),
+              ),
+              ButtonSegment(
+                value: 'statistics',
+                icon: Icon(Icons.insights_outlined),
+                label: Text('统计'),
+              ),
+            ],
+            selected: {mode},
+            onSelectionChanged: (value) => setState(() => mode = value.first),
           ),
-          ButtonSegment(
-            value: 'nutrition',
-            icon: Icon(Icons.restaurant_outlined),
-            label: Text('饮食'),
-          ),
-          ButtonSegment(
-            value: 'statistics',
-            icon: Icon(Icons.insights_outlined),
-            label: Text('统计'),
-          ),
-        ],
-        selected: {mode},
-        onSelectionChanged: (value) => setState(() => mode = value.first),
-      ),
-    ),
+        ),
+      );
+    },
   );
 
   Future<void> _selectCustomStatisticsRange() async {
@@ -7882,11 +8042,21 @@ class _RecordsPageState extends State<RecordsPage> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => Column(
+    children: [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+        child: _modeSwitch(),
+      ),
+      Expanded(
+        child: KeyedSubtree(key: ValueKey(mode), child: _buildContent(context)),
+      ),
+    ],
+  );
+
+  Widget _buildContent(BuildContext context) {
     if (mode == 'statistics') {
       final content = [
-        _modeSwitch(),
-        const SizedBox(height: 14),
         _TrainingStatisticsView(
           controller: controller,
           period: statisticsPeriod,
@@ -7903,18 +8073,7 @@ class _RecordsPageState extends State<RecordsPage> {
           : PageFrame(children: content);
     }
     if (mode == 'nutrition') {
-      return Column(
-        key: const Key('records-nutrition-center'),
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-            child: _modeSwitch(),
-          ),
-          Expanded(
-            child: NutritionCenterPage(controller: controller, embedded: true),
-          ),
-        ],
-      );
+      return NutritionCenterPage(controller: controller, embedded: true);
     }
     final monthStart = DateTime(selected.year, selected.month, 1);
     final firstMonday = monthStart.subtract(
@@ -7927,8 +8086,6 @@ class _RecordsPageState extends State<RecordsPage> {
     final textScale = MediaQuery.textScalerOf(context).scale(1);
     final today = DateTime.now();
     final content = <Widget>[
-      _modeSwitch(),
-      const SizedBox(height: 14),
       SectionTitle(
         '记录',
         subtitle: '训练日历、完成情况和历史记录',
@@ -8269,19 +8426,6 @@ class _TrainingStatisticsView extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 10),
-        Align(
-          alignment: Alignment.centerRight,
-          child: OutlinedButton.icon(
-            key: const Key('open-friends'),
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => _FriendsPage(controller: controller),
-              ),
-            ),
-            icon: const Icon(Icons.people_alt_outlined, size: 18),
-            label: const Text('好友训练'),
-          ),
-        ),
         const SizedBox(height: 18),
         const Text(
           '训练概况',

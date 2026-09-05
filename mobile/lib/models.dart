@@ -742,12 +742,14 @@ class Routine {
     required this.folder,
     required this.exercises,
     required this.updatedAt,
+    this.coverImage,
   });
   final String id;
   String name;
   String folder;
   List<WorkoutExercise> exercises;
   DateTime updatedAt;
+  String? coverImage;
 }
 
 enum AiContextType { activeWorkout, workoutRecord, routine, week, month }
@@ -957,6 +959,7 @@ class TrainingProfile {
     this.needsWarmupSets = true,
     this.focusMuscles = const [],
     this.reducedMuscles = const [],
+    this.excludedMuscles = const [],
     this.dislikedExerciseIds = const [],
     this.unavailableExerciseIds = const [],
   });
@@ -984,6 +987,7 @@ class TrainingProfile {
   final bool needsWarmupSets;
   final List<String> focusMuscles;
   final List<String> reducedMuscles;
+  final List<String> excludedMuscles;
   final List<String> dislikedExerciseIds;
   final List<String> unavailableExerciseIds;
 
@@ -1017,6 +1021,7 @@ class TrainingProfile {
     'needsWarmupSets': needsWarmupSets,
     'focusMuscles': focusMuscles,
     'reducedMuscles': reducedMuscles,
+    'excludedMuscles': excludedMuscles,
     'dislikedExerciseIds': dislikedExerciseIds,
     'unavailableExerciseIds': unavailableExerciseIds,
   };
@@ -1066,6 +1071,7 @@ class TrainingProfile {
       needsWarmupSets: json['needsWarmupSets'] != false,
       focusMuscles: _profileStringList(json['focusMuscles']),
       reducedMuscles: _profileStringList(json['reducedMuscles']),
+      excludedMuscles: _profileStringList(json['excludedMuscles']),
       dislikedExerciseIds: _profileStringList(json['dislikedExerciseIds']),
       unavailableExerciseIds: _profileStringList(
         json['unavailableExerciseIds'],
