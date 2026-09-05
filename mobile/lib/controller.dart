@@ -19,6 +19,8 @@ import 'secure_session_store.dart';
 import 'workout_history_persistence.dart';
 import 'training_intelligence.dart';
 
+part 'workout_coach_controller.dart';
+
 const String defaultCoachApiBaseUrl = String.fromEnvironment(
   'KILO_API_BASE_URL',
   defaultValue: 'https://api.kilostrength.cn',
@@ -514,6 +516,8 @@ class AppController extends ChangeNotifier {
   void _handleAccountChanged() {
     final userId = currentUser?.id;
     if (_observedAccountUserId != userId) {
+      workoutCoachGeneration++;
+      workoutCoachMessages.clear();
       _observedAccountUserId = userId;
       _remoteIdentifier = currentUser?.identifier;
       _remoteEntitlementsFresh = false;
@@ -2114,6 +2118,8 @@ class AppController extends ChangeNotifier {
   List<CoachToolUse> aiToolUses = const [];
   String? aiToolError;
   bool aiTyping = false;
+  final List<ChatMessage> workoutCoachMessages = [];
+  int workoutCoachGeneration = 0;
   int aiWaitingSeconds = 0;
   final List<ChatMessage> chat = [];
   final List<AiSkill> aiSkills = [];
@@ -3278,6 +3284,8 @@ class AppController extends ChangeNotifier {
     bool autoStartTimer = true,
   }) {
     freeWorkout = source == null;
+    workoutCoachGeneration++;
+    workoutCoachMessages.clear();
     // A new free-training session always starts with an unset rest. A plan's
     // explicit per-exercise/per-set values are copied below and remain intact.
     defaultRestSeconds = freeWorkout ? 0 : _positivePlanRest(source);

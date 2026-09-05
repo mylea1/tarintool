@@ -32,6 +32,8 @@ import 'training_intelligence.dart';
 import 'product_features.dart';
 import 'workout_share_card.dart';
 
+part 'workout_coach_ui.dart';
+
 typedef _KiloPalette = ({
   Color background,
   Color surface,
@@ -2096,6 +2098,16 @@ class KiloShell extends StatelessWidget {
                 },
               ),
             ),
+            if (controller.page == PageId.train && controller.liveWorkoutVisible)
+              Positioned(
+                right: 16, bottom: reservedBottom + 12,
+                child: FloatingActionButton.small(
+                  key: const Key('workout-coach-open'),
+                  heroTag: 'workout-coach', tooltip: '本次训练 AI 教练',
+                  onPressed: () => _showWorkoutCoach(context, controller),
+                  child: const Text('AI', style: TextStyle(fontWeight: FontWeight.w800)),
+                ),
+              ),
           ],
         ),
       ),
@@ -6051,15 +6063,17 @@ class _SetColumns {
 
   factory _SetColumns.fromWidth(double width) {
     final compact = width < 340;
+    // Include horizontal padding and borders when fitting narrow phones.
+    final scale = math.min(1.0, math.max(0.0, (width - 8) / (compact ? 260 : 322)));
     return _SetColumns(
       compact: compact,
-      group: compact ? 52 : 64,
-      last: compact ? 44 : 58,
-      weight: compact ? 50 : 58,
-      reps: compact ? 34 : 42,
-      note: compact ? 34 : 40,
-      complete: compact ? 36 : 40,
-      gap: compact ? 2 : 4,
+      group: (compact ? 52 : 64) * scale,
+      last: (compact ? 44 : 58) * scale,
+      weight: (compact ? 50 : 58) * scale,
+      reps: (compact ? 34 : 42) * scale,
+      note: (compact ? 34 : 40) * scale,
+      complete: (compact ? 36 : 40) * scale,
+      gap: (compact ? 2 : 4) * scale,
     );
   }
 }
@@ -7073,7 +7087,7 @@ void _showAiWorkoutPlanner(BuildContext context, AppController controller) {
     isScrollControlled: true,
     useSafeArea: true,
     backgroundColor: paper,
-    builder: (_) => _AiWorkoutPlannerSheet(controller: controller),
+    builder: (_) => _CoachPlanEditor(controller: controller),
   );
 }
 
@@ -15065,6 +15079,11 @@ class _AiPlanCard extends StatelessWidget {
               '${plan.weeks} 周',
               style: TextStyle(fontSize: 11, color: muted),
             ),
+            IconButton(
+              tooltip: '调整或重新生成计划',
+              onPressed: () => _openCoachPlanEditor(context, controller, plan: plan),
+              icon: const Icon(Icons.refresh, size: 20),
+            ),
           ],
         ),
         const SizedBox(height: 7),
@@ -20944,6 +20963,13 @@ void _showRoutineDetail(
               Text(
                 routine.name,
                 style: Theme.of(context).textTheme.headlineMedium,
+              ),
+              TextButton.icon(
+                onPressed: () => _openCoachPlanEditor(context, controller,
+                  plan: controller.coachPlanFromRoutines(routine.name, 1, [routine]),
+                  originalRoutine: routine),
+                icon: const Icon(Icons.refresh, size: 18),
+                label: const Text('AI 调整计划'),
               ),
               Text(
                 '${routine.exercises.length} 个动作 · ${routine.exercises.fold<int>(0, (sum, item) => sum + item.sets.length)} 组',
