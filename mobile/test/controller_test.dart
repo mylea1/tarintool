@@ -1459,7 +1459,7 @@ void main() {
     }
   });
 
-  test('free finish can save a non-empty plan while non-free ignores flag', () {
+  test('free and planned workouts can save independent plans on finish', () {
     final controller = AppController();
     try {
       controller.startWorkout(name: '自由训练');
@@ -1479,8 +1479,18 @@ void main() {
 
       final source = [controller.createWorkoutExercise('bench_press', 'plan')];
       controller.startWorkout(source: source, name: '计划训练');
-      controller.finishWorkout(saveAsRoutine: true, routineName: '不应保存');
-      expect(controller.routines, hasLength(1));
+      controller.finishWorkout(
+        saveAsRoutine: true,
+        routineName: '计划副本',
+        routineFolder: '上肢',
+      );
+      expect(controller.routines, hasLength(2));
+      expect(controller.routines.first.name, '计划副本');
+      expect(controller.routines.first.folder, '上肢');
+      expect(
+        identical(controller.routines.first.exercises.first, source.first),
+        isFalse,
+      );
     } finally {
       controller.dispose();
     }
