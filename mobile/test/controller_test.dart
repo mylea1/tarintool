@@ -762,7 +762,10 @@ void main() {
 
       expect(controller.workoutStarted, isFalse);
       expect(controller.history, hasLength(1));
-      expect(controller.history.first.name, '自由训练');
+      expect(
+        controller.history.first.name,
+        defaultTrainingName(controller.history.first.date),
+      );
       expect(controller.history.first.volume, 312.5);
       expect(controller.history.first.exercises.single.sets.first.weight, 62.5);
       expect(

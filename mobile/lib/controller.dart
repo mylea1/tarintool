@@ -4239,7 +4239,7 @@ class AppController extends ChangeNotifier {
         .toList(growable: false);
     final record = WorkoutRecord(
       id: 'history-${now.microsecondsSinceEpoch}',
-      name: workoutName,
+      name: trainingDisplayName(workoutName, now),
       date: now,
       startTime:
           '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}',
@@ -4417,8 +4417,7 @@ class AppController extends ChangeNotifier {
   double _estimatedOneRepMax(WorkoutSet set) =>
       set.weight * (1 + set.reps / 30);
 
-  String _defaultFreeRoutineName(DateTime date) =>
-      '自由训练 ${date.month.toString().padLeft(2, '0')}月${date.day.toString().padLeft(2, '0')}日 ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+  String _defaultFreeRoutineName(DateTime date) => defaultTrainingName(date);
 
   void addSet(WorkoutExercise exercise) {
     final nextIndex = exercise.sets.length;

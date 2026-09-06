@@ -10,10 +10,12 @@ class TrainingExerciseDetails extends StatelessWidget {
     required this.exercises,
     required this.nameFor,
     this.record = false,
+    this.compact = false,
   });
   final List<WorkoutExercise> exercises;
   final String Function(String) nameFor;
   final bool record;
+  final bool compact;
 
   static String number(num value) => value == value.roundToDouble()
       ? value.toInt().toString()
@@ -39,7 +41,7 @@ class TrainingExerciseDetails extends StatelessWidget {
     children: [
       for (final exercise in exercises)
         Padding(
-          padding: const EdgeInsets.symmetric(vertical: 10),
+          padding: EdgeInsets.symmetric(vertical: compact ? 6 : 10),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -47,30 +49,33 @@ class TrainingExerciseDetails extends StatelessWidget {
                 borderRadius: BorderRadius.circular(10),
                 child: Image.asset(
                   exerciseAsset(exercise.exerciseId),
-                  width: 48,
-                  height: 48,
+                  width: compact ? 28 : 48,
+                  height: compact ? 28 : 48,
                   fit: BoxFit.contain,
-                  errorBuilder: (_, _, _) => const SizedBox(
-                    width: 48,
-                    height: 48,
+                  errorBuilder: (_, _, _) => SizedBox(
+                    width: compact ? 28 : 48,
+                    height: compact ? 28 : 48,
                     child: Icon(Icons.fitness_center),
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
+              SizedBox(width: compact ? 6 : 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       nameFor(exercise.exerciseId),
-                      style: const TextStyle(fontWeight: FontWeight.w800),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: compact ? 12 : 14,
+                      ),
                     ),
                     Text(
                       record
                           ? '${exercise.sets.where((s) => s.completed).length}/${exercise.sets.length} 组完成'
                           : '${exercise.sets.length} 组',
-                      style: Theme.of(context).textTheme.bodySmall,
+                      style: TextStyle(fontSize: compact ? 10 : 12),
                     ),
                     if (exercise.sets.isEmpty) const Text('暂无逐组明细'),
                     for (var index = 0; index < exercise.sets.length; index++)
@@ -78,7 +83,7 @@ class TrainingExerciseDetails extends StatelessWidget {
                         padding: const EdgeInsets.only(top: 3),
                         child: Text(
                           '${index + 1}. ${setLabel(exercise.sets[index])}${exercise.sets[index].type == 'warmup' ? ' · 热身' : ''}${record && !exercise.sets[index].completed ? ' · 未完成' : ''}',
-                          style: const TextStyle(fontSize: 13),
+                          style: TextStyle(fontSize: compact ? 11 : 13),
                         ),
                       ),
                   ],
@@ -103,6 +108,7 @@ class TrainingDetailsCard extends StatelessWidget {
     this.onTap,
     this.footer,
     this.showExercises = true,
+    this.overview,
   });
   factory TrainingDetailsCard.fromRecord({
     Key? key,
@@ -112,11 +118,35 @@ class TrainingDetailsCard extends StatelessWidget {
     bool showExercises = true,
   }) => TrainingDetailsCard(
     key: key,
-    title: record.name,
+    title: trainingDisplayName(record.name, record.date),
     date: record.date,
     record: true,
     onTap: onTap,
     showExercises: showExercises,
+    overview: Wrap(
+      spacing: 16,
+      runSpacing: 10,
+      children: [
+        for (final metric in [
+          ('${TrainingExerciseDetails.number(record.volume)} kg', '总容量'),
+          ('${record.effectiveSets}', '完成组'),
+          ('${(record.durationSeconds / 60).round()} 分', '时长'),
+        ])
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                metric.$1,
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              Text(metric.$2, style: const TextStyle(fontSize: 11)),
+            ],
+          ),
+      ],
+    ),
     exercises: record.exercises.isNotEmpty
         ? record.exercises
         : [
@@ -136,6 +166,7 @@ class TrainingDetailsCard extends StatelessWidget {
   final bool showExercises;
   final VoidCallback? onTap;
   final Widget? footer;
+  final Widget? overview;
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -150,32 +181,32 @@ class TrainingDetailsCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
+        child: BrandedTrainingHero(
+          title: trainingDisplayName(title, date),
+          record: record,
+          content: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              BrandedTrainingHero(title: title, record: record),
-              if (showExercises) ...[
-                const SizedBox(height: 8),
+              if (showExercises)
                 TrainingExerciseDetails(
                   exercises: exercises,
                   nameFor: nameFor,
                   record: record,
-                ),
-              ],
+                  compact: true,
+                )
+              else
+                ?overview,
               ?footer,
-              const Divider(height: 20),
-              Text(
-                [
-                  if (date != null)
-                    '${date!.year}.${date!.month.toString().padLeft(2, '0')}.${date!.day.toString().padLeft(2, '0')}',
-                  if (summary.isNotEmpty) summary,
-                ].join(' · '),
-                textAlign: TextAlign.end,
-                style: theme.textTheme.bodySmall,
-              ),
             ],
+          ),
+          footer: Text(
+            [
+              if (date != null)
+                '${date!.year}.${date!.month.toString().padLeft(2, '0')}.${date!.day.toString().padLeft(2, '0')}',
+              if (showExercises && summary.isNotEmpty) summary,
+            ].join(' · '),
+            textAlign: TextAlign.end,
+            style: const TextStyle(fontSize: 10),
           ),
         ),
       ),

@@ -2289,3 +2289,15 @@ class WorkoutActivitySet {
     completed: true,
   );
 }
+
+/// Keep custom names intact; normalize only the old generated free-session names.
+String defaultTrainingName(DateTime date) =>
+    '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+
+String trainingDisplayName(String name, [DateTime? date]) {
+  final value = name.trim();
+  if (value.isEmpty || value == '自由训练') {
+    return date == null ? '未命名计划' : defaultTrainingName(date);
+  }
+  return value.replaceFirst(RegExp(r'^自由训练\s+(?=\d{2}月\d{2}日)'), '');
+}

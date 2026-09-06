@@ -7562,7 +7562,19 @@ class _RoutineCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               BrandedTrainingHero(
-                title: routine.name,
+                title: trainingDisplayName(routine.name),
+                content: TrainingExerciseDetails(
+                  exercises: routine.exercises,
+                  nameFor: (id) => controller.displayExerciseName(
+                    controller.exerciseFor(id),
+                  ),
+                  compact: true,
+                ),
+                footer: Text(
+                  '${routine.exercises.length} 个动作 · $count 组 · 约 $minutes 分钟',
+                  textAlign: TextAlign.end,
+                  style: const TextStyle(fontSize: 10),
+                ),
                 cover: _RoutineCover(
                   controller: controller,
                   routine: routine,
@@ -7578,16 +7590,6 @@ class _RoutineCard extends StatelessWidget {
                       _showRoutineActions(context, controller, routine),
                   icon: const Icon(Icons.more_horiz),
                 ),
-              ),
-              TrainingExerciseDetails(
-                exercises: routine.exercises,
-                nameFor: (id) =>
-                    controller.displayExerciseName(controller.exerciseFor(id)),
-              ),
-              Text(
-                '${routine.exercises.length} 个动作 · $count 组 · 约 $minutes 分钟',
-                textAlign: TextAlign.end,
-                style: TextStyle(color: quiet, fontSize: 11),
               ),
               Align(
                 alignment: Alignment.centerRight,
@@ -19689,8 +19691,7 @@ class _CelebrationSetRow extends StatelessWidget {
   );
 }
 
-String _freeRoutineNameSuggestion(DateTime date) =>
-    '自由训练 ${date.month.toString().padLeft(2, '0')}月${date.day.toString().padLeft(2, '0')}日 ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+String _freeRoutineNameSuggestion(DateTime date) => defaultTrainingName(date);
 
 void _startPlanSession(
   BuildContext context,

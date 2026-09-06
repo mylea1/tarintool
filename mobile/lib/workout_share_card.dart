@@ -575,17 +575,21 @@ class _ShareFoldPainter extends CustomPainter {
       oldDelegate.accent != accent;
 }
 
-/// Keeps the original split poster composition, with theme-specific materials.
+/// One continuous poster surface; the artwork has its own unobstructed column.
 class BrandedTrainingHero extends StatelessWidget {
   const BrandedTrainingHero({
     super.key,
     required this.title,
     this.record = false,
     this.cover,
+    this.content,
+    this.footer,
   });
   final String title;
   final bool record;
   final Widget? cover;
+  final Widget? content;
+  final Widget? footer;
   @override
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
@@ -609,66 +613,82 @@ class BrandedTrainingHero extends StatelessWidget {
                   ),
           ),
           Positioned.fill(
-            child: ClipPath(
-              clipper: const _ShareVisualClipper(),
+            child: IgnorePointer(
               child: Align(
                 alignment: Alignment.centerRight,
                 child: FractionallySizedBox(
-                  widthFactor: .55,
-                  child:
-                      cover ??
-                      Image.asset(
-                        dark
-                            ? _brandLogoAsset
-                            : 'assets/branding/kilo-orange-metal-logo-light.png',
-                        fit: BoxFit.contain,
-                      ),
+                  widthFactor: .32,
+                  heightFactor: 1,
+                  child: CustomPaint(
+                    painter: _ShareFoldPainter(accent: accent),
+                  ),
                 ),
               ),
             ),
           ),
-          Positioned.fill(
-            child: IgnorePointer(
-              child: CustomPaint(painter: _ShareFoldPainter(accent: accent)),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(18),
-            child: Row(
-              children: [
-                Expanded(
-                  flex: 6,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+          DefaultTextStyle.merge(
+            style: TextStyle(color: ink),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Text(
-                        'K I L O S T R E N G T H',
-                        style: TextStyle(
-                          color: ink,
-                          fontSize: 9,
-                          fontWeight: FontWeight.w800,
+                      Expanded(
+                        flex: 72,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '形域',
+                              style: TextStyle(
+                                color: accent,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              title,
+                              style: TextStyle(
+                                color: ink,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            ?content,
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 28),
-                      Text(
-                        record ? '训练完成' : '训练计划',
-                        style: TextStyle(color: accent, fontSize: 11),
-                      ),
-                      const SizedBox(height: 7),
-                      Text(
-                        title,
-                        style: TextStyle(
-                          color: ink,
-                          fontSize: 22,
-                          fontWeight: FontWeight.w900,
+                      const SizedBox(width: 8),
+                      Expanded(
+                        flex: 28,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: SizedBox(
+                            width: 110,
+                            height: 110,
+                            child:
+                                cover ??
+                                ClipOval(
+                                  child: Image.asset(
+                                    dark
+                                        ? _brandLogoAsset
+                                        : 'assets/branding/kilo-orange-metal-logo-light.png',
+                                    fit: BoxFit.contain,
+                                  ),
+                                ),
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 22),
                     ],
                   ),
-                ),
-                const Spacer(flex: 4),
-              ],
+                  if (footer != null) ...[const SizedBox(height: 10), footer!],
+                ],
+              ),
             ),
           ),
         ],

@@ -141,7 +141,7 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const Key('workout-share-card')),
-        matching: find.text('K I L O S T R E N G T H'),
+        matching: find.text('形域'),
       ),
       findsOneWidget,
     );
