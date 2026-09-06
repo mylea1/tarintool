@@ -138,7 +138,13 @@ void main() {
     await _openCelebration(tester, controller, reducedMotion: true);
     expect(find.byKey(const Key('workout-celebration-share')), findsNothing);
     expect(find.text('分享到动态'), findsOneWidget);
-    expect(find.text('形域 · 训练记录'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('workout-share-card')),
+        matching: find.text('K I L O S T R E N G T H'),
+      ),
+      findsOneWidget,
+    );
     expect(find.textContaining('kg ×'), findsWidgets);
   });
 }

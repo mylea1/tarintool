@@ -38,6 +38,7 @@ import 'training_intelligence.dart';
 import 'product_features.dart';
 import 'workout_share_card.dart';
 import 'training_details_card.dart';
+import 'premium_feature_surface.dart';
 
 part 'plan_folders_ui.dart';
 
@@ -2239,20 +2240,10 @@ class _KiloShellState extends State<KiloShell> {
                         shape: const CircleBorder(),
                         onPressed: () {
                           setState(() => trainingMenuOpen = false);
-                          if (controller.workoutStarted ||
-                              controller.workoutDraft) {
-                            controller.openLiveWorkout();
-                            showKiloSnack(context, '请先完成或中止当前训练');
-                            return;
-                          }
-                          controller.startWorkout(
-                            name: '自由训练',
-                            autoStartTimer: false,
-                          );
-                          controller.openLiveWorkout();
+                          controller.openNewOrResumeWorkout();
                         },
-                        child: const Text(
-                          '新建\n训练',
+                        child: Text(
+                          controller.canResumeWorkout ? '返回\n训练' : '新建\n训练',
                           textAlign: TextAlign.center,
                         ),
                       ),
@@ -7570,24 +7561,23 @@ class _RoutineCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Row(
-                children: [
-                  _RoutineCover(controller: controller, routine: routine),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      routine.name,
-                      style: const TextStyle(fontWeight: FontWeight.w800),
-                    ),
-                  ),
-                  IconButton(
-                    key: Key('routine-more-${routine.id}'),
-                    tooltip: '计划更多操作',
-                    onPressed: () =>
-                        _showRoutineActions(context, controller, routine),
-                    icon: const Icon(Icons.more_horiz),
-                  ),
-                ],
+              BrandedTrainingHero(
+                title: routine.name,
+                cover: _RoutineCover(
+                  controller: controller,
+                  routine: routine,
+                  size: 120,
+                ),
+              ),
+              Align(
+                alignment: Alignment.centerRight,
+                child: IconButton(
+                  key: Key('routine-more-${routine.id}'),
+                  tooltip: '计划更多操作',
+                  onPressed: () =>
+                      _showRoutineActions(context, controller, routine),
+                  icon: const Icon(Icons.more_horiz),
+                ),
               ),
               TrainingExerciseDetails(
                 exercises: routine.exercises,
@@ -8965,7 +8955,7 @@ class _LockedAnalyticsModuleState extends State<_LockedAnalyticsModule> {
   var _expanded = false;
 
   @override
-  Widget build(BuildContext context) => Card(
+  Widget build(BuildContext context) => PremiumFeatureSurface(
     child: Padding(
       padding: const EdgeInsets.fromLTRB(13, 10, 13, 10),
       child: Column(
@@ -10691,12 +10681,8 @@ class _FriendsPageState extends State<_FriendsPage> {
               ],
             ),
             const SizedBox(height: 12),
-            Text(
-              (item['name'] ?? '训练计划').toString(),
-              style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900),
-            ),
-            const SizedBox(height: 4),
-            TrainingExerciseDetails(
+            TrainingDetailsCard(
+              title: (item['name'] ?? '训练计划').toString(),
               exercises: exercises,
               nameFor: (id) => widget.controller.displayExerciseName(
                 widget.controller.exerciseFor(id),

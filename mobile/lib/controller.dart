@@ -3596,6 +3596,15 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  bool get canResumeWorkout =>
+      (workoutStarted || workoutDraft) &&
+      (workoutTimerStarted || workoutElapsedSeconds > 0 || workout.isNotEmpty);
+
+  void openNewOrResumeWorkout() {
+    if (!canResumeWorkout) startWorkout(name: '自由训练', autoStartTimer: false);
+    openLiveWorkout();
+  }
+
   void startWorkout({
     List<WorkoutExercise>? source,
     String? name,

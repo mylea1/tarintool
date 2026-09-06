@@ -574,3 +574,105 @@ class _ShareFoldPainter extends CustomPainter {
   bool shouldRepaint(covariant _ShareFoldPainter oldDelegate) =>
       oldDelegate.accent != accent;
 }
+
+/// Keeps the original split poster composition, with theme-specific materials.
+class BrandedTrainingHero extends StatelessWidget {
+  const BrandedTrainingHero({
+    super.key,
+    required this.title,
+    this.record = false,
+    this.cover,
+  });
+  final String title;
+  final bool record;
+  final Widget? cover;
+  @override
+  Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final ink = dark ? const Color(0xfff8eee5) : const Color(0xff39291c);
+    final accent = dark ? const Color(0xffff8c36) : const Color(0xffb26724);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(18),
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: dark
+                ? CustomPaint(painter: _ShareSurfacePainter(accent: accent))
+                : const DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Color(0xfff9f2e4), Color(0xffe6d2ae)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                    ),
+                  ),
+          ),
+          Positioned.fill(
+            child: ClipPath(
+              clipper: const _ShareVisualClipper(),
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: FractionallySizedBox(
+                  widthFactor: .55,
+                  child:
+                      cover ??
+                      Image.asset(
+                        dark
+                            ? _brandLogoAsset
+                            : 'assets/branding/kilo-orange-metal-logo-light.png',
+                        fit: BoxFit.contain,
+                      ),
+                ),
+              ),
+            ),
+          ),
+          Positioned.fill(
+            child: IgnorePointer(
+              child: CustomPaint(painter: _ShareFoldPainter(accent: accent)),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(18),
+            child: Row(
+              children: [
+                Expanded(
+                  flex: 6,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'K I L O S T R E N G T H',
+                        style: TextStyle(
+                          color: ink,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 28),
+                      Text(
+                        record ? '训练完成' : '训练计划',
+                        style: TextStyle(color: accent, fontSize: 11),
+                      ),
+                      const SizedBox(height: 7),
+                      Text(
+                        title,
+                        style: TextStyle(
+                          color: ink,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 22),
+                    ],
+                  ),
+                ),
+                const Spacer(flex: 4),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

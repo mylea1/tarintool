@@ -6,6 +6,56 @@ import 'package:kilo_strength/models.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  test(
+    'empty preparation is new, active workout resumes without resetting time',
+    () {
+      final c = AppController();
+      addTearDown(c.dispose);
+      c.startWorkout(autoStartTimer: false);
+      expect(c.canResumeWorkout, isFalse);
+      c.openNewOrResumeWorkout();
+      expect(c.workoutTimerStarted, isFalse);
+      c.addExercise('bench_press');
+      c.beginWorkoutTimer();
+      final exerciseId = c.workout.single.id;
+      c.workoutElapsedSeconds = 75;
+      c.selectPage(PageId.today);
+      expect(c.canResumeWorkout, isTrue);
+      c.openNewOrResumeWorkout();
+      expect(c.workout.single.id, exerciseId);
+      expect(c.workoutElapsedSeconds, 75);
+      expect(c.workoutTimerStarted, isTrue);
+    },
+  );
+
+  testWidgets('folders expand independently and unfiled plans stay visible', (
+    tester,
+  ) async {
+    final c = AppController();
+    addTearDown(c.dispose);
+    c.saveRoutineFromDraft('文件夹内计划', [
+      c.createBlankWorkoutExercise('bench_press', 'filed'),
+    ], folder: '力量');
+    c.saveRoutineFromDraft('独立计划', [
+      c.createBlankWorkoutExercise('bench_press', 'loose'),
+    ]);
+    c.selectPage(PageId.train);
+    c.selectTrainView(TrainView.plans);
+    await tester.pumpWidget(KiloApp(initialController: c));
+    await tester.pumpAndSettle();
+    final folder = find.byKey(const ValueKey('plan-folder-力量'));
+    await Scrollable.ensureVisible(tester.element(folder), alignment: .2);
+    await tester.pumpAndSettle();
+    expect(find.text('文件夹内计划'), findsNothing);
+    expect(find.text('独立计划'), findsOneWidget);
+    await tester.tap(folder);
+    await tester.pumpAndSettle();
+    expect(find.text('文件夹内计划'), findsOneWidget);
+    await tester.tap(folder);
+    await tester.pumpAndSettle();
+    expect(find.text('文件夹内计划'), findsNothing);
+  });
+
   testWidgets('first training tap expands even with a restored workout', (
     tester,
   ) async {
@@ -29,6 +79,7 @@ void main() {
       find.byKey(const Key('training-menu-new')).hitTestable(),
       findsOneWidget,
     );
+    expect(find.text('返回\n训练'), findsOneWidget);
     await tester.tap(find.byKey(const Key('training-menu-new')));
     await tester.pumpAndSettle();
     expect(c.workout.first.id, original);

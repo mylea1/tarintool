@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'controller.dart';
 import 'models.dart';
+import 'workout_share_card.dart';
 
 /// Shared, read-only presentation. Never includes private workout/set notes.
 class TrainingExerciseDetails extends StatelessWidget {
@@ -138,11 +139,10 @@ class TrainingDetailsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final logo = theme.brightness == Brightness.dark
-        ? 'assets/branding/kilo-orange-metal-logo.png'
-        : 'assets/branding/kilo-orange-metal-logo-light.png';
     return Material(
-      color: theme.colorScheme.surface,
+      color: theme.brightness == Brightness.dark
+          ? const Color(0xff171719)
+          : const Color(0xfffaf4e9),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
         side: BorderSide(color: theme.colorScheme.outlineVariant),
@@ -155,34 +155,7 @@ class TrainingDetailsCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Row(
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: Image.asset(logo, width: 38, height: 38),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '形域 · ${record ? '训练记录' : '训练计划'}',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: theme.colorScheme.primary,
-                          ),
-                        ),
-                        Text(
-                          title,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+              BrandedTrainingHero(title: title, record: record),
               if (showExercises) ...[
                 const SizedBox(height: 8),
                 TrainingExerciseDetails(

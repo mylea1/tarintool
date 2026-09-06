@@ -14,6 +14,7 @@ import 'models.dart';
 import 'trend_chart.dart';
 import 'trend_data.dart';
 import 'training_details_card.dart';
+import 'premium_feature_surface.dart';
 
 part 'weight_trend_ui.dart';
 
@@ -419,7 +420,7 @@ class _NutritionAiAdviceModuleState extends State<_NutritionAiAdviceModule> {
     final hasAdvice = advice != null && advice!.trim().isNotEmpty;
     final isMember = controller.entitlements?.isMember == true;
     if (!isMember) {
-      return Card(
+      return PremiumFeatureSurface(
         key: const Key('nutrition-ai-advice-locked'),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(13, 12, 13, 11),

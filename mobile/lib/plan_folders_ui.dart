@@ -34,7 +34,7 @@ class _PlanFolderLibrary extends StatefulWidget {
 }
 
 class _PlanFolderLibraryState extends State<_PlanFolderLibrary> {
-  String? selected;
+  final Set<String> expanded = {};
   Future<void> createFolder() async {
     final input = TextEditingController();
     final name = await showDialog<String>(
@@ -67,12 +67,10 @@ class _PlanFolderLibraryState extends State<_PlanFolderLibrary> {
     input.dispose();
     if (!mounted || name == null) return;
     widget.controller.addRoutineFolder(name);
-    setState(() => selected = name);
+    setState(() => expanded.add(name));
   }
 
-  Future<void> deleteFolder() async {
-    final folder = selected;
-    if (folder == null || folder.isEmpty) return;
+  Future<void> deleteFolder(String folder) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -92,62 +90,81 @@ class _PlanFolderLibraryState extends State<_PlanFolderLibrary> {
     );
     if (!mounted || confirmed != true) return;
     widget.controller.deleteRoutineFolder(folder);
-    setState(() => selected = null);
+    setState(() => expanded.remove(folder));
   }
 
   @override
   Widget build(BuildContext context) {
     final c = widget.controller;
     final folders = _planFolders(c);
-    final active =
-        selected != null && selected!.isNotEmpty && !folders.contains(selected)
-        ? null
-        : selected;
-    final routines = c.routines
-        .where((r) => active == null || r.folder == active)
-        .toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Wrap(
-          spacing: 6,
-          runSpacing: 4,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            ChoiceChip(
-              label: const Text('全部'),
-              selected: active == null,
-              onSelected: (_) => setState(() => selected = null),
-            ),
-            ChoiceChip(
-              label: const Text('未分类'),
-              selected: active == '',
-              onSelected: (_) => setState(() => selected = ''),
-            ),
-            for (final f in folders)
-              ChoiceChip(
-                label: Text(f),
-                selected: active == f,
-                onSelected: (_) => setState(() => selected = f),
-              ),
-            TextButton.icon(
-              key: const Key('create-plan-folder'),
-              onPressed: createFolder,
-              icon: const Icon(Icons.create_new_folder_outlined, size: 18),
-              label: const Text('新建文件夹'),
-            ),
-            if (active != null && active.isNotEmpty)
-              TextButton.icon(
-                onPressed: deleteFolder,
-                icon: const Icon(Icons.delete_outline, size: 18),
-                label: const Text('删除文件夹'),
-              ),
-          ],
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton.icon(
+            key: const Key('create-plan-folder'),
+            onPressed: createFolder,
+            icon: const Icon(Icons.create_new_folder_outlined),
+            label: const Text('新建文件夹'),
+          ),
         ),
-        const SizedBox(height: 8),
-        if (routines.isEmpty && c.routines.isNotEmpty)
-          const Padding(padding: EdgeInsets.all(12), child: Text('暂无计划')),
-        for (final r in routines) _RoutineCard(controller: c, routine: r),
+        for (final folder in folders)
+          Card(
+            child: Column(
+              children: [
+                ListTile(
+                  key: ValueKey('plan-folder-$folder'),
+                  leading: Icon(
+                    expanded.contains(folder)
+                        ? Icons.folder_open_outlined
+                        : Icons.folder_outlined,
+                  ),
+                  title: Text(folder),
+                  subtitle: Text(
+                    '${c.routines.where((r) => r.folder == folder).length} 个计划',
+                  ),
+                  onTap: () => setState(() {
+                    if (!expanded.remove(folder)) expanded.add(folder);
+                  }),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        tooltip: '删除文件夹',
+                        onPressed: () => deleteFolder(folder),
+                        icon: const Icon(Icons.delete_outline),
+                      ),
+                      Icon(
+                        expanded.contains(folder)
+                            ? Icons.expand_less
+                            : Icons.expand_more,
+                      ),
+                    ],
+                  ),
+                ),
+                if (expanded.contains(folder))
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+                    child: Column(
+                      children: [
+                        if (!c.routines.any((r) => r.folder == folder))
+                          const Padding(
+                            padding: EdgeInsets.all(12),
+                            child: Text('暂无计划'),
+                          ),
+                        for (final routine in c.routines.where(
+                          (r) => r.folder == folder,
+                        ))
+                          _RoutineCard(controller: c, routine: routine),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        for (final routine in c.routines.where((r) => r.folder.isEmpty))
+          _RoutineCard(controller: c, routine: routine),
       ],
     );
   }
