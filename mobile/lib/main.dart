@@ -7,6 +7,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter/rendering.dart';
@@ -2144,11 +2145,18 @@ class _KiloShellState extends State<KiloShell> {
             ),
             Positioned.fill(
               child: Padding(
-                padding: EdgeInsets.only(bottom: reservedBottom),
+                padding: EdgeInsets.zero,
                 child: GestureDetector(
                   behavior: HitTestBehavior.translucent,
                   onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-                  child: body,
+                  child: MediaQuery(
+                    data: MediaQuery.of(context).copyWith(
+                      padding: MediaQuery.paddingOf(
+                        context,
+                      ).copyWith(bottom: reservedBottom),
+                    ),
+                    child: body,
+                  ),
                 ),
               ),
             ),
@@ -2165,6 +2173,7 @@ class _KiloShellState extends State<KiloShell> {
                 icons: icons,
                 compact: compact,
                 onDestinationSelected: (index) {
+                  setState(() => trainingMenuOpen = false);
                   if (pages[index] == controller.page) return;
                   controller.selectPage(pages[index]);
                 },
@@ -2183,11 +2192,7 @@ class _KiloShellState extends State<KiloShell> {
                   foregroundColor: Theme.of(context).colorScheme.onPrimary,
                   tooltip: '训练计划与实时训练',
                   onPressed: () {
-                    if (controller.workoutStarted) {
-                      controller.openLiveWorkout();
-                    } else {
-                      setState(() => trainingMenuOpen = !trainingMenuOpen);
-                    }
+                    setState(() => trainingMenuOpen = !trainingMenuOpen);
                   },
                   child: Text(
                     AppLocalizations.of(context).text('训练'),
@@ -2231,6 +2236,12 @@ class _KiloShellState extends State<KiloShell> {
                         shape: const CircleBorder(),
                         onPressed: () {
                           setState(() => trainingMenuOpen = false);
+                          if (controller.workoutStarted ||
+                              controller.workoutDraft) {
+                            controller.openLiveWorkout();
+                            showKiloSnack(context, '请先完成或中止当前训练');
+                            return;
+                          }
                           controller.startWorkout(
                             name: '自由训练',
                             autoStartTimer: false,
@@ -2291,111 +2302,116 @@ class _FloatingBottomNavigation extends StatelessWidget {
         final indicatorWidth = slotWidth * (compact ? .88 : .9);
         final indicatorHeight = compact ? 59.0 : 64.0;
         final interactiveHeight = compact ? 58.0 : 62.0;
-        return Stack(
-          children: [
-            // Paint the capsule separately from the interactive layer. This
-            // keeps the rounded background from absorbing taps intended for
-            // content that scrolls beneath its transparent top inset.
-            Positioned.fill(
-              child: IgnorePointer(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: surface.withValues(alpha: .98),
-                    borderRadius: BorderRadius.circular(compact ? 34 : 39),
-                    border: Border.all(color: hairline.withValues(alpha: .9)),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x14000000),
-                        blurRadius: 16,
-                        offset: Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            Positioned.fill(
-              child: IgnorePointer(
-                child: ExcludeSemantics(
-                  child: Opacity(
-                    opacity: 0,
-                    child: NavigationBarTheme(
-                      data: NavigationBarTheme.of(context).copyWith(
-                        height: constraints.maxHeight,
-                        backgroundColor: Colors.transparent,
-                        surfaceTintColor: Colors.transparent,
-                        shadowColor: Colors.transparent,
-                        indicatorColor: Colors.transparent,
-                        labelTextStyle: const WidgetStatePropertyAll(
-                          TextStyle(color: Colors.transparent, fontSize: 1),
-                        ),
-                        iconTheme: const WidgetStatePropertyAll(
-                          IconThemeData(color: Colors.transparent, size: 1),
-                        ),
-                      ),
-                      child: NavigationBar(
-                        selectedIndex: selectedIndex < 0 ? 0 : selectedIndex,
-                        onDestinationSelected: onDestinationSelected,
-                        destinations: [
-                          for (var i = 0; i < labels.length; i++)
-                            NavigationDestination(
-                              icon: Icon(icons[i]),
-                              selectedIcon: Icon(icons[i]),
-                              // The real, accessible labels live on the
-                              // visual items below. Keep the compatibility
-                              // NavigationBar's destinations label-free so
-                              // its opacity-zero implementation does not
-                              // duplicate localized text in widget tests or
-                              // assistive technology trees.
-                              label: '',
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            if (selectedIndex >= 0)
-              AnimatedPositioned(
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeInOutCubic,
-                left:
-                    slotWidth * selectedIndex +
-                    (slotWidth - indicatorWidth) / 2,
-                top: (constraints.maxHeight - indicatorHeight) / 2,
-                width: indicatorWidth,
-                height: indicatorHeight,
+        return Material(
+          type: MaterialType.transparency,
+          shape: const StadiumBorder(),
+          clipBehavior: Clip.antiAlias,
+          child: Stack(
+            children: [
+              // Paint the capsule separately from the interactive layer. This
+              // keeps the rounded background from absorbing taps intended for
+              // content that scrolls beneath its transparent top inset.
+              Positioned.fill(
                 child: IgnorePointer(
                   child: DecoratedBox(
                     decoration: BoxDecoration(
-                      color: primaryContainer.withValues(alpha: .65),
-                      borderRadius: BorderRadius.circular(31),
+                      color: surface.withValues(alpha: .98),
+                      borderRadius: BorderRadius.circular(compact ? 34 : 39),
+                      border: Border.all(color: hairline.withValues(alpha: .9)),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x14000000),
+                          blurRadius: 16,
+                          offset: Offset(0, 4),
+                        ),
+                      ],
                     ),
                   ),
                 ),
               ),
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              height: interactiveHeight,
-              child: Row(
-                children: [
-                  for (var i = 0; i < labels.length; i++)
-                    Expanded(
-                      child: _FloatingNavigationItem(
-                        icon: icons[i],
-                        label: labels[i],
-                        selected: i == selectedIndex,
-                        compact: compact,
-                        onTap: () => onDestinationSelected(i),
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: ExcludeSemantics(
+                    child: Opacity(
+                      opacity: 0,
+                      child: NavigationBarTheme(
+                        data: NavigationBarTheme.of(context).copyWith(
+                          height: constraints.maxHeight,
+                          backgroundColor: Colors.transparent,
+                          surfaceTintColor: Colors.transparent,
+                          shadowColor: Colors.transparent,
+                          indicatorColor: Colors.transparent,
+                          labelTextStyle: const WidgetStatePropertyAll(
+                            TextStyle(color: Colors.transparent, fontSize: 1),
+                          ),
+                          iconTheme: const WidgetStatePropertyAll(
+                            IconThemeData(color: Colors.transparent, size: 1),
+                          ),
+                        ),
+                        child: NavigationBar(
+                          selectedIndex: selectedIndex < 0 ? 0 : selectedIndex,
+                          onDestinationSelected: onDestinationSelected,
+                          destinations: [
+                            for (var i = 0; i < labels.length; i++)
+                              NavigationDestination(
+                                icon: Icon(icons[i]),
+                                selectedIcon: Icon(icons[i]),
+                                // The real, accessible labels live on the
+                                // visual items below. Keep the compatibility
+                                // NavigationBar's destinations label-free so
+                                // its opacity-zero implementation does not
+                                // duplicate localized text in widget tests or
+                                // assistive technology trees.
+                                label: '',
+                              ),
+                          ],
+                        ),
                       ),
                     ),
-                ],
+                  ),
+                ),
               ),
-            ),
-          ],
+              if (selectedIndex >= 0)
+                AnimatedPositioned(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOutCubic,
+                  left:
+                      slotWidth * selectedIndex +
+                      (slotWidth - indicatorWidth) / 2,
+                  top: (constraints.maxHeight - indicatorHeight) / 2,
+                  width: indicatorWidth,
+                  height: indicatorHeight,
+                  child: IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: primaryContainer.withValues(alpha: .65),
+                        borderRadius: BorderRadius.circular(31),
+                      ),
+                    ),
+                  ),
+                ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                height: interactiveHeight,
+                child: Row(
+                  children: [
+                    for (var i = 0; i < labels.length; i++)
+                      Expanded(
+                        child: _FloatingNavigationItem(
+                          icon: icons[i],
+                          label: labels[i],
+                          selected: i == selectedIndex,
+                          compact: compact,
+                          onTap: () => onDestinationSelected(i),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         );
       },
     ),
@@ -4633,6 +4649,7 @@ class _TrainingPlanStatusCard extends StatelessWidget {
                     controller: controller,
                     routine: routine,
                     size: 76,
+                    showCoverHint: true,
                   ),
                   const SizedBox(width: 12),
                 ],
@@ -4789,10 +4806,12 @@ class _RoutineCover extends StatelessWidget {
     required this.controller,
     required this.routine,
     this.size = 64,
+    this.showCoverHint = false,
   });
   final AppController controller;
   final Routine routine;
   final double size;
+  final bool showCoverHint;
 
   Future<void> _pick(BuildContext context) async {
     try {
@@ -4864,7 +4883,7 @@ class _RoutineCover extends StatelessWidget {
             child: SizedBox(
               width: size,
               height: size,
-              child: _PlanCoverHint(child: picture),
+              child: showCoverHint ? _PlanCoverHint(child: picture) : picture,
             ),
           ),
         ),
@@ -4891,11 +4910,13 @@ class _PlanCoverHintState extends State<_PlanCoverHint> {
 
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
-    if (!mounted || prefs.getBool('plan-cover-hint-seen') == true) return;
-    await prefs.setBool('plan-cover-hint-seen', true);
+    if (!mounted || prefs.getBool('today-plan-cover-hint-seen-v2') == true) {
+      return;
+    }
+    await prefs.setBool('today-plan-cover-hint-seen-v2', true);
     if (!mounted) return;
     setState(() => visible = true);
-    timer = Timer(const Duration(seconds: 8), () {
+    timer = Timer(const Duration(seconds: 2), () {
       if (mounted) setState(() => visible = false);
     });
   }
@@ -4919,7 +4940,7 @@ class _PlanCoverHintState extends State<_PlanCoverHint> {
               child: Padding(
                 padding: EdgeInsets.all(3),
                 child: Text(
-                  '点击更换\n计划封面',
+                  '点击可更换\n训练封面',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Colors.white,
@@ -8194,7 +8215,12 @@ class _RecordsPageState extends State<RecordsPage> {
       ];
       return widget.embedded
           ? ListView(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 30),
+              padding: EdgeInsets.fromLTRB(
+                16,
+                12,
+                16,
+                30 + MediaQuery.paddingOf(context).bottom,
+              ),
               children: content,
             )
           : PageFrame(children: content);
@@ -8426,7 +8452,12 @@ class _RecordsPageState extends State<RecordsPage> {
     ];
     return widget.embedded
         ? ListView(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 30),
+            padding: EdgeInsets.fromLTRB(
+              16,
+              12,
+              16,
+              30 + MediaQuery.paddingOf(context).bottom,
+            ),
             children: content,
           )
         : PageFrame(children: content);
@@ -15227,6 +15258,7 @@ class _AccountMembershipCard extends StatelessWidget {
       );
     }
     final textScale = MediaQuery.textScalerOf(context).scale(1);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       key: const Key('account-membership-card'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -15236,7 +15268,7 @@ class _AccountMembershipCard extends StatelessWidget {
           child: Row(
             children: [
               CircleAvatar(
-                radius: 28,
+                radius: 19,
                 backgroundColor: primaryContainer,
                 backgroundImage: user.avatarPath?.isNotEmpty == true
                     ? FileImage(File(user.avatarPath!))
@@ -15245,7 +15277,7 @@ class _AccountMembershipCard extends StatelessWidget {
                     ? null
                     : Text(user.visibleName.characters.first),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -15254,14 +15286,14 @@ class _AccountMembershipCard extends StatelessWidget {
                       user.visibleName,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
                     Text(
                       '形域 ID ${user.publicId}',
-                      style: TextStyle(color: quiet, fontSize: 12),
+                      style: TextStyle(color: quiet, fontSize: 11),
                     ),
                   ],
                 ),
@@ -15277,7 +15309,7 @@ class _AccountMembershipCard extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         Card(
-          color: const Color(0xFF252323),
+          color: Colors.transparent,
           clipBehavior: Clip.antiAlias,
           child: InkWell(
             key: const Key('redeem-membership-button'),
@@ -15286,7 +15318,17 @@ class _AccountMembershipCard extends StatelessWidget {
                 builder: (_) => MembershipCenterPage(controller: controller),
               ),
             ),
-            child: Padding(
+            child: Ink(
+              decoration: BoxDecoration(
+                image: DecorationImage(
+                  image: AssetImage(
+                    isDark
+                        ? 'assets/branding/membership-lines-dark.png'
+                        : 'assets/branding/membership-lines-light.png',
+                  ),
+                  fit: BoxFit.cover,
+                ),
+              ),
               padding: const EdgeInsets.all(18),
               child: Row(
                 children: [
@@ -15296,8 +15338,10 @@ class _AccountMembershipCard extends StatelessWidget {
                       children: [
                         Text(
                           quota.isMember ? '形域 PRO' : '开启形域 PRO',
-                          style: const TextStyle(
-                            color: Color(0xFFFFBC83),
+                          style: TextStyle(
+                            color: isDark
+                                ? const Color(0xFFFFBC83)
+                                : const Color(0xFF954311),
                             fontSize: 22,
                             fontWeight: FontWeight.w900,
                           ),
@@ -15307,8 +15351,10 @@ class _AccountMembershipCard extends StatelessWidget {
                           quota.isMember
                               ? _membershipCaption(quota)
                               : '专注训练，看见每一次进步',
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: isDark
+                                ? Colors.white
+                                : const Color(0xFF342A23),
                             fontSize: 13,
                           ),
                         ),
@@ -15317,8 +15363,10 @@ class _AccountMembershipCard extends StatelessWidget {
                           quota.isMember
                               ? '${_membershipLabel(quota.membership)} · 管理会员 ›'
                               : '了解会员权益 ›',
-                          style: const TextStyle(
-                            color: Color(0xFFEACDB9),
+                          style: TextStyle(
+                            color: isDark
+                                ? const Color(0xFFEACDB9)
+                                : const Color(0xFF594A3F),
                             fontSize: 12,
                           ),
                         ),
@@ -15326,12 +15374,7 @@ class _AccountMembershipCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Image.asset(
-                    'assets/branding/kilo-orange-metal-logo.png',
-                    width: 76,
-                    height: 76,
-                    fit: BoxFit.contain,
-                  ),
+                  const BrandLogo(size: 60),
                 ],
               ),
             ),
@@ -20388,18 +20431,6 @@ void _showRoutineDetail(
               Text(
                 routine.name,
                 style: Theme.of(context).textTheme.headlineMedium,
-              ),
-              TextButton.icon(
-                onPressed: () => _openCoachPlanEditor(
-                  context,
-                  controller,
-                  plan: controller.coachPlanFromRoutines(routine.name, 1, [
-                    routine,
-                  ]),
-                  originalRoutine: routine,
-                ),
-                icon: const Icon(Icons.refresh, size: 18),
-                label: const Text('AI 调整计划'),
               ),
               Text(
                 '${routine.exercises.length} 个动作 · ${routine.exercises.fold<int>(0, (sum, item) => sum + item.sets.length)} 组',

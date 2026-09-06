@@ -131,7 +131,7 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
-      await tester.pumpWidget(MaterialApp(home: KiloShell(controller: c)));
+      await tester.pumpWidget(KiloApp(initialController: c));
       await tester.tap(find.byKey(const Key('workout-coach-open')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(Key('coach-orbit-${c.workout.first.id}')));
@@ -140,11 +140,27 @@ void main() {
         find.byKey(const Key('workout-coach-input')),
         '这个动作怎么练',
       );
+      await tester.pump();
       await tester.tap(find.byKey(const Key('workout-coach-send')));
       await tester.pumpAndSettle();
       expect(c.workoutCoachMessages.first.body, contains('这个动作怎么练'));
       expect(c.workoutCoachMessages.last.body, '已根据本次训练回答');
       expect(c.chat, isEmpty);
+      expect(find.byKey(const Key('workout-coach-panel')), findsOneWidget);
+      expect(find.byType(ModalBarrier).hitTestable(), findsNothing);
+      await tester.enterText(
+        find.byKey(const Key('workout-coach-input')),
+        '再解释一下',
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('workout-coach-send')));
+      await tester.pumpAndSettle();
+      expect(
+        jsonDecode(
+          (c.coachApi as CapturingCoach).summary!,
+        )['selectedExerciseIds'],
+        ['bench_press'],
+      );
       expect(tester.takeException(), isNull);
       await tester.tap(find.byTooltip('关闭').last);
       await tester.pumpAndSettle();
@@ -152,7 +168,20 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('coach-orbit-other')));
       await tester.pumpAndSettle();
-      expect(find.text('已根据本次训练回答'), findsOneWidget);
+      expect(find.text('已根据本次训练回答'), findsWidgets);
+      await tester.enterText(
+        find.byKey(const Key('workout-coach-input')),
+        '训练后怎么吃',
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('workout-coach-send')));
+      await tester.pumpAndSettle();
+      expect(
+        jsonDecode(
+          (c.coachApi as CapturingCoach).summary!,
+        )['selectedExerciseIds'],
+        isEmpty,
+      );
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );

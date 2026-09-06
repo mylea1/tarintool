@@ -66,7 +66,7 @@ void main() {
     },
   );
 
-  testWidgets('records is independent and AI moves only after a long press', (
+  testWidgets('records is independent and AI can move without a long press', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(375, 812);
@@ -82,7 +82,7 @@ void main() {
     final coach = find.byKey(const Key('workout-coach-open'));
     final origin = tester.getCenter(coach);
     final gesture = await tester.startGesture(origin);
-    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pump(const Duration(milliseconds: 16));
     await gesture.moveBy(const Offset(-100, -100));
     await tester.pump();
     await gesture.up();

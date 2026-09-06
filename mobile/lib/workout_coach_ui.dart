@@ -17,6 +17,8 @@ class _WorkoutCoachOrbitState extends State<_WorkoutCoachOrbit> {
   Offset dragOrigin = Offset.zero;
   bool expanded = false;
   int page = 0;
+  bool chatOpen = false;
+  String? chatExerciseId;
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
@@ -100,12 +102,11 @@ class _WorkoutCoachOrbitState extends State<_WorkoutCoachOrbit> {
                                     );
                                     return;
                                   }
-                                  setState(() => expanded = false);
-                                  _showWorkoutCoach(
-                                    context,
-                                    widget.controller,
-                                    selectedId: exercise?.id,
-                                  );
+                                  setState(() {
+                                    expanded = false;
+                                    chatOpen = true;
+                                    chatExerciseId = exercise?.id;
+                                  });
                                 },
                                 child: SizedBox.square(
                                   dimension: 48,
@@ -115,9 +116,11 @@ class _WorkoutCoachOrbitState extends State<_WorkoutCoachOrbit> {
                                               ? Icons.chat_bubble_outline
                                               : Icons.more_horiz,
                                         )
-                                      : _ExerciseThumb(
-                                          exerciseId: exercise.exerciseId,
-                                          size: 48,
+                                      : IgnorePointer(
+                                          child: _ExerciseThumb(
+                                            exerciseId: exercise.exerciseId,
+                                            size: 48,
+                                          ),
                                         ),
                                 ),
                               ),
@@ -135,32 +138,62 @@ class _WorkoutCoachOrbitState extends State<_WorkoutCoachOrbit> {
                   );
                 },
               ),
-          Positioned(
-            left: anchor.dx,
-            top: anchor.dy,
-            child: RepaintBoundary(
-              child: GestureDetector(
-                onLongPressStart: (_) => setState(() {
-                  expanded = false;
-                  dragOrigin = anchor;
-                }),
-                onLongPressMoveUpdate: (details) => setState(() {
-                  final next = dragOrigin + details.offsetFromOrigin;
-                  position = Offset(
-                    next.dx.clamp(8.0, maxX),
-                    next.dy.clamp(8.0, maxY),
-                  );
-                }),
-                child: FloatingActionButton.small(
-                  key: const Key('workout-coach-open'),
-                  heroTag: 'workout-coach',
-                  shape: const CircleBorder(),
-                  onPressed: () => setState(() => expanded = !expanded),
-                  child: Text(expanded ? '×' : 'AI'),
+          if (!chatOpen)
+            Positioned(
+              left: anchor.dx,
+              top: anchor.dy,
+              child: RepaintBoundary(
+                child: GestureDetector(
+                  dragStartBehavior: DragStartBehavior.down,
+                  onPanStart: (_) => setState(() {
+                    expanded = false;
+                    dragOrigin = anchor;
+                  }),
+                  onPanUpdate: (details) => setState(() {
+                    final next = (position ?? dragOrigin) + details.delta;
+                    position = Offset(
+                      next.dx.clamp(8.0, maxX),
+                      next.dy.clamp(8.0, maxY),
+                    );
+                  }),
+                  child: FloatingActionButton.small(
+                    key: const Key('workout-coach-open'),
+                    heroTag: 'workout-coach',
+                    shape: const CircleBorder(),
+                    onPressed: () => setState(() => expanded = !expanded),
+                    child: Text(expanded ? '×' : 'AI'),
+                  ),
                 ),
               ),
             ),
-          ),
+          if (chatOpen)
+            Positioned(
+              left: (anchor.dx - 310).clamp(
+                8.0,
+                math.max(8.0, box.maxWidth - 368),
+              ),
+              top: (anchor.dy - 430).clamp(
+                8.0,
+                math.max(8.0, box.maxHeight - 438),
+              ),
+              width: math.min(360.0, box.maxWidth - 16),
+              height: math.min(430.0, box.maxHeight - 16),
+              child: Material(
+                key: const Key('workout-coach-panel'),
+                elevation: 12,
+                color: Theme.of(context).colorScheme.surface,
+                borderRadius: BorderRadius.circular(22),
+                clipBehavior: Clip.antiAlias,
+                child: _WorkoutCoachSheet(
+                  controller: widget.controller,
+                  selectedId: chatExerciseId,
+                  onClose: () {
+                    FocusManager.instance.primaryFocus?.unfocus();
+                    setState(() => chatOpen = false);
+                  },
+                ),
+              ),
+            ),
         ],
       );
     },
@@ -180,31 +213,22 @@ String _coachError(Object error) {
   };
 }
 
-void _showWorkoutCoach(
-  BuildContext context,
-  AppController controller, {
-  String? selectedId,
-}) {
-  showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    showDragHandle: true,
-    builder: (_) =>
-        _WorkoutCoachSheet(controller: controller, selectedId: selectedId),
-  );
-}
-
 class _WorkoutCoachSheet extends StatefulWidget {
-  const _WorkoutCoachSheet({required this.controller, this.selectedId});
+  const _WorkoutCoachSheet({
+    required this.controller,
+    required this.onClose,
+    this.selectedId,
+  });
   final AppController controller;
   final String? selectedId;
+  final VoidCallback onClose;
   @override
   State<_WorkoutCoachSheet> createState() => _WorkoutCoachSheetState();
 }
 
 class _WorkoutCoachSheetState extends State<_WorkoutCoachSheet> {
   final input = TextEditingController();
+  final scroll = ScrollController();
   final selected = <String>{};
   bool busy = false;
   int request = 0;
@@ -223,6 +247,7 @@ class _WorkoutCoachSheetState extends State<_WorkoutCoachSheet> {
   void dispose() {
     request++;
     input.dispose();
+    scroll.dispose();
     super.dispose();
   }
 
@@ -259,8 +284,8 @@ class _WorkoutCoachSheetState extends State<_WorkoutCoachSheet> {
       busy = true;
       error = null;
       proposal = null;
-      selected.clear();
     });
+    followAnswer();
     bool valid() =>
         mounted &&
         token == request &&
@@ -271,7 +296,10 @@ class _WorkoutCoachSheetState extends State<_WorkoutCoachSheet> {
         text,
         selectedIds: ids,
         onDelta: (delta) {
-          if (valid()) setState(() => message.body += delta);
+          if (valid()) {
+            setState(() => message.body += delta);
+            followAnswer();
+          }
         },
       );
       if (!valid()) return;
@@ -289,146 +317,209 @@ class _WorkoutCoachSheetState extends State<_WorkoutCoachSheet> {
     }
   }
 
+  void followAnswer() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && scroll.hasClients) {
+        scroll.jumpTo(scroll.position.maxScrollExtent);
+      }
+    });
+  }
+
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-    child: DraggableScrollableSheet(
-      initialChildSize: .65,
-      minChildSize: .4,
-      maxChildSize: .95,
-      expand: false,
-      builder: (context, scroll) => AnimatedBuilder(
-        animation: c,
-        builder: (context, _) => Column(
-          children: [
-            ListTile(
-              dense: true,
-              title: const Text('本次训练 AI 教练'),
-              subtitle: Text('${c.workoutName} · 已完成 ${c.completedSets} 组'),
-              trailing: IconButton(
-                tooltip: '关闭',
-                onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.close),
-              ),
-            ),
-            Expanded(
-              child: ListView(
-                controller: scroll,
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                children: [
-                  if (c.workoutCoachMessages.isEmpty)
-                    const Text('可以问下一组怎么安排，或告诉我想换掉哪个动作。我会结合本次训练和相关历史回答。'),
-                  for (final m in c.workoutCoachMessages)
-                    if (m.body.isNotEmpty)
-                      Card(
-                        color: m.role == 'user'
-                            ? Theme.of(context).colorScheme.primaryContainer
-                            : null,
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: MarkdownBody(data: m.body, selectable: true),
+  Widget build(BuildContext context) {
+    final exercise = c.workout
+        .where((e) => selected.contains(e.id))
+        .firstOrNull;
+    final name = exercise == null
+        ? '训练问答'
+        : c.displayExerciseName(c.exerciseFor(exercise.exerciseId));
+    final prompts = exercise == null
+        ? ['组间休息多久？', '今天训练后怎么吃？']
+        : ['这个动作怎么做？', '下一组重量怎么选？'];
+    return AnimatedBuilder(
+      animation: c,
+      builder: (context, _) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 10, 4, 8),
+            child: Row(
+              children: [
+                if (exercise != null)
+                  IgnorePointer(
+                    child: _ExerciseThumb(
+                      exerciseId: exercise.exerciseId,
+                      size: 34,
+                    ),
+                  )
+                else
+                  const Icon(Icons.auto_awesome_outlined, size: 24),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
                         ),
                       ),
-                  if (busy) ...[
-                    const LinearProgressIndicator(),
-                    TextButton(
-                      onPressed: () {
-                        request++;
-                        setState(() => busy = false);
-                      },
-                      child: const Text('停止显示回答'),
-                    ),
-                  ],
-                  if (error != null)
-                    Text(
-                      error!,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.error,
-                      ),
-                    ),
-                  if (proposal != null)
-                    OutlinedButton.icon(
-                      onPressed: () => _openCoachPlanEditor(
-                        context,
-                        c,
-                        plan: proposal,
-                        activeSnapshot: snapshot,
-                        comparisonPlan: previous,
-                      ),
-                      icon: const Icon(Icons.compare_arrows),
-                      label: const Text('查看调整方案 · 已完成组保持不变'),
-                    ),
-                ],
-              ),
-            ),
-            SizedBox(
-              height: 86,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                children: [
-                  for (final e in c.workout)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: FilterChip(
-                        selected: selected.contains(e.id),
-                        avatar: _ExerciseThumb(
-                          exerciseId: e.exerciseId,
-                          size: 30,
+                      Text(
+                        exercise == null ? 'AI 教练 · 其他问题' : 'AI 教练 · 围绕此动作提问',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
-                        label: SizedBox(
-                          width: 104,
-                          child: Text(
-                            '${c.displayExerciseName(c.exerciseFor(e.exerciseId))}\n${e.sets.where((s) => s.completed).length}/${e.sets.length} 组',
-                            maxLines: 3,
-                            overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  tooltip: '关闭',
+                  onPressed: widget.onClose,
+                  icon: const Icon(Icons.close, size: 20),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: ListView(
+              controller: scroll,
+              padding: const EdgeInsets.all(12),
+              children: [
+                if (c.workoutCoachMessages.isEmpty) ...[
+                  Text(
+                    exercise == null ? '训练、恢复或饮食，有什么想问的？' : '已选中$name，可以直接提问。',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      for (final prompt in prompts)
+                        ActionChip(
+                          label: Text(
+                            prompt,
+                            style: const TextStyle(fontSize: 12),
                           ),
+                          onPressed: () {
+                            setState(() => input.text = prompt);
+                            input.selection = TextSelection.collapsed(
+                              offset: input.text.length,
+                            );
+                          },
                         ),
-                        onSelected: busy
-                            ? null
-                            : (value) => setState(() {
-                                if (value) {
-                                  selected.add(e.id);
-                                } else {
-                                  selected.remove(e.id);
-                                }
-                              }),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Expanded(
-                    child: TextField(
-                      key: const Key('workout-coach-input'),
-                      controller: input,
-                      minLines: 1,
-                      maxLines: 3,
-                      decoration: const InputDecoration(
-                        hintText: '例如：不想练这个动作，换一个',
-                        isDense: true,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    key: const Key('workout-coach-send'),
-                    tooltip: '发送',
-                    onPressed: busy ? null : send,
-                    icon: const Icon(Icons.send),
+                    ],
                   ),
                 ],
-              ),
+                for (final m in c.workoutCoachMessages)
+                  if (m.body.isNotEmpty)
+                    Align(
+                      alignment: m.role == 'user'
+                          ? Alignment.centerRight
+                          : Alignment.centerLeft,
+                      child: Container(
+                        margin: const EdgeInsets.only(bottom: 10),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 11,
+                          vertical: 9,
+                        ),
+                        decoration: BoxDecoration(
+                          color: m.role == 'user'
+                              ? Theme.of(context).colorScheme.primaryContainer
+                              : Theme.of(
+                                  context,
+                                ).colorScheme.surfaceContainerLow,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: MarkdownBody(data: m.body, selectable: true),
+                      ),
+                    ),
+                if (busy)
+                  Row(
+                    children: [
+                      const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text('正在回答…', style: TextStyle(fontSize: 12)),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          request++;
+                          setState(() => busy = false);
+                        },
+                        child: const Text('停止'),
+                      ),
+                    ],
+                  ),
+                if (error != null)
+                  Text(
+                    error!,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                if (proposal != null)
+                  TextButton.icon(
+                    onPressed: () => _openCoachPlanEditor(
+                      context,
+                      c,
+                      plan: proposal,
+                      activeSnapshot: snapshot,
+                      comparisonPlan: previous,
+                    ),
+                    icon: const Icon(Icons.compare_arrows, size: 18),
+                    label: const Text('查看调整方案'),
+                  ),
+              ],
             ),
-          ],
-        ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(10, 6, 8, 10),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Expanded(
+                  child: TextField(
+                    key: const Key('workout-coach-input'),
+                    controller: input,
+                    minLines: 1,
+                    maxLines: 3,
+                    decoration: InputDecoration(
+                      hintText: exercise == null ? '输入你的问题…' : '询问这个动作…',
+                      isDense: true,
+                    ),
+                    onChanged: (_) => setState(() {}),
+                    textInputAction: TextInputAction.send,
+                    onSubmitted: (_) => send(),
+                  ),
+                ),
+                IconButton.filled(
+                  key: const Key('workout-coach-send'),
+                  tooltip: '发送',
+                  onPressed: busy || input.text.trim().isEmpty ? null : send,
+                  icon: const Icon(Icons.arrow_upward, size: 20),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
-    ),
-  );
+    );
+  }
 }
 
 void _openCoachPlanEditor(
