@@ -1211,7 +1211,7 @@ class AppController extends ChangeNotifier {
     'invalid_identifier' ||
     'invalid_phone_identifier' ||
     'identifier_required' => '请输入有效手机号。',
-    'invalid_password' || 'password_too_short' => '密码需为 8–128 位。',
+    'invalid_password' || 'password_too_short' => '密码需为 8–10 位。',
     'sms_code_required' => '请输入6位验证码。',
     'invalid_code' || 'invalid_sms_code' => '验证码错误，请重试。',
     'code_expired' ||
@@ -1366,10 +1366,10 @@ class AppController extends ChangeNotifier {
         message: '请输入有效手机号。',
       );
     }
-    if (password.length < 8 || password.length > 128) {
+    if (password.length < 8 || password.length > 10) {
       return const AuthResult.failure(
         AccountError.invalidPassword,
-        message: '密码需为 8–128 位。',
+        message: '密码需为 8–10 位。',
       );
     }
     if (!RegExp(r'^\d{6}$').hasMatch(code.trim())) {

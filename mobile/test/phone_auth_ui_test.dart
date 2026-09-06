@@ -42,12 +42,12 @@ class _PhoneAuthHarness {
             'expiresInSeconds': 300,
           });
         case '/v1/auth/phone/register':
-          expect(body['password'], 'strong-pass-123');
+          expect(body['password'], 'strong123');
           expect(body['code'], '654321');
           return _authResponse('register-session');
         case '/v1/auth/phone/login':
           expect(body['identifier'], '+8613800138000');
-          expect(body['password'], 'strong-pass-123');
+          expect(body['password'], 'strong123');
           return _authResponse('password-session');
         case '/v1/auth/phone/verify':
           expect(body['code'], '654321');
@@ -175,6 +175,52 @@ void main() {
   });
 
   testWidgets(
+    'registration keeps verification last with send action beside it',
+    (tester) async {
+      final harness = _PhoneAuthHarness();
+      addTearDown(harness.dispose);
+      await _pumpLogin(tester, harness, width: 320);
+      await _enterAfterScroll(
+        tester,
+        const Key('login-identifier'),
+        '13800138000',
+      );
+      await _tapAfterScroll(tester, const Key('login-register-button'));
+      await tester.pump();
+
+      final password = find.byKey(const Key('register-password'));
+      final confirm = find.byKey(const Key('register-confirm-password'));
+      final code = find.byKey(const Key('register-code'));
+      final send = find.byKey(const Key('register-send-code'));
+      expect(
+        tester.getTopLeft(password).dy,
+        lessThan(tester.getTopLeft(confirm).dy),
+      );
+      expect(
+        tester.getTopLeft(confirm).dy,
+        lessThan(tester.getTopLeft(code).dy),
+      );
+      expect(
+        tester.getTopLeft(send).dx,
+        greaterThan(tester.getTopLeft(code).dx),
+      );
+      expect(
+        (tester.getCenter(send).dy - tester.getCenter(code).dy).abs(),
+        lessThan(12),
+      );
+
+      await _enterAfterScroll(
+        tester,
+        const Key('register-password'),
+        '12345678901',
+      );
+      final field = tester.widget<TextField>(password);
+      expect(field.controller?.text, '1234567890');
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'registration then password and SMS login share the canonical session',
     (tester) async {
       final harness = _PhoneAuthHarness();
@@ -202,12 +248,12 @@ void main() {
       await _enterAfterScroll(
         tester,
         const Key('register-password'),
-        'strong-pass-123',
+        'strong123',
       );
       await _enterAfterScroll(
         tester,
         const Key('register-confirm-password'),
-        'strong-pass-123',
+        'strong123',
       );
       await _tapAfterScroll(tester, const Key('register-button'));
       await tester.pump();
@@ -218,11 +264,7 @@ void main() {
       harness.controller.logout();
       await _tapAfterScroll(tester, const Key('login-back-to-login'));
       await tester.pump();
-      await _enterAfterScroll(
-        tester,
-        const Key('login-password'),
-        'strong-pass-123',
-      );
+      await _enterAfterScroll(tester, const Key('login-password'), 'strong123');
       await _tapAfterScroll(tester, const Key('login-button'));
       await tester.pump();
       expect(harness.controller.currentUser?.identifier, '+8613800138000');
@@ -377,7 +419,7 @@ void main() {
 
       final result = await controller.registerPhoneRemote(
         identifier: '13800138000',
-        password: 'strong-pass-123',
+        password: 'strong123',
         code: '654321',
       );
       expect(result.error, AccountError.serviceNotConfigured);

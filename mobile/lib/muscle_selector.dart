@@ -118,6 +118,29 @@ class _InteractiveMuscleMapState extends State<InteractiveMuscleMap> {
     'upper-back': '背',
   };
 
+  /// Preference editing needs anatomical targets rather than the broader
+  /// reporting groups used by the home heat map. Keeping these mappings
+  /// separate lets a user select glutes without also selecting every leg
+  /// muscle, while existing volume and recovery summaries remain grouped.
+  static const selectionGroups = <String, String>{
+    'abs': '核心',
+    'adductors': '内收肌',
+    'biceps': '二头',
+    'calves': '小腿',
+    'chest': '胸',
+    'deltoids': '肩',
+    'forearm': '前臂',
+    'gluteal': '臀',
+    'hamstring': '腘绳肌',
+    'lower-back': '下背',
+    'obliques': '核心',
+    'quadriceps': '股四头',
+    'tibialis': '胫骨前肌',
+    'trapezius': '斜方肌',
+    'triceps': '三头',
+    'upper-back': '上背',
+  };
+
   static const _frontRegions = <_MuscleMaskRegion>[
     _MuscleMaskRegion('trapezius', 17, 13, 31, 16),
     _MuscleMaskRegion('deltoids', 11, 15, 37, 22),
@@ -175,8 +198,11 @@ class _InteractiveMuscleMapState extends State<InteractiveMuscleMap> {
     return selected ? Theme.of(context).colorScheme.primary : base;
   }
 
+  String? _groupFor(String slug) =>
+      widget.selectionMode ? selectionGroups[slug] : overlayGroups[slug];
+
   void _toggle(String slug) {
-    final group = overlayGroups[slug];
+    final group = _groupFor(slug);
     if (widget.selectionMode && group != null) {
       final next = <String>{...widget.selectedGroups};
       if (!next.add(group)) next.remove(group);
@@ -314,7 +340,7 @@ class _InteractiveMuscleMapState extends State<InteractiveMuscleMap> {
                       child: SvgPicture.asset(
                         _overlayAsset(region.slug),
                         key: Key(
-                          'muscle-overlay-${region.slug}-${widget.selectionMode && widget.selectedGroups.contains(overlayGroups[region.slug]) ? 'selected' : 'idle'}',
+                          'muscle-overlay-${region.slug}-${widget.selectionMode && widget.selectedGroups.contains(_groupFor(region.slug)) ? 'selected' : 'idle'}',
                         ),
                         fit: BoxFit.contain,
                         colorFilter: ColorFilter.mode(
@@ -323,7 +349,7 @@ class _InteractiveMuscleMapState extends State<InteractiveMuscleMap> {
                             overlayGroups[region.slug]!,
                             selected: widget.selectionMode
                                 ? widget.selectedGroups.contains(
-                                    overlayGroups[region.slug],
+                                    _groupFor(region.slug),
                                   )
                                 : selected.contains(region.slug),
                           ),

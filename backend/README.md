@@ -19,7 +19,7 @@ npm start
 正式手机号流程使用阿里云号码认证服务（PNVS）的 `dypnsapi.aliyuncs.com` `SendSmsVerifyCode`（`2017-05-25`）：
 
 - `POST /v1/auth/phone/request`：`{identifier, purpose: "register"|"login"}`，成功返回 `sent`、`retryAfterSeconds: 60`、`expiresInSeconds: 300` 及可选 `challengeId`。
-- `POST /v1/auth/phone/register`：`{identifier, password, code}`。短信验证后创建密码账号并返回既有 `{user, session}`，密码长度为 8–128 个字符。
+- `POST /v1/auth/phone/register`：`{identifier, password, code}`。短信验证后创建密码账号并返回既有 `{user, session}`，密码长度为 8–10 个字符。
 - `POST /v1/auth/phone/verify`：`{identifier, code}`。只登录已注册手机号，不会把未注册号码自动创建为账号。
 - 原 `POST /v1/auth/phone/login` 密码接口保留，测试账号和历史短密码继续兼容；新增失败限频和 256 字符上限。
 

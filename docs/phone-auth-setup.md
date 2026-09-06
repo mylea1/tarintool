@@ -66,7 +66,7 @@ Content-Type: application/json
 {"identifier":"+8613812345678","password":"至少8个字符","code":"123456"}
 ```
 
-成功（HTTP 201）返回既有认证格式：`{user, session}`。密码为 8–128 个字符，注册不依赖、也不会开启旧的不安全 `KILO_ENABLE_PASSWORD_REGISTRATION`。已存在原始手机号账号、已占用 phone identity 或 identity 冲突时返回 HTTP 409 `identifier_taken`/`phone_identity_conflict`，不会创建第二个用户。
+成功（HTTP 201）返回既有认证格式：`{user, session}`。密码为 8–10 个字符，注册不依赖、也不会开启旧的不安全 `KILO_ENABLE_PASSWORD_REGISTRATION`。已存在原始手机号账号、已占用 phone identity 或 identity 冲突时返回 HTTP 409 `identifier_taken`/`phone_identity_conflict`，不会创建第二个用户。
 
 ### 短信登录
 
@@ -79,7 +79,7 @@ Content-Type: application/json
 
 成功（HTTP 200）返回 `{user, session}`。只允许已注册账号；未知号码返回 HTTP 404 `phone_not_registered`，不会自动注册。历史密码账号若其 `users.identifier` 本身就是唯一的 11 位手机号，可在首次成功短信验证后写入 `verified_at`；任意未验证 profile alias 不会被单独当成登录凭据，也不能跨账号绑定。
 
-原有密码接口 `POST /v1/auth/phone/login` 保持不变，仍兼容显式启用的测试账号和既有短密码；密码不会 trim，长度上限为 256，失败尝试另有持久化限频。新手机号注册仍限制为 8–128 个字符。
+原有密码接口 `POST /v1/auth/phone/login` 保持不变，仍兼容显式启用的测试账号和既有密码；密码不会 trim，长度上限为 256，失败尝试另有持久化限频。新手机号注册限制为 8–10 个字符。
 
 验证码错误、过期、重放和用途不匹配不会泄漏账号状态以外的上游信息：
 

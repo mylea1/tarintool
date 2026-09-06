@@ -510,7 +510,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('first login profile requires a recommendation baseline', (
+  testWidgets('first login profile reports only the missing field', (
     tester,
   ) async {
     final controller = AppController();
@@ -518,7 +518,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(home: TrainingProfileOnboardingPage(controller: controller)),
     );
-    expect(find.byKey(const Key('profile-onboarding-skip')), findsNothing);
+    expect(find.byKey(const Key('profile-onboarding-skip')), findsOneWidget);
     await tester.scrollUntilVisible(
       find.byKey(const Key('profile-onboarding-next')),
       220,
@@ -527,8 +527,28 @@ void main() {
     await tester.tap(find.byKey(const Key('profile-onboarding-next')));
     await tester.pump();
     expect(find.byKey(const Key('profile-onboarding-error')), findsOneWidget);
+    expect(find.text('性别未填写。'), findsOneWidget);
+    expect(find.textContaining('匹配身体图'), findsNothing);
     expect(controller.profileOnboardingCompleted, isFalse);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('first login profile can be skipped and stays completed', (
+    tester,
+  ) async {
+    final controller = AppController();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      MaterialApp(home: TrainingProfileOnboardingPage(controller: controller)),
+    );
+    await tester.tap(find.byKey(const Key('profile-onboarding-skip')));
+    await tester.pump();
+    expect(controller.profileOnboardingCompleted, isTrue);
+
+    final restoredController = AppController();
+    addTearDown(restoredController.dispose);
+    await restoredController.hydratePersonalAgentData();
+    expect(restoredController.profileOnboardingCompleted, isTrue);
   });
 
   testWidgets('profile uses gender SVG and saves first recommendation data', (
@@ -559,6 +579,8 @@ void main() {
     await tester.tap(find.byKey(const Key('profile-onboarding-next')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('profile-muscle-map-female')), findsOneWidget);
+    expect(find.text('需要热身组'), findsNothing);
+    expect(find.text('无法完成的动作'), findsNothing);
     await tester.scrollUntilVisible(
       find.byKey(const Key('interactive-muscle-body')),
       220,
@@ -1253,7 +1275,7 @@ void main() {
     );
     await tester.pump();
 
-    expect(selectedGroups, contains('背'));
+    expect(selectedGroups, contains('斜方肌'));
     final selectedOverlay = tester.widget<SvgPicture>(
       find.byKey(const Key('muscle-overlay-trapezius-selected')),
     );
@@ -1261,6 +1283,50 @@ void main() {
       selectedOverlay.colorFilter,
       const ColorFilter.mode(Color(0xFFC45112), BlendMode.srcIn),
     );
+  });
+
+  testWidgets('onboarding can select glutes without selecting all legs', (
+    tester,
+  ) async {
+    var selectedGroups = <String>{};
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) => Center(
+              child: SizedBox(
+                width: 220,
+                child: InteractiveMuscleMap(
+                  muscleSets: const {},
+                  gender: MuscleMapGender.female,
+                  height: 320,
+                  selectionMode: true,
+                  selectedGroups: selectedGroups,
+                  onSelectionChanged: (value) =>
+                      setState(() => selectedGroups = value),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.bySemanticsLabel('背面人体图'));
+    await tester.pump();
+    final body = find.byKey(const Key('interactive-muscle-body'));
+    final rect = tester.getRect(body);
+    await tester.tapAt(
+      Offset(
+        rect.left + rect.width * (24 / 48),
+        rect.top + rect.height * (42 / 88),
+      ),
+    );
+    await tester.pump();
+
+    expect(selectedGroups, contains('臀'));
+    expect(selectedGroups, isNot(contains('腿')));
+    expect(selectedGroups, isNot(contains('股四头')));
   });
 
   testWidgets(

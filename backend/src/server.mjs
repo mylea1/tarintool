@@ -2515,7 +2515,7 @@ async function handleRequest(req, res, ctx) {
     const body = await readBody(req, ctx.cfg.maxJsonBytes);
     const normalizedPhone = requireSmsPhoneIdentifier(body.identifier);
     const password = requirePassword(body.password, 'password_required', 256);
-    if (password.length < 8 || password.length > 128) throw httpError(400, 'invalid_password');
+    if (password.length < 8 || password.length > 10) throw httpError(400, 'invalid_password');
     const code = requireString(body.code, 'sms_code_required', 32);
     const challenge = preflightSmsCode(ctx, normalizedPhone, 'register', code);
     const displayName = typeof body.displayName === 'string' && body.displayName.trim()

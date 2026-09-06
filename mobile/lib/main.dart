@@ -436,9 +436,9 @@ class _TrainingProfileOnboardingPageState
           parsedWeight: parsedWeight,
         ) ??
         (preferredWeekdays.isEmpty
-            ? '请至少选择一个每周训练日。'
+            ? '训练日期未填写。'
             : focusMuscles.isEmpty
-            ? '请在肌肉图上至少选择一个重点训练部位。'
+            ? '重点训练部位未填写。'
             : null);
     if (error != null) {
       setState(() {
@@ -500,17 +500,14 @@ class _TrainingProfileOnboardingPageState
     required double? parsedHeight,
     required double? parsedWeight,
   }) => switch ((gender, parsedAge, parsedHeight, parsedWeight, goal)) {
-    (null, _, _, _, _) => '请选择性别，以便匹配身体图和估算基础代谢。',
-    (_, null, _, _, _) => '请输入有效年龄。',
-    (_, final value?, _, _, _) when value < 13 || value > 100 =>
-      '年龄需要在 13–100 岁之间。',
-    (_, _, null, _, _) => '请输入有效身高。',
-    (_, _, final value?, _, _) when value < 100 || value > 250 =>
-      '身高需要在 100–250 cm 之间。',
-    (_, _, _, null, _) => '请输入有效体重。',
-    (_, _, _, final value?, _) when value < 30 || value > 300 =>
-      '体重需要在 30–300 kg 之间。',
-    (_, _, _, _, null) => '请选择当前训练目标。',
+    (null, _, _, _, _) => '性别未填写。',
+    (_, null, _, _, _) => '年龄未填写。',
+    (_, final value?, _, _, _) when value < 13 || value > 100 => '年龄填写有误。',
+    (_, _, null, _, _) => '身高未填写。',
+    (_, _, final value?, _, _) when value < 100 || value > 250 => '身高填写有误。',
+    (_, _, _, null, _) => '体重未填写。',
+    (_, _, _, final value?, _) when value < 30 || value > 300 => '体重填写有误。',
+    (_, _, _, _, null) => '训练目标未填写。',
     _ => null,
   };
 
@@ -534,6 +531,17 @@ class _TrainingProfileOnboardingPageState
       surfaceTintColor: Colors.transparent,
       automaticallyImplyLeading: false,
       actions: [
+        if (!widget.editMode)
+          TextButton(
+            key: const Key('profile-onboarding-skip'),
+            onPressed: saving
+                ? null
+                : () async {
+                    setState(() => saving = true);
+                    await widget.controller.skipTrainingProfile();
+                  },
+            child: const Text('跳过'),
+          ),
         if (widget.editMode)
           TextButton(
             key: const Key('profile-onboarding-cancel'),
@@ -789,18 +797,20 @@ class _TrainingProfileOnboardingPageState
               onSelected: (value) =>
                   setState(() => preferredRepRange = value ?? '8-12'),
             ),
-            const SizedBox(height: 12),
-            SwitchListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-              tileColor: surface,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: BorderSide(color: hairline),
+            if (widget.editMode) ...[
+              const SizedBox(height: 12),
+              SwitchListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                tileColor: surface,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: hairline),
+                ),
+                value: needsWarmupSets,
+                title: const Text('需要热身组'),
+                onChanged: (value) => setState(() => needsWarmupSets = value),
               ),
-              value: needsWarmupSets,
-              title: const Text('需要热身组'),
-              onChanged: (value) => setState(() => needsWarmupSets = value),
-            ),
+            ],
             const SizedBox(height: 12),
             TextField(
               controller: dislikedExercises,
@@ -809,14 +819,16 @@ class _TrainingProfileOnboardingPageState
                 hintText: '用顿号或逗号分隔',
               ),
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: unavailableExercises,
-              decoration: const InputDecoration(
-                labelText: '无法完成的动作',
-                hintText: '伤病限制或当前无法完成',
+            if (widget.editMode) ...[
+              const SizedBox(height: 12),
+              TextField(
+                controller: unavailableExercises,
+                decoration: const InputDecoration(
+                  labelText: '无法完成的动作',
+                  hintText: '伤病限制或当前无法完成',
+                ),
               ),
-            ),
+            ],
             const SizedBox(height: 22),
             Row(
               children: [
@@ -1360,7 +1372,7 @@ class _LoginPageState extends State<LoginPage> {
   String _localizedError(AccountError accountError) => switch (accountError) {
     AccountError.emptyIdentifier => '请输入手机号或账号。',
     AccountError.invalidIdentifier => '请输入有效的大陆手机号。',
-    AccountError.invalidPassword => '密码需为 8–128 位。',
+    AccountError.invalidPassword => '密码需为 8–10 位。',
     AccountError.invalidCode => '请输入6位验证码。',
     AccountError.invalidCredentials => '手机号或密码不正确。',
     _ => '登录服务暂时不可用，请稍后重试。',
@@ -1525,8 +1537,8 @@ class _LoginPageState extends State<LoginPage> {
       _showError('请输入6位验证码。');
       return;
     }
-    if (password.text.length < 8 || password.text.length > 128) {
-      _showError('密码需为 8–128 位。');
+    if (password.text.length < 8 || password.text.length > 10) {
+      _showError('密码需为 8–10 位。');
       return;
     }
     if (password.text != confirmPassword.text) {
@@ -1617,20 +1629,23 @@ class _LoginPageState extends State<LoginPage> {
         ),
       );
 
-  Widget _sendCodeButton({required Key key}) => OutlinedButton.icon(
+  Widget _sendCodeButton({required Key key}) => OutlinedButton(
     key: key,
     onPressed: busy || codeCooldown > 0 ? null : _sendCode,
-    icon: const Icon(Icons.sms_outlined, size: 18),
-    label: Text(
-      codeCooldown > 0
-          ? '${codeCooldown}s 后重试'
-          : busy
-          ? '发送中…'
-          : '发送验证码',
-    ),
     style: OutlinedButton.styleFrom(
       minimumSize: const Size(0, 44),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    ),
+    child: FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Text(
+        codeCooldown > 0
+            ? '${codeCooldown}s 后重试'
+            : busy
+            ? '发送中…'
+            : '发送验证码',
+        maxLines: 1,
+      ),
     ),
   );
 
@@ -1788,15 +1803,6 @@ class _LoginPageState extends State<LoginPage> {
                               ),
                               if (registering) ...[
                                 const SizedBox(height: 10),
-                                _phoneCodeField(
-                                  key: const Key('register-code'),
-                                  label: strings.text('验证码'),
-                                ),
-                                const SizedBox(height: 8),
-                                _sendCodeButton(
-                                  key: const Key('register-send-code'),
-                                ),
-                                const SizedBox(height: 10),
                                 TextField(
                                   key: const Key('register-password'),
                                   controller: password,
@@ -1806,8 +1812,11 @@ class _LoginPageState extends State<LoginPage> {
                                   autofillHints: const [
                                     AutofillHints.newPassword,
                                   ],
+                                  inputFormatters: [
+                                    LengthLimitingTextInputFormatter(10),
+                                  ],
                                   decoration: InputDecoration(
-                                    labelText: strings.text('设置密码（8–128 位）'),
+                                    labelText: strings.text('设置密码（8–10 位）'),
                                     prefixIcon: const Icon(
                                       Icons.lock_outline_rounded,
                                     ),
@@ -1823,13 +1832,35 @@ class _LoginPageState extends State<LoginPage> {
                                   autofillHints: const [
                                     AutofillHints.newPassword,
                                   ],
-                                  onSubmitted: (_) => submit(),
+                                  inputFormatters: [
+                                    LengthLimitingTextInputFormatter(10),
+                                  ],
                                   decoration: InputDecoration(
                                     labelText: strings.text('确认密码'),
                                     prefixIcon: const Icon(
                                       Icons.lock_reset_outlined,
                                     ),
                                   ),
+                                ),
+                                const SizedBox(height: 10),
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      flex: 3,
+                                      child: _phoneCodeField(
+                                        key: const Key('register-code'),
+                                        label: strings.text('验证码'),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      flex: 2,
+                                      child: _sendCodeButton(
+                                        key: const Key('register-send-code'),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ] else if (phoneMode == _PhoneEntryMode.code) ...[
                                 const SizedBox(height: 10),

@@ -156,6 +156,25 @@ test('phone registration normalizes 11-digit/+86 forms and returns a session', a
   }
 });
 
+test('phone registration rejects passwords longer than 10 characters', async () => {
+  const app = await fixture({ sender: async () => ({ sent: true, verifyCode: '123456' }) });
+  try {
+    await app.call('/v1/auth/phone/request', { identifier: '13812345679', purpose: 'register' });
+    const result = await app.call('/v1/auth/phone/register', {
+      identifier: '13812345679',
+      password: '12345678901',
+      code: '123456',
+    });
+    assert.equal(result.response.status, 400);
+    assert.equal(result.body.error, 'invalid_password');
+    const challenge = app.db.prepare('SELECT attempts, consumed_at FROM sms_challenges').get();
+    assert.equal(challenge.attempts, 0);
+    assert.equal(challenge.consumed_at, null);
+  } finally {
+    await app.close();
+  }
+});
+
 test('OTP purpose isolation and one-time consumption hold across replays', async () => {
   let nextCode = '246810';
   const app = await fixture({ sender: async () => ({ sent: true, verifyCode: nextCode }) });
