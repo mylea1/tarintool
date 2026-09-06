@@ -1404,6 +1404,7 @@ class WorkoutActivityExercise {
     this.sets = 0,
     this.topWeight,
     this.topReps,
+    this.setDetails = const [],
   });
 
   final String exerciseId;
@@ -1411,9 +1412,16 @@ class WorkoutActivityExercise {
   final int sets;
   final double? topWeight;
   final int? topReps;
+  final List<WorkoutActivitySet> setDetails;
 
   factory WorkoutActivityExercise.fromJson(Map<String, dynamic> json) =>
       WorkoutActivityExercise(
+        setDetails: (json['setDetails'] as List? ?? const [])
+            .whereType<Map>()
+            .map(
+              (v) => WorkoutActivitySet.fromJson(Map<String, dynamic>.from(v)),
+            )
+            .toList(),
         exerciseId: (json['exerciseId'] ?? json['id'] ?? '').toString(),
         name: (json['name'] ?? json['exerciseName'] ?? '').toString(),
         sets: (json['sets'] ?? json['setCount'] as num?)?.toInt() ?? 0,
@@ -1422,6 +1430,7 @@ class WorkoutActivityExercise {
       );
 
   Map<String, dynamic> toJson() => {
+    'setDetails': setDetails.map((s) => s.toJson()).toList(),
     'exerciseId': exerciseId,
     'name': name,
     'sets': sets,
@@ -2229,4 +2238,54 @@ String exerciseAsset(String id) {
     'biceps_curl': 'biceps_curl_0.png',
   };
   return 'assets/exercises/${assets[id] ?? 'bench_press_0.png'}';
+}
+
+@immutable
+class WorkoutActivitySet {
+  const WorkoutActivitySet({
+    this.weight = 0,
+    this.reps = 0,
+    this.durationSeconds,
+    this.weightText = '',
+    this.speedKph,
+    this.inclinePercent,
+    this.type = 'work',
+  });
+  final double weight;
+  final int reps;
+  final int? durationSeconds;
+  final String weightText;
+  final double? speedKph;
+  final double? inclinePercent;
+  final String type;
+  factory WorkoutActivitySet.fromJson(Map<String, dynamic> json) =>
+      WorkoutActivitySet(
+        weight: (json['weight'] as num?)?.toDouble() ?? 0,
+        reps: (json['reps'] as num?)?.toInt() ?? 0,
+        durationSeconds: (json['durationSeconds'] as num?)?.toInt(),
+        weightText: json['weightText']?.toString() ?? '',
+        speedKph: (json['speedKph'] as num?)?.toDouble(),
+        inclinePercent: (json['inclinePercent'] as num?)?.toDouble(),
+        type: json['type']?.toString() ?? 'work',
+      );
+  Map<String, dynamic> toJson() => {
+    'weight': weight,
+    'reps': reps,
+    'durationSeconds': durationSeconds,
+    'weightText': weightText,
+    'speedKph': speedKph,
+    'inclinePercent': inclinePercent,
+    'type': type,
+  };
+  WorkoutSet toWorkoutSet(int index) => WorkoutSet(
+    id: 'shared-$index',
+    weight: weight,
+    reps: reps,
+    durationSeconds: durationSeconds,
+    weightText: weightText,
+    speedKph: speedKph,
+    inclinePercent: inclinePercent,
+    type: type,
+    completed: true,
+  );
 }

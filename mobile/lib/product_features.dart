@@ -13,7 +13,7 @@ import 'membership_ui.dart';
 import 'models.dart';
 import 'trend_chart.dart';
 import 'trend_data.dart';
-import 'workout_share_card.dart';
+import 'training_details_card.dart';
 
 part 'weight_trend_ui.dart';
 
@@ -55,8 +55,6 @@ Color _onSurface(BuildContext context) =>
 
 Color _muted(BuildContext context) =>
     Theme.of(context).colorScheme.onSurface.withValues(alpha: .62);
-
-String _shareStyleLabel(String style) => workoutShareStyleLabel(style);
 
 class NutritionCenterPage extends StatefulWidget {
   const NutritionCenterPage({
@@ -3095,10 +3093,6 @@ class _PublishWorkoutSheetState extends State<PublishWorkoutSheet> {
   late final TextEditingController caption;
   bool publishing = false;
   String? error;
-  String cardStyle = 'coral';
-  String cardImageKey = 'brand';
-  String? localPhotoPath;
-  String? localPhotoName;
 
   @override
   void initState() {
@@ -3112,21 +3106,6 @@ class _PublishWorkoutSheetState extends State<PublishWorkoutSheet> {
     super.dispose();
   }
 
-  Future<void> _pickPhoto() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.image,
-      allowMultiple: false,
-      withData: false,
-    );
-    if (!mounted || result == null || result.files.isEmpty) return;
-    final file = result.files.single;
-    if (file.path == null || file.path!.isEmpty) return;
-    setState(() {
-      localPhotoPath = file.path;
-      localPhotoName = file.name;
-    });
-  }
-
   Future<void> _publish() async {
     if (publishing) return;
     setState(() {
@@ -3137,11 +3116,6 @@ class _PublishWorkoutSheetState extends State<PublishWorkoutSheet> {
       await widget.controller.publishWorkoutActivityRemote(
         widget.record,
         caption: caption.text,
-        cardStyle: cardStyle,
-        // A local photo cannot be addressed by another user's device. The
-        // allow-listed image key keeps the dynamic cross-device safe; the
-        // selected local file remains available for the system share card.
-        cardImageKey: localPhotoPath == null ? cardImageKey : 'brand',
       );
       if (!mounted) return;
       final messenger = ScaffoldMessenger.maybeOf(context);
@@ -3187,84 +3161,12 @@ class _PublishWorkoutSheetState extends State<PublishWorkoutSheet> {
               ],
             ),
             const SizedBox(height: 12),
-            Card(
-              color: _primaryContainer(context).withValues(alpha: .35),
-              child: Padding(
-                padding: const EdgeInsets.all(13),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.record.name,
-                      style: const TextStyle(fontWeight: FontWeight.w900),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      '${widget.record.effectiveSets} 组 · ${widget.record.volume.toStringAsFixed(0)} kg · ${widget.record.durationSeconds ~/ 60} 分钟',
-                      style: TextStyle(color: _muted(context), fontSize: 12),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      '只会分享训练摘要，训练备注、身体资料和未发布记录不会公开。',
-                      style: TextStyle(color: _muted(context), fontSize: 12),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+            const Text('分享动作、重量和次数；私人备注不会公开。'),
             const SizedBox(height: 10),
             _WorkoutActivityRecordPreview(
               controller: widget.controller,
               record: widget.record,
-              style: cardStyle,
-              localPhotoPath: localPhotoPath,
             ),
-            const SizedBox(height: 10),
-            const Text('卡片样式', style: TextStyle(fontWeight: FontWeight.w800)),
-            const SizedBox(height: 7),
-            Wrap(
-              spacing: 7,
-              runSpacing: 7,
-              children: [
-                for (final style in workoutCardStyles)
-                  ChoiceChip(
-                    key: Key('publish-card-style-$style'),
-                    label: Text(_shareStyleLabel(style)),
-                    selected: cardStyle == style,
-                    onSelected: (_) => setState(() => cardStyle = style),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 7,
-              runSpacing: 7,
-              children: [
-                ChoiceChip(
-                  key: const Key('publish-card-image-brand'),
-                  label: const Text('品牌默认图'),
-                  selected: localPhotoPath == null && cardImageKey == 'brand',
-                  onSelected: (_) => setState(() {
-                    localPhotoPath = null;
-                    localPhotoName = null;
-                    cardImageKey = 'brand';
-                  }),
-                ),
-                ActionChip(
-                  key: const Key('publish-card-image-picker'),
-                  avatar: const Icon(Icons.add_a_photo_outlined, size: 18),
-                  label: Text(localPhotoName ?? '选择照片'),
-                  onPressed: _pickPhoto,
-                ),
-              ],
-            ),
-            if (localPhotoPath != null) ...[
-              const SizedBox(height: 5),
-              Text(
-                '自选照片只用于本机分享；好友动态将使用默认图，保证跨设备可见。',
-                style: TextStyle(color: _muted(context), fontSize: 11),
-              ),
-            ],
             const SizedBox(height: 10),
             TextField(
               key: const Key('publish-workout-caption'),
@@ -3309,64 +3211,72 @@ class _WorkoutActivityRecordPreview extends StatelessWidget {
   const _WorkoutActivityRecordPreview({
     required this.controller,
     required this.record,
-    required this.style,
-    this.localPhotoPath,
   });
 
   final AppController controller;
   final WorkoutRecord record;
-  final String style;
-  final String? localPhotoPath;
 
   @override
   Widget build(BuildContext context) {
-    final total = record.exercises.fold<int>(
-      0,
-      (sum, item) => sum + item.sets.length,
-    );
-    final completed = record.exercises.fold<int>(
-      0,
-      (sum, item) => sum + item.sets.where((set) => set.completed).length,
-    );
-    return WorkoutResultCard(
-      workoutName: record.name,
-      date: record.date,
-      durationSeconds: record.durationSeconds,
-      volume: record.volume,
-      effectiveSets: record.effectiveSets,
-      completionPercent: total == 0 ? 0 : (completed / total * 100).round(),
-      exerciseNames: [
-        for (final item in record.exercises)
-          controller.displayExerciseName(
-            controller.exerciseFor(item.exerciseId),
-          ),
-      ],
-      cardStyle: style,
-      localPhotoPath: localPhotoPath,
+    return TrainingDetailsCard.fromRecord(
+      controller: controller,
+      record: record,
     );
   }
 }
 
 class _WorkoutActivityPostPreview extends StatelessWidget {
-  const _WorkoutActivityPostPreview({required this.post, this.socialFooter});
+  const _WorkoutActivityPostPreview({required this.post});
 
   final WorkoutActivityPost post;
-  final Widget? socialFooter;
 
   @override
-  Widget build(BuildContext context) => WorkoutResultCard(
-    workoutName: post.workoutName,
+  Widget build(BuildContext context) => TrainingDetailsCard(
+    title: post.workoutName,
     date: post.completedAt,
-    durationSeconds: post.durationSeconds,
-    volume: post.volume,
-    effectiveSets: post.effectiveSets,
-    completionPercent: post.completionPercent,
-    exerciseNames: [
-      for (final exercise in post.exerciseSummary)
-        '${exercise.name.isEmpty ? exercise.exerciseId : exercise.name} · ${exercise.sets} 组',
+    record: true,
+    exercises: [
+      for (final e in post.exerciseSummary.where(
+        (e) => e.setDetails.isNotEmpty,
+      ))
+        WorkoutExercise(
+          id: e.exerciseId,
+          exerciseId: e.exerciseId,
+          sets: [
+            for (var i = 0; i < e.setDetails.length; i++)
+              e.setDetails[i].toWorkoutSet(i),
+          ],
+        ),
     ],
-    cardStyle: post.cardStyle,
-    socialFooter: socialFooter,
+    nameFor: (id) =>
+        post.exerciseSummary.firstWhere((e) => e.exerciseId == id).name,
+    summary:
+        '${(post.durationSeconds / 60).round()} 分钟 · ${post.volume.toStringAsFixed(0)} kg · ${post.effectiveSets} 有效组',
+    footer: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final e in post.exerciseSummary.where((e) => e.setDetails.isEmpty))
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(
+              children: [
+                Image.asset(
+                  exerciseAsset(e.exerciseId),
+                  width: 44,
+                  height: 44,
+                  errorBuilder: (_, _, _) => const Icon(Icons.fitness_center),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    '${e.name.isEmpty ? e.exerciseId : e.name} · ${e.sets} 组${e.topWeight == null ? '' : '\n最高重量 ${e.topWeight} kg'}${e.topReps == null ? '' : ' · 最高次数 ${e.topReps} 次'}',
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    ),
   );
 }
 
@@ -3613,10 +3523,9 @@ class _WorkoutActivityCardState extends State<WorkoutActivityCard> {
               ],
             ),
             const SizedBox(height: 13),
-            _WorkoutActivityPostPreview(
-              post: post,
-              socialFooter: _socialFooter(context, post),
-            ),
+            _WorkoutActivityPostPreview(post: post),
+            const SizedBox(height: 10),
+            _socialFooter(context, post),
           ],
         ),
       ),

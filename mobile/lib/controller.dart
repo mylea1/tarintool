@@ -1027,6 +1027,18 @@ class AppController extends ChangeNotifier {
             'exerciseId': exercise.exerciseId,
             'name': displayExerciseName(exerciseFor(exercise.exerciseId)),
             'sets': exercise.sets.where((item) => item.completed).length,
+            'setDetails': [
+              for (final set in exercise.sets.where((s) => s.completed))
+                WorkoutActivitySet(
+                  weight: set.weight,
+                  reps: set.reps,
+                  durationSeconds: set.durationSeconds,
+                  weightText: set.weightText,
+                  speedKph: set.speedKph,
+                  inclinePercent: set.inclinePercent,
+                  type: set.type,
+                ).toJson(),
+            ],
             if (exercise.sets.any((item) => item.completed))
               'topWeight': exercise.sets
                   .where((item) => item.completed)
@@ -1082,12 +1094,12 @@ class AppController extends ChangeNotifier {
     return FoodPhotoRecognitionResult.fromJson(payload);
   }
 
-  void saveFriendPlan(Map<String, dynamic> share) {
+  List<WorkoutExercise> friendPlanExercises(Map<String, dynamic> share) {
     final rawPlan = share['plan'];
-    if (rawPlan is! Map) return;
+    if (rawPlan is! Map) return [];
     final exercises = <WorkoutExercise>[];
     final rawExercises = rawPlan['exercises'];
-    if (rawExercises is! List) return;
+    if (rawExercises is! List) return [];
     for (
       var exerciseIndex = 0;
       exerciseIndex < rawExercises.length;
@@ -1129,8 +1141,12 @@ class AppController extends ChangeNotifier {
         ),
       );
     }
+    return exercises;
+  }
+
+  void saveFriendPlan(Map<String, dynamic> share) {
     final name = (share['name'] ?? '好友训练计划').toString();
-    saveRoutineFromDraft('$name · 好友分享', exercises, folder: '好友分享');
+    saveRoutineFromDraft(name, friendPlanExercises(share));
   }
 
   AuthResult loginWithGoogle() => accountService.loginWithGoogle();
@@ -4200,10 +4216,11 @@ class AppController extends ChangeNotifier {
     String note = '',
     bool saveAsRoutine = false,
     String? routineName,
+    String routineFolder = '',
   }) {
     if (!workoutStarted && !workoutDraft) return null;
     final now = DateTime.now();
-    final wasFreeWorkout = freeWorkout;
+
     final historySnapshot = workout.map((item) => item.copy()).toList();
     final prDetails = _calculateWorkoutPrs(historySnapshot);
     final prs = prDetails
@@ -4240,7 +4257,7 @@ class AppController extends ChangeNotifier {
     if (record.durationSeconds >= 1800 && record.effectiveSets >= 1) {
       unawaited(_activateMembershipTrialAfterWorkout(record));
     }
-    if (wasFreeWorkout && saveAsRoutine && workout.isNotEmpty) {
+    if (saveAsRoutine && workout.isNotEmpty) {
       final baseName = routineName?.trim().isNotEmpty == true
           ? routineName!.trim()
           : _defaultFreeRoutineName(now);
@@ -4261,13 +4278,15 @@ class AppController extends ChangeNotifier {
         }
         return planExercise;
       }).toList();
-      if (!routineFolders.contains('自定义')) routineFolders.add('自定义');
+      if (routineFolder.isNotEmpty && !routineFolders.contains(routineFolder)) {
+        routineFolders.add(routineFolder);
+      }
       routines.insert(
         0,
         Routine(
           id: 'routine-${DateTime.now().microsecondsSinceEpoch}',
           name: finalName,
-          folder: '自定义',
+          folder: routineFolder,
           exercises: exercises,
           updatedAt: now,
         ),
@@ -4651,7 +4670,9 @@ class AppController extends ChangeNotifier {
   }
 
   void saveRoutine(String name, String folder) {
-    if (!routineFolders.contains(folder)) routineFolders.add(folder);
+    if (folder.isNotEmpty && !routineFolders.contains(folder)) {
+      routineFolders.add(folder);
+    }
     routines.insert(
       0,
       Routine(
@@ -4674,11 +4695,13 @@ class AppController extends ChangeNotifier {
   void saveRoutineFromDraft(
     String name,
     List<WorkoutExercise> exercises, {
-    String folder = '自定义',
+    String folder = '',
   }) {
     final trimmedName = name.trim();
     if (trimmedName.isEmpty || exercises.isEmpty) return;
-    if (!routineFolders.contains(folder)) routineFolders.add(folder);
+    if (folder.isNotEmpty && !routineFolders.contains(folder)) {
+      routineFolders.add(folder);
+    }
     routines.insert(
       0,
       Routine(
@@ -4726,7 +4749,7 @@ class AppController extends ChangeNotifier {
       Routine(
         id: 'routine-${DateTime.now().microsecondsSinceEpoch}',
         name: name,
-        folder: '官方计划',
+        folder: '',
         exercises: [
           for (var index = 0; index < exerciseIds.length; index++)
             _makeWorkout(
@@ -4775,7 +4798,9 @@ class AppController extends ChangeNotifier {
   }
 
   void moveRoutine(Routine routine, String folder) {
-    if (!routineFolders.contains(folder)) routineFolders.add(folder);
+    if (folder.isNotEmpty && !routineFolders.contains(folder)) {
+      routineFolders.add(folder);
+    }
     routine.folder = folder;
     routine.updatedAt = DateTime.now();
     _persistTrainingLibrary();
@@ -4786,6 +4811,16 @@ class AppController extends ChangeNotifier {
     final value = folder.trim();
     if (value.isEmpty || routineFolders.contains(value)) return;
     routineFolders.add(value);
+    _persistTrainingLibrary();
+    notifyListeners();
+  }
+
+  void deleteRoutineFolder(String folder) {
+    routineFolders.remove(folder);
+    for (final routine in routines.where((r) => r.folder == folder)) {
+      routine.folder = '';
+      routine.updatedAt = DateTime.now();
+    }
     _persistTrainingLibrary();
     notifyListeners();
   }
@@ -6241,12 +6276,11 @@ class AppController extends ChangeNotifier {
           .toList();
       if (validIds.isEmpty) continue;
       final routineName = '${plan.title} · ${session.name}';
-      if (!routineFolders.contains('AI 生成')) routineFolders.add('AI 生成');
       routines.add(
         Routine(
           id: 'ai-routine-$stamp-$sessionIndex',
           name: routineName,
-          folder: 'AI 生成',
+          folder: '',
           exercises: session.exercises.isNotEmpty
               ? [
                   for (

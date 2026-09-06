@@ -317,7 +317,7 @@ test('completed workout posts are friend-visible, updateable, and emoji-only int
       effectiveSets: 12,
       completionPercent: 100,
       exerciseSummary: [
-        { exerciseId: 'bench_press', name: '卧推', sets: [{ reps: 8 }, { reps: 7 }] },
+        { exerciseId: 'bench_press', name: '卧推', sets: [{ reps: 8 }, { reps: 7 }], setDetails: [{ weight: 60, reps: 8, note: 'PRIVATE', rpe: 9 }, { weight: 60, reps: 7 }] },
         { exerciseId: 'row', name: '划船', setCount: 3 },
       ],
       caption: '今天完成了计划',
@@ -329,6 +329,10 @@ test('completed workout posts are friend-visible, updateable, and emoji-only int
   assert.equal(created.body.post.type, 'workout');
   assert.equal(created.body.post.effectiveSets, 12);
   assert.equal(created.body.post.exercises[0].sets, 2);
+  assert.equal(created.body.post.exercises[0].setDetails[0].weight, 60);
+  assert.equal(created.body.post.exercises[0].setDetails[1].reps, 7);
+  assert.equal('note' in created.body.post.exercises[0].setDetails[0], false);
+  assert.equal('rpe' in created.body.post.exercises[0].setDetails[0], false);
   assert.equal(created.body.post.likeCount, 0);
   assert.equal(created.body.post.cardStyle, 'forest');
   assert.equal(created.body.post.cardImageKey, 'exercise');

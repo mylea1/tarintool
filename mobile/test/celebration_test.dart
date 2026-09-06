@@ -130,30 +130,15 @@ void main() {
     );
   });
 
-  testWidgets('share card is a separate poster without AI review content', (
+  testWidgets('completion shows details directly and only one sharing action', (
     tester,
   ) async {
     final controller = AppController();
     addTearDown(controller.dispose);
     await _openCelebration(tester, controller, reducedMotion: true);
-    final shareButton = find.byKey(const Key('workout-celebration-share'));
-    await tester.ensureVisible(shareButton);
-    await tester.tap(shareButton);
-    await tester.pumpAndSettle();
-
-    final card = find.byKey(const Key('workout-share-card'));
-    expect(card, findsWidgets);
-    expect(
-      find.byKey(const Key('workout-share-system-button')),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(of: card, matching: find.textContaining('AI 训练评价')),
-      findsNothing,
-    );
-    expect(
-      find.descendant(of: card, matching: find.textContaining('KILOSTRENGTH')),
-      findsWidgets,
-    );
+    expect(find.byKey(const Key('workout-celebration-share')), findsNothing);
+    expect(find.text('分享到动态'), findsOneWidget);
+    expect(find.text('形域 · 训练记录'), findsOneWidget);
+    expect(find.textContaining('kg ×'), findsWidgets);
   });
 }

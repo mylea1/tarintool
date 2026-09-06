@@ -37,6 +37,9 @@ import 'ai_training_ui.dart';
 import 'training_intelligence.dart';
 import 'product_features.dart';
 import 'workout_share_card.dart';
+import 'training_details_card.dart';
+
+part 'plan_folders_ui.dart';
 
 part 'workout_coach_ui.dart';
 part 'training_trend_ui.dart';
@@ -2763,7 +2766,6 @@ class _StatusChip extends StatelessWidget {
 
 class _ExerciseThumb extends StatelessWidget {
   const _ExerciseThumb({
-    super.key,
     required this.exerciseId,
     this.size = 42,
     this.openDetails = true,
@@ -7367,8 +7369,7 @@ class _PlansView extends StatelessWidget {
               child: Text('还没有保存的计划，先新建一个训练。'),
             ),
           ),
-        for (final routine in controller.routines)
-          _RoutineCard(controller: controller, routine: routine),
+        _PlanFolderLibrary(controller: controller),
         const SizedBox(height: 8),
         OutlinedButton.icon(
           key: const Key('official-plans-entry'),
@@ -7558,14 +7559,6 @@ class _RoutineCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final count = routine.exercises.fold<int>(0, (n, e) => n + e.sets.length);
     final minutes = (count * 3 + routine.exercises.length * 2).clamp(10, 180);
-    final summary = routine.exercises
-        .take(3)
-        .map(
-          (e) => controller.displayExerciseName(
-            controller.exerciseFor(e.exerciseId),
-          ),
-        )
-        .join(' · ');
     return Card(
       key: Key('routine-card-${routine.id}'),
       margin: const EdgeInsets.only(bottom: 9),
@@ -7574,56 +7567,47 @@ class _RoutineCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.all(12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _RoutineCover(controller: controller, routine: routine),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            routine.name,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontWeight: FontWeight.w800),
-                          ),
-                        ),
-                        IconButton(
-                          key: Key('routine-more-${routine.id}'),
-                          tooltip: '计划更多操作',
-                          onPressed: () =>
-                              _showRoutineActions(context, controller, routine),
-                          icon: const Icon(Icons.more_horiz),
-                        ),
-                      ],
+              Row(
+                children: [
+                  _RoutineCover(controller: controller, routine: routine),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      routine.name,
+                      style: const TextStyle(fontWeight: FontWeight.w800),
                     ),
-                    Text(
-                      summary,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: quiet, fontSize: 12),
-                    ),
-                    Text(
-                      '${routine.exercises.length} 个动作 · $count 组 · 约 $minutes 分钟',
-                      style: TextStyle(color: quiet, fontSize: 11),
-                    ),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        key: Key('routine-select-${routine.id}'),
-                        onPressed: () {
-                          controller.schedule(DateTime.now(), routine.name);
-                          showKiloSnack(context, '已选择今日计划：${routine.name}');
-                        },
-                        child: const Text('选择 ›'),
-                      ),
-                    ),
-                  ],
+                  ),
+                  IconButton(
+                    key: Key('routine-more-${routine.id}'),
+                    tooltip: '计划更多操作',
+                    onPressed: () =>
+                        _showRoutineActions(context, controller, routine),
+                    icon: const Icon(Icons.more_horiz),
+                  ),
+                ],
+              ),
+              TrainingExerciseDetails(
+                exercises: routine.exercises,
+                nameFor: (id) =>
+                    controller.displayExerciseName(controller.exerciseFor(id)),
+              ),
+              Text(
+                '${routine.exercises.length} 个动作 · $count 组 · 约 $minutes 分钟',
+                textAlign: TextAlign.end,
+                style: TextStyle(color: quiet, fontSize: 11),
+              ),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  key: Key('routine-select-${routine.id}'),
+                  onPressed: () {
+                    controller.schedule(DateTime.now(), routine.name);
+                    showKiloSnack(context, '已选择今日计划：${routine.name}');
+                  },
+                  child: const Text('选择 ›'),
                 ),
               ),
             ],
@@ -7632,25 +7616,6 @@ class _RoutineCard extends StatelessWidget {
       ),
     );
   }
-}
-
-class _RoutineStat extends StatelessWidget {
-  const _RoutineStat({required this.label, required this.value});
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-    decoration: BoxDecoration(
-      color: paper,
-      borderRadius: BorderRadius.circular(8),
-    ),
-    child: Text(
-      '$label $value',
-      style: TextStyle(fontSize: 11, color: secondaryInk),
-    ),
-  );
 }
 
 class _PlanCard extends StatelessWidget {
@@ -7709,112 +7674,13 @@ class _RecordTile extends StatelessWidget {
   final VoidCallback onTap;
   @override
   Widget build(BuildContext context) {
-    final totalSets = record.exercises
-        .expand((exercise) => exercise.sets)
-        .length;
-    final completedSets = record.exercises
-        .expand((exercise) => exercise.sets)
-        .where((set) => set.completed)
-        .length;
-    final completionLabel = totalSets == 0
-        ? '—'
-        : '${(completedSets / totalSets * 100).round()}%';
-    final exerciseIds = record.exercises.isNotEmpty
-        ? record.exercises.map((item) => item.exerciseId).toList()
-        : record.exerciseIds;
-    final actionSummary = exerciseIds
-        .take(4)
-        .map((id) => controller.displayExerciseName(controller.exerciseFor(id)))
-        .join(' · ');
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      child: InkWell(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: TrainingDetailsCard.fromRecord(
+        key: Key('record-tile-${record.id}'),
+        controller: controller,
+        record: record,
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              GestureDetector(
-                key: Key('record-tile-${record.id}'),
-                behavior: HitTestBehavior.opaque,
-                onTap: onTap,
-                child: Row(
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: paper,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Icon(Icons.event_available, color: cobalt),
-                    ),
-                    const SizedBox(width: 11),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            record.name,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontWeight: FontWeight.w800),
-                          ),
-                          Text(
-                            '${record.date.month} 月 ${record.date.day} 日 · ${record.startTime} · ${(record.durationSeconds / 60).round()} 分钟',
-                            style: TextStyle(fontSize: 12, color: quiet),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Icon(Icons.chevron_right, color: quiet),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  _RoutineStat(
-                    label: '训练量',
-                    value: '${record.volume.toStringAsFixed(0)} kg',
-                  ),
-                  _RoutineStat(label: '有效组', value: '${record.effectiveSets}'),
-                  _RoutineStat(label: '完成率', value: completionLabel),
-                ],
-              ),
-              if (actionSummary.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Text(
-                  actionSummary,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 12, color: secondaryInk),
-                ),
-              ],
-              if (exerciseIds.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Row(
-                    children: [
-                      for (final id in exerciseIds.take(3))
-                        Padding(
-                          padding: const EdgeInsets.only(right: 6),
-                          child: _ExerciseThumb(
-                            key: Key('record-thumb-${record.id}-$id'),
-                            exerciseId: id,
-                            size: 32,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -10186,6 +10052,7 @@ class _FriendsPage extends StatefulWidget {
 }
 
 class _FriendsPageState extends State<_FriendsPage> {
+  final Set<String> _savedPlanIds = {};
   var tab = 0;
   var loading = true;
   String? error;
@@ -10790,10 +10657,8 @@ class _FriendsPageState extends State<_FriendsPage> {
   }
 
   Widget _friendPlanCard(BuildContext context, Map<String, dynamic> item) {
-    final rawPlan = item['plan'];
-    final exerciseCount = rawPlan is Map && rawPlan['exercises'] is List
-        ? (rawPlan['exercises'] as List).length
-        : 0;
+    final exercises = widget.controller.friendPlanExercises(item);
+    final saved = _savedPlanIds.contains(item['id'].toString());
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
@@ -10831,9 +10696,11 @@ class _FriendsPageState extends State<_FriendsPage> {
               style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900),
             ),
             const SizedBox(height: 4),
-            Text(
-              '$exerciseCount 个动作 · 点击保存后会创建独立副本',
-              style: TextStyle(color: secondaryInk),
+            TrainingExerciseDetails(
+              exercises: exercises,
+              nameFor: (id) => widget.controller.displayExerciseName(
+                widget.controller.exerciseFor(id),
+              ),
             ),
             const SizedBox(height: 12),
             Row(
@@ -10865,14 +10732,19 @@ class _FriendsPageState extends State<_FriendsPage> {
                 ),
                 const Spacer(),
                 FilledButton.icon(
-                  onPressed: () {
-                    widget.controller.saveFriendPlan(item);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('已保存到“好友分享”文件夹')),
-                    );
-                  },
+                  onPressed: saved || exercises.isEmpty
+                      ? null
+                      : () {
+                          widget.controller.saveFriendPlan(item);
+                          setState(
+                            () => _savedPlanIds.add(item['id'].toString()),
+                          );
+                          ScaffoldMessenger.of(
+                            context,
+                          ).showSnackBar(const SnackBar(content: Text('已保存')));
+                        },
                   icon: const Icon(Icons.bookmark_add_outlined),
-                  label: const Text('保存计划'),
+                  label: Text(saved ? '已保存' : '保存计划'),
                 ),
               ],
             ),
@@ -18242,6 +18114,7 @@ class _FinishWorkoutDialogState extends State<_FinishWorkoutDialog> {
   late final bool saveRoutineDefault;
   late bool saveAsRoutine;
   bool saving = false;
+  String routineFolder = '';
 
   @override
   void initState() {
@@ -18278,7 +18151,7 @@ class _FinishWorkoutDialogState extends State<_FinishWorkoutDialog> {
               hintText: '可选',
             ),
           ),
-          if (saveRoutineDefault) ...[
+          if (!widget.past) ...[
             const SizedBox(height: 12),
             SwitchListTile(
               key: const Key('finish-save-routine-checkbox'),
@@ -18293,6 +18166,23 @@ class _FinishWorkoutDialogState extends State<_FinishWorkoutDialog> {
                 key: const Key('finish-routine-name'),
                 controller: routineName,
                 decoration: const InputDecoration(labelText: '计划名称'),
+              ),
+            if (saveAsRoutine)
+              DropdownButtonFormField<String>(
+                key: const Key('finish-routine-folder'),
+                initialValue: routineFolder,
+                isExpanded: true,
+                decoration: const InputDecoration(labelText: '存放位置'),
+                items: [
+                  const DropdownMenuItem(value: '', child: Text('不放入文件夹')),
+                  for (final folder in _planFolders(widget.controller))
+                    DropdownMenuItem(
+                      value: folder,
+                      child: Text(folder, overflow: TextOverflow.ellipsis),
+                    ),
+                ],
+                onChanged: (value) =>
+                    setState(() => routineFolder = value ?? ''),
               ),
           ],
         ],
@@ -18313,6 +18203,7 @@ class _FinishWorkoutDialogState extends State<_FinishWorkoutDialog> {
                   note: note.text,
                   saveAsRoutine: saveAsRoutine,
                   routineName: routineName.text,
+                  routineFolder: routineFolder,
                 );
                 final navigator = Navigator.of(context, rootNavigator: true);
                 Navigator.pop(context);
@@ -18446,20 +18337,7 @@ class _WorkoutCelebration extends StatelessWidget {
                                       ),
                                     ),
                               icon: const Icon(Icons.public_rounded, size: 18),
-                              label: const Text('发布动态'),
-                            ),
-                            OutlinedButton.icon(
-                              key: const Key('workout-celebration-share'),
-                              onPressed: () => _showWorkoutShareSheet(
-                                context,
-                                controller,
-                                record,
-                              ),
-                              icon: const Icon(
-                                Icons.ios_share_rounded,
-                                size: 18,
-                              ),
-                              label: const Text('分享卡片'),
+                              label: const Text('分享到动态'),
                             ),
                             FilledButton.icon(
                               key: const Key('workout-celebration-done'),
@@ -18486,6 +18364,7 @@ class _WorkoutCelebration extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 Future<void> _showWorkoutShareSheet(
   BuildContext context,
   AppController controller,
@@ -18711,205 +18590,13 @@ class _WorkoutShareCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (compact) {
-      return _CompactWorkoutShareCard(
-        controller: controller,
-        record: record,
-        onTap: onTap,
-      );
-    }
-    final totalSets = record.exercises.fold<int>(
-      0,
-      (sum, exercise) => sum + exercise.sets.length,
-    );
-    final completedSets = record.exercises.fold<int>(
-      0,
-      (sum, exercise) =>
-          sum + exercise.sets.where((set) => set.completed).length,
-    );
-    return WorkoutResultCard(
+    return TrainingDetailsCard.fromRecord(
       key: const Key('workout-share-card'),
-      workoutName: record.name,
-      date: record.date,
-      durationSeconds: record.durationSeconds,
-      volume: record.volume,
-      effectiveSets: record.effectiveSets,
-      completionPercent: totalSets == 0
-          ? 0
-          : (completedSets / totalSets * 100).round(),
-      exerciseNames: [
-        for (final exercise in record.exercises)
-          '''${controller.displayExerciseName(controller.exerciseFor(exercise.exerciseId))} · ${exercise.sets.where((set) => set.completed).length} 组''',
-      ],
-      cardStyle: cardStyle,
-      localPhotoPath: localPhotoPath,
+      controller: controller,
+      record: record,
+      onTap: onTap,
     );
   }
-}
-
-class _CompactWorkoutShareCard extends StatelessWidget {
-  const _CompactWorkoutShareCard({
-    required this.controller,
-    required this.record,
-    required this.onTap,
-  });
-
-  final AppController controller;
-  final WorkoutRecord record;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final exercises = record.exercises.take(3).toList(growable: false);
-    return Material(
-      color: const Color(0xFFE96A45),
-      borderRadius: BorderRadius.circular(20),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 13, 14, 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Icon(Icons.bolt_rounded, color: Colors.white, size: 20),
-                  const SizedBox(width: 7),
-                  Expanded(
-                    child: Text(
-                      record.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
-                  Flexible(
-                    fit: FlexFit.loose,
-                    child: Text(
-                      '${record.date.month}/${record.date.day} · ${record.startTime}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.end,
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  _CompactShareMetric(
-                    label: '训练量',
-                    value: '${record.volume.toStringAsFixed(0)} kg',
-                  ),
-                  _CompactShareMetric(
-                    label: '有效组',
-                    value: '${record.effectiveSets}',
-                  ),
-                  _CompactShareMetric(
-                    label: '时长',
-                    value: '${(record.durationSeconds / 60).round()} 分',
-                  ),
-                ],
-              ),
-              if (exercises.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Container(height: 1, color: Colors.white24),
-                const SizedBox(height: 7),
-                for (final exercise in exercises)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.fitness_center_rounded,
-                          color: Colors.white70,
-                          size: 14,
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            controller.displayExerciseName(
-                              controller.exerciseFor(exercise.exerciseId),
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Flexible(
-                          fit: FlexFit.loose,
-                          child: Text(
-                            _compactSetSummary(exercise),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            textAlign: TextAlign.end,
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 10,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-String _compactSetSummary(WorkoutExercise exercise) {
-  final completed = exercise.sets.where((set) => set.completed).toList();
-  if (completed.isEmpty) return '暂无有效组';
-  return completed
-      .take(2)
-      .map((set) => '${_displayWeight(set.weight)} kg × ${set.reps}')
-      .join(' · ');
-}
-
-class _CompactShareMetric extends StatelessWidget {
-  const _CompactShareMetric({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) => Expanded(
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 9)),
-        const SizedBox(height: 2),
-        Text(
-          value,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 14,
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-      ],
-    ),
-  );
 }
 
 String _shareCardStyleLabel(String style) => workoutShareStyleLabel(style);
@@ -20626,6 +20313,15 @@ void _showRoutineActions(
             },
           ),
           ListTile(
+            leading: const Icon(Icons.drive_file_move_outline),
+            title: const Text('移动到文件夹'),
+            onTap: () async {
+              Navigator.pop(sheetContext);
+              final folder = await _choosePlanFolder(context, controller);
+              if (folder != null) controller.moveRoutine(routine, folder);
+            },
+          ),
+          ListTile(
             key: Key('routine-delete-${routine.id}'),
             leading: const Icon(Icons.delete_outline, color: Color(0xFFB83A3A)),
             title: const Text('删除计划'),
@@ -21520,7 +21216,7 @@ class _DraftPlanComposerState extends State<_DraftPlanComposer> {
     draft = Routine(
       id: 'draft-${DateTime.now().microsecondsSinceEpoch}',
       name: name.text,
-      folder: '\u81EA\u5B9A\u4E49',
+      folder: '',
       exercises: [],
       updatedAt: DateTime.now(),
     );
@@ -21880,67 +21576,10 @@ void _showRecordDetail(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFFE85B17), Color(0xFFFF9B55)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x33D95718),
-                      blurRadius: 24,
-                      offset: Offset(0, 12),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(
-                      Icons.emoji_events_rounded,
-                      color: Colors.white,
-                      size: 30,
-                    ),
-                    const SizedBox(height: 14),
-                    Text(
-                      record.name,
-                      style: Theme.of(context).textTheme.headlineMedium
-                          ?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w900,
-                          ),
-                    ),
-                    Text(
-                      '${record.date.year}-${record.date.month.toString().padLeft(2, '0')}-${record.date.day.toString().padLeft(2, '0')} · ${record.startTime}',
-                      style: const TextStyle(color: Color(0xFFFFE9DD)),
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        _RecordMetric(
-                          icon: Icons.monitor_weight_outlined,
-                          value: '${record.volume.toStringAsFixed(0)} kg',
-                          label: '总容量',
-                        ),
-                        _RecordMetric(
-                          icon: Icons.check_circle_outline_rounded,
-                          value: '${record.effectiveSets}',
-                          label: '完成组',
-                        ),
-                        _RecordMetric(
-                          icon: Icons.timer_outlined,
-                          value: '${(record.durationSeconds / 60).round()} 分',
-                          label: '时长',
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+              TrainingDetailsCard.fromRecord(
+                controller: controller,
+                record: record,
+                showExercises: false,
               ),
               const SizedBox(height: 20),
               const Text(
@@ -22062,6 +21701,7 @@ void _showRecordDetail(
   );
 }
 
+// ignore: unused_element
 class _RecordMetric extends StatelessWidget {
   const _RecordMetric({
     required this.icon,

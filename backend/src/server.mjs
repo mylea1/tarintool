@@ -929,7 +929,16 @@ function workoutExerciseSnapshot(value) {
     const sets = optionalFiniteNumber(rawSets, 'invalid_workout_exercise_sets', { min: 0, max: 1000, integer: true });
     const topWeight = optionalFiniteNumber(item.topWeight ?? item.weight, 'invalid_workout_exercise_weight', { min: 0, max: 100000 });
     const topReps = optionalFiniteNumber(item.topReps ?? item.reps, 'invalid_workout_exercise_reps', { min: 0, max: 1000, integer: true });
-    return { exerciseId: exerciseId || null, name, sets: sets === null ? 0 : sets, topWeight, topReps };
+    const setDetails = Array.isArray(item.setDetails) ? item.setDetails.slice(0, 100).filter((set) => set && typeof set === 'object' && !Array.isArray(set)).map((set) => ({
+      weight: optionalFiniteNumber(set.weight, 'invalid_workout_set_weight', { min: 0, max: 100000 }) ?? 0,
+      reps: optionalFiniteNumber(set.reps, 'invalid_workout_set_reps', { min: 0, max: 1000, integer: true }) ?? 0,
+      durationSeconds: optionalFiniteNumber(set.durationSeconds, 'invalid_workout_set_duration', { min: 0, max: 604800, integer: true }),
+      speedKph: optionalFiniteNumber(set.speedKph, 'invalid_workout_set_speed', { min: 0, max: 200 }),
+      inclinePercent: optionalFiniteNumber(set.inclinePercent, 'invalid_workout_set_incline', { min: -100, max: 100 }),
+      weightText: typeof set.weightText === 'string' ? set.weightText.trim().slice(0, 40) : '',
+      type: set.type === 'warmup' ? 'warmup' : 'work',
+    })) : [];
+    return { exerciseId: exerciseId || null, name, sets: sets === null ? 0 : sets, topWeight, topReps, setDetails };
   }).filter(Boolean);
 }
 
