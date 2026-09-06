@@ -213,6 +213,115 @@ String _coachError(Object error) {
   };
 }
 
+Future<void> _openCoachLink(BuildContext context, String? href) async {
+  final uri = normalizeTrainingUri(href ?? '');
+  if (uri == null || !await launchTrainingUri(uri)) {
+    if (context.mounted) showKiloSnack(context, '链接暂时无法打开，请稍后重试');
+  }
+}
+
+class _WorkoutCoachLesson extends StatelessWidget {
+  const _WorkoutCoachLesson({
+    required this.controller,
+    required this.exerciseId,
+    required this.expanded,
+    required this.onToggle,
+  });
+  final AppController controller;
+  final String exerciseId;
+  final bool expanded;
+  final VoidCallback onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final exercise = controller.exerciseFor(exerciseId);
+    final media = mediaForExercise(exerciseId);
+    final steps = media?.steps ?? [exercise.cue];
+    final saved = normalizeTrainingUri(
+      controller.resourceFor(exerciseId, 'library').link,
+    );
+    final search = Uri.https('search.bilibili.com', '/all', {
+      'keyword': '${controller.displayExerciseName(exercise)} 动作教学',
+    });
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        InkWell(
+          key: const Key('coach-lesson-toggle'),
+          onTap: onToggle,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(
+              children: [
+                const Icon(Icons.play_circle_outline, size: 18),
+                const SizedBox(width: 6),
+                const Expanded(
+                  child: Text(
+                    '动作示范与教学',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+                Icon(expanded ? Icons.expand_less : Icons.expand_more),
+              ],
+            ),
+          ),
+        ),
+        if (expanded) ...[
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: ColoredBox(
+              color: Colors.white,
+              child: SizedBox(
+                height: 132,
+                width: double.infinity,
+                child: Image.asset(
+                  MediaQuery.of(context).disableAnimations
+                      ? (media?.imagePath ?? exerciseAsset(exerciseId))
+                      : (media?.gifPath ?? exerciseAsset(exerciseId)),
+                  key: Key('coach-lesson-gif-$exerciseId'),
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, _, _) => Image.asset(
+                    media?.imagePath ?? exerciseAsset(exerciseId),
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, _, _) =>
+                        const Center(child: Text('示范暂不可用')),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          if (media == null)
+            const Text('暂无动态示范', style: TextStyle(fontSize: 12)),
+          for (var i = 0; i < steps.length; i++)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 5),
+              child: Text(
+                '${i + 1}. ${steps[i]}',
+                style: const TextStyle(fontSize: 12, height: 1.5),
+              ),
+            ),
+          if (media != null)
+            Text(
+              media.attribution,
+              style: TextStyle(
+                fontSize: 10,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          TextButton.icon(
+            key: const Key('coach-teaching-video'),
+            onPressed: () =>
+                _openCoachLink(context, (saved ?? search).toString()),
+            icon: const Icon(Icons.ondemand_video, size: 18),
+            label: Text(saved == null ? '搜索该动作的教学视频' : '打开已保存的教学链接'),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
 class _WorkoutCoachSheet extends StatefulWidget {
   const _WorkoutCoachSheet({
     required this.controller,
@@ -231,6 +340,7 @@ class _WorkoutCoachSheetState extends State<_WorkoutCoachSheet> {
   final scroll = ScrollController();
   final selected = <String>{};
   bool busy = false;
+  bool lessonExpanded = true;
   int request = 0;
   String? error;
   AiPlanDraft? proposal;
@@ -284,6 +394,7 @@ class _WorkoutCoachSheetState extends State<_WorkoutCoachSheet> {
       busy = true;
       error = null;
       proposal = null;
+      lessonExpanded = false;
     });
     followAnswer();
     bool valid() =>
@@ -310,6 +421,7 @@ class _WorkoutCoachSheetState extends State<_WorkoutCoachSheet> {
         snapshot = before;
         previous = originalPlan;
       });
+      followAnswer();
     } catch (e) {
       if (valid()) setState(() => error = _coachError(e));
     } finally {
@@ -335,7 +447,7 @@ class _WorkoutCoachSheetState extends State<_WorkoutCoachSheet> {
         : c.displayExerciseName(c.exerciseFor(exercise.exerciseId));
     final prompts = exercise == null
         ? ['组间休息多久？', '今天训练后怎么吃？']
-        : ['这个动作怎么做？', '下一组重量怎么选？'];
+        : ['上一组很吃力，下一组怎么选重量？', '有没有这个动作的教学视频？'];
     return AnimatedBuilder(
       animation: c,
       builder: (context, _) => Column(
@@ -392,6 +504,16 @@ class _WorkoutCoachSheetState extends State<_WorkoutCoachSheet> {
               controller: scroll,
               padding: const EdgeInsets.all(12),
               children: [
+                if (exercise != null) ...[
+                  _WorkoutCoachLesson(
+                    controller: c,
+                    exerciseId: exercise.exerciseId,
+                    expanded: lessonExpanded,
+                    onToggle: () =>
+                        setState(() => lessonExpanded = !lessonExpanded),
+                  ),
+                  const SizedBox(height: 10),
+                ],
                 if (c.workoutCoachMessages.isEmpty) ...[
                   Text(
                     exercise == null ? '训练、恢复或饮食，有什么想问的？' : '已选中$name，可以直接提问。',
@@ -441,7 +563,12 @@ class _WorkoutCoachSheetState extends State<_WorkoutCoachSheet> {
                                 ).colorScheme.surfaceContainerLow,
                           borderRadius: BorderRadius.circular(14),
                         ),
-                        child: MarkdownBody(data: m.body, selectable: true),
+                        child: MarkdownBody(
+                          data: m.body,
+                          selectable: true,
+                          onTapLink: (_, href, _) =>
+                              _openCoachLink(context, href),
+                        ),
                       ),
                     ),
                 if (busy)

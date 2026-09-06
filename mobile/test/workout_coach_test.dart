@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kilo_strength/ai_api.dart';
@@ -23,6 +24,29 @@ class CapturingCoach implements CoachApi {
     this.prompt = prompt;
     summary = trainingSummary;
     return const CoachAnswer(body: '已根据本次训练回答');
+  }
+}
+
+class StreamingLessonCoach extends CapturingCoach implements StreamingCoachApi {
+  final finish = Completer<void>();
+  @override
+  Stream<CoachStreamEvent> streamAnswer({
+    required String prompt,
+    required bool includeTrainingSummary,
+    String locale = 'zh-CN',
+    String? trainingSummary,
+    List<Map<String, String>> exerciseCatalog = const [],
+    List<Map<String, String>> skills = const [],
+    String? requestId,
+    String? conversationId,
+    List<Map<String, dynamic>> toolResults = const [],
+  }) async* {
+    this.prompt = prompt;
+    summary = trainingSummary;
+    yield const CoachStreamDelta('根据上一组的感受');
+    await finish.future;
+    yield const CoachStreamDelta('，先维持重量。');
+    yield const CoachStreamDone(CoachAnswer(body: '根据上一组的感受，先维持重量。'));
   }
 }
 
@@ -120,6 +144,58 @@ void main() {
     expect(result.length, lessThanOrEqualTo(5800));
     expect(jsonDecode(result)['trainingTruncated'], isNotNull);
   });
+  testWidgets(
+    'lesson shows GIF and streaming text before completion with teaching links',
+    (tester) async {
+      final api = StreamingLessonCoach();
+      final c = AppController(coachApi: api);
+      addTearDown(c.dispose);
+      c.saveResource(
+        exerciseId: 'bench_press',
+        scope: 'library',
+        note: '',
+        link: 'https://example.com/bench-teaching',
+      );
+      c.startWorkout(
+        source: [c.createBlankWorkoutExercise('bench_press', 'lesson')],
+        autoStartTimer: false,
+      );
+      c.openLiveWorkout();
+      await tester.pumpWidget(KiloApp(initialController: c));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('workout-coach-open')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(Key('coach-orbit-${c.workout.first.id}')));
+      await tester.pumpAndSettle();
+      final gif = tester.widget<Image>(
+        find.byKey(const Key('coach-lesson-gif-bench_press')),
+      );
+      expect((gif.image as AssetImage).assetName, endsWith('.gif'));
+      expect(find.text('动作示范与教学'), findsOneWidget);
+      await tester.enterText(
+        find.byKey(const Key('workout-coach-input')),
+        '上一组很吃力，有教学视频吗',
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('workout-coach-send')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 20));
+      expect(c.workoutCoachMessages.last.body, '根据上一组的感受');
+      expect(find.text('根据上一组的感受'), findsOneWidget);
+      expect(
+        find.byKey(const Key('coach-lesson-gif-bench_press')),
+        findsNothing,
+      );
+      expect(api.prompt, contains('https://example.com/bench-teaching'));
+      expect(api.prompt, contains('不编造视频标题'));
+      api.finish.complete();
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(c.workoutCoachMessages.last.body, '根据上一组的感受，先维持重量。');
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
   testWidgets(
     'small-screen training coach opens, sends selected exercise, reopens with history',
     (tester) async {
