@@ -2,6 +2,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kilo_strength/link_utils.dart';
 
 void main() {
+  test('Douyin teaching search keeps exercise name in encoded path', () {
+    final uri = douyinTeachingSearchUri('卧推 / 哑铃');
+    expect(uri.host, 'www.douyin.com');
+    expect(uri.pathSegments, ['search', '卧推 / 哑铃 动作教学']);
+    expect(uri.queryParameters['type'], 'video');
+  });
   group('normalizeTrainingUri', () {
     test('adds https to a host-only training link', () {
       expect(

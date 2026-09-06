@@ -64,3 +64,10 @@ Future<bool> launchTrainingUri(
     return false;
   }
 }
+
+Uri douyinTeachingSearchUri(String exerciseName) => Uri(
+  scheme: 'https',
+  host: 'www.douyin.com',
+  pathSegments: ['search', '${exerciseName.trim()} 动作教学'],
+  queryParameters: {'type': 'video'},
+);

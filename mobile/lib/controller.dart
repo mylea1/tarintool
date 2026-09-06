@@ -15,6 +15,7 @@ import 'app_localizations.dart';
 import 'ai_api.dart';
 import 'natural_workout_parser.dart';
 import 'models.dart';
+import 'link_utils.dart';
 import 'recognition_api.dart';
 import 'recognition_score_policy.dart';
 import 'push_notifications.dart';

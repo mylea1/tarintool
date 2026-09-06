@@ -240,9 +240,9 @@ class _WorkoutCoachLesson extends StatelessWidget {
     final saved = normalizeTrainingUri(
       controller.resourceFor(exerciseId, 'library').link,
     );
-    final search = Uri.https('search.bilibili.com', '/all', {
-      'keyword': '${controller.displayExerciseName(exercise)} 动作教学',
-    });
+    final search = douyinTeachingSearchUri(
+      controller.displayExerciseName(exercise),
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -311,11 +311,15 @@ class _WorkoutCoachLesson extends StatelessWidget {
             ),
           TextButton.icon(
             key: const Key('coach-teaching-video'),
-            onPressed: () =>
-                _openCoachLink(context, (saved ?? search).toString()),
+            onPressed: () => _openCoachLink(context, search.toString()),
             icon: const Icon(Icons.ondemand_video, size: 18),
-            label: Text(saved == null ? '搜索该动作的教学视频' : '打开已保存的教学链接'),
+            label: const Text('在抖音搜索该动作教学'),
           ),
+          if (saved != null)
+            TextButton(
+              onPressed: () => _openCoachLink(context, saved.toString()),
+              child: const Text('打开已保存的教学链接'),
+            ),
         ],
       ],
     );
