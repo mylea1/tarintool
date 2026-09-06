@@ -1041,6 +1041,13 @@ void main() {
     addTearDown(controller.dispose);
     await tester.pumpWidget(KiloApp(initialController: controller));
     await _openRoute(tester, '训练');
+    await Scrollable.ensureVisible(
+      tester.element(
+        find.byKey(Key('routine-more-${controller.routines.first.id}')),
+      ),
+      alignment: .2,
+    );
+    await tester.pumpAndSettle();
     await tester.tap(
       find.byKey(Key('routine-more-${controller.routines.first.id}')),
     );
@@ -1074,6 +1081,13 @@ void main() {
     await tester.pumpAndSettle();
     expect(controller.routines.first.name, '测试计划');
 
+    await Scrollable.ensureVisible(
+      tester.element(
+        find.byKey(Key('routine-more-${controller.routines.first.id}')),
+      ),
+      alignment: .2,
+    );
+    await tester.pumpAndSettle();
     await tester.tap(
       find.byKey(Key('routine-more-${controller.routines.first.id}')),
     );
@@ -2383,7 +2397,13 @@ void main() {
     );
     expect(find.byKey(Key('record-tile-${record.id}')), findsOneWidget);
     expect(find.textContaining('500 kg'), findsOneWidget);
-    await tester.tap(find.byKey(Key('record-tile-${record.id}')));
+    final recordTitle = find.descendant(
+      of: find.byKey(Key('record-tile-${record.id}')),
+      matching: find.text(record.name),
+    );
+    await Scrollable.ensureVisible(tester.element(recordTitle), alignment: .2);
+    await tester.pumpAndSettle();
+    await tester.tap(recordTitle);
     await tester.pumpAndSettle();
     expect(find.byKey(Key('record-detail-${record.id}')), findsOneWidget);
     expect(find.byKey(Key('record-set-row-${set.id}')), findsOneWidget);
