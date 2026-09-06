@@ -69,6 +69,11 @@ class _TestOfficialPlansApi implements OfficialPlansApi {
 Future<void> _openRoute(WidgetTester tester, String label) async {
   await tester.tap(find.text(label).last);
   await tester.pumpAndSettle();
+  if (label == '训练' &&
+      find.byKey(const Key('training-menu-plans')).evaluate().isNotEmpty) {
+    await tester.tap(find.byKey(const Key('training-menu-plans')));
+    await tester.pumpAndSettle();
+  }
 }
 
 Future<void> _pumpRecognitionPage(
@@ -1103,12 +1108,20 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('official-plans-entry')));
     await tester.pumpAndSettle();
-    expect(find.text('官方单日计划'), findsOneWidget);
+    expect(find.text('官方计划'), findsOneWidget);
     expect(
       find.byKey(const Key('official-plan-upper-lower-4')),
       findsOneWidget,
     );
     expect(api.calls, 1);
+    await tester.tap(find.byKey(const Key('official-plan-upper-lower-4')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('plan-use-upper-lower-4')));
+    await tester.pumpAndSettle();
+    expect(find.text('官方计划'), findsNothing);
+    expect(find.byKey(const Key('plan-use-upper-lower-4')), findsNothing);
+    expect(controller.routines, isNotEmpty);
+    expect(controller.workoutTimerStarted, isFalse);
   });
 
   testWidgets('timer bridge tolerates missing plugins and forwards methods', (
@@ -2552,6 +2565,7 @@ void main() {
       controller.saveRoutineFromDraft(longName, [source]);
       final routine = controller.routines.single;
       controller.startRoutine(routine);
+      controller.beginWorkoutTimer();
       final set = controller.workout.single.sets.first
         ..weight = 999.5
         ..reps = 100

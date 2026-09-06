@@ -1,5 +1,172 @@
 part of 'main.dart';
 
+/// Rebuild only the floating controls during a drag, not the live set editor.
+class _WorkoutCoachOrbit extends StatefulWidget {
+  const _WorkoutCoachOrbit({
+    required this.controller,
+    required this.bottomInset,
+  });
+  final AppController controller;
+  final double bottomInset;
+  @override
+  State<_WorkoutCoachOrbit> createState() => _WorkoutCoachOrbitState();
+}
+
+class _WorkoutCoachOrbitState extends State<_WorkoutCoachOrbit> {
+  Offset? position;
+  Offset dragOrigin = Offset.zero;
+  bool expanded = false;
+  int page = 0;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, box) {
+      const size = 48.0;
+      final maxX = math.max(8.0, box.maxWidth - size - 8);
+      final maxY = math.max(
+        8.0,
+        box.maxHeight - widget.bottomInset - size - 12,
+      );
+      final p = position ?? Offset(maxX - 8, maxY);
+      final anchor = Offset(p.dx.clamp(8.0, maxX), p.dy.clamp(8.0, maxY));
+      final exercises = widget.controller.workout;
+      final pages = math.max(1, (exercises.length / 2).ceil());
+      final current = page.clamp(0, pages - 1);
+      final visible = exercises.skip(current * 2).take(2).toList();
+      final count = visible.length + 1 + (pages > 1 ? 1 : 0);
+      final inward = anchor.dx > box.maxWidth / 2 ? -1.0 : 1.0;
+      return Stack(
+        children: [
+          if (expanded)
+            for (var i = 0; i < count; i++)
+              Builder(
+                builder: (context) {
+                  final angle =
+                      -math.pi / 2 + math.pi * i / math.max(1, count - 1);
+                  final x = (anchor.dx + inward * (66 + 85 * math.cos(angle)))
+                      .clamp(4.0, math.max(4.0, box.maxWidth - 68));
+                  final centerY = anchor.dy.clamp(
+                    105.0,
+                    math.max(105.0, maxY - 105),
+                  );
+                  final y = (centerY + 100 * math.sin(angle)).clamp(
+                    4.0,
+                    math.max(4.0, maxY - 18),
+                  );
+                  final exercise = i < visible.length ? visible[i] : null;
+                  final isOther = i == visible.length;
+                  final label = exercise != null
+                      ? widget.controller.displayExerciseName(
+                          widget.controller.exerciseFor(exercise.exerciseId),
+                        )
+                      : isOther
+                      ? '其他'
+                      : '更多动作';
+                  return Positioned(
+                    left: x.toDouble(),
+                    top: y.toDouble(),
+                    child: TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0, end: 1),
+                      duration: Duration(
+                        milliseconds: MediaQuery.of(context).disableAnimations
+                            ? 0
+                            : 180,
+                      ),
+                      curve: Curves.easeOutCubic,
+                      builder: (context, value, child) =>
+                          Transform.scale(scale: value, child: child),
+                      child: SizedBox(
+                        width: 64,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Material(
+                              elevation: 5,
+                              shape: const CircleBorder(),
+                              color: Theme.of(context).colorScheme.surface,
+                              clipBehavior: Clip.antiAlias,
+                              child: InkWell(
+                                key: Key(
+                                  exercise != null
+                                      ? 'coach-orbit-${exercise.id}'
+                                      : isOther
+                                      ? 'coach-orbit-other'
+                                      : 'coach-orbit-more',
+                                ),
+                                onTap: () {
+                                  if (exercise == null && !isOther) {
+                                    setState(
+                                      () => page = (current + 1) % pages,
+                                    );
+                                    return;
+                                  }
+                                  setState(() => expanded = false);
+                                  _showWorkoutCoach(
+                                    context,
+                                    widget.controller,
+                                    selectedId: exercise?.id,
+                                  );
+                                },
+                                child: SizedBox.square(
+                                  dimension: 48,
+                                  child: exercise == null
+                                      ? Icon(
+                                          isOther
+                                              ? Icons.chat_bubble_outline
+                                              : Icons.more_horiz,
+                                        )
+                                      : _ExerciseThumb(
+                                          exerciseId: exercise.exerciseId,
+                                          size: 48,
+                                        ),
+                                ),
+                              ),
+                            ),
+                            Text(
+                              label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 11),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+          Positioned(
+            left: anchor.dx,
+            top: anchor.dy,
+            child: RepaintBoundary(
+              child: GestureDetector(
+                onLongPressStart: (_) => setState(() {
+                  expanded = false;
+                  dragOrigin = anchor;
+                }),
+                onLongPressMoveUpdate: (details) => setState(() {
+                  final next = dragOrigin + details.offsetFromOrigin;
+                  position = Offset(
+                    next.dx.clamp(8.0, maxX),
+                    next.dy.clamp(8.0, maxY),
+                  );
+                }),
+                child: FloatingActionButton.small(
+                  key: const Key('workout-coach-open'),
+                  heroTag: 'workout-coach',
+                  shape: const CircleBorder(),
+                  onPressed: () => setState(() => expanded = !expanded),
+                  child: Text(expanded ? '×' : 'AI'),
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    },
+  );
+}
+
 String _coachError(Object error) {
   final code = error is CoachApiException ? error.code : '';
   return switch (code) {
@@ -13,19 +180,25 @@ String _coachError(Object error) {
   };
 }
 
-void _showWorkoutCoach(BuildContext context, AppController controller) {
+void _showWorkoutCoach(
+  BuildContext context,
+  AppController controller, {
+  String? selectedId,
+}) {
   showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
     showDragHandle: true,
-    builder: (_) => _WorkoutCoachSheet(controller: controller),
+    builder: (_) =>
+        _WorkoutCoachSheet(controller: controller, selectedId: selectedId),
   );
 }
 
 class _WorkoutCoachSheet extends StatefulWidget {
-  const _WorkoutCoachSheet({required this.controller});
+  const _WorkoutCoachSheet({required this.controller, this.selectedId});
   final AppController controller;
+  final String? selectedId;
   @override
   State<_WorkoutCoachSheet> createState() => _WorkoutCoachSheetState();
 }
@@ -40,6 +213,12 @@ class _WorkoutCoachSheetState extends State<_WorkoutCoachSheet> {
   String? snapshot;
   AiPlanDraft? previous;
   AppController get c => widget.controller;
+  @override
+  void initState() {
+    super.initState();
+    if (widget.selectedId != null) selected.add(widget.selectedId!);
+  }
+
   @override
   void dispose() {
     request++;

@@ -586,58 +586,61 @@ void main() {
     }
   });
 
-  test('Apple Watch bridge receives exercise icon, rest and completion action', () async {
-    const channel = MethodChannel('kilo.platform.timer');
-    final calls = <MethodCall>[];
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, (call) async {
-          calls.add(call);
-          if (call.method == 'getAppleWatchStatus') return true;
-          return null;
-        });
-
-    final controller = AppController();
-    try {
-      await controller.refreshAppleWatchStatus();
-      final exercise = controller.createBlankWorkoutExercise(
-        'bench_press',
-        'watch-bench',
-      )..restSeconds = 75;
-      exercise.sets.add(
-        WorkoutSet(id: 'watch-set', reps: 8, restSeconds: 75),
-      );
-      controller.startWorkout(source: [exercise], name: '手表训练');
-      await Future<void>.delayed(Duration.zero);
-
-      final start = calls.lastWhere((call) => call.method == 'startWorkout');
-      final startArguments = start.arguments! as Map<Object?, Object?>;
-      expect(startArguments['exercise'], isNotEmpty);
-      expect(startArguments['exerciseSymbol'], isNotEmpty);
-      expect(startArguments['nextRestSeconds'], 75);
-      expect(controller.appleWatch, isTrue);
-
-      final liveExercise = controller.workout.single;
-      final messenger =
-          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
-      await messenger.handlePlatformMessage(
-        channel.name,
-        const StandardMethodCodec().encodeMethodCall(
-          MethodCall('completeSetFromNotification', {'completedSets': 1}),
-        ),
-        (_) {},
-      );
-      await Future<void>.delayed(Duration.zero);
-
-      expect(liveExercise.sets.first.completed, isTrue);
-      expect(controller.restRunning, isTrue);
-      expect(controller.restRemainingSeconds, 75);
-      expect(calls.map((call) => call.method), contains('startTimer'));
-    } finally {
-      controller.dispose();
+  test(
+    'Apple Watch bridge receives exercise icon, rest and completion action',
+    () async {
+      const channel = MethodChannel('kilo.platform.timer');
+      final calls = <MethodCall>[];
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(channel, null);
-    }
-  });
+          .setMockMethodCallHandler(channel, (call) async {
+            calls.add(call);
+            if (call.method == 'getAppleWatchStatus') return true;
+            return null;
+          });
+
+      final controller = AppController();
+      try {
+        await controller.refreshAppleWatchStatus();
+        final exercise = controller.createBlankWorkoutExercise(
+          'bench_press',
+          'watch-bench',
+        )..restSeconds = 75;
+        exercise.sets.add(
+          WorkoutSet(id: 'watch-set', reps: 8, restSeconds: 75),
+        );
+        controller.startWorkout(source: [exercise], name: '手表训练');
+        await Future<void>.delayed(Duration.zero);
+
+        final start = calls.lastWhere((call) => call.method == 'startWorkout');
+        final startArguments = start.arguments! as Map<Object?, Object?>;
+        expect(startArguments['exercise'], isNotEmpty);
+        expect(startArguments['exerciseSymbol'], isNotEmpty);
+        expect(startArguments['nextRestSeconds'], 75);
+        expect(controller.appleWatch, isTrue);
+
+        final liveExercise = controller.workout.single;
+        final messenger =
+            TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+        await messenger.handlePlatformMessage(
+          channel.name,
+          const StandardMethodCodec().encodeMethodCall(
+            MethodCall('completeSetFromNotification', {'completedSets': 1}),
+          ),
+          (_) {},
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        expect(liveExercise.sets.first.completed, isTrue);
+        expect(controller.restRunning, isTrue);
+        expect(controller.restRemainingSeconds, 75);
+        expect(calls.map((call) => call.method), contains('startTimer'));
+      } finally {
+        controller.dispose();
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, null);
+      }
+    },
+  );
 
   test('prepared workout becomes active only when its timer starts', () {
     const channel = MethodChannel('kilo.platform.timer');
@@ -1075,6 +1078,34 @@ void main() {
     } finally {
       controller.dispose();
     }
+  });
+
+  test('admin code generation uses the authenticated server', () async {
+    final api = HttpCoachApi(
+      baseUrl: 'https://api.example.test',
+      client: MockClient((request) async {
+        expect(request.url.path, '/v1/admin/redemption-codes');
+        expect(request.headers['authorization'], 'Bearer admin-session');
+        expect(jsonDecode(request.body), {'plan': 'oneMonth'});
+        return http.Response(
+          jsonEncode({'code': 'KILO-SERVER-CODE', 'plan': 'oneMonth'}),
+          201,
+        );
+      }),
+    );
+    api.restoreSession(
+      const RemoteSession(
+        token: 'admin-session',
+        accountIdentifier: 'admin',
+        apiOrigin: 'https://api.example.test',
+      ),
+      accountIdentifier: 'admin',
+    );
+    final c = AppController(coachApi: api);
+    addTearDown(c.dispose);
+    final code = await c.generateRedemptionCode(plan: MembershipPlan.oneMonth);
+    expect(code.code, 'KILO-SERVER-CODE');
+    expect(code.plan, MembershipPlan.oneMonth);
   });
 
   test('authenticated redemption replaces the local entitlement', () async {

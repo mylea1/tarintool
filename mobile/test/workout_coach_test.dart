@@ -134,8 +134,8 @@ void main() {
       await tester.pumpWidget(MaterialApp(home: KiloShell(controller: c)));
       await tester.tap(find.byKey(const Key('workout-coach-open')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byType(FilterChip).last);
-      await tester.pump();
+      await tester.tap(find.byKey(Key('coach-orbit-${c.workout.first.id}')));
+      await tester.pumpAndSettle();
       await tester.enterText(
         find.byKey(const Key('workout-coach-input')),
         '这个动作怎么练',
@@ -149,6 +149,8 @@ void main() {
       await tester.tap(find.byTooltip('关闭').last);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('workout-coach-open')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('coach-orbit-other')));
       await tester.pumpAndSettle();
       expect(find.text('已根据本次训练回答'), findsOneWidget);
       await tester.pumpWidget(const SizedBox.shrink());

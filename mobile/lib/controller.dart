@@ -2162,8 +2162,18 @@ class AppController extends ChangeNotifier {
     required MembershipPlan plan,
   }) => accountService.grantMembership(identifier: identifier, plan: plan);
 
-  RedemptionCode generateRedemptionCode({required MembershipPlan plan}) =>
-      accountService.generateRedemptionCode(plan: plan);
+  Future<RedemptionCode> generateRedemptionCode({
+    required MembershipPlan plan,
+  }) async {
+    final api = await _activeCoachApi();
+    if (api is! HttpCoachApi || !api.hasSession) {
+      throw StateError('请登录管理员账号并连接网络后生成兑换码。');
+    }
+    final result = await api.generateMembershipCode(plan.name);
+    final code = result['code'];
+    if (code is! String || code.isEmpty) throw StateError('生成失败，请重试。');
+    return RedemptionCode(code: code, plan: plan, createdAt: DateTime.now());
+  }
 
   Future<AccountResult<EntitlementSnapshot>> redeemCode(String code) async {
     final normalized = code.trim().toUpperCase();
@@ -4756,7 +4766,11 @@ class AppController extends ChangeNotifier {
   }
 
   void startRoutine(Routine routine) {
-    startWorkout(source: routine.exercises, name: routine.name);
+    startWorkout(
+      source: routine.exercises,
+      name: routine.name,
+      autoStartTimer: false,
+    );
     openLiveWorkout();
   }
 

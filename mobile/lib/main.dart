@@ -12,6 +12,7 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player/video_player.dart';
 import 'package:video_trimmer/video_trimmer.dart';
 
@@ -2047,8 +2048,7 @@ class KiloShell extends StatefulWidget {
 
 class _KiloShellState extends State<KiloShell> {
   AppController get controller => widget.controller;
-  Offset coachOffset = Offset.zero;
-  Offset coachDragStart = Offset.zero;
+  bool trainingMenuOpen = false;
 
   static const pages = <PageId>[
     PageId.today,
@@ -2186,8 +2186,7 @@ class _KiloShellState extends State<KiloShell> {
                     if (controller.workoutStarted) {
                       controller.openLiveWorkout();
                     } else {
-                      controller.selectPage(PageId.train);
-                      controller.selectTrainView(TrainView.plans);
+                      setState(() => trainingMenuOpen = !trainingMenuOpen);
                     }
                   },
                   child: Text(
@@ -2197,40 +2196,63 @@ class _KiloShellState extends State<KiloShell> {
                 ),
               ),
             ),
+            Positioned(
+              right: 12,
+              bottom: reservedBottom + 10,
+              child: IgnorePointer(
+                ignoring: !trainingMenuOpen,
+                child: AnimatedScale(
+                  scale: trainingMenuOpen ? 1 : 0,
+                  alignment: Alignment.bottomRight,
+                  duration: Duration(
+                    milliseconds: MediaQuery.of(context).disableAnimations
+                        ? 0
+                        : 180,
+                  ),
+                  curve: Curves.easeOutCubic,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      FloatingActionButton(
+                        heroTag: 'training-plans',
+                        key: const Key('training-menu-plans'),
+                        shape: const CircleBorder(),
+                        onPressed: () {
+                          setState(() => trainingMenuOpen = false);
+                          controller.selectPage(PageId.train);
+                          controller.selectTrainView(TrainView.plans);
+                        },
+                        child: const Text('计划'),
+                      ),
+                      const SizedBox(width: 12),
+                      FloatingActionButton(
+                        heroTag: 'training-new',
+                        key: const Key('training-menu-new'),
+                        shape: const CircleBorder(),
+                        onPressed: () {
+                          setState(() => trainingMenuOpen = false);
+                          controller.startWorkout(
+                            name: '自由训练',
+                            autoStartTimer: false,
+                          );
+                          controller.openLiveWorkout();
+                        },
+                        child: const Text(
+                          '新建\n训练',
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
             if (controller.page == PageId.train &&
                 controller.liveWorkoutVisible)
-              Positioned(
-                right: (16 - coachOffset.dx).clamp(
-                  8.0,
-                  (MediaQuery.sizeOf(context).width - 64).clamp(
-                    8.0,
-                    double.infinity,
-                  ),
-                ),
-                bottom: (reservedBottom + 12 - coachOffset.dy).clamp(
-                  reservedBottom + 8,
-                  (MediaQuery.sizeOf(context).height -
-                          MediaQuery.viewInsetsOf(context).bottom -
-                          180)
-                      .clamp(reservedBottom + 8, double.infinity),
-                ),
-                child: GestureDetector(
-                  onLongPressStart: (_) => coachDragStart = coachOffset,
-                  onLongPressMoveUpdate: (details) => setState(
-                    () =>
-                        coachOffset = coachDragStart + details.offsetFromOrigin,
-                  ),
-                  child: FloatingActionButton.small(
-                    key: const Key('workout-coach-open'),
-                    shape: const CircleBorder(),
-                    heroTag: 'workout-coach',
-
-                    onPressed: () => _showWorkoutCoach(context, controller),
-                    child: const Text(
-                      'AI',
-                      style: TextStyle(fontWeight: FontWeight.w800),
-                    ),
-                  ),
+              Positioned.fill(
+                child: _WorkoutCoachOrbit(
+                  controller: controller,
+                  bottomInset: reservedBottom,
                 ),
               ),
           ],
@@ -3600,7 +3622,11 @@ class _HomeMuscleCardState extends State<_HomeMuscleCard> {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 3),
                       child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 180),
+                        duration: Duration(
+                          milliseconds: MediaQuery.of(context).disableAnimations
+                              ? 0
+                              : 180,
+                        ),
                         width: _page == index ? 18 : 6,
                         height: 6,
                         decoration: BoxDecoration(
@@ -4811,7 +4837,7 @@ class _RoutineCover extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget fallback() => Image.asset(brandLogoAsset, fit: BoxFit.cover);
+    Widget fallback() => BrandLogo(size: size);
     Widget picture = fallback();
     if (routine.coverImage != null) {
       try {
@@ -4835,12 +4861,78 @@ class _RoutineCover extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(12),
-            child: SizedBox(width: size, height: size, child: picture),
+            child: SizedBox(
+              width: size,
+              height: size,
+              child: _PlanCoverHint(child: picture),
+            ),
           ),
         ),
       ),
     );
   }
+}
+
+class _PlanCoverHint extends StatefulWidget {
+  const _PlanCoverHint({required this.child});
+  final Widget child;
+  @override
+  State<_PlanCoverHint> createState() => _PlanCoverHintState();
+}
+
+class _PlanCoverHintState extends State<_PlanCoverHint> {
+  bool visible = false;
+  Timer? timer;
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted || prefs.getBool('plan-cover-hint-seen') == true) return;
+    await prefs.setBool('plan-cover-hint-seen', true);
+    if (!mounted) return;
+    setState(() => visible = true);
+    timer = Timer(const Duration(seconds: 8), () {
+      if (mounted) setState(() => visible = false);
+    });
+  }
+
+  @override
+  void dispose() {
+    timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Stack(
+    fit: StackFit.expand,
+    children: [
+      widget.child,
+      if (visible)
+        const IgnorePointer(
+          child: ColoredBox(
+            color: Color(0xAA000000),
+            child: Center(
+              child: Padding(
+                padding: EdgeInsets.all(3),
+                child: Text(
+                  '点击更换\n计划封面',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+    ],
+  );
 }
 
 class _RecoveryMiniPill extends StatelessWidget {
@@ -5548,7 +5640,7 @@ class _WorkoutView extends StatelessWidget {
               const SizedBox(height: 18),
               PrimaryButton(
                 label: '开始下一次训练',
-                onPressed: () => controller.startWorkout(),
+                onPressed: () => controller.startWorkout(autoStartTimer: false),
               ),
             ],
           ),
@@ -5676,7 +5768,7 @@ class _LiveWorkoutControls extends StatelessWidget {
                     : Icons.play_arrow,
                 onPressed: controller.workoutStarted
                     ? controller.pauseWorkout
-                    : () => controller.startWorkout(),
+                    : () => controller.startWorkout(autoStartTimer: false),
               ),
             ),
             const SizedBox(width: 4),
@@ -6314,7 +6406,9 @@ Future<void> _showSetNoteEditor(
     isScrollControlled: true,
     useSafeArea: true,
     builder: (sheetContext) => AnimatedPadding(
-      duration: const Duration(milliseconds: 180),
+      duration: Duration(
+        milliseconds: MediaQuery.of(context).disableAnimations ? 0 : 180,
+      ),
       curve: Curves.easeOut,
       padding: EdgeInsets.only(
         bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
@@ -6411,7 +6505,9 @@ Future<void> _showExerciseNoteEditor(
     isScrollControlled: true,
     useSafeArea: true,
     builder: (sheetContext) => AnimatedPadding(
-      duration: const Duration(milliseconds: 180),
+      duration: Duration(
+        milliseconds: MediaQuery.of(context).disableAnimations ? 0 : 180,
+      ),
       curve: Curves.easeOut,
       padding: EdgeInsets.only(
         bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
@@ -7554,7 +7650,7 @@ class _PlanCard extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.auto_awesome_outlined, color: cobalt),
+              const BrandLogo(size: 48),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
@@ -9025,7 +9121,11 @@ class _LockedAnalyticsModuleState extends State<_LockedAnalyticsModule> {
           ],
           ClipRect(
             child: AnimatedSize(
-              duration: const Duration(milliseconds: 180),
+              duration: Duration(
+                milliseconds: MediaQuery.of(context).disableAnimations
+                    ? 0
+                    : 180,
+              ),
               alignment: Alignment.topCenter,
               child: Align(
                 key: const Key('locked-analytics-preview'),
@@ -9200,7 +9300,11 @@ class _AnalyticsPeerSectionState extends State<_AnalyticsPeerSection> {
           ),
           ClipRect(
             child: AnimatedSize(
-              duration: const Duration(milliseconds: 180),
+              duration: Duration(
+                milliseconds: MediaQuery.of(context).disableAnimations
+                    ? 0
+                    : 180,
+              ),
               alignment: Alignment.topCenter,
               child: Align(
                 key: Key('analytics-content-${widget.title}'),
@@ -11108,7 +11212,11 @@ class _MuscleRail extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(bottom: 6),
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
+              duration: Duration(
+                milliseconds: MediaQuery.of(context).disableAnimations
+                    ? 0
+                    : 180,
+              ),
               decoration: BoxDecoration(
                 color: controller.muscleFilter == group
                     ? primaryContainer
@@ -11897,7 +12005,9 @@ class _RecognitionStageChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Expanded(
     child: AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
+      duration: Duration(
+        milliseconds: MediaQuery.of(context).disableAnimations ? 0 : 180,
+      ),
       padding: const EdgeInsets.symmetric(vertical: 7),
       decoration: BoxDecoration(
         color: done
@@ -15844,7 +15954,9 @@ Future<void> _showAdminCreateUserSheet(
     backgroundColor: paper,
     builder: (sheetContext) => StatefulBuilder(
       builder: (sheetBodyContext, setState) => AnimatedPadding(
-        duration: const Duration(milliseconds: 180),
+        duration: Duration(
+          milliseconds: MediaQuery.of(context).disableAnimations ? 0 : 180,
+        ),
         padding: EdgeInsets.fromLTRB(
           20,
           14,
@@ -16046,7 +16158,9 @@ Future<void> _showAdminCreateUserSheet(
 }
 
 void _showAdminCodeDialog(BuildContext context, AppController controller) {
+  final pageContext = context;
   var plan = MembershipPlan.oneMonth;
+  var generating = false;
   showDialog<void>(
     context: context,
     builder: (dialogContext) => StatefulBuilder(
@@ -16084,27 +16198,37 @@ void _showAdminCodeDialog(BuildContext context, AppController controller) {
           ),
           FilledButton(
             key: const Key('admin-generate-submit-button'),
-            onPressed: () {
-              try {
-                final code = controller.generateRedemptionCode(plan: plan);
-                Navigator.pop(dialogContext);
-                showDialog<void>(
-                  context: context,
-                  builder: (codeContext) => AlertDialog(
-                    title: const Text('\u5151\u6362\u7801\u5df2\u751f\u6210'),
-                    content: SelectableText(code.code),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(codeContext),
-                        child: const Text('\u5173\u95ed'),
-                      ),
-                    ],
-                  ),
-                );
-              } catch (error) {
-                showKiloSnack(context, error.toString(), error: true);
-              }
-            },
+            onPressed: generating
+                ? null
+                : () async {
+                    setState(() => generating = true);
+                    try {
+                      final code = await controller.generateRedemptionCode(
+                        plan: plan,
+                      );
+                      if (!dialogContext.mounted) return;
+                      Navigator.pop(dialogContext);
+                      showDialog<void>(
+                        context: pageContext,
+                        builder: (codeContext) => AlertDialog(
+                          title: const Text(
+                            '\u5151\u6362\u7801\u5df2\u751f\u6210',
+                          ),
+                          content: SelectableText(code.code),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(codeContext),
+                              child: const Text('\u5173\u95ed'),
+                            ),
+                          ],
+                        ),
+                      );
+                    } catch (error) {
+                      if (!context.mounted) return;
+                      setState(() => generating = false);
+                      showKiloSnack(context, error.toString(), error: true);
+                    }
+                  },
             child: const Text('\u751f\u6210'),
           ),
         ],
@@ -19863,9 +19987,10 @@ void _startPlanSession(
         .map((id) => controller.createBlankWorkoutExercise(id, 'plan-$id'))
         .toList(),
     name: session.name,
+    autoStartTimer: false,
   );
   controller.openLiveWorkout();
-  showKiloSnack(context, '已开始 ${session.name}');
+  showKiloSnack(context, '已准备 ${session.name}，请手动开始计时');
 }
 
 String _dateKey(DateTime date) =>
@@ -20085,7 +20210,7 @@ class _OfficialPlansSheetState extends State<_OfficialPlansSheet> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('官方单日计划', style: Theme.of(context).textTheme.headlineMedium),
+              Text('官方计划', style: Theme.of(context).textTheme.headlineMedium),
               Text(
                 '计划由官方持续维护。每个入口都是一节可直接执行的训练。',
                 style: TextStyle(color: quiet),
@@ -20163,6 +20288,9 @@ void _showPlanDetail(
   AppController controller,
   Plan plan,
 ) {
+  final officialSheet = context
+      .findAncestorStateOfType<_OfficialPlansSheetState>();
+  final navigator = Navigator.of(context);
   final session = plan.sessions.first;
   showModalBottomSheet<void>(
     context: context,
@@ -20216,7 +20344,7 @@ void _showPlanDetail(
                         session.exerciseIds,
                       );
                       Navigator.pop(context);
-                      showKiloSnack(context, '已保存 ${session.name}');
+                      if (officialSheet != null) navigator.pop();
                     },
                     icon: const Icon(Icons.bookmark_add_outlined),
                     label: const Text('使用此计划'),
@@ -20225,6 +20353,7 @@ void _showPlanDetail(
                     key: Key('plan-start-${plan.id}'),
                     onPressed: () {
                       Navigator.pop(context);
+                      if (officialSheet != null) navigator.pop();
                       _startPlanSession(context, controller, plan);
                     },
                     icon: const Icon(Icons.play_arrow),

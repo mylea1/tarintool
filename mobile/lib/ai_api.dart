@@ -702,6 +702,17 @@ class HttpCoachApi
     return _decodeJsonResponse(response, 'membership_redemption');
   }
 
+  Future<Map<String, dynamic>> generateMembershipCode(String plan) async {
+    final response = await _client
+        .post(
+          _endpoint('/v1/admin/redemption-codes'),
+          headers: _authHeaders,
+          body: jsonEncode({'plan': plan}),
+        )
+        .timeout(requestTimeout);
+    return _decodeJsonResponse(response, 'membership_code_create');
+  }
+
   Future<Map<String, dynamic>> activateMembershipTrial({
     required String workoutId,
     required int durationSeconds,
