@@ -600,30 +600,8 @@ class BrandedTrainingHero extends StatelessWidget {
       child: Stack(
         children: [
           Positioned.fill(
-            child: dark
-                ? CustomPaint(painter: _ShareSurfacePainter(accent: accent))
-                : const DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Color(0xfff9f2e4), Color(0xffe6d2ae)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                    ),
-                  ),
-          ),
-          Positioned.fill(
-            child: IgnorePointer(
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: FractionallySizedBox(
-                  widthFactor: .32,
-                  heightFactor: 1,
-                  child: CustomPaint(
-                    painter: _ShareFoldPainter(accent: accent),
-                  ),
-                ),
-              ),
+            child: ColoredBox(
+              color: dark ? const Color(0xff303538) : const Color(0xfff4f7f6),
             ),
           ),
           DefaultTextStyle.merge(
@@ -652,6 +630,8 @@ class BrandedTrainingHero extends StatelessWidget {
                             const SizedBox(height: 6),
                             Text(
                               title,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 color: ink,
                                 fontSize: 15,
@@ -697,48 +677,18 @@ class BrandedTrainingHero extends StatelessWidget {
   }
 }
 
-/// Compact record content with the existing themed brand background.
+/// Quiet, low-saturation surface shared by training summaries.
 class BrandedRecordBackground extends StatelessWidget {
   const BrandedRecordBackground({super.key, required this.child});
   final Widget child;
   @override
-  Widget build(BuildContext context) {
-    final dark = Theme.of(context).brightness == Brightness.dark;
-    final accent = dark ? const Color(0xffff8c36) : const Color(0xffb26724);
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(16),
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: dark
-                ? CustomPaint(painter: _ShareSurfacePainter(accent: accent))
-                : const DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Color(0xfff9f2e4), Color(0xffe6d2ae)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                    ),
-                  ),
-          ),
-          Positioned.fill(
-            child: IgnorePointer(
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: FractionallySizedBox(
-                  widthFactor: .32,
-                  heightFactor: 1,
-                  child: CustomPaint(
-                    painter: _ShareFoldPainter(accent: accent),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          child,
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => ClipRRect(
+    borderRadius: BorderRadius.circular(16),
+    child: ColoredBox(
+      color: Theme.of(context).brightness == Brightness.dark
+          ? const Color(0xff303538)
+          : const Color(0xfff4f7f6),
+      child: child,
+    ),
+  );
 }

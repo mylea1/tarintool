@@ -2384,7 +2384,7 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('record cards expose metrics and green structured set details', (
+  testWidgets('record previews hide metrics until opening structured details', (
     tester,
   ) async {
     final controller = AppController();
@@ -2426,7 +2426,8 @@ void main() {
       scrollable: find.byType(Scrollable).last,
     );
     expect(find.byKey(Key('record-tile-${record.id}')), findsOneWidget);
-    expect(find.textContaining('500 kg'), findsOneWidget);
+    expect(find.textContaining('500 kg'), findsNothing);
+    expect(find.text('1 组'), findsWidgets);
     final recordTitle = find.descendant(
       of: find.byKey(Key('record-tile-${record.id}')),
       matching: find.text(record.name),
@@ -2436,6 +2437,7 @@ void main() {
     await tester.tap(recordTitle);
     await tester.pumpAndSettle();
     expect(find.byKey(Key('record-detail-${record.id}')), findsOneWidget);
+    expect(find.textContaining('500 kg'), findsOneWidget);
     expect(find.byKey(Key('record-set-row-${set.id}')), findsOneWidget);
     expect(
       find.byKey(Key('record-technique-${record.id}-${exercise.id}')),

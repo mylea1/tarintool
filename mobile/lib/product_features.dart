@@ -3236,12 +3236,11 @@ class _WorkoutActivityPostPreview extends StatelessWidget {
   Widget build(BuildContext context) => TrainingDetailsCard(
     branded: true,
     title: post.workoutName,
+    setCounts: {for (final e in post.exerciseSummary) e.exerciseId: e.sets},
     date: post.completedAt,
     record: true,
     exercises: [
-      for (final e in post.exerciseSummary.where(
-        (e) => e.setDetails.isNotEmpty,
-      ))
+      for (final e in post.exerciseSummary)
         WorkoutExercise(
           id: e.exerciseId,
           exerciseId: e.exerciseId,

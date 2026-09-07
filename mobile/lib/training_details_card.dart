@@ -79,8 +79,7 @@ class TrainingExerciseDetails extends StatelessWidget {
                     ),
                     if (exercise.sets.isEmpty) const Text('暂无逐组明细'),
                     SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
+                      child: Column(
                         children: [
                           for (
                             var index = 0;
@@ -107,6 +106,63 @@ class TrainingExerciseDetails extends StatelessWidget {
   );
 }
 
+/// Bounded preview: exact per-exercise counts, no weights or durations.
+class TrainingExerciseSummary extends StatelessWidget {
+  const TrainingExerciseSummary({
+    super.key,
+    required this.exercises,
+    required this.nameFor,
+    this.setCounts = const {},
+  });
+  final List<WorkoutExercise> exercises;
+  final String Function(String) nameFor;
+  final Map<String, int> setCounts;
+  @override
+  Widget build(BuildContext context) => Column(
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      for (final e in exercises.take(3))
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(
+            children: [
+              Image.asset(
+                exerciseAsset(e.exerciseId),
+                width: 26,
+                height: 26,
+                errorBuilder: (_, _, _) =>
+                    const Icon(Icons.fitness_center, size: 26),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  nameFor(e.exerciseId),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                '${setCounts[e.exerciseId] ?? e.sets.length} 组',
+                style: const TextStyle(fontSize: 12),
+              ),
+            ],
+          ),
+        ),
+      if (exercises.length > 3)
+        Text(
+          '另 ${exercises.length - 3} 个动作 · 点击查看',
+          style: const TextStyle(fontSize: 11),
+        ),
+    ],
+  );
+}
+
 class TrainingDetailsCard extends StatelessWidget {
   const TrainingDetailsCard({
     super.key,
@@ -122,6 +178,7 @@ class TrainingDetailsCard extends StatelessWidget {
     this.showExercises = true,
     this.overview,
     this.branded = false,
+    this.setCounts = const {},
   });
   factory TrainingDetailsCard.fromRecord({
     Key? key,
@@ -182,110 +239,138 @@ class TrainingDetailsCard extends StatelessWidget {
   final bool record;
   final bool showExercises;
   final bool branded;
+  final Map<String, int> setCounts;
   final VoidCallback? onTap;
   final Widget? footer;
   final Widget? overview;
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Material(
-      color: theme.brightness == Brightness.dark
-          ? const Color(0xff171719)
-          : const Color(0xfffaf4e9),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: theme.colorScheme.outlineVariant),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: !branded
-            ? BrandedRecordBackground(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                        '形域',
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: theme.colorScheme.primary,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
+  void _openDetails(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: SizedBox(
+          height: MediaQuery.sizeOf(context).height * .8,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
                         trainingDisplayName(title, date),
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
+                    ),
+                    IconButton(
+                      tooltip: '关闭',
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
                       if (date != null)
                         Text(
-                          '${date!.year}-${date!.month.toString().padLeft(2, '0')}-${date!.day.toString().padLeft(2, '0')} · ${startTime ?? '${date!.hour.toString().padLeft(2, '0')}:${date!.minute.toString().padLeft(2, '0')}'}',
-                          style: const TextStyle(fontSize: 12),
+                          '${date!.year}-${date!.month}-${date!.day} · ${startTime ?? '${date!.hour.toString().padLeft(2, '0')}:${date!.minute.toString().padLeft(2, '0')}'}',
                         ),
-                      const SizedBox(height: 12),
-                      if (overview != null)
-                        overview!
-                      else if (summary.isNotEmpty)
-                        Text(summary),
-                      if (showExercises && exercises.isNotEmpty) ...[
-                        const SizedBox(height: 10),
-                        Text(
-                          exercises
-                              .map((e) => nameFor(e.exerciseId))
-                              .join(' · '),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                      ],
+                      if (summary.isNotEmpty) Text(summary),
+                      TrainingExerciseDetails(
+                        exercises: footer == null
+                            ? exercises
+                            : exercises
+                                  .where((e) => e.sets.isNotEmpty)
+                                  .toList(),
+                        nameFor: nameFor,
+                        record: record,
+                      ),
                       ?footer,
                     ],
                   ),
                 ),
-              )
-            : BrandedTrainingHero(
-                title: trainingDisplayName(title, date),
-                record: record,
-                content: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (summary.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 6),
-                        child: Text(
-                          summary,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    if (showExercises)
-                      TrainingExerciseDetails(
-                        exercises: exercises,
-                        nameFor: nameFor,
-                        record: record,
-                        compact: true,
-                      )
-                    else
-                      ?overview,
-                    ?footer,
-                  ],
-                ),
-                footer: Text(
-                  [
-                    if (date != null)
-                      '${date!.year}.${date!.month.toString().padLeft(2, '0')}.${date!.day.toString().padLeft(2, '0')}',
-                  ].join(' · '),
-                  textAlign: TextAlign.end,
-                  style: const TextStyle(fontSize: 10),
-                ),
               ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final preview = TrainingExerciseSummary(
+      exercises: exercises,
+      nameFor: nameFor,
+      setCounts: setCounts,
+    );
+    final content = branded
+        ? BrandedTrainingHero(
+            title: trainingDisplayName(title, date),
+            record: record,
+            content: preview,
+            footer: const Text('点击查看训练详情 ›', style: TextStyle(fontSize: 11)),
+          )
+        : BrandedRecordBackground(
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    '形域',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    trainingDisplayName(title, date),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  if (date != null)
+                    Text(
+                      '${date!.year}-${date!.month.toString().padLeft(2, '0')}-${date!.day.toString().padLeft(2, '0')}',
+                      style: const TextStyle(fontSize: 11),
+                    ),
+                  const SizedBox(height: 8),
+                  if (showExercises) preview else ?overview,
+                  if (showExercises)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 6),
+                      child: Text('点击查看训练详情 ›', style: TextStyle(fontSize: 11)),
+                    ),
+                ],
+              ),
+            ),
+          );
+    return Material(
+      color: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: theme.colorScheme.outlineVariant),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: showExercises ? (onTap ?? () => _openDetails(context)) : onTap,
+        child: content,
       ),
     );
   }

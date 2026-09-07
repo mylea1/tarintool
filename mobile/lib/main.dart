@@ -7571,8 +7571,6 @@ class _RoutineCard extends StatelessWidget {
   final Routine routine;
   @override
   Widget build(BuildContext context) {
-    final count = routine.exercises.fold<int>(0, (n, e) => n + e.sets.length);
-    final minutes = (count * 3 + routine.exercises.length * 2).clamp(10, 180);
     return Card(
       key: Key('routine-card-${routine.id}'),
       margin: const EdgeInsets.only(bottom: 9),
@@ -7607,22 +7605,11 @@ class _RoutineCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 10),
-                Text(
-                  routine.exercises
-                      .map(
-                        (e) => controller.displayExerciseName(
-                          controller.exerciseFor(e.exerciseId),
-                        ),
-                      )
-                      .join(' · '),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 12),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '${routine.exercises.length} 个动作 · $count 组 · 约 $minutes 分钟',
-                  style: const TextStyle(fontSize: 12),
+                TrainingExerciseSummary(
+                  exercises: routine.exercises,
+                  nameFor: (id) => controller.displayExerciseName(
+                    controller.exerciseFor(id),
+                  ),
                 ),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
@@ -7698,25 +7685,6 @@ class _PlanCard extends StatelessWidget {
   }
 }
 
-class _RoutineStat extends StatelessWidget {
-  const _RoutineStat({required this.label, required this.value});
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-    decoration: BoxDecoration(
-      color: paper,
-      borderRadius: BorderRadius.circular(8),
-    ),
-    child: Text(
-      '$label $value',
-      style: TextStyle(fontSize: 11, color: secondaryInk),
-    ),
-  );
-}
-
 class _RecordTile extends StatelessWidget {
   const _RecordTile({
     required this.controller,
@@ -7727,119 +7695,15 @@ class _RecordTile extends StatelessWidget {
   final WorkoutRecord record;
   final VoidCallback onTap;
   @override
-  Widget build(BuildContext context) {
-    final totalSets = record.exercises
-        .expand((exercise) => exercise.sets)
-        .length;
-    final completedSets = record.exercises
-        .expand((exercise) => exercise.sets)
-        .where((set) => set.completed)
-        .length;
-    final completionLabel = totalSets == 0
-        ? '—'
-        : '${(completedSets / totalSets * 100).round()}%';
-    final exerciseIds = record.exercises.isNotEmpty
-        ? record.exercises.map((item) => item.exerciseId).toList()
-        : record.exerciseIds;
-    final actionSummary = exerciseIds
-        .take(4)
-        .map((id) => controller.displayExerciseName(controller.exerciseFor(id)))
-        .join(' · ');
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: BrandedRecordBackground(
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                GestureDetector(
-                  key: Key('record-tile-${record.id}'),
-                  behavior: HitTestBehavior.opaque,
-                  onTap: onTap,
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: paper,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Icon(Icons.event_available, color: cobalt),
-                      ),
-                      const SizedBox(width: 11),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              record.name,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            Text(
-                              '${record.date.month} 月 ${record.date.day} 日 · ${record.startTime} · ${(record.durationSeconds / 60).round()} 分钟',
-                              style: TextStyle(fontSize: 12, color: quiet),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Icon(Icons.chevron_right, color: quiet),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: [
-                    _RoutineStat(
-                      label: '训练量',
-                      value: '${record.volume.toStringAsFixed(0)} kg',
-                    ),
-                    _RoutineStat(
-                      label: '有效组',
-                      value: '${record.effectiveSets}',
-                    ),
-                    _RoutineStat(label: '完成率', value: completionLabel),
-                  ],
-                ),
-                if (actionSummary.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    actionSummary,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 12, color: secondaryInk),
-                  ),
-                ],
-                if (exerciseIds.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Row(
-                      children: [
-                        for (final id in exerciseIds.take(3))
-                          Padding(
-                            padding: const EdgeInsets.only(right: 6),
-                            child: _ExerciseThumb(exerciseId: id, size: 32),
-                          ),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Card(
+    margin: const EdgeInsets.only(bottom: 10),
+    child: TrainingDetailsCard.fromRecord(
+      key: Key('record-tile-${record.id}'),
+      controller: controller,
+      record: record,
+      onTap: onTap,
+    ),
+  );
 }
 
 class _RecordSetRow extends StatelessWidget {

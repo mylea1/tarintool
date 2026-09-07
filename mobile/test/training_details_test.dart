@@ -92,6 +92,49 @@ void main() {
       expect(tester.takeException(), isNull);
     }
   });
+  testWidgets(
+    'long friend preview opens every exercise without losing set data',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: TrainingDetailsCard(
+                branded: true,
+                title: '好友训练',
+                exercises: List.generate(
+                  20,
+                  (i) => WorkoutExercise(
+                    id: '$i',
+                    exerciseId: 'bench_press',
+                    sets: [WorkoutSet(id: '$i', weight: 52.5, reps: 12)],
+                  ),
+                ),
+                nameFor: (_) => '卧推',
+                summary: '45 分钟',
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('卧推'), findsNWidgets(3));
+      expect(find.text('另 17 个动作 · 点击查看'), findsOneWidget);
+      expect(find.text('45 分钟'), findsNothing);
+      await tester.tap(find.byType(TrainingDetailsCard));
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(
+          of: find.byType(TrainingExerciseDetails),
+          matching: find.text('卧推'),
+        ),
+        findsNWidgets(20),
+      );
+      expect(find.textContaining('52.5 kg × 12 次'), findsNWidgets(20));
+      expect(find.text('45 分钟'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
   for (final width in [320.0, 375.0, 414.0]) {
     testWidgets('detailed card wraps at $width and large text', (tester) async {
       tester.view.physicalSize = Size(width, 900);
@@ -124,6 +167,9 @@ void main() {
           ),
         ),
       );
+      await tester.pumpAndSettle();
+      expect(find.textContaining('52.5 kg × 12 次'), findsNothing);
+      await tester.tap(find.byType(TrainingDetailsCard));
       await tester.pumpAndSettle();
       expect(find.textContaining('52.5 kg × 12 次'), findsOneWidget);
       expect(find.textContaining('50 kg × 10 次'), findsOneWidget);

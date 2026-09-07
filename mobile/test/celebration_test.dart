@@ -146,6 +146,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.textContaining('kg ×'), findsNothing);
-    expect(find.text('总容量'), findsWidgets);
+    expect(find.text('总容量'), findsNothing);
+    expect(find.text('点击查看训练详情 ›'), findsWidgets);
   });
 }
