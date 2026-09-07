@@ -59,7 +59,7 @@ try {
   }
   $versionName = $versionLine.Matches[0].Groups[1].Value
   $buildNumber = $versionLine.Matches[0].Groups[2].Value
-  $artifactName = "xingyu-$versionName-build$buildNumber-$safeBranch-$shortCommit-$Flavor-debug.apk"
+  $artifactName = "kilostrength-$versionName.apk"
   $artifactPath = Join-Path $artifactDirectory $artifactName
   $checksumPath = "$artifactPath.sha256"
 

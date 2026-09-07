@@ -80,7 +80,7 @@ try {
 4. 每次使用独立的 `.dart_tool`、`build` 和 `android/.gradle`，不共享项目构建缓存。
 5. 仓库级独占锁禁止两个任务同时打 Android 包。遇到构建占用提示时必须等待，不能绕过锁另启 Gradle。
 6. 依次执行 `flutter pub get`、`flutter analyze`、`flutter test --no-pub` 和单次 `flutter build apk`。
-7. 产物以版本、构建号、分支、提交和渠道命名，复制到 `artifacts/`，同时生成 `.sha256` 文件。
+7. 产物统一命名为 `kilostrength-<版本号>.apk`，复制到 `artifacts/`，同时生成 `.sha256` 文件；构建号、提交与渠道记录在构建日志中。
 8. 无论成功或失败，脚本只清理自己创建且名称匹配安全前缀的临时快照。
 
 ## 本次故障总结
@@ -156,7 +156,7 @@ SocketException: Invalid argument: connect
 
 - 脚本输出的源码提交是预期提交。
 - 工作区快照构建需确认临时提交中的关键源码与当前文件一致，并记录其父提交。
-- APK 文件名中的版本、构建号、分支和渠道正确。
+- APK 文件名中的版本正确；构建日志中的构建号、提交和渠道正确。
 - `.sha256` 与重新执行 `Get-FileHash -Algorithm SHA256 <APK>` 的结果一致。
 - APK 包名、`versionCode`、`versionName`、minSdk 和 targetSdk 正确。
 - APK 包含 `android.permission.INTERNET`。
@@ -178,3 +178,10 @@ SocketException: Invalid argument: connect
 失败后保留完整日志，先定位失败阶段：依赖下载、静态检查、测试、Gradle 编译或产物复制。不要立即重复执行同一命令。
 
 若提示构建锁占用，检查现有任务并等待其结束。若工具链缺失，修复 WSL 用户目录 `.local/toolchains` 中的 Linux 原生 Flutter、JDK 和 Android SDK；不要临时改回 Windows SDK 或复用 Windows `.dart_tool`。若是依赖网络问题，优先沿用项目和工具链已经配置的镜像，不要反复并行重试。
+
+## 2026-09-07 起的默认交付约定
+
+- 每次完成代码修改后，默认提交、推送并生成安卓安装包。
+- 安装包统一命名为 kilostrength-<版本号>.apk，不再附加分支、提交、渠道或 debug 字样。
+- 面向用户的版本号从 1.0.0 重新开始，后续版本递增。Android versionCode 不重置，本次为 48，之后继续递增以支持覆盖安装。
+- 本次 pubspec 版本为 1.0.0+48。构建渠道仍默认 cn，类型仍为 Debug；文件名简化不改变签名或构建类型。
