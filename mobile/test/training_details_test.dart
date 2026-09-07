@@ -1,3 +1,4 @@
+import 'package:kilo_strength/workout_share_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kilo_strength/controller.dart';
@@ -118,8 +119,9 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('卧推'), findsNWidgets(3));
-      expect(find.text('另 17 个动作 · 点击查看'), findsOneWidget);
+      expect(find.byType(WorkoutShareCard), findsOneWidget);
+      expect(find.byType(TrainingExerciseSummary), findsNothing);
+      expect(find.text('卧推 · 卧推 · 卧推 · 卧推'), findsOneWidget);
       expect(find.text('45 分钟'), findsNothing);
       await tester.tap(find.byType(TrainingDetailsCard));
       await tester.pumpAndSettle();

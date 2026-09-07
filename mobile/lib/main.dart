@@ -18529,6 +18529,7 @@ class _WorkoutShareCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return TrainingDetailsCard.fromRecord(
       key: const Key('workout-share-card'),
+      branded: !compact,
       controller: controller,
       record: record,
       onTap: onTap,
@@ -21526,6 +21527,7 @@ void _showRecordDetail(
                 controller: controller,
                 record: record,
                 showExercises: false,
+                branded: true,
               ),
               const SizedBox(height: 20),
               const Text(

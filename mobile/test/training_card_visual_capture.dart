@@ -29,7 +29,7 @@ void main() {
     await (FontLoader(
       'MaterialIcons',
     )..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'))).load();
-    tester.view.physicalSize = const Size(375, 812);
+    tester.view.physicalSize = const Size(375, 1050);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -79,7 +79,7 @@ void main() {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       const Text(
-                        '训练已完成',
+                        '日历训练记录',
                         style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.w800,
@@ -96,6 +96,14 @@ void main() {
                         controller: c,
                         record: record,
                         branded: true,
+                      ),
+                      const SizedBox(height: 16),
+                      const Text('个人详情顶部'),
+                      TrainingDetailsCard.fromRecord(
+                        controller: c,
+                        record: record,
+                        branded: true,
+                        showExercises: false,
                       ),
                       const SizedBox(height: 16),
                       FilledButton(
@@ -129,7 +137,7 @@ void main() {
                 .toImage(pixelRatio: 2);
         final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
         await File(
-          '../artifacts/training-card-${dark ? 'dark' : 'light'}-compact.png',
+          '../artifacts/training-card-${dark ? 'dark' : 'light'}-metal-restored.png',
         ).writeAsBytes(bytes!.buffer.asUint8List());
         image.dispose();
       });

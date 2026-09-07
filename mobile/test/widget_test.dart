@@ -1,3 +1,4 @@
+import 'package:kilo_strength/workout_share_card.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -2384,80 +2385,88 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('record previews hide metrics until opening structured details', (
-    tester,
-  ) async {
-    final controller = AppController();
-    controller.startWorkout(name: '记录卡');
-    controller.addExercise('bench_press');
-    final exercise = controller.workout.single;
-    controller.addSet(exercise);
-    final set = exercise.sets.single
-      ..weight = 50
-      ..reps = 10
-      ..note = '最后两次速度变慢'
-      ..completed = true;
-    controller.techniqueAssessments.add(
-      TechniqueAssessment(
-        id: 'technique-record-fixture',
-        exerciseId: 'bench_press',
-        createdAt: DateTime.now(),
-        scoreable: true,
-        overall: 78,
-        rom: 86,
-        stability: 72,
-        symmetry: 80,
-        tempo: 76,
-        trajectory: 83,
-        issues: const ['最后两次稳定性下降'],
-        nextFocus: '保持动作稳定，再考虑增加重量',
-      ),
-    );
-    controller.finishWorkout();
-    final record = controller.history.single;
-    addTearDown(controller.dispose);
+  testWidgets(
+    'record previews show compact metrics and open metallic details',
+    (tester) async {
+      final controller = AppController();
+      controller.startWorkout(name: '记录卡');
+      controller.addExercise('bench_press');
+      final exercise = controller.workout.single;
+      controller.addSet(exercise);
+      final set = exercise.sets.single
+        ..weight = 50
+        ..reps = 10
+        ..note = '最后两次速度变慢'
+        ..completed = true;
+      controller.techniqueAssessments.add(
+        TechniqueAssessment(
+          id: 'technique-record-fixture',
+          exerciseId: 'bench_press',
+          createdAt: DateTime.now(),
+          scoreable: true,
+          overall: 78,
+          rom: 86,
+          stability: 72,
+          symmetry: 80,
+          tempo: 76,
+          trajectory: 83,
+          issues: const ['最后两次稳定性下降'],
+          nextFocus: '保持动作稳定，再考虑增加重量',
+        ),
+      );
+      controller.finishWorkout();
+      final record = controller.history.single;
+      addTearDown(controller.dispose);
 
-    await tester.pumpWidget(KiloApp(initialController: controller));
-    controller.selectPage(PageId.records);
-    await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(
-      find.byKey(Key('record-tile-${record.id}')),
-      320,
-      scrollable: find.byType(Scrollable).last,
-    );
-    expect(find.byKey(Key('record-tile-${record.id}')), findsOneWidget);
-    expect(find.textContaining('500 kg'), findsNothing);
-    expect(find.text('1 组'), findsWidgets);
-    final recordTitle = find.descendant(
-      of: find.byKey(Key('record-tile-${record.id}')),
-      matching: find.text(record.name),
-    );
-    await Scrollable.ensureVisible(tester.element(recordTitle), alignment: .2);
-    await tester.pumpAndSettle();
-    await tester.tap(recordTitle);
-    await tester.pumpAndSettle();
-    expect(find.byKey(Key('record-detail-${record.id}')), findsOneWidget);
-    expect(find.textContaining('500 kg'), findsOneWidget);
-    expect(find.byKey(Key('record-set-row-${set.id}')), findsOneWidget);
-    expect(
-      find.byKey(Key('record-technique-${record.id}-${exercise.id}')),
-      findsOneWidget,
-    );
-    expect(find.textContaining('技术评分 78/100'), findsOneWidget);
-    expect(find.textContaining('最后两次稳定性下降'), findsOneWidget);
-    final detailRow = tester.widget<Container>(
-      find.byKey(Key('record-set-row-${set.id}')),
-    );
-    expect(
-      (detailRow.decoration! as BoxDecoration).color,
-      const Color(0xFFDDEFE6),
-    );
-    expect(find.textContaining('50 kg'), findsWidgets);
-    Navigator.of(
-      tester.element(find.byKey(Key('record-detail-${record.id}'))),
-    ).pop();
-    await tester.pumpAndSettle();
-  });
+      await tester.pumpWidget(KiloApp(initialController: controller));
+      controller.selectPage(PageId.records);
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.byKey(Key('record-tile-${record.id}')),
+        320,
+        scrollable: find.byType(Scrollable).last,
+      );
+      expect(find.byKey(Key('record-tile-${record.id}')), findsOneWidget);
+      expect(find.textContaining('500 kg'), findsOneWidget);
+      expect(find.text('1 组'), findsWidgets);
+      final recordTitle = find.descendant(
+        of: find.byKey(Key('record-tile-${record.id}')),
+        matching: find.text(record.name),
+      );
+      await Scrollable.ensureVisible(
+        tester.element(recordTitle),
+        alignment: .2,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(recordTitle);
+      await tester.pumpAndSettle();
+      expect(find.byKey(Key('record-detail-${record.id}')), findsOneWidget);
+      final metallic = tester.widget<WorkoutShareCard>(
+        find.byType(WorkoutShareCard).last,
+      );
+      expect(metallic.volume, 500);
+      expect(metallic.effectiveSets, 1);
+      expect(find.byKey(Key('record-set-row-${set.id}')), findsOneWidget);
+      expect(
+        find.byKey(Key('record-technique-${record.id}-${exercise.id}')),
+        findsOneWidget,
+      );
+      expect(find.textContaining('技术评分 78/100'), findsOneWidget);
+      expect(find.textContaining('最后两次稳定性下降'), findsOneWidget);
+      final detailRow = tester.widget<Container>(
+        find.byKey(Key('record-set-row-${set.id}')),
+      );
+      expect(
+        (detailRow.decoration! as BoxDecoration).color,
+        const Color(0xFFDDEFE6),
+      );
+      expect(find.textContaining('50 kg'), findsWidgets);
+      Navigator.of(
+        tester.element(find.byKey(Key('record-detail-${record.id}'))),
+      ).pop();
+      await tester.pumpAndSettle();
+    },
+  );
 
   testWidgets(
     'member exercise detail filters real technique assessments by date',

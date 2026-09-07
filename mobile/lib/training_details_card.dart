@@ -179,6 +179,9 @@ class TrainingDetailsCard extends StatelessWidget {
     this.overview,
     this.branded = false,
     this.setCounts = const {},
+    this.durationSeconds,
+    this.volume,
+    this.effectiveSets,
   });
   factory TrainingDetailsCard.fromRecord({
     Key? key,
@@ -190,6 +193,9 @@ class TrainingDetailsCard extends StatelessWidget {
   }) => TrainingDetailsCard(
     key: key,
     branded: branded,
+    durationSeconds: record.durationSeconds,
+    volume: record.volume,
+    effectiveSets: record.effectiveSets,
     title: trainingDisplayName(record.name, record.date),
     date: record.date,
     startTime: record.startTime,
@@ -239,6 +245,26 @@ class TrainingDetailsCard extends StatelessWidget {
   final bool record;
   final bool showExercises;
   final bool branded;
+  final int? durationSeconds;
+  final double? volume;
+  final int? effectiveSets;
+  int get totalSets =>
+      effectiveSets ??
+      exercises.fold(
+        0,
+        (n, e) =>
+            n +
+            (setCounts[e.exerciseId] ??
+                (record
+                    ? e.sets.where((s) => s.completed).length
+                    : e.sets.length)),
+      );
+  double get totalVolume =>
+      volume ??
+      exercises
+          .expand((e) => e.sets)
+          .where((s) => !record || s.completed)
+          .fold(0.0, (n, s) => n + s.weight * s.reps);
   final Map<String, int> setCounts;
   final VoidCallback? onTap;
   final Widget? footer;
@@ -284,6 +310,8 @@ class TrainingDetailsCard extends StatelessWidget {
                         Text(
                           '${date!.year}-${date!.month}-${date!.day} · ${startTime ?? '${date!.hour.toString().padLeft(2, '0')}:${date!.minute.toString().padLeft(2, '0')}'}',
                         ),
+                      _metalCard(),
+                      const SizedBox(height: 16),
                       if (summary.isNotEmpty) Text(summary),
                       TrainingExerciseDetails(
                         exercises: footer == null
@@ -306,63 +334,118 @@ class TrainingDetailsCard extends StatelessWidget {
     );
   }
 
+  Widget _metalCard() => WorkoutShareCard(
+    workoutName: trainingDisplayName(title, date),
+    date: date ?? DateTime.now(),
+    durationSeconds: durationSeconds ?? 0,
+    volume: totalVolume,
+    effectiveSets: totalSets,
+    localized: true,
+    isPlan: durationSeconds == null,
+  );
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final preview = TrainingExerciseSummary(
-      exercises: exercises,
-      nameFor: nameFor,
-      setCounts: setCounts,
-    );
+    final names = exercises
+        .take(4)
+        .map((e) => nameFor(e.exerciseId))
+        .join(' · ');
     final content = branded
-        ? BrandedTrainingHero(
-            title: trainingDisplayName(title, date),
-            record: record,
-            content: preview,
-            footer: const Text('点击查看训练详情 ›', style: TextStyle(fontSize: 11)),
-          )
-        : BrandedRecordBackground(
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    '形域',
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: theme.colorScheme.primary,
-                    ),
+        ? Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _metalCard(),
+              if (showExercises && names.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    trainingDisplayName(title, date),
-                    maxLines: 2,
+                  child: Text(
+                    names,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                    ),
+                    style: const TextStyle(fontSize: 12),
                   ),
-                  if (date != null)
-                    Text(
-                      '${date!.year}-${date!.month.toString().padLeft(2, '0')}-${date!.day.toString().padLeft(2, '0')}',
-                      style: const TextStyle(fontSize: 11),
+                ),
+            ],
+          )
+        : Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        trainingDisplayName(title, date),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
                     ),
-                  const SizedBox(height: 8),
-                  if (showExercises) preview else ?overview,
-                  if (showExercises)
-                    const Padding(
-                      padding: EdgeInsets.only(top: 6),
-                      child: Text('点击查看训练详情 ›', style: TextStyle(fontSize: 11)),
-                    ),
+                    const Icon(Icons.chevron_right, size: 20),
+                  ],
+                ),
+                if (date != null)
+                  Text(
+                    '${date!.month}月${date!.day}日 · ${startTime ?? '${date!.hour.toString().padLeft(2, '0')}:${date!.minute.toString().padLeft(2, '0')}'}',
+                    style: const TextStyle(fontSize: 11),
+                  ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 20,
+                  runSpacing: 8,
+                  children: [
+                    for (final metric in [
+                      (
+                        durationSeconds == null
+                            ? '—'
+                            : '${(durationSeconds! / 60).round()} 分钟',
+                        '时长',
+                      ),
+                      (
+                        '${TrainingExerciseDetails.number(totalVolume)} kg',
+                        '总容量',
+                      ),
+                      ('$totalSets 组', '完成组'),
+                    ])
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            metric.$1,
+                            style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          Text(metric.$2, style: const TextStyle(fontSize: 11)),
+                        ],
+                      ),
+                  ],
+                ),
+                if (showExercises && names.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    names,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12),
+                  ),
                 ],
-              ),
+              ],
             ),
           );
     return Material(
-      color: Colors.transparent,
+      color: theme.colorScheme.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(color: theme.colorScheme.outlineVariant),

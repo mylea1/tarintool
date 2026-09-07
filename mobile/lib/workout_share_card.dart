@@ -35,6 +35,8 @@ class WorkoutShareCard extends StatelessWidget {
     required this.volume,
     required this.effectiveSets,
     this.cardStyle = 'coral',
+    this.localized = false,
+    this.isPlan = false,
     this.localPhotoPath,
     this.photoImageProvider,
   });
@@ -61,13 +63,15 @@ class WorkoutShareCard extends StatelessWidget {
   final double volume;
   final int effectiveSets;
   final String cardStyle;
+  final bool localized;
+  final bool isPlan;
   final String? localPhotoPath;
   final ImageProvider<Object>? photoImageProvider;
 
   String get _date =>
       '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
 
-  String get _minutes => '${(durationSeconds / 60).round()}';
+  String get _minutes => isPlan ? '—' : '${(durationSeconds / 60).round()}';
 
   String get _volume => volume >= 1000
       ? '${(volume / 1000).toStringAsFixed(1)}T'
@@ -132,6 +136,8 @@ class WorkoutShareCard extends StatelessWidget {
                     width: 545,
                     bottom: 54,
                     child: _ShareInformation(
+                      localized: localized,
+                      isPlan: isPlan,
                       workoutName: workoutName,
                       minutes: _minutes,
                       volume: _volume,
@@ -251,6 +257,8 @@ class WorkoutResultCard extends StatelessWidget {
 class _ShareInformation extends StatelessWidget {
   const _ShareInformation({
     required this.workoutName,
+    this.localized = false,
+    this.isPlan = false,
     required this.minutes,
     required this.volume,
     required this.effectiveSets,
@@ -259,6 +267,8 @@ class _ShareInformation extends StatelessWidget {
   });
 
   final String workoutName;
+  final bool localized;
+  final bool isPlan;
   final String minutes;
   final String volume;
   final String effectiveSets;
@@ -292,9 +302,9 @@ class _ShareInformation extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 18),
-          const Text(
-            'KILOSTRENGTH',
-            style: TextStyle(
+          Text(
+            localized ? '形域' : 'KILOSTRENGTH',
+            style: const TextStyle(
               color: Color(0xFFF3F4F6),
               fontSize: 24,
               fontWeight: FontWeight.w700,
@@ -304,9 +314,9 @@ class _ShareInformation extends StatelessWidget {
         ],
       ),
       const SizedBox(height: 82),
-      const Text(
-        'TRAINING / COMPLETE',
-        style: TextStyle(
+      Text(
+        localized ? (isPlan ? '训练计划' : '训练完成') : 'TRAINING / COMPLETE',
+        style: const TextStyle(
           color: Color(0xFFB7B9BF),
           fontSize: 22,
           fontWeight: FontWeight.w500,

@@ -1,3 +1,4 @@
+import 'package:kilo_strength/workout_share_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kilo_strength/ai_api.dart';
@@ -147,6 +148,6 @@ void main() {
     );
     expect(find.textContaining('kg ×'), findsNothing);
     expect(find.text('总容量'), findsNothing);
-    expect(find.text('点击查看训练详情 ›'), findsWidgets);
+    expect(find.byType(WorkoutShareCard), findsWidgets);
   });
 }
