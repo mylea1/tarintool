@@ -263,8 +263,17 @@ void main() {
     await tester.scrollUntilVisible(
       modeRow,
       500,
-      scrollable: find.byType(Scrollable).last,
+      scrollable: find
+          .descendant(
+            of: find.byType(ProfilePage),
+            matching: find.byType(Scrollable),
+          )
+          .first,
     );
+    await tester.pumpAndSettle();
+    final toggle = find.descendant(of: modeRow, matching: find.byType(Switch));
+    await tester.ensureVisible(toggle);
+    await tester.pumpAndSettle();
     expect(modeRow, findsOneWidget);
     expect(find.text('主题颜色'), findsNothing);
 
@@ -1030,6 +1039,16 @@ void main() {
     expect(controller.workout.single.sets.first.weight, 0);
     expect(controller.workout.single.sets.first.reps, 0);
     expect(find.text('重量'), findsWidgets);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('live-add-exercise')),
+      100,
+      scrollable: find
+          .descendant(
+            of: find.byKey(const Key('live-exercise-reorder')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
     expect(find.byKey(const Key('live-add-exercise')), findsOneWidget);
     controller.finishWorkout();
     await tester.pump();
@@ -1806,6 +1825,7 @@ void main() {
   testWidgets('active rest card edits current and upcoming rest defaults', (
     tester,
   ) async {
+    final semantics = tester.ensureSemantics();
     final controller = AppController();
     controller.startWorkout(name: '休息继承');
     controller.addExercise('bench_press');
@@ -1815,7 +1835,6 @@ void main() {
     controller.openLiveWorkout();
     controller.startRest(exercise: '器械推胸', seconds: 53);
     addTearDown(() {
-    final semantics = tester.ensureSemantics();
       if (controller.workoutStarted) controller.finishWorkout();
       controller.dispose();
     });
@@ -1834,6 +1853,7 @@ void main() {
     controller.skipRest();
     controller.finishWorkout();
     await tester.pump();
+    semantics.dispose();
   });
 
   testWidgets('live workout can delete an unfinished or completed set', (
@@ -1843,7 +1863,6 @@ void main() {
     controller.startWorkout(name: '删组测试');
     controller.addExercise('bench_press');
     final exercise = controller.workout.single;
-    semantics.dispose();
     controller.addSet(exercise);
     controller.addSet(exercise);
     final completed = exercise.sets.first..completed = true;

@@ -2159,7 +2159,7 @@ class _KiloShellState extends State<KiloShell> {
                     data: MediaQuery.of(context).copyWith(
                       padding: MediaQuery.paddingOf(
                         context,
-                      ).copyWith(bottom: reservedBottom),
+                      ).copyWith(top: 0, bottom: reservedBottom),
                     ),
                     child: body,
                   ),
@@ -5920,6 +5920,7 @@ class _WorkoutExerciseCard extends StatelessWidget {
       child: Column(
         children: [
           InkWell(
+            key: Key('exercise-collapse-${exercise.id}'),
             onTap: () {
               exercise.collapsed = !exercise.collapsed;
               controller.refresh();
@@ -5980,41 +5981,6 @@ class _WorkoutExerciseCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  if (dragIndex != null)
-                    ExerciseDragHandle(
-                      key: Key('live-drag-${exercise.id}'),
-                      index: dragIndex!,
-                    ),
-                  IconButton(
-                    key: Key('exercise-note-${exercise.id}'),
-                    tooltip: exercise.note.isEmpty ? '添加动作备注' : '查看或修改动作备注',
-                    onPressed: () =>
-                        _showExerciseNoteEditor(context, controller, exercise),
-                    style: exercise.note.isEmpty
-                        ? null
-                        : IconButton.styleFrom(
-                            backgroundColor: exerciseNoteContainer,
-                            foregroundColor: exerciseNoteColor,
-                          ),
-                    icon: Icon(
-                      exercise.note.isEmpty
-                          ? Icons.note_add_outlined
-                          : Icons.sticky_note_2_rounded,
-                    ),
-                  ),
-                  IconButton(
-                    key: Key('rest-settings-${exercise.id}'),
-                    tooltip: '设置休息时间',
-                    onPressed: () =>
-                        _showRestEditor(context, controller, exercise),
-                    icon: const Icon(Icons.timer_outlined),
-                  ),
-                  IconButton(
-                    tooltip: '动作菜单',
-                    onPressed: () =>
-                        _showExerciseActions(context, controller, exercise),
-                    icon: const Icon(Icons.more_horiz),
-                  ),
                   Icon(
                     exercise.collapsed ? Icons.expand_more : Icons.expand_less,
                     color: quiet,
@@ -6022,6 +5988,46 @@ class _WorkoutExerciseCard extends StatelessWidget {
                 ],
               ),
             ),
+          ),
+          Row(
+            children: [
+              if (dragIndex != null)
+                ExerciseDragHandle(
+                  key: Key('live-drag-${exercise.id}'),
+                  index: dragIndex!,
+                  showLabel: true,
+                ),
+              const Spacer(),
+              IconButton(
+                key: Key('exercise-note-${exercise.id}'),
+                tooltip: exercise.note.isEmpty ? '添加动作备注' : '查看或修改动作备注',
+                onPressed: () =>
+                    _showExerciseNoteEditor(context, controller, exercise),
+                style: exercise.note.isEmpty
+                    ? null
+                    : IconButton.styleFrom(
+                        backgroundColor: exerciseNoteContainer,
+                        foregroundColor: exerciseNoteColor,
+                      ),
+                icon: Icon(
+                  exercise.note.isEmpty
+                      ? Icons.note_add_outlined
+                      : Icons.sticky_note_2_rounded,
+                ),
+              ),
+              IconButton(
+                key: Key('rest-settings-${exercise.id}'),
+                tooltip: '设置休息时间',
+                onPressed: () => _showRestEditor(context, controller, exercise),
+                icon: const Icon(Icons.timer_outlined),
+              ),
+              IconButton(
+                tooltip: '动作菜单',
+                onPressed: () =>
+                    _showExerciseActions(context, controller, exercise),
+                icon: const Icon(Icons.more_horiz),
+              ),
+            ],
           ),
           if (!exercise.collapsed)
             Padding(
@@ -7573,53 +7579,73 @@ class _RoutineCard extends StatelessWidget {
       child: InkWell(
         onTap: () => _showRoutineDetail(context, controller, routine),
         borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              BrandedTrainingHero(
-                title: trainingDisplayName(routine.name),
-                content: TrainingExerciseDetails(
-                  exercises: routine.exercises,
-                  nameFor: (id) => controller.displayExerciseName(
-                    controller.exerciseFor(id),
-                  ),
-                  compact: true,
+        child: BrandedRecordBackground(
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    _RoutineCover(
+                      controller: controller,
+                      routine: routine,
+                      size: 48,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        trainingDisplayName(routine.name),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                footer: Text(
+                const SizedBox(height: 10),
+                Text(
+                  routine.exercises
+                      .map(
+                        (e) => controller.displayExerciseName(
+                          controller.exerciseFor(e.exerciseId),
+                        ),
+                      )
+                      .join(' · '),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 12),
+                ),
+                const SizedBox(height: 8),
+                Text(
                   '${routine.exercises.length} 个动作 · $count 组 · 约 $minutes 分钟',
-                  textAlign: TextAlign.end,
-                  style: const TextStyle(fontSize: 10),
+                  style: const TextStyle(fontSize: 12),
                 ),
-                cover: _RoutineCover(
-                  controller: controller,
-                  routine: routine,
-                  size: 120,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    IconButton(
+                      key: Key('routine-more-${routine.id}'),
+                      tooltip: '计划更多操作',
+                      onPressed: () =>
+                          _showRoutineActions(context, controller, routine),
+                      icon: const Icon(Icons.more_horiz),
+                    ),
+                    TextButton(
+                      key: Key('routine-select-${routine.id}'),
+                      onPressed: () {
+                        controller.schedule(DateTime.now(), routine.name);
+                        showKiloSnack(context, '已选择今日计划：${routine.name}');
+                      },
+                      child: const Text('选择 ›'),
+                    ),
+                  ],
                 ),
-              ),
-              Align(
-                alignment: Alignment.centerRight,
-                child: IconButton(
-                  key: Key('routine-more-${routine.id}'),
-                  tooltip: '计划更多操作',
-                  onPressed: () =>
-                      _showRoutineActions(context, controller, routine),
-                  icon: const Icon(Icons.more_horiz),
-                ),
-              ),
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
-                  key: Key('routine-select-${routine.id}'),
-                  onPressed: () {
-                    controller.schedule(DateTime.now(), routine.name);
-                    showKiloSnack(context, '已选择今日计划：${routine.name}');
-                  },
-                  child: const Text('选择 ›'),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -7672,6 +7698,25 @@ class _PlanCard extends StatelessWidget {
   }
 }
 
+class _RoutineStat extends StatelessWidget {
+  const _RoutineStat({required this.label, required this.value});
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+    decoration: BoxDecoration(
+      color: paper,
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: Text(
+      '$label $value',
+      style: TextStyle(fontSize: 11, color: secondaryInk),
+    ),
+  );
+}
+
 class _RecordTile extends StatelessWidget {
   const _RecordTile({
     required this.controller,
@@ -7683,13 +7728,115 @@ class _RecordTile extends StatelessWidget {
   final VoidCallback onTap;
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: TrainingDetailsCard.fromRecord(
-        key: Key('record-tile-${record.id}'),
-        controller: controller,
-        record: record,
+    final totalSets = record.exercises
+        .expand((exercise) => exercise.sets)
+        .length;
+    final completedSets = record.exercises
+        .expand((exercise) => exercise.sets)
+        .where((set) => set.completed)
+        .length;
+    final completionLabel = totalSets == 0
+        ? '—'
+        : '${(completedSets / totalSets * 100).round()}%';
+    final exerciseIds = record.exercises.isNotEmpty
+        ? record.exercises.map((item) => item.exerciseId).toList()
+        : record.exerciseIds;
+    final actionSummary = exerciseIds
+        .take(4)
+        .map((id) => controller.displayExerciseName(controller.exerciseFor(id)))
+        .join(' · ');
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      child: InkWell(
         onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: BrandedRecordBackground(
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                GestureDetector(
+                  key: Key('record-tile-${record.id}'),
+                  behavior: HitTestBehavior.opaque,
+                  onTap: onTap,
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: paper,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(Icons.event_available, color: cobalt),
+                      ),
+                      const SizedBox(width: 11),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              record.name,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            Text(
+                              '${record.date.month} 月 ${record.date.day} 日 · ${record.startTime} · ${(record.durationSeconds / 60).round()} 分钟',
+                              style: TextStyle(fontSize: 12, color: quiet),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(Icons.chevron_right, color: quiet),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    _RoutineStat(
+                      label: '训练量',
+                      value: '${record.volume.toStringAsFixed(0)} kg',
+                    ),
+                    _RoutineStat(
+                      label: '有效组',
+                      value: '${record.effectiveSets}',
+                    ),
+                    _RoutineStat(label: '完成率', value: completionLabel),
+                  ],
+                ),
+                if (actionSummary.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    actionSummary,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 12, color: secondaryInk),
+                  ),
+                ],
+                if (exerciseIds.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Row(
+                      children: [
+                        for (final id in exerciseIds.take(3))
+                          Padding(
+                            padding: const EdgeInsets.only(right: 6),
+                            child: _ExerciseThumb(exerciseId: id, size: 32),
+                          ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -10701,6 +10848,7 @@ class _FriendsPageState extends State<_FriendsPage> {
             ),
             const SizedBox(height: 12),
             TrainingDetailsCard(
+              branded: true,
               title: (item['name'] ?? '训练计划').toString(),
               exercises: exercises,
               nameFor: (id) => widget.controller.displayExerciseName(
@@ -10959,6 +11107,7 @@ class _ExerciseLibraryPageState extends State<ExerciseLibraryPage> {
                   else
                     GridView.builder(
                       key: const Key('exercise-library-grid'),
+                      padding: EdgeInsets.zero,
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       itemCount: displayedItems.length,
@@ -11110,7 +11259,6 @@ class _MuscleRail extends StatelessWidget {
   const _MuscleRail({required this.controller, required this.groups});
   final AppController controller;
   final List<String> groups;
-
   @override
   Widget build(BuildContext context) => Column(
     key: const Key('muscle-rail'),
@@ -11132,6 +11280,7 @@ class _MuscleRail extends StatelessWidget {
     ],
   );
 }
+
 class RecognitionPage extends StatelessWidget {
   const RecognitionPage({super.key, required this.controller});
   final AppController controller;
@@ -15376,6 +15525,7 @@ class ProfilePage extends StatelessWidget {
             final textScale = MediaQuery.textScalerOf(context).scale(1);
             final singleColumn = constraints.maxWidth < 330 || textScale > 1.45;
             return GridView.count(
+              padding: EdgeInsets.zero,
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               crossAxisCount: singleColumn ? 1 : 2,
@@ -17885,11 +18035,9 @@ class _FilterRailItem extends StatelessWidget {
     required this.selected,
     required this.onTap,
   });
-
   final String label;
   final bool selected;
   final VoidCallback onTap;
-
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.only(bottom: 6),
@@ -17968,6 +18116,7 @@ void _showFinishWorkout(
         _FinishWorkoutDialog(controller: controller, past: past),
   );
 }
+
 void _showAbortWorkout(BuildContext context, AppController controller) {
   showModalBottomSheet<void>(
     context: context,
@@ -18022,6 +18171,7 @@ void _showAbortWorkout(BuildContext context, AppController controller) {
     ),
   );
 }
+
 class _FinishWorkoutDialog extends StatefulWidget {
   const _FinishWorkoutDialog({required this.controller, required this.past});
   final AppController controller;
@@ -20383,6 +20533,7 @@ class _RoutineEditorPageState extends State<_RoutineEditorPage> {
                       routine: draft,
                       exercise: exercise,
                       index: index,
+                      dragIndex: dragIndex,
                       onChanged: () => setState(() {}),
                     ),
                 footer: OutlinedButton.icon(
@@ -20505,7 +20656,6 @@ Future<int?> _showRoutineRestPicker(
               ],
             ),
             const SizedBox(height: 18),
-                      dragIndex: dragIndex,
             FilledButton.icon(
               key: const Key('routine-rest-save'),
               onPressed: () => Navigator.pop(sheetContext, seconds),
@@ -20533,12 +20683,14 @@ class _RoutineExerciseEditor extends StatelessWidget {
     required this.routine,
     required this.exercise,
     required this.index,
+    this.dragIndex,
     required this.onChanged,
   });
   final AppController controller;
   final Routine routine;
   final WorkoutExercise exercise;
   final int index;
+  final int? dragIndex;
   final VoidCallback onChanged;
 
   @override
@@ -20558,7 +20710,6 @@ class _RoutineExerciseEditor extends StatelessWidget {
           if (ids == null) return;
           applyExerciseOrder(routine.exercises, ids);
           routine.updatedAt = DateTime.now();
-          controller.refresh();
           onChanged();
         case _RoutineExerciseAction.replace:
           _showRoutineReplacePicker(context, controller, routine, exercise);
@@ -20571,6 +20722,7 @@ class _RoutineExerciseEditor extends StatelessWidget {
         case _RoutineExerciseAction.delete:
           routine.exercises.removeAt(index);
           routine.updatedAt = DateTime.now();
+          controller.refresh();
           onChanged();
       }
     }
@@ -20594,6 +20746,12 @@ class _RoutineExerciseEditor extends StatelessWidget {
         visualDensity: VisualDensity.compact,
         tilePadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 1),
         leading: _ExerciseThumb(exerciseId: exercise.exerciseId, size: 34),
+        trailing: dragIndex == null
+            ? null
+            : ExerciseDragHandle(
+                key: Key('routine-drag-${exercise.id}'),
+                index: dragIndex!,
+              ),
         title: Text(
           title,
           maxLines: 2,
@@ -20653,14 +20811,12 @@ class _RoutineExerciseEditor extends StatelessWidget {
                     label: exercise.supersetId == null ? '加入超级组' : '取消超级组',
                   ),
                 ),
-    this.dragIndex,
                 const PopupMenuItem(
                   value: _RoutineExerciseAction.delete,
                   child: _RoutineActionMenuLabel(
                     icon: Icons.delete_outline_rounded,
                     label: '删除动作',
                     destructive: true,
-  final int? dragIndex;
                   ),
                 ),
               ],
@@ -20719,12 +20875,6 @@ class _RoutineExerciseEditor extends StatelessWidget {
                             style: TextStyle(color: quiet, fontSize: 12),
                           ),
                         ],
-        trailing: dragIndex == null
-            ? null
-            : ExerciseDragHandle(
-                key: Key('routine-drag-${exercise.id}'),
-                index: dragIndex!,
-              ),
                       ),
                     ),
                     Icon(Icons.chevron_right_rounded, color: quiet),

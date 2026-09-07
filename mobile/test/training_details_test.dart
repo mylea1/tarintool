@@ -57,6 +57,41 @@ void main() {
     expect(c.routines.last.exercises.single.sets.single.reps, 12);
     expect(c.routines.last.exercises.single.sets.single.weight, 55);
   });
+  testWidgets('ordinary summaries stay compact for long workouts', (
+    tester,
+  ) async {
+    for (final count in [2, 20]) {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: TrainingDetailsCard(
+              title: '训练记录',
+              exercises: List.generate(
+                count,
+                (i) => WorkoutExercise(
+                  id: '$i',
+                  exerciseId: 'bench_press',
+                  sets: List.generate(
+                    12,
+                    (j) => WorkoutSet(id: '$i-$j', weight: 50, reps: 10),
+                  ),
+                ),
+              ),
+              nameFor: (_) => '卧推',
+              summary: '60 分钟 · 3000 kg · 12 组',
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester.getSize(find.byType(TrainingDetailsCard)).height,
+        lessThan(220),
+      );
+      expect(find.textContaining('kg ×'), findsNothing);
+      expect(tester.takeException(), isNull);
+    }
+  });
   for (final width in [320.0, 375.0, 414.0]) {
     testWidgets('detailed card wraps at $width and large text', (tester) async {
       tester.view.physicalSize = Size(width, 900);
@@ -70,6 +105,7 @@ void main() {
             child: Scaffold(
               body: SingleChildScrollView(
                 child: TrainingDetailsCard(
+                  branded: true,
                   title: '很长的训练名称用于验证卡片布局不会溢出',
                   exercises: [
                     WorkoutExercise(

@@ -78,14 +78,25 @@ class TrainingExerciseDetails extends StatelessWidget {
                       style: TextStyle(fontSize: compact ? 10 : 12),
                     ),
                     if (exercise.sets.isEmpty) const Text('暂无逐组明细'),
-                    for (var index = 0; index < exercise.sets.length; index++)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 3),
-                        child: Text(
-                          '${index + 1}. ${setLabel(exercise.sets[index])}${exercise.sets[index].type == 'warmup' ? ' · 热身' : ''}${record && !exercise.sets[index].completed ? ' · 未完成' : ''}',
-                          style: TextStyle(fontSize: compact ? 11 : 13),
-                        ),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          for (
+                            var index = 0;
+                            index < exercise.sets.length;
+                            index++
+                          )
+                            Padding(
+                              padding: const EdgeInsets.only(top: 3, right: 12),
+                              child: Text(
+                                '${index + 1}. ${setLabel(exercise.sets[index])}${exercise.sets[index].type == 'warmup' ? ' · 热身' : ''}${record && !exercise.sets[index].completed ? ' · 未完成' : ''}',
+                                style: TextStyle(fontSize: compact ? 11 : 13),
+                              ),
+                            ),
+                        ],
                       ),
+                    ),
                   ],
                 ),
               ),
@@ -103,12 +114,14 @@ class TrainingDetailsCard extends StatelessWidget {
     required this.exercises,
     required this.nameFor,
     this.date,
+    this.startTime,
     this.summary = '',
     this.record = false,
     this.onTap,
     this.footer,
     this.showExercises = true,
     this.overview,
+    this.branded = false,
   });
   factory TrainingDetailsCard.fromRecord({
     Key? key,
@@ -116,10 +129,13 @@ class TrainingDetailsCard extends StatelessWidget {
     required WorkoutRecord record,
     VoidCallback? onTap,
     bool showExercises = true,
+    bool branded = false,
   }) => TrainingDetailsCard(
     key: key,
+    branded: branded,
     title: trainingDisplayName(record.name, record.date),
     date: record.date,
+    startTime: record.startTime,
     record: true,
     onTap: onTap,
     showExercises: showExercises,
@@ -161,9 +177,11 @@ class TrainingDetailsCard extends StatelessWidget {
   final List<WorkoutExercise> exercises;
   final String Function(String) nameFor;
   final DateTime? date;
+  final String? startTime;
   final String summary;
   final bool record;
   final bool showExercises;
+  final bool branded;
   final VoidCallback? onTap;
   final Widget? footer;
   final Widget? overview;
@@ -181,34 +199,93 @@ class TrainingDetailsCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        child: BrandedTrainingHero(
-          title: trainingDisplayName(title, date),
-          record: record,
-          content: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (showExercises)
-                TrainingExerciseDetails(
-                  exercises: exercises,
-                  nameFor: nameFor,
-                  record: record,
-                  compact: true,
-                )
-              else
-                ?overview,
-              ?footer,
-            ],
-          ),
-          footer: Text(
-            [
-              if (date != null)
-                '${date!.year}.${date!.month.toString().padLeft(2, '0')}.${date!.day.toString().padLeft(2, '0')}',
-              if (showExercises && summary.isNotEmpty) summary,
-            ].join(' · '),
-            textAlign: TextAlign.end,
-            style: const TextStyle(fontSize: 10),
-          ),
-        ),
+        child: !branded
+            ? BrandedRecordBackground(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        '形域',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: theme.colorScheme.primary,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        trainingDisplayName(title, date),
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      if (date != null)
+                        Text(
+                          '${date!.year}-${date!.month.toString().padLeft(2, '0')}-${date!.day.toString().padLeft(2, '0')} · ${startTime ?? '${date!.hour.toString().padLeft(2, '0')}:${date!.minute.toString().padLeft(2, '0')}'}',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      const SizedBox(height: 12),
+                      if (overview != null)
+                        overview!
+                      else if (summary.isNotEmpty)
+                        Text(summary),
+                      if (showExercises && exercises.isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        Text(
+                          exercises
+                              .map((e) => nameFor(e.exerciseId))
+                              .join(' · '),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ],
+                      ?footer,
+                    ],
+                  ),
+                ),
+              )
+            : BrandedTrainingHero(
+                title: trainingDisplayName(title, date),
+                record: record,
+                content: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (summary.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Text(
+                          summary,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    if (showExercises)
+                      TrainingExerciseDetails(
+                        exercises: exercises,
+                        nameFor: nameFor,
+                        record: record,
+                        compact: true,
+                      )
+                    else
+                      ?overview,
+                    ?footer,
+                  ],
+                ),
+                footer: Text(
+                  [
+                    if (date != null)
+                      '${date!.year}.${date!.month.toString().padLeft(2, '0')}.${date!.day.toString().padLeft(2, '0')}',
+                  ].join(' · '),
+                  textAlign: TextAlign.end,
+                  style: const TextStyle(fontSize: 10),
+                ),
+              ),
       ),
     );
   }

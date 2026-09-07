@@ -696,3 +696,49 @@ class BrandedTrainingHero extends StatelessWidget {
     );
   }
 }
+
+/// Compact record content with the existing themed brand background.
+class BrandedRecordBackground extends StatelessWidget {
+  const BrandedRecordBackground({super.key, required this.child});
+  final Widget child;
+  @override
+  Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final accent = dark ? const Color(0xffff8c36) : const Color(0xffb26724);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: dark
+                ? CustomPaint(painter: _ShareSurfacePainter(accent: accent))
+                : const DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Color(0xfff9f2e4), Color(0xffe6d2ae)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                    ),
+                  ),
+          ),
+          Positioned.fill(
+            child: IgnorePointer(
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: FractionallySizedBox(
+                  widthFactor: .32,
+                  heightFactor: 1,
+                  child: CustomPaint(
+                    painter: _ShareFoldPainter(accent: accent),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          child,
+        ],
+      ),
+    );
+  }
+}

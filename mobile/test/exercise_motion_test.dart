@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:kilo_strength/main.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kilo_strength/exercise_reorder.dart';
 import 'package:kilo_strength/motion_filter_tag.dart';
@@ -13,6 +15,55 @@ WorkoutExercise item(String id, {String? group}) => WorkoutExercise(
 );
 
 void main() {
+  testWidgets('live cards reorder after collapse and expansion repeatedly', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    tester.view.physicalSize = const Size(414, 1300);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final c = AppController();
+    addTearDown(c.dispose);
+    c.openNewOrResumeWorkout();
+    c.addExercise('bench_press');
+    c.addExercise('lat_pulldown');
+    final first = c.workout.first;
+    final second = c.workout.last;
+    first.sets.clear();
+    second.sets.clear();
+    second.collapsed = true;
+    await tester.pumpWidget(KiloApp(initialController: c));
+    await tester.pumpAndSettle();
+    for (var repeat = 0; repeat < 3; repeat++) {
+      await tester.tap(find.byKey(Key('exercise-collapse-${first.id}')));
+      await tester.pumpAndSettle();
+      final handle = find.byKey(Key('live-drag-${first.id}'));
+      final target = find.byKey(Key('live-drag-${second.id}'));
+      final start = tester.getTopLeft(handle) + const Offset(5, 22);
+      final end = tester.getCenter(target) + const Offset(0, 70);
+      final gesture = await tester.startGesture(start);
+      await gesture.moveBy(const Offset(0, 22));
+      await tester.pump(const Duration(milliseconds: 100));
+      for (var step = 1; step <= 10; step++) {
+        await gesture.moveTo(
+          Offset.lerp(start + const Offset(0, 22), end, step / 10)!,
+        );
+        await tester.pump(const Duration(milliseconds: 30));
+      }
+      await tester.pump(const Duration(milliseconds: 350));
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(
+        c.workout.last,
+        same(first),
+        reason: 'cycle $repeat collapsed=${first.collapsed}',
+      );
+      c.reorderWorkoutExercises([first.id, second.id]);
+      await tester.pumpAndSettle();
+    }
+  });
   test('reorder retains exact objects, set data and superset units', () {
     final a = item('a', group: 'pair');
     final b = item('b');

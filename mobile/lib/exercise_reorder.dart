@@ -142,8 +142,13 @@ class ExerciseReorderList extends StatelessWidget {
 }
 
 class ExerciseDragHandle extends StatelessWidget {
-  const ExerciseDragHandle({super.key, required this.index});
+  const ExerciseDragHandle({
+    super.key,
+    required this.index,
+    this.showLabel = false,
+  });
   final int index;
+  final bool showLabel;
   @override
   Widget build(BuildContext context) => Tooltip(
     message: '拖动排序（超级组整体移动）',
@@ -151,10 +156,17 @@ class ExerciseDragHandle extends StatelessWidget {
       label: '拖动调整动作顺序，也可使用上移下移菜单',
       child: ReorderableDragStartListener(
         index: index,
-        child: const SizedBox(
-          width: 44,
-          height: 44,
-          child: Icon(Icons.drag_handle_rounded, size: 20),
+        child: Container(
+          constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          color: Colors.transparent,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.drag_indicator, size: 20),
+              if (showLabel) const Text('拖动排序', style: TextStyle(fontSize: 12)),
+            ],
+          ),
         ),
       ),
     ),

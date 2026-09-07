@@ -91,6 +91,13 @@ void main() {
                         record: record,
                       ),
                       const SizedBox(height: 16),
+                      const Text('好友动态'),
+                      TrainingDetailsCard.fromRecord(
+                        controller: c,
+                        record: record,
+                        branded: true,
+                      ),
+                      const SizedBox(height: 16),
                       FilledButton(
                         onPressed: () {},
                         child: const Text('分享到动态'),
@@ -122,7 +129,7 @@ void main() {
                 .toImage(pixelRatio: 2);
         final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
         await File(
-          '../artifacts/training-card-${dark ? 'dark' : 'light'}-v41.png',
+          '../artifacts/training-card-${dark ? 'dark' : 'light'}-compact.png',
         ).writeAsBytes(bytes!.buffer.asUint8List());
         image.dispose();
       });

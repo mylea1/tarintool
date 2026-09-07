@@ -130,7 +130,7 @@ void main() {
     );
   });
 
-  testWidgets('completion shows details directly and only one sharing action', (
+  testWidgets('completion shows compact summary and only one sharing action', (
     tester,
   ) async {
     final controller = AppController();
@@ -145,6 +145,7 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.textContaining('kg ×'), findsWidgets);
+    expect(find.textContaining('kg ×'), findsNothing);
+    expect(find.text('总容量'), findsWidgets);
   });
 }

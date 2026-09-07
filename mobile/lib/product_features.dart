@@ -3220,6 +3220,7 @@ class _WorkoutActivityRecordPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return TrainingDetailsCard.fromRecord(
+      branded: true,
       controller: controller,
       record: record,
     );
@@ -3233,6 +3234,7 @@ class _WorkoutActivityPostPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => TrainingDetailsCard(
+    branded: true,
     title: post.workoutName,
     date: post.completedAt,
     record: true,
