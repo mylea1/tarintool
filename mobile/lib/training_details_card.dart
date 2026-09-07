@@ -163,6 +163,165 @@ class TrainingExerciseSummary extends StatelessWidget {
   );
 }
 
+/// Height follows content; hidden children retain state without focus or semantics.
+class TrainingDisclosure extends StatelessWidget {
+  const TrainingDisclosure({
+    super.key,
+    required this.expanded,
+    required this.child,
+  });
+  final bool expanded;
+  final Widget child;
+  @override
+  Widget build(BuildContext context) {
+    final content = ExcludeFocus(
+      excluding: !expanded,
+      child: Offstage(offstage: !expanded, child: child),
+    );
+    if (MediaQuery.disableAnimationsOf(context)) return content;
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOut,
+      alignment: Alignment.topCenter,
+      child: content,
+    );
+  }
+}
+
+class TrainingExerciseAccordion extends StatelessWidget {
+  const TrainingExerciseAccordion({
+    super.key,
+    required this.exercises,
+    required this.nameFor,
+    this.record = false,
+    this.allowPrivateNotes = false,
+    this.setCounts = const {},
+  });
+  final List<WorkoutExercise> exercises;
+  final String Function(String) nameFor;
+  final bool record;
+  final bool allowPrivateNotes;
+  final Map<String, int> setCounts;
+  @override
+  Widget build(BuildContext context) => Column(
+    children: [
+      for (final e in exercises)
+        _ExerciseDisclosureRow(
+          key: ValueKey(e.id),
+          exercise: e,
+          name: nameFor(e.exerciseId),
+          record: record,
+          allowPrivateNotes: allowPrivateNotes,
+          count: setCounts[e.exerciseId] ?? e.sets.length,
+        ),
+    ],
+  );
+}
+
+class _ExerciseDisclosureRow extends StatefulWidget {
+  const _ExerciseDisclosureRow({
+    super.key,
+    required this.exercise,
+    required this.name,
+    required this.record,
+    required this.allowPrivateNotes,
+    required this.count,
+  });
+  final WorkoutExercise exercise;
+  final String name;
+  final bool record;
+  final bool allowPrivateNotes;
+  final int count;
+  @override
+  State<_ExerciseDisclosureRow> createState() => _ExerciseDisclosureRowState();
+}
+
+class _ExerciseDisclosureRowState extends State<_ExerciseDisclosureRow> {
+  bool expanded = false;
+  @override
+  Widget build(BuildContext context) {
+    final e = widget.exercise;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Semantics(
+          expanded: expanded,
+          button: true,
+          child: InkWell(
+            onTap: () => setState(() => expanded = !expanded),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                children: [
+                  Image.asset(
+                    exerciseAsset(e.exerciseId),
+                    width: 32,
+                    height: 32,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, _, _) =>
+                        const Icon(Icons.fitness_center, size: 32),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      widget.name,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text('${widget.count} 组'),
+                  const SizedBox(width: 8),
+                  AnimatedRotation(
+                    turns: expanded ? .5 : 0,
+                    duration: MediaQuery.disableAnimationsOf(context)
+                        ? Duration.zero
+                        : const Duration(milliseconds: 200),
+                    child: const Icon(Icons.expand_more),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        TrainingDisclosure(
+          expanded: expanded,
+          child: Padding(
+            padding: const EdgeInsets.only(left: 8, bottom: 12, right: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (widget.allowPrivateNotes && e.note.trim().isNotEmpty)
+                  Text('动作备注：${e.note}'),
+                if (e.sets.isEmpty) const Text('暂无逐组明细'),
+                for (var i = 0; i < e.sets.length; i++)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${i + 1}. ${TrainingExerciseDetails.setLabel(e.sets[i])}${e.sets[i].type == 'warmup' ? ' · 热身' : ''}${widget.record && !e.sets[i].completed ? ' · 未完成' : ''}',
+                        ),
+                        Text(
+                          '休息 ${!widget.record && e.sets[i].restSeconds == 0 ? e.restSeconds : e.sets[i].restSeconds} 秒',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                        if (widget.allowPrivateNotes &&
+                            e.sets[i].note.trim().isNotEmpty)
+                          Text('备注：${e.sets[i].note}'),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        const Divider(height: 1),
+      ],
+    );
+  }
+}
+
 class TrainingDetailsCard extends StatelessWidget {
   const TrainingDetailsCard({
     super.key,
@@ -178,6 +337,7 @@ class TrainingDetailsCard extends StatelessWidget {
     this.showExercises = true,
     this.overview,
     this.branded = false,
+    this.plainExpandable = false,
     this.setCounts = const {},
     this.durationSeconds,
     this.volume,
@@ -190,9 +350,11 @@ class TrainingDetailsCard extends StatelessWidget {
     VoidCallback? onTap,
     bool showExercises = true,
     bool branded = false,
+    bool plainExpandable = false,
   }) => TrainingDetailsCard(
     key: key,
     branded: branded,
+    plainExpandable: plainExpandable,
     durationSeconds: record.durationSeconds,
     volume: record.volume,
     effectiveSets: record.effectiveSets,
@@ -245,6 +407,7 @@ class TrainingDetailsCard extends StatelessWidget {
   final bool record;
   final bool showExercises;
   final bool branded;
+  final bool plainExpandable;
   final int? durationSeconds;
   final double? volume;
   final int? effectiveSets;
@@ -310,18 +473,26 @@ class TrainingDetailsCard extends StatelessWidget {
                         Text(
                           '${date!.year}-${date!.month}-${date!.day} · ${startTime ?? '${date!.hour.toString().padLeft(2, '0')}:${date!.minute.toString().padLeft(2, '0')}'}',
                         ),
-                      _metalCard(),
+                      if (!plainExpandable) _metalCard(),
                       const SizedBox(height: 16),
                       if (summary.isNotEmpty) Text(summary),
-                      TrainingExerciseDetails(
-                        exercises: footer == null
-                            ? exercises
-                            : exercises
-                                  .where((e) => e.sets.isNotEmpty)
-                                  .toList(),
-                        nameFor: nameFor,
-                        record: record,
-                      ),
+                      if (plainExpandable)
+                        TrainingExerciseAccordion(
+                          exercises: exercises,
+                          nameFor: nameFor,
+                          record: record,
+                          setCounts: setCounts,
+                        )
+                      else
+                        TrainingExerciseDetails(
+                          exercises: footer == null
+                              ? exercises
+                              : exercises
+                                    .where((e) => e.sets.isNotEmpty)
+                                    .toList(),
+                          nameFor: nameFor,
+                          record: record,
+                        ),
                       ?footer,
                     ],
                   ),
@@ -347,6 +518,42 @@ class TrainingDetailsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    if (plainExpandable) {
+      return Material(
+        color: Colors.transparent,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            InkWell(
+              onTap: onTap ?? () => _openDetails(context),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        trainingDisplayName(title, date),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    const Icon(Icons.chevron_right),
+                  ],
+                ),
+              ),
+            ),
+            TrainingExerciseAccordion(
+              exercises: exercises,
+              nameFor: nameFor,
+              record: record,
+              setCounts: setCounts,
+            ),
+          ],
+        ),
+      );
+    }
     final names = exercises
         .take(4)
         .map((e) => nameFor(e.exerciseId))

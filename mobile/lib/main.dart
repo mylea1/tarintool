@@ -7571,68 +7571,60 @@ class _RoutineCard extends StatelessWidget {
   final Routine routine;
   @override
   Widget build(BuildContext context) {
-    return Card(
+    return Material(
+      color: Colors.transparent,
       key: Key('routine-card-${routine.id}'),
-      margin: const EdgeInsets.only(bottom: 9),
       child: InkWell(
         onTap: () => _showRoutineDetail(context, controller, routine),
         borderRadius: BorderRadius.circular(16),
-        child: BrandedRecordBackground(
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    _RoutineCover(
-                      controller: controller,
-                      routine: routine,
-                      size: 48,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        trainingDisplayName(routine.name),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                        ),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      trainingDisplayName(routine.name),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                TrainingExerciseSummary(
-                  exercises: routine.exercises,
-                  nameFor: (id) => controller.displayExerciseName(
-                    controller.exerciseFor(id),
                   ),
-                ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    IconButton(
-                      key: Key('routine-more-${routine.id}'),
-                      tooltip: '计划更多操作',
-                      onPressed: () =>
-                          _showRoutineActions(context, controller, routine),
-                      icon: const Icon(Icons.more_horiz),
-                    ),
-                    TextButton(
-                      key: Key('routine-select-${routine.id}'),
-                      onPressed: () {
-                        controller.schedule(DateTime.now(), routine.name);
-                        showKiloSnack(context, '已选择今日计划：${routine.name}');
-                      },
-                      child: const Text('选择 ›'),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              TrainingExerciseAccordion(
+                allowPrivateNotes: true,
+                exercises: routine.exercises,
+                nameFor: (id) =>
+                    controller.displayExerciseName(controller.exerciseFor(id)),
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  IconButton(
+                    key: Key('routine-more-${routine.id}'),
+                    tooltip: '计划更多操作',
+                    onPressed: () =>
+                        _showRoutineActions(context, controller, routine),
+                    icon: const Icon(Icons.more_horiz),
+                  ),
+                  TextButton(
+                    key: Key('routine-select-${routine.id}'),
+                    onPressed: () {
+                      controller.schedule(DateTime.now(), routine.name);
+                      showKiloSnack(context, '已选择今日计划：${routine.name}');
+                    },
+                    child: const Text('选择 ›'),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),
@@ -10712,7 +10704,7 @@ class _FriendsPageState extends State<_FriendsPage> {
             ),
             const SizedBox(height: 12),
             TrainingDetailsCard(
-              branded: true,
+              plainExpandable: true,
               title: (item['name'] ?? '训练计划').toString(),
               exercises: exercises,
               nameFor: (id) => widget.controller.displayExerciseName(

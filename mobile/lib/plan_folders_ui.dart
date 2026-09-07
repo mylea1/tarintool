@@ -135,16 +135,19 @@ class _PlanFolderLibraryState extends State<_PlanFolderLibrary> {
                         onPressed: () => deleteFolder(folder),
                         icon: const Icon(Icons.delete_outline),
                       ),
-                      Icon(
-                        expanded.contains(folder)
-                            ? Icons.expand_less
-                            : Icons.expand_more,
+                      AnimatedRotation(
+                        turns: expanded.contains(folder) ? .5 : 0,
+                        duration: MediaQuery.disableAnimationsOf(context)
+                            ? Duration.zero
+                            : const Duration(milliseconds: 200),
+                        child: const Icon(Icons.expand_more),
                       ),
                     ],
                   ),
                 ),
-                if (expanded.contains(folder))
-                  Padding(
+                TrainingDisclosure(
+                  expanded: expanded.contains(folder),
+                  child: Padding(
                     padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
                     child: Column(
                       children: [
@@ -160,6 +163,7 @@ class _PlanFolderLibraryState extends State<_PlanFolderLibrary> {
                       ],
                     ),
                   ),
+                ),
               ],
             ),
           ),

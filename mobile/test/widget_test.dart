@@ -2343,47 +2343,53 @@ void main() {
     },
   );
 
-  testWidgets('routine cards expose details, selection, cover and more menu', (
-    tester,
-  ) async {
-    final controller = AppController();
-    final source = controller.createWorkoutExercise('bench_press', 'fixture');
-    controller.saveRoutineFromDraft('菜单测试', [source]);
-    final routine = controller.routines.single;
-    addTearDown(controller.dispose);
-    await tester.pumpWidget(KiloApp(initialController: controller));
-    await _openRoute(tester, '训练');
+  testWidgets(
+    'routine cards expose action disclosure, details, selection and more menu',
+    (tester) async {
+      final controller = AppController();
+      final source = controller.createWorkoutExercise('bench_press', 'fixture');
+      controller.saveRoutineFromDraft('菜单测试', [source]);
+      final routine = controller.routines.single;
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(KiloApp(initialController: controller));
+      await _openRoute(tester, '训练');
 
-    await tester.scrollUntilVisible(
-      find.byKey(Key('routine-card-${routine.id}')),
-      220,
-      scrollable: find.byType(Scrollable).last,
-    );
-    await tester.drag(find.byType(Scrollable).last, const Offset(0, -220));
-    await tester.pumpAndSettle();
-    expect(find.byKey(Key('routine-card-${routine.id}')), findsOneWidget);
-    expect(find.byKey(Key('routine-select-${routine.id}')), findsOneWidget);
-    expect(find.byKey(Key('routine-more-${routine.id}')), findsOneWidget);
-    await tester.tap(find.byKey(Key('routine-card-${routine.id}')));
-    await tester.pumpAndSettle();
-    expect(
-      find.byKey(Key('routine-detail-start-${routine.id}')),
-      findsOneWidget,
-    );
-    Navigator.of(
-      tester.element(find.byKey(Key('routine-detail-start-${routine.id}'))),
-    ).pop();
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(Key('routine-more-${routine.id}')));
-    await tester.pumpAndSettle();
-    expect(find.byKey(Key('routine-edit-${routine.id}')), findsOneWidget);
-    expect(find.byKey(Key('routine-rename-${routine.id}')), findsOneWidget);
-    expect(find.byKey(Key('routine-delete-${routine.id}')), findsOneWidget);
-    Navigator.of(
-      tester.element(find.byKey(Key('routine-edit-${routine.id}'))),
-    ).pop();
-    await tester.pumpAndSettle();
-  });
+      await tester.scrollUntilVisible(
+        find.byKey(Key('routine-card-${routine.id}')),
+        220,
+        scrollable: find.byType(Scrollable).last,
+      );
+      await tester.drag(find.byType(Scrollable).last, const Offset(0, -220));
+      await tester.pumpAndSettle();
+      expect(find.byKey(Key('routine-card-${routine.id}')), findsOneWidget);
+      expect(find.byKey(Key('routine-select-${routine.id}')), findsOneWidget);
+      expect(find.byKey(Key('routine-more-${routine.id}')), findsOneWidget);
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(Key('routine-card-${routine.id}')),
+          matching: find.text('菜单测试'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(Key('routine-detail-start-${routine.id}')),
+        findsOneWidget,
+      );
+      Navigator.of(
+        tester.element(find.byKey(Key('routine-detail-start-${routine.id}'))),
+      ).pop();
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(Key('routine-more-${routine.id}')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(Key('routine-edit-${routine.id}')), findsOneWidget);
+      expect(find.byKey(Key('routine-rename-${routine.id}')), findsOneWidget);
+      expect(find.byKey(Key('routine-delete-${routine.id}')), findsOneWidget);
+      Navigator.of(
+        tester.element(find.byKey(Key('routine-edit-${routine.id}'))),
+      ).pop();
+      await tester.pumpAndSettle();
+    },
+  );
 
   testWidgets(
     'record previews show compact metrics and open metallic details',
