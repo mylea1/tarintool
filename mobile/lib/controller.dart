@@ -15,6 +15,7 @@ import 'app_localizations.dart';
 import 'ai_api.dart';
 import 'natural_workout_parser.dart';
 import 'models.dart';
+import 'exercise_reorder.dart';
 import 'link_utils.dart';
 import 'recognition_api.dart';
 import 'recognition_score_policy.dart';
@@ -4561,13 +4562,25 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void moveExercise(WorkoutExercise exercise, int direction) {
-    final index = workout.indexOf(exercise);
-    final target = index + direction;
-    if (index < 0 || target < 0 || target >= workout.length) return;
-    final item = workout.removeAt(index);
-    workout.insert(target, item);
+  void reorderWorkoutExercises(List<String> ids) {
+    if (!applyExerciseOrder(workout, ids)) return;
+    persistActiveWorkout();
     notifyListeners();
+  }
+
+  void moveExercise(WorkoutExercise exercise, int direction) {
+    final ids = adjacentExerciseOrder(workout, exercise.id, direction);
+    if (ids != null) reorderWorkoutExercises(ids);
+  }
+
+  String _nextWorkoutExerciseId() {
+    final base = 'we-${DateTime.now().microsecondsSinceEpoch}';
+    var id = base;
+    var suffix = 1;
+    while (workout.any((item) => item.id == id)) {
+      id = '$base-${suffix++}';
+    }
+    return id;
   }
 
   void addExercise(String id) {
@@ -4575,15 +4588,12 @@ class AppController extends ChangeNotifier {
     final inheritedRestSeconds = _restSecondsForNewExercise();
     final item = freeWorkout
         ? WorkoutExercise(
-            id: 'we-${DateTime.now().microsecondsSinceEpoch}',
+            id: _nextWorkoutExerciseId(),
             exerciseId: id,
             sets: <WorkoutSet>[],
             restSeconds: inheritedRestSeconds,
           )
-        : createBlankWorkoutExercise(
-            id,
-            'we-${DateTime.now().microsecondsSinceEpoch}',
-          );
+        : createBlankWorkoutExercise(id, _nextWorkoutExerciseId());
     item.restSeconds = inheritedRestSeconds;
     for (final set in item.sets) {
       set.restSeconds = inheritedRestSeconds;

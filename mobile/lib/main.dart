@@ -29,6 +29,8 @@ import 'trend_data.dart';
 import 'link_utils.dart';
 import 'membership_ui.dart';
 import 'models.dart';
+import 'exercise_reorder.dart';
+import 'motion_filter_tag.dart';
 import 'muscle_palette.dart';
 import 'muscle_selector.dart';
 import 'recognition_api.dart';
@@ -4555,13 +4557,7 @@ class _TrainPageState extends State<TrainPage> {
         onPopInvokedWithResult: (didPop, result) {
           if (!didPop) controller.closeLiveWorkout();
         },
-        child: PageFrame(
-          children: [
-            _LiveWorkoutTimingPanel(controller: controller),
-            const SizedBox(height: 12),
-            _WorkoutView(controller: controller),
-          ],
-        ),
+        child: _WorkoutView(controller: controller),
       );
     }
     final showingHistory = controller.trainView == TrainView.history;
@@ -5661,91 +5657,105 @@ class _WorkoutView extends StatelessWidget {
         ),
       );
     }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (controller.workout.isEmpty)
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                children: [
-                  Icon(Icons.playlist_add, size: 44, color: quiet),
-                  const SizedBox(height: 8),
-                  const Text(
-                    '还没有动作',
-                    style: TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 4),
-                  Text('可以先添加动作，也可以直接开始计时。', style: TextStyle(color: quiet)),
-                  const SizedBox(height: 12),
-                  OutlinedButton.icon(
-                    key: const Key('first-action-button'),
-                    onPressed: () => _showExercisePicker(context, controller),
-                    icon: const Icon(Icons.add),
-                    label: const Text('添加第一个动作'),
-                  ),
-                ],
-              ),
-            ),
-          )
-        else ...[
-          for (final exercise in controller.workout)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _WorkoutExerciseCard(
-                controller: controller,
-                exercise: exercise,
-              ),
-            ),
-          const SizedBox(height: 2),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              key: const Key('live-add-exercise'),
-              onPressed: () => _showExercisePicker(context, controller),
-              icon: const Icon(Icons.add),
-              label: const Text('添加动作'),
-            ),
-          ),
+    return ExerciseReorderList(
+      key: const Key('live-exercise-reorder'),
+      items: controller.workout,
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 86),
+      header: Column(
+        children: [
+          _LiveWorkoutTimingPanel(controller: controller),
+          const SizedBox(height: 12),
         ],
-        if (controller.workoutStarted) ...[
-          const SizedBox(height: 3),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              key: const Key('finish-workout-button'),
-              onPressed: () => _showFinishWorkout(context, controller),
-              style: FilledButton.styleFrom(
-                backgroundColor: Theme.of(context).brightness == Brightness.dark
-                    ? surfaceRaised
-                    : ink,
-                foregroundColor: Theme.of(context).brightness == Brightness.dark
-                    ? ink
-                    : Colors.white,
-                side: BorderSide(color: hairline),
-                minimumSize: const Size.fromHeight(52),
+      ),
+      onOrder: controller.reorderWorkoutExercises,
+      itemBuilder: (exercise, index, dragIndex) => Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: _WorkoutExerciseCard(
+          controller: controller,
+          exercise: exercise,
+          dragIndex: dragIndex,
+        ),
+      ),
+      footer: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (controller.workout.isEmpty)
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  children: [
+                    Icon(Icons.playlist_add, size: 44, color: quiet),
+                    const SizedBox(height: 8),
+                    const Text(
+                      '还没有动作',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 4),
+                    Text('可以先添加动作，也可以直接开始计时。', style: TextStyle(color: quiet)),
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      key: const Key('first-action-button'),
+                      onPressed: () => _showExercisePicker(context, controller),
+                      icon: const Icon(Icons.add),
+                      label: const Text('添加第一个动作'),
+                    ),
+                  ],
+                ),
               ),
-              icon: const Icon(Icons.stop_circle_rounded),
-              label: Text(
-                controller.workoutTimerStarted
-                    ? '结束并保存 · ${controller.currentElapsed ~/ 60} 分钟'
-                    : '结束并保存训练',
+            )
+          else ...[
+            const SizedBox(height: 2),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                key: const Key('live-add-exercise'),
+                onPressed: () => _showExercisePicker(context, controller),
+                icon: const Icon(Icons.add),
+                label: const Text('添加动作'),
               ),
             ),
-          ),
-          const SizedBox(height: 4),
-          Center(
-            child: TextButton.icon(
-              key: const Key('abort-workout-button'),
-              onPressed: () => _showAbortWorkout(context, controller),
-              style: TextButton.styleFrom(foregroundColor: danger),
-              icon: const Icon(Icons.cancel_outlined, size: 18),
-              label: const Text('中止本次训练'),
+          ],
+          if (controller.workoutStarted) ...[
+            const SizedBox(height: 3),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                key: const Key('finish-workout-button'),
+                onPressed: () => _showFinishWorkout(context, controller),
+                style: FilledButton.styleFrom(
+                  backgroundColor:
+                      Theme.of(context).brightness == Brightness.dark
+                      ? surfaceRaised
+                      : ink,
+                  foregroundColor:
+                      Theme.of(context).brightness == Brightness.dark
+                      ? ink
+                      : Colors.white,
+                  side: BorderSide(color: hairline),
+                  minimumSize: const Size.fromHeight(52),
+                ),
+                icon: const Icon(Icons.stop_circle_rounded),
+                label: Text(
+                  controller.workoutTimerStarted
+                      ? '结束并保存 · ${controller.currentElapsed ~/ 60} 分钟'
+                      : '结束并保存训练',
+                ),
+              ),
             ),
-          ),
+            const SizedBox(height: 4),
+            Center(
+              child: TextButton.icon(
+                key: const Key('abort-workout-button'),
+                onPressed: () => _showAbortWorkout(context, controller),
+                style: TextButton.styleFrom(foregroundColor: danger),
+                icon: const Icon(Icons.cancel_outlined, size: 18),
+                label: const Text('中止本次训练'),
+              ),
+            ),
+          ],
         ],
-      ],
+      ),
     );
   }
 }
@@ -5897,9 +5907,11 @@ class _WorkoutExerciseCard extends StatelessWidget {
   const _WorkoutExerciseCard({
     required this.controller,
     required this.exercise,
+    this.dragIndex,
   });
   final AppController controller;
   final WorkoutExercise exercise;
+  final int? dragIndex;
   @override
   Widget build(BuildContext context) {
     final definition = controller.exerciseFor(exercise.exerciseId);
@@ -5968,6 +5980,11 @@ class _WorkoutExerciseCard extends StatelessWidget {
                       ],
                     ),
                   ),
+                  if (dragIndex != null)
+                    ExerciseDragHandle(
+                      key: Key('live-drag-${exercise.id}'),
+                      index: dragIndex!,
+                    ),
                   IconButton(
                     key: Key('exercise-note-${exercise.id}'),
                     tooltip: exercise.note.isEmpty ? '添加动作备注' : '查看或修改动作备注',
@@ -11095,87 +11112,26 @@ class _MuscleRail extends StatelessWidget {
   final List<String> groups;
 
   @override
-  Widget build(BuildContext context) => SizedBox(
+  Widget build(BuildContext context) => Column(
     key: const Key('muscle-rail'),
-    child: Column(
-      children: [
-        for (final group in groups)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 6),
-            child: AnimatedContainer(
-              duration: Duration(
-                milliseconds: MediaQuery.of(context).disableAnimations
-                    ? 0
-                    : 180,
-              ),
-              decoration: BoxDecoration(
-                color: controller.muscleFilter == group
-                    ? primaryContainer
-                    : surfaceRaised,
-                borderRadius: BorderRadius.circular(13),
-                border: Border.all(
-                  color: controller.muscleFilter == group ? primary : hairline,
-                  width: controller.muscleFilter == group ? 1.5 : 1,
-                ),
-                boxShadow: controller.muscleFilter == group
-                    ? [
-                        BoxShadow(
-                          color: emberShadow,
-                          blurRadius: 10,
-                          offset: Offset(0, 4),
-                        ),
-                      ]
-                    : null,
-              ),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(13),
-                  onTap: () {
-                    controller.muscleFilter = group;
-                    controller.refresh();
-                    showKiloSnack(
-                      context,
-                      group == '全部' ? '显示全部动作' : '已筛选 $group 部位',
-                    );
-                  },
-                  child: Container(
-                    constraints: const BoxConstraints(minHeight: 44),
-                    width: double.infinity,
-                    alignment: Alignment.center,
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    decoration: controller.muscleFilter == group
-                        ? BoxDecoration(
-                            border: Border(
-                              left: BorderSide(color: primary, width: 3),
-                            ),
-                          )
-                        : null,
-                    child: Text(
-                      AppLocalizations.of(context).text(group),
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: controller.muscleFilter == group
-                            ? FontWeight.w900
-                            : FontWeight.w600,
-                        color: controller.muscleFilter == group
-                            ? primary
-                            : secondaryInk,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
+    children: [
+      for (final group in groups)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: MotionFilterTag(
+            key: Key('library-muscle-$group'),
+            rail: true,
+            label: AppLocalizations.of(context).text(group),
+            selected: controller.muscleFilter == group,
+            onTap: () {
+              controller.muscleFilter = group;
+              controller.refresh();
+            },
           ),
-      ],
-    ),
+        ),
+    ],
   );
 }
-
 class RecognitionPage extends StatelessWidget {
   const RecognitionPage({super.key, required this.controller});
   final AppController controller;
@@ -17936,31 +17892,12 @@ class _FilterRailItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(1, 0, 1, 6),
-    child: Material(
-      color: selected ? primaryContainer : surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-        side: BorderSide(color: selected ? primary : hairline),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(10),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 9),
-          child: Text(
-            label,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: selected ? primary : ink,
-              fontSize: 11,
-              fontWeight: selected ? FontWeight.w900 : FontWeight.w600,
-            ),
-          ),
-        ),
-      ),
+    padding: const EdgeInsets.only(bottom: 6),
+    child: MotionFilterTag(
+      label: label,
+      selected: selected,
+      onTap: onTap,
+      rail: true,
     ),
   );
 }
@@ -18031,7 +17968,6 @@ void _showFinishWorkout(
         _FinishWorkoutDialog(controller: controller, past: past),
   );
 }
-
 void _showAbortWorkout(BuildContext context, AppController controller) {
   showModalBottomSheet<void>(
     context: context,
@@ -18086,7 +18022,6 @@ void _showAbortWorkout(BuildContext context, AppController controller) {
     ),
   );
 }
-
 class _FinishWorkoutDialog extends StatefulWidget {
   const _FinishWorkoutDialog({required this.controller, required this.past});
   final AppController controller;
@@ -20434,29 +20369,33 @@ class _RoutineEditorPageState extends State<_RoutineEditorPage> {
             ),
             const SizedBox(height: 8),
             Expanded(
-              child: ListView(
-                padding: const EdgeInsets.only(bottom: 8),
-                children: [
-                  for (var index = 0; index < draft.exercises.length; index++)
+              child: ExerciseReorderList(
+                key: const Key('routine-exercise-reorder'),
+                items: draft.exercises,
+                onOrder: (ids) => setState(() {
+                  if (applyExerciseOrder(draft.exercises, ids)) {
+                    draft.updatedAt = DateTime.now();
+                  }
+                }),
+                itemBuilder: (exercise, index, dragIndex) =>
                     _RoutineExerciseEditor(
                       controller: controller,
                       routine: draft,
-                      exercise: draft.exercises[index],
+                      exercise: exercise,
                       index: index,
                       onChanged: () => setState(() {}),
                     ),
-                  OutlinedButton.icon(
-                    key: const Key('routine-editor-add-exercise'),
-                    onPressed: () => _showRoutinePicker(
-                      context,
-                      controller,
-                      draft,
-                      onChanged: () => setState(() {}),
-                    ),
-                    icon: const Icon(Icons.add),
-                    label: const Text('添加动作'),
+                footer: OutlinedButton.icon(
+                  key: const Key('routine-editor-add-exercise'),
+                  onPressed: () => _showRoutinePicker(
+                    context,
+                    controller,
+                    draft,
+                    onChanged: () => setState(() {}),
                   ),
-                ],
+                  icon: const Icon(Icons.add),
+                  label: const Text('添加动作'),
+                ),
               ),
             ),
           ],
@@ -20566,6 +20505,7 @@ Future<int?> _showRoutineRestPicker(
               ],
             ),
             const SizedBox(height: 18),
+                      dragIndex: dragIndex,
             FilledButton.icon(
               key: const Key('routine-rest-save'),
               onPressed: () => Navigator.pop(sheetContext, seconds),
@@ -20609,16 +20549,14 @@ class _RoutineExerciseEditor extends StatelessWidget {
     void applyAction(_RoutineExerciseAction action) {
       switch (action) {
         case _RoutineExerciseAction.moveUp:
-          if (index <= 0) return;
-          final item = routine.exercises.removeAt(index);
-          routine.exercises.insert(index - 1, item);
-          routine.updatedAt = DateTime.now();
-          controller.refresh();
-          onChanged();
         case _RoutineExerciseAction.moveDown:
-          if (index >= routine.exercises.length - 1) return;
-          final item = routine.exercises.removeAt(index);
-          routine.exercises.insert(index + 1, item);
+          final ids = adjacentExerciseOrder(
+            routine.exercises,
+            exercise.id,
+            action == _RoutineExerciseAction.moveUp ? -1 : 1,
+          );
+          if (ids == null) return;
+          applyExerciseOrder(routine.exercises, ids);
           routine.updatedAt = DateTime.now();
           controller.refresh();
           onChanged();
@@ -20633,7 +20571,6 @@ class _RoutineExerciseEditor extends StatelessWidget {
         case _RoutineExerciseAction.delete:
           routine.exercises.removeAt(index);
           routine.updatedAt = DateTime.now();
-          controller.refresh();
           onChanged();
       }
     }
@@ -20716,12 +20653,14 @@ class _RoutineExerciseEditor extends StatelessWidget {
                     label: exercise.supersetId == null ? '加入超级组' : '取消超级组',
                   ),
                 ),
+    this.dragIndex,
                 const PopupMenuItem(
                   value: _RoutineExerciseAction.delete,
                   child: _RoutineActionMenuLabel(
                     icon: Icons.delete_outline_rounded,
                     label: '删除动作',
                     destructive: true,
+  final int? dragIndex;
                   ),
                 ),
               ],
@@ -20780,6 +20719,12 @@ class _RoutineExerciseEditor extends StatelessWidget {
                             style: TextStyle(color: quiet, fontSize: 12),
                           ),
                         ],
+        trailing: dragIndex == null
+            ? null
+            : ExerciseDragHandle(
+                key: Key('routine-drag-${exercise.id}'),
+                index: dragIndex!,
+              ),
                       ),
                     ),
                     Icon(Icons.chevron_right_rounded, color: quiet),
@@ -21983,39 +21928,47 @@ void _showLibraryFilters(BuildContext context, AppController controller) {
   showModalBottomSheet<void>(
     context: context,
     builder: (sheetContext) => SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              '器械筛选',
-              style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final item in equipment)
-                  ChoiceChip(
-                    label: Text(item),
-                    selected: controller.equipmentFilter == item,
-                    onSelected: (_) {
-                      controller.equipmentFilter = item;
-                      controller.refresh();
-                      Navigator.pop(sheetContext);
-                      showKiloSnack(
-                        context,
-                        item == '全部' ? '已清除器械筛选' : '已筛选 $item',
-                      );
-                    },
-                  ),
-              ],
-            ),
-            const SizedBox(height: 8),
-          ],
+      child: StatefulBuilder(
+        builder: (context, update) => Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '器械筛选',
+                style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 12),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    for (final item in equipment)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: MotionFilterTag(
+                          key: ValueKey('library-equipment-$item'),
+                          label: item,
+                          selected: controller.equipmentFilter == item,
+                          onTap: () => update(() {
+                            controller.equipmentFilter = item;
+                            controller.refresh();
+                          }),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => Navigator.pop(sheetContext),
+                  child: const Text('完成'),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     ),

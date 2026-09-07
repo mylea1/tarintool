@@ -999,7 +999,10 @@ void main() {
     expect(find.byKey(const Key('pause-workout-button')), findsOneWidget);
     expect(find.byKey(const Key('first-action-button')), findsOneWidget);
     expect(find.text('添加第一个动作'), findsOneWidget);
-    await tester.drag(find.byType(ListView).last, const Offset(0, -180));
+    await tester.drag(
+      find.byKey(const Key('live-exercise-reorder')),
+      const Offset(0, -180),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('first-action-button')));
     await tester.pumpAndSettle();
@@ -1402,7 +1405,10 @@ void main() {
     controller.startWorkout(name: '自由训练', autoStartTimer: false);
     controller.openLiveWorkout();
     await tester.pumpWidget(KiloApp(initialController: controller));
-    await tester.drag(find.byType(ListView).last, const Offset(0, -180));
+    await tester.drag(
+      find.byKey(const Key('live-exercise-reorder')),
+      const Offset(0, -180),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('first-action-button')));
     await tester.pumpAndSettle();
@@ -1678,7 +1684,10 @@ void main() {
       controller.startWorkout(name: '自由训练');
       controller.openLiveWorkout();
       await tester.pumpWidget(KiloApp(initialController: controller));
-      await tester.drag(find.byType(ListView).last, const Offset(0, -180));
+      await tester.drag(
+        find.byKey(const Key('live-exercise-reorder')),
+        const Offset(0, -180),
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('first-action-button')));
       await tester.pumpAndSettle();
@@ -1806,6 +1815,7 @@ void main() {
     controller.openLiveWorkout();
     controller.startRest(exercise: '器械推胸', seconds: 53);
     addTearDown(() {
+    final semantics = tester.ensureSemantics();
       if (controller.workoutStarted) controller.finishWorkout();
       controller.dispose();
     });
@@ -1833,6 +1843,7 @@ void main() {
     controller.startWorkout(name: '删组测试');
     controller.addExercise('bench_press');
     final exercise = controller.workout.single;
+    semantics.dispose();
     controller.addSet(exercise);
     controller.addSet(exercise);
     final completed = exercise.sets.first..completed = true;
