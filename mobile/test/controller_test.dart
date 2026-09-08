@@ -119,6 +119,35 @@ class _StreamingAgentCoachApi
 }
 
 void main() {
+  test(
+    'changing planned rest updates unfinished sets but preserves completed sets',
+    () {
+      final c = AppController();
+      addTearDown(c.dispose);
+      c.startWorkout(
+        source: [
+          WorkoutExercise(
+            id: 'e',
+            exerciseId: 'bench_press',
+            restSeconds: 180,
+            sets: [
+              WorkoutSet(id: 'a', weight: 50, reps: 10, restSeconds: 180),
+              WorkoutSet(id: 'b', weight: 50, reps: 10, restSeconds: 180),
+            ],
+          ),
+        ],
+        autoStartTimer: false,
+      );
+      final e = c.workout.single;
+      c.completeSet(e.sets.first, e);
+      expect(c.restRemainingSeconds, 180);
+      c.updateExerciseRest(e, 300);
+      expect(e.sets.first.restSeconds, 180);
+      c.completeSet(e.sets.last, e);
+      expect(c.restRemainingSeconds, 300);
+    },
+  );
+
   test('text load and cardio metrics survive workout history encoding', () {
     final set = WorkoutSet(
       id: 'set-cardio',

@@ -16,7 +16,6 @@ class _WorkoutCoachOrbitState extends State<_WorkoutCoachOrbit> {
   Offset? position;
   Offset dragOrigin = Offset.zero;
   bool expanded = false;
-  int page = 0;
   bool chatOpen = false;
   String? chatExerciseId;
 
@@ -32,112 +31,90 @@ class _WorkoutCoachOrbitState extends State<_WorkoutCoachOrbit> {
       final p = position ?? Offset(maxX - 8, maxY);
       final anchor = Offset(p.dx.clamp(8.0, maxX), p.dy.clamp(8.0, maxY));
       final exercises = widget.controller.workout;
-      final pages = math.max(1, (exercises.length / 2).ceil());
-      final current = page.clamp(0, pages - 1);
-      final visible = exercises.skip(current * 2).take(2).toList();
-      final count = visible.length + 1 + (pages > 1 ? 1 : 0);
-      final inward = anchor.dx > box.maxWidth / 2 ? -1.0 : 1.0;
       return Stack(
         children: [
           if (expanded)
-            for (var i = 0; i < count; i++)
-              Builder(
-                builder: (context) {
-                  final angle =
-                      -math.pi / 2 + math.pi * i / math.max(1, count - 1);
-                  final x = (anchor.dx + inward * (66 + 85 * math.cos(angle)))
-                      .clamp(4.0, math.max(4.0, box.maxWidth - 68));
-                  final centerY = anchor.dy.clamp(
-                    105.0,
-                    math.max(105.0, maxY - 105),
-                  );
-                  final y = (centerY + 100 * math.sin(angle)).clamp(
-                    4.0,
-                    math.max(4.0, maxY - 18),
-                  );
-                  final exercise = i < visible.length ? visible[i] : null;
-                  final isOther = i == visible.length;
-                  final label = exercise != null
-                      ? widget.controller.displayExerciseName(
-                          widget.controller.exerciseFor(exercise.exerciseId),
-                        )
-                      : isOther
-                      ? '其他'
-                      : '更多动作';
-                  return Positioned(
-                    left: x.toDouble(),
-                    top: y.toDouble(),
-                    child: TweenAnimationBuilder<double>(
-                      tween: Tween(begin: 0, end: 1),
-                      duration: Duration(
-                        milliseconds: MediaQuery.of(context).disableAnimations
-                            ? 0
-                            : 180,
-                      ),
-                      curve: Curves.easeOutCubic,
-                      builder: (context, value, child) =>
-                          Transform.scale(scale: value, child: child),
-                      child: SizedBox(
-                        width: 64,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Material(
-                              elevation: 5,
-                              shape: const CircleBorder(),
-                              color: Theme.of(context).colorScheme.surface,
-                              clipBehavior: Clip.antiAlias,
-                              child: InkWell(
-                                key: Key(
-                                  exercise != null
-                                      ? 'coach-orbit-${exercise.id}'
-                                      : isOther
-                                      ? 'coach-orbit-other'
-                                      : 'coach-orbit-more',
+            Positioned(
+              left: (anchor.dx - 224).clamp(
+                8.0,
+                math.max(8.0, box.maxWidth - 264),
+              ),
+              top: (anchor.dy - 120).clamp(8.0, math.max(8.0, maxY - 120)),
+              child: SizedBox(
+                width: math.min(256, box.maxWidth - 16),
+                height: 112,
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: ListView.separated(
+                        key: const Key('coach-exercise-scroll'),
+                        scrollDirection: Axis.horizontal,
+                        itemCount: exercises.length + 1,
+                        separatorBuilder: (_, _) => const SizedBox(width: 8),
+                        itemBuilder: (context, index) {
+                          final exercise = index < exercises.length
+                              ? exercises[index]
+                              : null;
+                          final label = exercise == null
+                              ? '其他'
+                              : widget.controller.displayExerciseName(
+                                  widget.controller.exerciseFor(
+                                    exercise.exerciseId,
+                                  ),
+                                );
+                          return SizedBox(
+                            width: 72,
+                            child: Column(
+                              children: [
+                                Material(
+                                  elevation: 4,
+                                  shape: const CircleBorder(),
+                                  clipBehavior: Clip.antiAlias,
+                                  color: Theme.of(context).colorScheme.surface,
+                                  child: InkWell(
+                                    key: Key(
+                                      exercise == null
+                                          ? 'coach-orbit-other'
+                                          : 'coach-orbit-${exercise.id}',
+                                    ),
+                                    onTap: () => setState(() {
+                                      expanded = false;
+                                      chatOpen = true;
+                                      chatExerciseId = exercise?.id;
+                                    }),
+                                    child: SizedBox.square(
+                                      dimension: 48,
+                                      child: exercise == null
+                                          ? const Icon(
+                                              Icons.chat_bubble_outline,
+                                            )
+                                          : IgnorePointer(
+                                              child: _ExerciseThumb(
+                                                exerciseId: exercise.exerciseId,
+                                                size: 48,
+                                              ),
+                                            ),
+                                    ),
+                                  ),
                                 ),
-                                onTap: () {
-                                  if (exercise == null && !isOther) {
-                                    setState(
-                                      () => page = (current + 1) % pages,
-                                    );
-                                    return;
-                                  }
-                                  setState(() {
-                                    expanded = false;
-                                    chatOpen = true;
-                                    chatExerciseId = exercise?.id;
-                                  });
-                                },
-                                child: SizedBox.square(
-                                  dimension: 48,
-                                  child: exercise == null
-                                      ? Icon(
-                                          isOther
-                                              ? Icons.chat_bubble_outline
-                                              : Icons.more_horiz,
-                                        )
-                                      : IgnorePointer(
-                                          child: _ExerciseThumb(
-                                            exerciseId: exercise.exerciseId,
-                                            size: 48,
-                                          ),
-                                        ),
+                                Text(
+                                  label,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontSize: 11),
                                 ),
-                              ),
+                              ],
                             ),
-                            Text(
-                              label,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 11),
-                            ),
-                          ],
-                        ),
+                          );
+                        },
                       ),
                     ),
-                  );
-                },
+                    if (exercises.length > 2)
+                      const Text('左右滑动切换动作', style: TextStyle(fontSize: 11)),
+                  ],
+                ),
               ),
+            ),
           if (!chatOpen)
             Positioned(
               left: anchor.dx,

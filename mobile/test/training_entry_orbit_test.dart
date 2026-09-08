@@ -144,13 +144,27 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('workout-coach-open')));
       await tester.pumpAndSettle();
-      expect(find.byKey(const Key('coach-orbit-other')), findsOneWidget);
-      expect(find.byKey(const Key('coach-orbit-more')), findsOneWidget);
+      expect(find.byKey(const Key('coach-orbit-more')), findsNothing);
       expect(find.byKey(const Key('workout-coach-input')), findsNothing);
-      expect(tester.takeException(), isNull);
-      await tester.tap(find.byKey(const Key('coach-orbit-more')));
+      await tester.drag(
+        find.byKey(const Key('coach-exercise-scroll')),
+        const Offset(-190, 0),
+      );
       await tester.pumpAndSettle();
-      expect(find.byKey(Key('coach-orbit-${c.workout[2].id}')), findsOneWidget);
+      expect(
+        find.byKey(Key('coach-orbit-${c.workout[3].id}')).hitTestable(),
+        findsOneWidget,
+      );
+      await tester.drag(
+        find.byKey(const Key('coach-exercise-scroll')),
+        const Offset(-190, 0),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('coach-orbit-other')).hitTestable(),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
     },
   );
 }

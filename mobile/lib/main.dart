@@ -7034,7 +7034,9 @@ class _SetRow extends StatelessWidget {
                       child: Checkbox(
                         key: Key('set-complete-${set.id}'),
                         value: set.completed,
-                        onChanged: controller.workoutStarted
+                        onChanged:
+                            (controller.workoutStarted ||
+                                controller.workoutDraft)
                             ? (_) {
                                 final autoStarted =
                                     !controller.workoutTimerStarted;
@@ -7617,8 +7619,7 @@ class _RoutineCard extends StatelessWidget {
                   TextButton(
                     key: Key('routine-select-${routine.id}'),
                     onPressed: () {
-                      controller.schedule(DateTime.now(), routine.name);
-                      showKiloSnack(context, '已选择今日计划：${routine.name}');
+                      controller.startRoutine(routine);
                     },
                     child: const Text('选择 ›'),
                   ),
@@ -21515,12 +21516,7 @@ void _showRecordDetail(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              TrainingDetailsCard.fromRecord(
-                controller: controller,
-                record: record,
-                showExercises: false,
-                branded: true,
-              ),
+              _RecordNameEditor(controller: controller, record: record),
               const SizedBox(height: 20),
               const Text(
                 '动作与每组数据',
@@ -22012,5 +22008,69 @@ void _showRecordEditor(
         ),
       ],
     ),
+  );
+}
+
+class _RecordNameEditor extends StatelessWidget {
+  const _RecordNameEditor({required this.controller, required this.record});
+  final AppController controller;
+  final WorkoutRecord record;
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: controller,
+    builder: (context, _) {
+      final current =
+          controller.history
+              .where((item) => item.id == record.id)
+              .firstOrNull ??
+          record;
+      return Row(
+        children: [
+          Expanded(
+            child: Text(
+              current.name,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            ),
+          ),
+          IconButton(
+            key: Key('record-rename-${record.id}'),
+            tooltip: '修改训练名称',
+            icon: const Icon(Icons.edit_outlined),
+            onPressed: () async {
+              final input = TextEditingController(text: current.name);
+              final name = await showDialog<String>(
+                context: context,
+                builder: (dialogContext) => AlertDialog(
+                  title: const Text('修改训练名称'),
+                  content: TextField(
+                    key: const Key('record-name-input'),
+                    controller: input,
+                    maxLength: 60,
+                    autofocus: true,
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(dialogContext),
+                      child: const Text('取消'),
+                    ),
+                    FilledButton(
+                      onPressed: () {
+                        if (input.text.trim().isNotEmpty) {
+                          Navigator.pop(dialogContext, input.text.trim());
+                        }
+                      },
+                      child: const Text('保存'),
+                    ),
+                  ],
+                ),
+              );
+              if (name != null) controller.renameRecord(current, name);
+              await Future<void>.delayed(const Duration(milliseconds: 300));
+              input.dispose();
+            },
+          ),
+        ],
+      );
+    },
   );
 }

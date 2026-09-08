@@ -4157,6 +4157,9 @@ class AppController extends ChangeNotifier {
       return;
     }
     exercise.restSeconds = value;
+    for (final set in exercise.sets) {
+      if (!set.completed) set.restSeconds = value;
+    }
     persistActiveWorkout();
     notifyListeners();
   }
@@ -4666,6 +4669,30 @@ class AppController extends ChangeNotifier {
       volume: record.volume,
       effectiveSets: record.effectiveSets,
       note: note,
+      exerciseIds: record.exerciseIds,
+      prs: record.prs,
+      prDetails: record.prDetails,
+      exercises: record.exercises.map((item) => item.copy()).toList(),
+      gymId: record.gymId,
+    );
+    _persistWorkoutHistory();
+    notifyListeners();
+  }
+
+  void renameRecord(WorkoutRecord record, String name) {
+    if (name.trim().isEmpty) return;
+    final index = history.indexWhere((item) => item.id == record.id);
+    if (index >= 0) record = history[index];
+    if (index < 0) return;
+    history[index] = WorkoutRecord(
+      id: record.id,
+      name: name.trim(),
+      date: record.date,
+      startTime: record.startTime,
+      durationSeconds: record.durationSeconds,
+      volume: record.volume,
+      effectiveSets: record.effectiveSets,
+      note: record.note,
       exerciseIds: record.exerciseIds,
       prs: record.prs,
       prDetails: record.prDetails,

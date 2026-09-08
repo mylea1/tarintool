@@ -83,13 +83,17 @@ void main() {
     await capture('profile-dark-v40');
     await c.setDarkMode(false);
     c.startWorkout(
-      source: [c.createBlankWorkoutExercise('bench_press', 'preview')],
+      source: [
+        for (var i = 0; i < 5; i++)
+          c.createBlankWorkoutExercise('bench_press', 'preview-$i'),
+      ],
       autoStartTimer: false,
     );
     c.openLiveWorkout();
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('workout-coach-open')));
     await tester.pumpAndSettle();
+    await capture('coach-scroll-1.0.1');
     await tester.tap(find.byKey(Key('coach-orbit-${c.workout.first.id}')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('workout-coach-panel')), findsOneWidget);
