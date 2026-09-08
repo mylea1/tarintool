@@ -131,7 +131,11 @@ class ExerciseReorderList extends StatelessWidget {
                 for (final item in groups[groupIndex])
                   KeyedSubtree(
                     key: ValueKey(item.id),
-                    child: itemBuilder(item, items.indexOf(item), groupIndex),
+                    child: ReorderableDelayedDragStartListener(
+                      key: ValueKey('exercise-long-press-${item.id}'),
+                      index: groupIndex,
+                      child: itemBuilder(item, items.indexOf(item), groupIndex),
+                    ),
                   ),
               ],
             ),
@@ -139,36 +143,4 @@ class ExerciseReorderList extends StatelessWidget {
       ],
     );
   }
-}
-
-class ExerciseDragHandle extends StatelessWidget {
-  const ExerciseDragHandle({
-    super.key,
-    required this.index,
-    this.showLabel = false,
-  });
-  final int index;
-  final bool showLabel;
-  @override
-  Widget build(BuildContext context) => Tooltip(
-    message: '拖动排序（超级组整体移动）',
-    child: Semantics(
-      label: '拖动调整动作顺序，也可使用上移下移菜单',
-      child: ReorderableDragStartListener(
-        index: index,
-        child: Container(
-          constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          color: Colors.transparent,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.drag_indicator, size: 20),
-              if (showLabel) const Text('拖动排序', style: TextStyle(fontSize: 12)),
-            ],
-          ),
-        ),
-      ),
-    ),
-  );
 }

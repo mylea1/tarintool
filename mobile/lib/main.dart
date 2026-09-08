@@ -5991,12 +5991,6 @@ class _WorkoutExerciseCard extends StatelessWidget {
           ),
           Row(
             children: [
-              if (dragIndex != null)
-                ExerciseDragHandle(
-                  key: Key('live-drag-${exercise.id}'),
-                  index: dragIndex!,
-                  showLabel: true,
-                ),
               const Spacer(),
               IconButton(
                 key: Key('exercise-note-${exercise.id}'),
@@ -20604,12 +20598,6 @@ class _RoutineExerciseEditor extends StatelessWidget {
         visualDensity: VisualDensity.compact,
         tilePadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 1),
         leading: _ExerciseThumb(exerciseId: exercise.exerciseId, size: 34),
-        trailing: dragIndex == null
-            ? null
-            : ExerciseDragHandle(
-                key: Key('routine-drag-${exercise.id}'),
-                index: dragIndex!,
-              ),
         title: Text(
           title,
           maxLines: 2,

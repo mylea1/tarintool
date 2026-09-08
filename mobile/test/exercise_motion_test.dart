@@ -30,19 +30,22 @@ void main() {
     c.addExercise('lat_pulldown');
     final first = c.workout.first;
     final second = c.workout.last;
-    first.sets.clear();
-    second.sets.clear();
+    c.addSet(first);
+    first.sets.single.weight = 42.5;
+    first.sets.single.reps = 9;
     second.collapsed = true;
     await tester.pumpWidget(KiloApp(initialController: c));
     await tester.pumpAndSettle();
+    expect(find.text('拖动排序'), findsNothing);
     for (var repeat = 0; repeat < 3; repeat++) {
       await tester.tap(find.byKey(Key('exercise-collapse-${first.id}')));
       await tester.pumpAndSettle();
-      final handle = find.byKey(Key('live-drag-${first.id}'));
-      final target = find.byKey(Key('live-drag-${second.id}'));
-      final start = tester.getTopLeft(handle) + const Offset(5, 22);
+      final handle = find.byKey(Key('exercise-long-press-${first.id}'));
+      final target = find.byKey(Key('exercise-long-press-${second.id}'));
+      final start = tester.getTopLeft(handle) + const Offset(140, 35);
       final end = tester.getCenter(target) + const Offset(0, 70);
       final gesture = await tester.startGesture(start);
+      await tester.pump(const Duration(milliseconds: 600));
       await gesture.moveBy(const Offset(0, 22));
       await tester.pump(const Duration(milliseconds: 100));
       for (var step = 1; step <= 10; step++) {
@@ -60,6 +63,8 @@ void main() {
         same(first),
         reason: 'cycle $repeat collapsed=${first.collapsed}',
       );
+      expect(first.sets.single.weight, 42.5);
+      expect(first.sets.single.reps, 9);
       c.reorderWorkoutExercises([first.id, second.id]);
       await tester.pumpAndSettle();
     }
@@ -107,55 +112,60 @@ void main() {
     expect(c.workout.length, 30);
     expect(c.workout.map((e) => e.id).toSet().length, 30);
   });
-  testWidgets('handle drag moves first to last without losing field state', (
-    tester,
-  ) async {
-    final items = [item('a'), item('b'), item('c')];
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: StatefulBuilder(
-            builder: (context, update) => ExerciseReorderList(
-              items: items,
-              onOrder: (ids) => update(() {
-                applyExerciseOrder(items, ids);
-              }),
-              itemBuilder: (item, index, dragIndex) => SizedBox(
-                height: 100,
-                child: Row(
-                  children: [
-                    ExerciseDragHandle(
-                      key: ValueKey('drag-${item.id}'),
-                      index: dragIndex,
-                    ),
-                    Expanded(
-                      child: TextFormField(
-                        key: ValueKey('input-${item.id}'),
-                        initialValue: item.id,
+  testWidgets(
+    'card long press moves first to last without losing field state',
+    (tester) async {
+      final items = [item('a'), item('b'), item('c')];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: StatefulBuilder(
+              builder: (context, update) => ExerciseReorderList(
+                items: items,
+                onOrder: (ids) => update(() {
+                  applyExerciseOrder(items, ids);
+                }),
+                itemBuilder: (item, index, dragIndex) => SizedBox(
+                  height: 100,
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 70,
+                        height: 100,
+                        child: Center(
+                          child: Text('动作', key: ValueKey('drag-${item.id}')),
+                        ),
                       ),
-                    ),
-                  ],
+                      Expanded(
+                        child: TextFormField(
+                          key: ValueKey('input-${item.id}'),
+                          initialValue: item.id,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
         ),
-      ),
-    );
-    await tester.enterText(find.byKey(const ValueKey('input-a')), '42.5');
-    final gesture = await tester.startGesture(
-      tester.getCenter(find.byKey(const ValueKey('drag-a'))),
-    );
-    await gesture.moveBy(const Offset(0, 20));
-    await tester.pump(const Duration(milliseconds: 100));
-    await gesture.moveBy(const Offset(0, 310));
-    await tester.pump(const Duration(milliseconds: 300));
-    await gesture.up();
-    await tester.pumpAndSettle();
-    expect(items.map((e) => e.id), ['b', 'c', 'a']);
-    expect(find.text('42.5'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
+      );
+      await tester.enterText(find.byKey(const ValueKey('input-a')), '42.5');
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byKey(const ValueKey('drag-a'))),
+      );
+      await tester.pump(const Duration(milliseconds: 600));
+      await gesture.moveBy(const Offset(0, 20));
+      await tester.pump(const Duration(milliseconds: 100));
+      await gesture.moveBy(const Offset(0, 310));
+      await tester.pump(const Duration(milliseconds: 300));
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(items.map((e) => e.id), ['b', 'c', 'a']);
+      expect(find.text('42.5'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
   for (final width in [320.0, 375.0, 414.0]) {
     testWidgets('tags reserve layout space at $width and 200 percent text', (
       tester,
