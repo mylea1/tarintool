@@ -9,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'account_membership.dart';
 import 'ai_api.dart';
 import 'controller.dart';
+import 'legal_links.dart';
 
 Color _membershipPaper(BuildContext context) =>
     Theme.of(context).scaffoldBackgroundColor;
@@ -638,72 +639,79 @@ class _MembershipCenterPageState extends State<MembershipCenterPage>
       ),
       bottomNavigationBar: SafeArea(
         minimum: const EdgeInsets.fromLTRB(16, 8, 16, 14),
-        child: Platform.isAndroid
-            ? Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      key: const Key('membership-wechat-pay'),
-                      onPressed:
-                          purchase.loading || !purchase.wechatPayAvailable
-                          ? null
-                          : () => purchase.purchaseAndroid(
-                              selected,
-                              MembershipOrderProvider.wechatPay,
-                            ),
-                      icon: const Icon(Icons.chat_bubble_rounded, size: 18),
-                      label: const Text('微信支付'),
-                      style: OutlinedButton.styleFrom(
-                        minimumSize: const Size.fromHeight(54),
-                        foregroundColor: const Color(0xFF168F55),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: FilledButton.icon(
-                      key: const Key('membership-alipay'),
-                      onPressed: purchase.loading || !purchase.alipayAvailable
-                          ? null
-                          : () => purchase.purchaseAndroid(
-                              selected,
-                              MembershipOrderProvider.alipay,
-                            ),
-                      icon: const Icon(
-                        Icons.account_balance_wallet_rounded,
-                        size: 18,
-                      ),
-                      label: const Text('支付宝'),
-                      style: FilledButton.styleFrom(
-                        minimumSize: const Size.fromHeight(54),
-                        backgroundColor: const Color(0xFF1677FF),
-                      ),
-                    ),
-                  ),
-                ],
-              )
-            : FilledButton(
-                onPressed:
-                    purchase.loading ||
-                        !purchase.storeAvailable ||
-                        purchase.productFor(selected) == null
-                    ? null
-                    : () => purchase.purchase(selected),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(54),
-                  backgroundColor: _membershipEmber(context),
-                  disabledBackgroundColor: _membershipLine(context),
-                ),
-                child: purchase.loading
-                    ? const SizedBox.square(
-                        dimension: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const LegalLinks(),
+            Platform.isAndroid
+                ? Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          key: const Key('membership-wechat-pay'),
+                          onPressed:
+                              purchase.loading || !purchase.wechatPayAvailable
+                              ? null
+                              : () => purchase.purchaseAndroid(
+                                  selected,
+                                  MembershipOrderProvider.wechatPay,
+                                ),
+                          icon: const Icon(Icons.chat_bubble_rounded, size: 18),
+                          label: const Text('微信支付'),
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size.fromHeight(54),
+                            foregroundColor: const Color(0xFF168F55),
+                          ),
                         ),
-                      )
-                    : Text('购买 · ${purchase.priceFor(selected)}'),
-              ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: FilledButton.icon(
+                          key: const Key('membership-alipay'),
+                          onPressed:
+                              purchase.loading || !purchase.alipayAvailable
+                              ? null
+                              : () => purchase.purchaseAndroid(
+                                  selected,
+                                  MembershipOrderProvider.alipay,
+                                ),
+                          icon: const Icon(
+                            Icons.account_balance_wallet_rounded,
+                            size: 18,
+                          ),
+                          label: const Text('支付宝'),
+                          style: FilledButton.styleFrom(
+                            minimumSize: const Size.fromHeight(54),
+                            backgroundColor: const Color(0xFF1677FF),
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+                : FilledButton(
+                    onPressed:
+                        purchase.loading ||
+                            !purchase.storeAvailable ||
+                            purchase.productFor(selected) == null
+                        ? null
+                        : () => purchase.purchase(selected),
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size.fromHeight(54),
+                      backgroundColor: _membershipEmber(context),
+                      disabledBackgroundColor: _membershipLine(context),
+                    ),
+                    child: purchase.loading
+                        ? const SizedBox.square(
+                            dimension: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : Text('购买 · ${purchase.priceFor(selected)}'),
+                  ),
+          ],
+        ),
       ),
     );
   }

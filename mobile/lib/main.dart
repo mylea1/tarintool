@@ -27,6 +27,7 @@ import 'exercise_growth.dart';
 import 'trend_chart.dart';
 import 'trend_data.dart';
 import 'link_utils.dart';
+import 'legal_links.dart';
 import 'membership_ui.dart';
 import 'models.dart';
 import 'exercise_reorder.dart';
@@ -2009,6 +2010,7 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                       ),
                     ],
+                    const LegalLinks(),
                     if (!showPhone && visibleError != null) ...[
                       const SizedBox(height: 10),
                       Text(
@@ -15568,6 +15570,8 @@ class ProfilePage extends StatelessWidget {
                     : '训练摘要默认不上传',
                 onTap: () => controller.selectPage(PageId.ai),
               ),
+              const Divider(height: 1),
+              const LegalLinks(),
               const Divider(height: 1),
               _ProfileSettingRow(
                 key: Key('app-version-row'),
