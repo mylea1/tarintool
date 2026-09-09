@@ -6025,6 +6025,16 @@ class _WorkoutExerciseCard extends StatelessWidget {
                 icon: const Icon(Icons.timer_outlined),
               ),
               IconButton(
+                key: Key('exercise-delete-${exercise.id}'),
+                tooltip: '删除动作',
+                style: IconButton.styleFrom(
+                  foregroundColor: Theme.of(context).colorScheme.error,
+                  backgroundColor: Theme.of(context).colorScheme.errorContainer,
+                ),
+                onPressed: () => controller.removeExercise(exercise),
+                icon: const Icon(Icons.delete_outline),
+              ),
+              IconButton(
                 tooltip: '动作菜单',
                 onPressed: () =>
                     _showExerciseActions(context, controller, exercise),

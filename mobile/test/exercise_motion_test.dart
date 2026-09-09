@@ -68,6 +68,10 @@ void main() {
       c.reorderWorkoutExercises([first.id, second.id]);
       await tester.pumpAndSettle();
     }
+    await tester.ensureVisible(find.byKey(Key('exercise-delete-${first.id}')));
+    await tester.tap(find.byKey(Key('exercise-delete-${first.id}')));
+    await tester.pumpAndSettle();
+    expect(c.workout, [second]);
   });
   test('reorder retains exact objects, set data and superset units', () {
     final a = item('a', group: 'pair');

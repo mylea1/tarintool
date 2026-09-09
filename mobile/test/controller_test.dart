@@ -120,7 +120,7 @@ class _StreamingAgentCoachApi
 
 void main() {
   test(
-    'single and batch additions restore completed count without copying private data',
+    'single and batch additions restore count and weights with empty reps and notes',
     () {
       final c = AppController();
       addTearDown(c.dispose);
@@ -158,13 +158,16 @@ void main() {
       expect(c.workout.single.sets.length, 2);
       expect(
         c.workout.single.sets.every(
-          (s) => !s.completed && s.note.isEmpty && s.weight == 0,
+          (s) =>
+              !s.completed && s.note.isEmpty && s.weight == 50 && s.reps == 0,
         ),
         isTrue,
       );
       c.workout.clear();
       c.addExercises(['bench_press', 'lat_pulldown']);
       expect(c.workout.first.sets.length, 2);
+      expect(c.workout.first.sets.map((s) => s.weight), [50, 50]);
+      expect(c.workout.first.sets.every((s) => s.reps == 0), isTrue);
       expect(c.workout.last.sets, isEmpty);
       expect(c.history.single.exercises.single.sets.first.note, 'private');
     },

@@ -4598,7 +4598,9 @@ class AppController extends ChangeNotifier {
         WorkoutSet(
           id: '${item.id}-history-$i',
           type: completed[i].type,
-          weight: 0,
+          weight: completed[i].weight,
+          plannedWeight: completed[i].weight,
+          weightText: completed[i].weightText,
           reps: 0,
           restSeconds: item.restSeconds,
         ),
