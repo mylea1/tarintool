@@ -131,11 +131,7 @@ class ExerciseReorderList extends StatelessWidget {
                 for (final item in groups[groupIndex])
                   KeyedSubtree(
                     key: ValueKey(item.id),
-                    child: ReorderableDelayedDragStartListener(
-                      key: ValueKey('exercise-long-press-${item.id}'),
-                      index: groupIndex,
-                      child: itemBuilder(item, items.indexOf(item), groupIndex),
-                    ),
+                    child: itemBuilder(item, items.indexOf(item), groupIndex),
                   ),
               ],
             ),
@@ -143,4 +139,18 @@ class ExerciseReorderList extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Only the name accepts a drag; inputs and the rest of the card keep scrolling.
+class ExerciseNameDrag extends StatelessWidget {
+  const ExerciseNameDrag({super.key, required this.index, required this.child});
+  final int? index;
+  final Widget child;
+  @override
+  Widget build(BuildContext context) => index == null
+      ? child
+      : ReorderableDragStartListener(
+          index: index!,
+          child: Semantics(label: '按住动作名称拖动排序', child: child),
+        );
 }

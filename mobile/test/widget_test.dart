@@ -2225,7 +2225,7 @@ void main() {
       controller.startWorkout(name: 'live row');
       controller.addExercise('bench_press');
       final exercise = controller.workout.single;
-      controller.addSet(exercise);
+      expect(exercise.sets.length, 1);
       final set = exercise.sets.single
         ..weight = 77.5
         ..reps = 5
@@ -2376,6 +2376,12 @@ void main() {
         tester.element(find.byKey(Key('routine-edit-${routine.id}'))),
       ).pop();
       await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byKey(Key('routine-select-${routine.id}')));
+      await tester.tap(find.byKey(Key('routine-select-${routine.id}')));
+      await tester.pumpAndSettle();
+      expect(controller.liveWorkoutVisible, isTrue);
+      expect(find.byKey(const Key('live-exercise-reorder')), findsOneWidget);
+      expect(controller.workoutName, routine.name);
     },
   );
 

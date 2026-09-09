@@ -47,7 +47,7 @@ void main() {
     );
     controller.startWorkout(name: '自由训练', autoStartTimer: false);
     controller.addExercise('bench_press');
-    controller.addSet(controller.workout.single);
+    expect(controller.workout.single.sets.length, 1);
     controller.openLiveWorkout();
 
     await tester.pumpWidget(KiloApp(initialController: controller));

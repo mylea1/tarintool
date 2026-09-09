@@ -4550,7 +4550,12 @@ class _TrainPageState extends State<TrainPage> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: controller,
+    builder: (context, _) => _buildContent(context),
+  );
+
+  Widget _buildContent(BuildContext context) {
     if (controller.liveWorkoutVisible) {
       return PopScope<void>(
         canPop: false,
@@ -5955,11 +5960,15 @@ class _WorkoutExerciseCard extends StatelessWidget {
                         Row(
                           children: [
                             Flexible(
-                              child: Text(
-                                controller.displayExerciseName(definition),
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w800,
+                              child: ExerciseNameDrag(
+                                key: Key('exercise-name-drag-${exercise.id}'),
+                                index: dragIndex,
+                                child: Text(
+                                  controller.displayExerciseName(definition),
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                  ),
                                 ),
                               ),
                             ),
@@ -7615,7 +7624,7 @@ class _RoutineCard extends StatelessWidget {
                     onPressed: () {
                       controller.startRoutine(routine);
                     },
-                    child: const Text('选择 ›'),
+                    child: const Text('进入训练'),
                   ),
                 ],
               ),
@@ -20598,11 +20607,15 @@ class _RoutineExerciseEditor extends StatelessWidget {
         visualDensity: VisualDensity.compact,
         tilePadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 1),
         leading: _ExerciseThumb(exerciseId: exercise.exerciseId, size: 34),
-        title: Text(
-          title,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+        title: ExerciseNameDrag(
+          key: Key('routine-name-drag-${exercise.id}'),
+          index: dragIndex,
+          child: Text(
+            title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+          ),
         ),
         subtitle: Text(
           '${exercise.sets.length} 组 · 休息 ${exercise.restSeconds}s${exercise.supersetId == null ? '' : ' · 超级组'}',

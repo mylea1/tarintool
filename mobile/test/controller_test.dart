@@ -120,6 +120,57 @@ class _StreamingAgentCoachApi
 
 void main() {
   test(
+    'single and batch additions restore completed count without copying private data',
+    () {
+      final c = AppController();
+      addTearDown(c.dispose);
+      c.history.add(
+        WorkoutRecord(
+          id: 'h',
+          name: '任意计划名称',
+          date: DateTime(2026, 9, 8),
+          startTime: '12:00',
+          durationSeconds: 60,
+          volume: 100,
+          effectiveSets: 2,
+          exerciseIds: ['bench_press'],
+          exercises: [
+            WorkoutExercise(
+              id: 'old',
+              exerciseId: 'bench_press',
+              sets: [
+                WorkoutSet(
+                  id: '1',
+                  weight: 50,
+                  reps: 10,
+                  completed: true,
+                  note: 'private',
+                ),
+                WorkoutSet(id: '2', weight: 50, reps: 8, completed: true),
+                WorkoutSet(id: '3', weight: 50, reps: 8),
+              ],
+            ),
+          ],
+        ),
+      );
+      c.startWorkout(autoStartTimer: false);
+      c.addExercise('bench_press');
+      expect(c.workout.single.sets.length, 2);
+      expect(
+        c.workout.single.sets.every(
+          (s) => !s.completed && s.note.isEmpty && s.weight == 0,
+        ),
+        isTrue,
+      );
+      c.workout.clear();
+      c.addExercises(['bench_press', 'lat_pulldown']);
+      expect(c.workout.first.sets.length, 2);
+      expect(c.workout.last.sets, isEmpty);
+      expect(c.history.single.exercises.single.sets.first.note, 'private');
+    },
+  );
+
+  test(
     'changing planned rest updates unfinished sets but preserves completed sets',
     () {
       final c = AppController();
@@ -1068,7 +1119,7 @@ void main() {
       controller.startWorkout(name: '本次胸部训练');
       controller.addExercise('bench_press');
       final exercise = controller.workout.single;
-      controller.addSet(exercise);
+      expect(exercise.sets.length, 1);
       exercise.sets.single
         ..weight = 82.5
         ..reps = 8

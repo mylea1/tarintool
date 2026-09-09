@@ -40,9 +40,9 @@ void main() {
     for (var repeat = 0; repeat < 3; repeat++) {
       await tester.tap(find.byKey(Key('exercise-collapse-${first.id}')));
       await tester.pumpAndSettle();
-      final handle = find.byKey(Key('exercise-long-press-${first.id}'));
-      final target = find.byKey(Key('exercise-long-press-${second.id}'));
-      final start = tester.getTopLeft(handle) + const Offset(140, 35);
+      final handle = find.byKey(Key('exercise-name-drag-${first.id}'));
+      final target = find.byKey(Key('exercise-name-drag-${second.id}'));
+      final start = tester.getCenter(handle);
       final end = tester.getCenter(target) + const Offset(0, 70);
       final gesture = await tester.startGesture(start);
       await tester.pump(const Duration(milliseconds: 600));
@@ -129,11 +129,14 @@ void main() {
                   height: 100,
                   child: Row(
                     children: [
-                      SizedBox(
-                        width: 70,
-                        height: 100,
-                        child: Center(
-                          child: Text('动作', key: ValueKey('drag-${item.id}')),
+                      ExerciseNameDrag(
+                        index: dragIndex,
+                        child: SizedBox(
+                          width: 70,
+                          height: 100,
+                          child: Center(
+                            child: Text('动作', key: ValueKey('drag-${item.id}')),
+                          ),
                         ),
                       ),
                       Expanded(

@@ -3721,6 +3721,7 @@ class AppController extends ChangeNotifier {
   }
 
   void openLiveWorkout() {
+    trainView = TrainView.workout;
     liveWorkoutVisible = true;
     page = PageId.train;
     notifyListeners();
@@ -4586,6 +4587,26 @@ class AppController extends ChangeNotifier {
     return id;
   }
 
+  void _restorePreviousSetCount(WorkoutExercise item) {
+    final previous = _latestExerciseHistory(item.exerciseId)?.exercise;
+    if (previous == null) return;
+    final completed = previous.sets.where((set) => set.completed).toList();
+    if (completed.isEmpty) return;
+    item.sets.clear();
+    for (var i = 0; i < completed.length; i++) {
+      item.sets.add(
+        WorkoutSet(
+          id: '${item.id}-history-$i',
+          type: completed[i].type,
+          weight: 0,
+          reps: 0,
+          restSeconds: item.restSeconds,
+        ),
+      );
+    }
+    item.collapsed = false;
+  }
+
   void addExercise(String id) {
     if (workout.any((item) => item.exerciseId == id)) return;
     final inheritedRestSeconds = _restSecondsForNewExercise();
@@ -4601,6 +4622,7 @@ class AppController extends ChangeNotifier {
     for (final set in item.sets) {
       set.restSeconds = inheritedRestSeconds;
     }
+    _restorePreviousSetCount(item);
     workout.add(item);
     workoutDraft = !workoutStarted;
     _syncPlatformWorkoutState(item);
@@ -5262,6 +5284,7 @@ class AppController extends ChangeNotifier {
       for (final set in latest.sets) {
         set.restSeconds = inheritedRestSeconds;
       }
+      _restorePreviousSetCount(latest);
       workout.add(latest);
     }
     workoutDraft = !workoutStarted;
