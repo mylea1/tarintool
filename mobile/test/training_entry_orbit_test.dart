@@ -56,6 +56,87 @@ void main() {
     expect(find.text('文件夹内计划'), findsNothing);
   });
 
+  testWidgets('folder toggles preserve identity and compact summaries', (
+    tester,
+  ) async {
+    final c = AppController();
+    addTearDown(c.dispose);
+    c.routines.clear();
+    for (final folder in ['A', 'B']) {
+      c.saveRoutineFromDraft('计划$folder', [
+        for (var i = 0; i < 8; i++)
+          WorkoutExercise(
+            id: '$folder-$i',
+            exerciseId: 'bench_press',
+            restSeconds: 120,
+            sets: [WorkoutSet(id: '$folder-set-$i', weight: 42, reps: 8)],
+          ),
+      ], folder: folder);
+    }
+    final before = c.routines
+        .map(
+          (r) => [
+            r.id,
+            r.name,
+            r.folder,
+            r.exercises
+                .map(
+                  (e) => [
+                    e.id,
+                    e.sets.map((s) => [s.weight, s.reps]).toList(),
+                  ],
+                )
+                .toList(),
+          ],
+        )
+        .toList()
+        .toString();
+    c.selectPage(PageId.train);
+    c.selectTrainView(TrainView.plans);
+    await tester.pumpWidget(KiloApp(initialController: c));
+    await tester.pumpAndSettle();
+    for (var i = 0; i < 6; i++) {
+      final folder = find.byKey(const ValueKey('plan-folder-A'));
+      await Scrollable.ensureVisible(tester.element(folder), alignment: 0);
+      await tester.pumpAndSettle();
+      await tester.tap(folder);
+      await tester.pumpAndSettle();
+      expect(find.text('计划A'), i.isEven ? findsOneWidget : findsNothing);
+      expect(find.text('计划B'), findsNothing);
+      expect(find.textContaining('42 kg'), findsNothing);
+      expect(
+        c.routines
+            .map(
+              (r) => [
+                r.id,
+                r.name,
+                r.folder,
+                r.exercises
+                    .map(
+                      (e) => [
+                        e.id,
+                        e.sets.map((s) => [s.weight, s.reps]).toList(),
+                      ],
+                    )
+                    .toList(),
+              ],
+            )
+            .toList()
+            .toString(),
+        before,
+      );
+      if (i.isEven) {
+        final card = find.byKey(
+          Key(
+            'routine-card-${c.routines.firstWhere((r) => r.folder == 'A').id}',
+          ),
+        );
+        expect(tester.getSize(card).height, lessThan(210));
+      }
+    }
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('first training tap expands even with a restored workout', (
     tester,
   ) async {

@@ -13,7 +13,6 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player/video_player.dart';
 import 'package:video_trimmer/video_trimmer.dart';
 
@@ -2142,15 +2141,16 @@ class _KiloShellState extends State<KiloShell> {
         top: controller.page == PageId.profile,
         child: Stack(
           children: [
-            Positioned.fill(
-              child: IgnorePointer(
-                child: CustomPaint(
-                  painter: _ParticlePainter(
-                    reducedMotion: MediaQuery.of(context).disableAnimations,
+            if (controller.page != PageId.train)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: CustomPaint(
+                    painter: _ParticlePainter(
+                      reducedMotion: MediaQuery.of(context).disableAnimations,
+                    ),
                   ),
                 ),
               ),
-            ),
             Positioned.fill(
               child: Padding(
                 padding: EdgeInsets.zero,
@@ -4576,8 +4576,7 @@ class _TrainPageState extends State<TrainPage> {
               : PageFrame(
                   children: [
                     _TrainingPlanStatusCard(controller: controller),
-                    const SizedBox(height: 14),
-                    const SectionTitle('其他训练方式'),
+                    const SizedBox(height: 6),
                     _PlansView(controller: controller),
                   ],
                 ),
@@ -4616,6 +4615,9 @@ class _TrainingPlanStatusCard extends StatelessWidget {
         .take(3);
     return Card(
       key: const Key('plan-today-status'),
+      color: Colors.transparent,
+      elevation: 0,
+      shape: const RoundedRectangleBorder(),
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(
@@ -4640,15 +4642,6 @@ class _TrainingPlanStatusCard extends StatelessWidget {
             const SizedBox(height: 6),
             Row(
               children: [
-                if (routine != null && !active) ...[
-                  _RoutineCover(
-                    controller: controller,
-                    routine: routine,
-                    size: 76,
-                    showCoverHint: true,
-                  ),
-                  const SizedBox(width: 12),
-                ],
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -4802,12 +4795,10 @@ class _RoutineCover extends StatelessWidget {
     required this.controller,
     required this.routine,
     this.size = 64,
-    this.showCoverHint = false,
   });
   final AppController controller;
   final Routine routine;
   final double size;
-  final bool showCoverHint;
 
   Future<void> _pick(BuildContext context) async {
     try {
@@ -4876,80 +4867,12 @@ class _RoutineCover extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(12),
-            child: SizedBox(
-              width: size,
-              height: size,
-              child: showCoverHint ? _PlanCoverHint(child: picture) : picture,
-            ),
+            child: SizedBox(width: size, height: size, child: picture),
           ),
         ),
       ),
     );
   }
-}
-
-class _PlanCoverHint extends StatefulWidget {
-  const _PlanCoverHint({required this.child});
-  final Widget child;
-  @override
-  State<_PlanCoverHint> createState() => _PlanCoverHintState();
-}
-
-class _PlanCoverHintState extends State<_PlanCoverHint> {
-  bool visible = false;
-  Timer? timer;
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (!mounted || prefs.getBool('today-plan-cover-hint-seen-v2') == true) {
-      return;
-    }
-    await prefs.setBool('today-plan-cover-hint-seen-v2', true);
-    if (!mounted) return;
-    setState(() => visible = true);
-    timer = Timer(const Duration(seconds: 2), () {
-      if (mounted) setState(() => visible = false);
-    });
-  }
-
-  @override
-  void dispose() {
-    timer?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => Stack(
-    fit: StackFit.expand,
-    children: [
-      widget.child,
-      if (visible)
-        const IgnorePointer(
-          child: ColoredBox(
-            color: Color(0xAA000000),
-            child: Center(
-              child: Padding(
-                padding: EdgeInsets.all(3),
-                child: Text(
-                  '点击可更换\n训练封面',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-    ],
-  );
 }
 
 class _RecoveryMiniPill extends StatelessWidget {
@@ -7583,69 +7506,62 @@ class _AiWorkoutPlannerSheetState extends State<_AiWorkoutPlannerSheet> {
 }
 
 class _RoutineCard extends StatelessWidget {
-  const _RoutineCard({required this.controller, required this.routine});
+  const _RoutineCard({
+    super.key,
+    required this.controller,
+    required this.routine,
+  });
   final AppController controller;
   final Routine routine;
   @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      key: Key('routine-card-${routine.id}'),
-      child: InkWell(
-        onTap: () => _showRoutineDetail(context, controller, routine),
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      trainingDisplayName(routine.name),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                      ),
+  Widget build(BuildContext context) => Material(
+    key: Key('routine-card-${routine.id}'),
+    color: Colors.transparent,
+    child: InkWell(
+      onTap: () => _showRoutineDetail(context, controller, routine),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    trainingDisplayName(routine.name),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              TrainingExerciseAccordion(
-                allowPrivateNotes: true,
-                exercises: routine.exercises,
-                nameFor: (id) =>
-                    controller.displayExerciseName(controller.exerciseFor(id)),
-              ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  IconButton(
-                    key: Key('routine-more-${routine.id}'),
-                    tooltip: '计划更多操作',
-                    onPressed: () =>
-                        _showRoutineActions(context, controller, routine),
-                    icon: const Icon(Icons.more_horiz),
-                  ),
-                  TextButton(
-                    key: Key('routine-select-${routine.id}'),
-                    onPressed: () {
-                      controller.startRoutine(routine);
-                    },
-                    child: const Text('进入训练'),
-                  ),
-                ],
-              ),
-            ],
-          ),
+                ),
+                IconButton(
+                  key: Key('routine-more-${routine.id}'),
+                  tooltip: '计划更多操作',
+                  onPressed: () =>
+                      _showRoutineActions(context, controller, routine),
+                  icon: const Icon(Icons.more_horiz, size: 20),
+                ),
+                TextButton(
+                  key: Key('routine-select-${routine.id}'),
+                  onPressed: () => controller.startRoutine(routine),
+                  child: const Text('进入训练'),
+                ),
+              ],
+            ),
+            TrainingExerciseSummary(
+              exercises: routine.exercises,
+              nameFor: (id) =>
+                  controller.displayExerciseName(controller.exerciseFor(id)),
+            ),
+            const Divider(height: 12),
+          ],
         ),
       ),
-    );
-  }
+    ),
+  );
 }
 
 class _PlanCard extends StatelessWidget {

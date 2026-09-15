@@ -110,7 +110,9 @@ class _PlanFolderLibraryState extends State<_PlanFolderLibrary> {
           ),
         ),
         for (final folder in folders)
-          Card(
+          Material(
+            key: ValueKey('folder-section-$folder'),
+            color: Colors.transparent,
             child: Column(
               children: [
                 ListTile(
@@ -159,7 +161,11 @@ class _PlanFolderLibraryState extends State<_PlanFolderLibrary> {
                         for (final routine in c.routines.where(
                           (r) => r.folder == folder,
                         ))
-                          _RoutineCard(controller: c, routine: routine),
+                          _RoutineCard(
+                            key: ObjectKey(routine),
+                            controller: c,
+                            routine: routine,
+                          ),
                       ],
                     ),
                   ),
@@ -168,7 +174,11 @@ class _PlanFolderLibraryState extends State<_PlanFolderLibrary> {
             ),
           ),
         for (final routine in c.routines.where((r) => r.folder.isEmpty))
-          _RoutineCard(controller: c, routine: routine),
+          _RoutineCard(
+            key: ObjectKey(routine),
+            controller: c,
+            routine: routine,
+          ),
       ],
     );
   }
