@@ -20,6 +20,7 @@ test('permanent deletion removes owned data/media/session and keeps other users'
     db.prepare("INSERT INTO redemption_codes(code,plan,created_by,created_at,used_by) VALUES('used','oneMonth','other','now','owner')").run();
     await storage.putBuffer('avatars/owner.png', Buffer.from('avatar'));
     await storage.putBuffer('avatars/other.png', Buffer.from('other'));
+    if (!db.prepare('PRAGMA table_info(users)').all().some(c=>c.name==='avatar_key')) db.exec('ALTER TABLE users ADD COLUMN avatar_key TEXT');
     db.prepare("UPDATE users SET avatar_key='avatars/owner.png' WHERE id='owner'").run();
     await deleteAccountData({db, storage}, db.prepare("SELECT * FROM users WHERE id='owner'").get());
     assert.equal(db.prepare("SELECT * FROM users WHERE id='owner'").get(), undefined);

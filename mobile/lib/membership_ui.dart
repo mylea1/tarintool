@@ -99,6 +99,33 @@ class MembershipPurchaseCoordinator extends ChangeNotifier {
   StreamSubscription<List<PurchaseDetails>>? _subscription;
   final Map<String, ProductDetails> _products = {};
   final Map<String, String> _pendingOrderByProduct = {};
+  final Map<Timer, void Function()> _storeTimeouts = {};
+  Future<T> _storeRequest<T>(Future<T> request) async {
+    final result = Completer<T>();
+    final timer = Timer(const Duration(seconds: 20), () {
+      if (!result.isCompleted)
+        result.completeError(TimeoutException('store_timeout'));
+    });
+    _storeTimeouts[timer] = () {
+      if (!result.isCompleted)
+        result.completeError(StateError('store_disposed'));
+    };
+    request.then(
+      (value) {
+        if (!result.isCompleted) result.complete(value);
+      },
+      onError: (Object error, StackTrace stack) {
+        if (!result.isCompleted) result.completeError(error, stack);
+      },
+    );
+    try {
+      return await result.future;
+    } finally {
+      timer.cancel();
+      _storeTimeouts.remove(timer);
+    }
+  }
+
   bool _disposed = false;
   bool loading = false;
   bool storeAvailable = false;
@@ -132,9 +159,7 @@ class MembershipPurchaseCoordinator extends ChangeNotifier {
         // StoreKit 1 is intentionally kept until the server migrates from
         // receipt verification to signed StoreKit 2 transaction JWS data.
         // ignore: deprecated_member_use
-        await InAppPurchaseStoreKitPlatform.enableStoreKit1().timeout(
-          const Duration(seconds: 20),
-        );
+        await _storeRequest(InAppPurchaseStoreKitPlatform.enableStoreKit1());
       }
       _subscription ??= _store.purchaseStream.listen(
         _handlePurchaseUpdates,
@@ -143,16 +168,14 @@ class MembershipPurchaseCoordinator extends ChangeNotifier {
           notifyListeners();
         },
       );
-      storeAvailable = await _store.isAvailable().timeout(
-        const Duration(seconds: 20),
-      );
+      storeAvailable = await _storeRequest(_store.isAvailable());
       if (!storeAvailable) {
         errorMessage = '当前无法连接 App Store，请稍后重试。';
       }
       if (storeAvailable) {
-        final response = await _store
-            .queryProductDetails(membershipProductIds.values.toSet())
-            .timeout(const Duration(seconds: 20));
+        final response = await _storeRequest(
+          _store.queryProductDetails(membershipProductIds.values.toSet()),
+        );
         _products
           ..clear()
           ..addEntries(
@@ -399,6 +422,11 @@ class MembershipPurchaseCoordinator extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    for (final entry in _storeTimeouts.entries.toList()) {
+      entry.key.cancel();
+      entry.value();
+    }
+    _storeTimeouts.clear();
     _subscription?.cancel();
     super.dispose();
   }
