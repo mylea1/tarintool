@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kilo_strength/controller.dart';
+import 'package:kilo_strength/account_membership.dart';
 import 'package:kilo_strength/main.dart';
 import 'package:kilo_strength/models.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -193,7 +194,8 @@ void main() {
       await tap.moveBy(const Offset(2, 1));
       await tap.up();
       await tester.pumpAndSettle();
-      expect(find.byKey(const Key('coach-orbit-other')), findsOneWidget);
+      expect(find.byKey(const Key('coach-orbit-other')), findsNothing);
+      expect(find.text('这项能力属于形域 PRO'), findsOneWidget);
     },
   );
   testWidgets(
@@ -204,7 +206,15 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
-      final c = AppController();
+      final account = AccountService(persistence: InMemoryAccountPersistence())
+        ..loginWithPhone('13800138000');
+      account.replaceCurrentEntitlement(
+        EntitlementSnapshot.free().copyWith(
+          trialStartedAt: DateTime.now(),
+          trialExpiresAt: DateTime.now().add(const Duration(days: 3)),
+        ),
+      );
+      final c = AppController(accountService: account);
       addTearDown(c.dispose);
       await tester.pumpWidget(KiloApp(initialController: c));
       await tester.pumpAndSettle();
