@@ -521,6 +521,7 @@ function bearer(req) {
 }
 
 function createSession(db, cfg, userId) {
+  activateMembershipTrial(db, userId);
   const token = randomToken();
   const created = new Date();
   const expires = new Date(created.getTime() + cfg.sessionTtlDays * 86400000);
@@ -1484,7 +1485,16 @@ function membershipFor(db, userId, plan) {
   return { membership, membershipExpiresAt: addMonths(start, months).toISOString() };
 }
 
-function activateMembershipTrial(db, userId, { workoutId, durationSeconds, effectiveSets }) {
+function requireWorkoutCoachMembership(ctx, user, body) {
+  let summary;
+  try { summary = JSON.parse(body.trainingSummary || '{}'); } catch { return; }
+  if (summary?.training && Array.isArray(summary.selectedExerciseIds) &&
+      !membershipActive(entitlementRow(ctx.db, user.id))) {
+    throw httpError(403, 'membership_required');
+  }
+}
+
+function activateMembershipTrial(db, userId) {
   const current = ensureEntitlement(db, userId);
   const claimed = Boolean(current.trial_started_at || current.trial_expires_at || current.trial_workout_id);
   if (claimed) {
@@ -1506,14 +1516,6 @@ function activateMembershipTrial(db, userId, { workoutId, durationSeconds, effec
       entitlement: publicEntitlement(current),
     };
   }
-  if (durationSeconds < 1800 || effectiveSets < 1) {
-    return {
-      activated: false,
-      idempotent: false,
-      reason: durationSeconds < 1800 ? 'duration_too_short' : 'no_effective_sets',
-      entitlement: publicEntitlement(current),
-    };
-  }
   const startedAt = new Date();
   const startedAtIso = startedAt.toISOString();
   const expiresAt = new Date(startedAt.getTime() + 72 * 60 * 60 * 1000).toISOString();
@@ -1523,7 +1525,7 @@ function activateMembershipTrial(db, userId, { workoutId, durationSeconds, effec
     ai_remaining = CASE WHEN ai_remaining < 20 THEN 20 ELSE ai_remaining END,
     updated_at = ? WHERE user_id = ? AND trial_started_at IS NULL
       AND trial_expires_at IS NULL AND trial_workout_id IS NULL`)
-    .run(startedAtIso, expiresAt, workoutId, retentionExpiresAt, startedAtIso, userId);
+    .run(startedAtIso, expiresAt, null, retentionExpiresAt, startedAtIso, userId);
   const updated = ensureEntitlement(db, userId, startedAt);
   return {
     activated: true,
@@ -2677,19 +2679,7 @@ async function handleRequest(req, res, ctx) {
     const user = authenticate(req, ctx); writeJson(res, 200, publicEntitlement(entitlementRow(ctx.db, user.id)), req, ctx.cfg); return;
   }
   if (req.method === 'POST' && url.pathname === '/v1/membership/trial/activate') {
-    const user = authenticate(req, ctx);
-    const body = await readBody(req, ctx.cfg.maxJsonBytes);
-    const workoutId = requireString(body.workoutId, 'workout_id_required', 200);
-    const durationSeconds = requiredFiniteInteger(body.durationSeconds, 'duration_seconds_required', { min: 0, max: 7 * 24 * 60 * 60 });
-    const effectiveSets = requiredFiniteInteger(body.effectiveSets, 'effective_sets_required', { min: 0, max: 1000 });
-    const result = transaction(ctx.db, () => {
-      const activated = activateMembershipTrial(ctx.db, user.id, { workoutId, durationSeconds, effectiveSets });
-      if (activated.activated) {
-        audit(ctx.db, user.id, 'activate_membership_trial', workoutId, { durationSeconds, effectiveSets });
-      }
-      return activated;
-    });
-    writeJson(res, 200, result, req, ctx.cfg); return;
+    throw httpError(410, 'workout_trial_removed');
   }
   // Daily check-in rewards were removed from the product. Keep the legacy
   // database tables for migration/audit compatibility, but intentionally do
@@ -3246,6 +3236,7 @@ async function handleRequest(req, res, ctx) {
   if (req.method === 'POST' && url.pathname === '/v1/coach/stream') {
     const user = authenticate(req, ctx);
     const body = await readBody(req, ctx.cfg.maxJsonBytes);
+    requireWorkoutCoachMembership(ctx, user, body);
     const question = requireString(body.question || body.message, 'question_required', MAX_TEXT);
     const clientToolResults = parseClientToolResults(body.toolResults);
     if (clientToolResults.length && body.useTrainingData !== true) {
@@ -3341,7 +3332,7 @@ async function handleRequest(req, res, ctx) {
     return;
   }
   if ((req.method === 'POST' && ['/v1/coach/answer', '/v1/ai/chat'].includes(url.pathname)) || (convMessageMatch && req.method === 'POST')) {
-    const user = authenticate(req, ctx); const body = await readBody(req, ctx.cfg.maxJsonBytes); const question = requireString(body.question || body.message, 'question_required', MAX_TEXT); const requestId = body.requestId || `ai_${randomUUID()}`; const reservation = reserveQuota(ctx.db, user.id, 'ai', requestId);
+    const user = authenticate(req, ctx); const body = await readBody(req, ctx.cfg.maxJsonBytes); const question = requireString(body.question || body.message, 'question_required', MAX_TEXT); requireWorkoutCoachMembership(ctx, user, body); const requestId = body.requestId || `ai_${randomUUID()}`; const reservation = reserveQuota(ctx.db, user.id, 'ai', requestId);
     try {
       let conversationId = convMessageMatch ? decodeURIComponent(convMessageMatch[1]) : body.conversationId; let conversation;
       if (conversationId) conversation = ctx.db.prepare('SELECT * FROM conversations WHERE id = ? AND user_id = ?').get(conversationId, user.id);

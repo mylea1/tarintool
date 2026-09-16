@@ -137,7 +137,17 @@ class _WorkoutCoachOrbitState extends State<_WorkoutCoachOrbit> {
                     key: const Key('workout-coach-open'),
                     heroTag: 'workout-coach',
                     shape: const CircleBorder(),
-                    onPressed: () => setState(() => expanded = !expanded),
+                    onPressed: () async {
+                      if (widget.controller.entitlements?.isMember != true) {
+                        await showMembershipPaywall(
+                          context,
+                          controller: widget.controller,
+                          reason: MembershipPaywallReason.premiumFeature,
+                        );
+                        return;
+                      }
+                      setState(() => expanded = !expanded);
+                    },
                     child: Text(expanded ? '×' : 'AI'),
                   ),
                 ),

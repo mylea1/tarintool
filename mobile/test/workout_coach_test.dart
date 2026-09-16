@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kilo_strength/ai_api.dart';
+import 'package:kilo_strength/account_membership.dart';
 import 'package:kilo_strength/controller.dart';
 import 'package:kilo_strength/main.dart';
 import 'package:kilo_strength/models.dart';
@@ -54,8 +55,34 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
+  AccountService memberAccount() {
+    final account = AccountService(persistence: InMemoryAccountPersistence())
+      ..loginWithPhone('13800138000');
+    account.replaceCurrentEntitlement(
+      EntitlementSnapshot.free().copyWith(
+        trialStartedAt: DateTime.now(),
+        trialExpiresAt: DateTime.now().add(const Duration(days: 3)),
+      ),
+    );
+    return account;
+  }
+
+  test('workout AI rejects non-members without calling the API', () async {
+    final api = CapturingCoach();
+    final c = AppController(coachApi: api);
+    addTearDown(c.dispose);
+    await expectLater(
+      c.requestWorkoutCoach('下一组重量'),
+      throwsA(isA<CoachApiException>()),
+    );
+    expect(api.prompt, isNull);
+  });
+
   AppController controller() {
-    final c = AppController(coachApi: CapturingCoach());
+    final c = AppController(
+      coachApi: CapturingCoach(),
+      accountService: memberAccount(),
+    );
     c.startWorkout(
       source: [
         WorkoutExercise(
@@ -148,7 +175,7 @@ void main() {
     'lesson shows GIF and streaming text before completion with teaching links',
     (tester) async {
       final api = StreamingLessonCoach();
-      final c = AppController(coachApi: api);
+      final c = AppController(coachApi: api, accountService: memberAccount());
       addTearDown(c.dispose);
       c.saveResource(
         exerciseId: 'bench_press',

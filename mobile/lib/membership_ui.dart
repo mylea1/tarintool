@@ -675,7 +675,7 @@ class _MembershipCenterPageState extends State<MembershipCenterPage>
             onSelected: (plan) => setState(() => selected = plan),
           ),
           const SizedBox(height: 8),
-          if (!usesAppleBilling) _TrialStatus(entitlement: entitlement),
+          _TrialStatus(entitlement: entitlement),
           const SizedBox(height: 8),
           _CloudSyncStatus(isEnabled: widget.controller.cloudSyncAllowed),
           const SizedBox(height: 12),
@@ -925,7 +925,7 @@ class _TrialStatus extends StatelessWidget {
       title = 'PRO 试用中';
       final expires = value.trialExpiresAt;
       detail = expires == null
-          ? '首次训练解锁的 3 天权益已生效。'
+          ? '首次登录赠送的 3 天权益已生效。'
           : '到期时间：${expires.year}.${expires.month.toString().padLeft(2, '0')}.${expires.day.toString().padLeft(2, '0')} ${expires.hour.toString().padLeft(2, '0')}:${expires.minute.toString().padLeft(2, '0')}';
       icon = Icons.bolt_rounded;
       color = _membershipSuccess(context);
@@ -935,8 +935,8 @@ class _TrialStatus extends StatelessWidget {
       icon = Icons.lock_clock_outlined;
       color = _membershipMuted(context);
     } else {
-      title = '完成训练，解锁 3 天 PRO';
-      detail = '登录后完成首次至少 30 分钟且含有效组的训练后自动解锁。';
+      title = '首次登录，赠送 3 天 PRO';
+      detail = '首次登录后自动生效，每个账号仅享一次，无需完成训练。';
       icon = Icons.lock_open_rounded;
       color = _membershipEmber(context);
     }

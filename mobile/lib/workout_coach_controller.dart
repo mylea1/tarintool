@@ -34,7 +34,7 @@ extension WorkoutCoachActions on AppController {
     void Function(String)? onDelta,
   }) async {
     if (scenario == 'offline') throw const CoachApiException('coach_network');
-    if (generatePlan && entitlements?.isMember != true) {
+    if (entitlements?.isMember != true) {
       throw const CoachApiException('membership_required');
     }
     final owner = currentUser?.id;

@@ -265,59 +265,6 @@ void main() {
   });
 
   test(
-    'membership client submits strict workout trial activation payload',
-    () async {
-      final requests = <String, dynamic>{};
-      final client = MockClient((request) async {
-        if (request.url.path == '/v1/auth/phone/login') {
-          return http.Response(
-            jsonEncode({
-              'session': {'token': 'trial-session'},
-            }),
-            200,
-          );
-        }
-        expect(request.url.path, '/v1/membership/trial/activate');
-        expect(request.headers['authorization'], 'Bearer trial-session');
-        requests.addAll(jsonDecode(request.body) as Map<String, dynamic>);
-        return http.Response(
-          jsonEncode({
-            'activated': true,
-            'idempotent': false,
-            'reason': 'activated',
-            'entitlement': {
-              'membership': 'free',
-              'trialStartedAt': '2026-09-02T00:00:00.000Z',
-              'trialExpiresAt': '2026-09-05T00:00:00.000Z',
-              'trialWorkoutId': 'history-1',
-              'trialActive': true,
-              'trialEligible': false,
-              'trialClaimed': true,
-            },
-          }),
-          200,
-        );
-      });
-      final api = HttpCoachApi(
-        baseUrl: 'https://api.example.test',
-        client: client,
-      );
-      await api.signIn(identifier: '13800138000', password: '1234');
-      final payload = await api.activateMembershipTrial(
-        workoutId: 'history-1',
-        durationSeconds: 1800,
-        effectiveSets: 1,
-      );
-      expect(requests, {
-        'workoutId': 'history-1',
-        'durationSeconds': 1800,
-        'effectiveSets': 1,
-      });
-      expect(payload['reason'], 'activated');
-    },
-  );
-
-  test(
     'coach client never calls protected endpoint without a session',
     () async {
       final api = HttpCoachApi(

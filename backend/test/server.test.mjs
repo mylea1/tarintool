@@ -68,6 +68,7 @@ test.before(async () => {
   assert.equal(first.response.status, 201); userToken = first.body.session.token;
   const second = await api('/v1/auth/register', { method: 'POST', body: JSON.stringify({ identifier: 'second-user', password: 'abcd' }) });
   assert.equal(second.response.status, 201); user2Token = second.body.session.token;
+  server.context.db.prepare("UPDATE entitlements SET trial_expires_at='2020-01-01T00:00:00.000Z', ai_remaining=3 WHERE user_id IN (?, ?)").run(first.body.user.id, second.body.user.id);
 });
 
 test.after(async () => { await server.closeGracefully(); await fs.rm(root, { recursive: true, force: true }); });
@@ -471,6 +472,7 @@ test('food recognition sends multiple images to a configured OpenAI-compatible v
     assert.equal(registration.response.status, 201);
     const token = registration.body.session.token;
     const tinyPng = Buffer.from('png-test').toString('base64');
+    isolatedServer.context.db.prepare("UPDATE entitlements SET trial_expires_at='2020-01-01T00:00:00.000Z' WHERE user_id=?").run(registration.body.user.id);
     const locked = await localApi('/v1/nutrition/recognitions', {
       method: 'POST',
       headers: { authorization: `Bearer ${token}` },
@@ -752,77 +754,25 @@ test('membership orders are server-owned, idempotent and cancellable only while 
   assert.equal(repeatedCancel.body.error, 'membership_order_not_cancellable');
 });
 
-test('membership trial requires one qualifying workout and is one-time server-authoritative', async () => {
-  const registered = await api('/v1/auth/register', {
-    method: 'POST',
-    body: JSON.stringify({ identifier: `trial-${Date.now()}`, password: 'abcd' }),
-  });
-  assert.equal(registered.response.status, 201);
-  const token = registered.body.session.token;
-  const headers = { authorization: `Bearer ${token}` };
-
-  const initial = await api('/v1/me/entitlements', { headers });
-  assert.equal(initial.response.status, 200);
-  assert.equal(initial.body.trialEligible, true);
-  assert.equal(initial.body.trialActive, false);
-
-  const invalidType = await api('/v1/membership/trial/activate', {
-    method: 'POST', headers,
-    body: JSON.stringify({ workoutId: 'short', durationSeconds: '1800', effectiveSets: 1 }),
-  });
-  assert.equal(invalidType.response.status, 400);
-  assert.equal(invalidType.body.error, 'duration_seconds_required');
-
-  const short = await api('/v1/membership/trial/activate', {
-    method: 'POST', headers,
-    body: JSON.stringify({ workoutId: 'short', durationSeconds: 1799, effectiveSets: 1 }),
-  });
-  assert.equal(short.response.status, 200);
-  assert.equal(short.body.activated, false);
-  assert.equal(short.body.reason, 'duration_too_short');
-  assert.equal(short.body.entitlement.trialEligible, true);
-
-  const empty = await api('/v1/membership/trial/activate', {
-    method: 'POST', headers,
-    body: JSON.stringify({ workoutId: 'empty', durationSeconds: 1800, effectiveSets: 0 }),
-  });
-  assert.equal(empty.response.status, 200);
-  assert.equal(empty.body.activated, false);
-  assert.equal(empty.body.reason, 'no_effective_sets');
-  assert.equal(empty.body.entitlement.trialEligible, true);
-
-  const activated = await api('/v1/membership/trial/activate', {
-    method: 'POST', headers,
-    body: JSON.stringify({ workoutId: 'qualified-1', durationSeconds: 1800, effectiveSets: 1 }),
-  });
-  assert.equal(activated.response.status, 200);
-  assert.equal(activated.body.activated, true);
-  assert.equal(activated.body.idempotent, false);
-  assert.equal(activated.body.reason, 'activated');
-  assert.equal(activated.body.entitlement.trialActive, true);
-  assert.equal(activated.body.entitlement.trialEligible, false);
-  assert.equal(Date.parse(activated.body.entitlement.trialExpiresAt) - Date.parse(activated.body.entitlement.trialStartedAt), 72 * 60 * 60 * 1000);
-  assert.equal(activated.body.entitlement.aiDailyLimit, 20);
-
-  const repeated = await api('/v1/membership/trial/activate', {
-    method: 'POST', headers,
-    body: JSON.stringify({ workoutId: 'qualified-2', durationSeconds: 3600, effectiveSets: 10 }),
-  });
-  assert.equal(repeated.response.status, 200);
-  assert.equal(repeated.body.activated, false);
-  assert.equal(repeated.body.idempotent, true);
-  assert.equal(repeated.body.reason, 'already_claimed');
-  assert.equal(repeated.body.entitlement.trialStartedAt, activated.body.entitlement.trialStartedAt);
-  assert.equal(repeated.body.entitlement.trialExpiresAt, activated.body.entitlement.trialExpiresAt);
-
-  const user = server.context.db.prepare('SELECT id FROM users WHERE identifier = ?').get(registered.body.user.identifier);
-  server.context.db.prepare("UPDATE entitlements SET trial_expires_at = '2020-01-01T00:00:00.000Z' WHERE user_id = ?").run(user.id);
-  const expired = await api('/v1/me/entitlements', { headers });
-  assert.equal(expired.body.trialActive, false);
-  assert.equal(expired.body.trialClaimed, true);
-  assert.equal(expired.body.trialEligible, false);
-  assert.equal(expired.body.aiDailyLimit, 3);
-  assert.equal(expired.body.membership, 'free');
+test('first login grants 72 hours once and retired workout activation cannot extend it', async () => {
+ const identifier=`trial-${Date.now()}`;
+ const registered=await api('/v1/auth/register',{method:'POST',body:JSON.stringify({identifier,password:'abcd'})});
+ assert.equal(registered.response.status,201);
+ const headers={authorization:`Bearer ${registered.body.session.token}`};
+ const initial=(await api('/v1/me/entitlements',{headers})).body;
+ assert.equal(initial.trialActive,true);
+ assert.equal(Date.parse(initial.trialExpiresAt)-Date.parse(initial.trialStartedAt),72*60*60*1000);
+ const login=await api('/v1/auth/phone/login',{method:'POST',body:JSON.stringify({identifier,password:'abcd'})});
+ assert.equal(login.response.status,200);
+ assert.equal((await api('/v1/me/entitlements',{headers})).body.trialExpiresAt,initial.trialExpiresAt);
+ assert.equal((await api('/v1/membership/trial/activate',{method:'POST',headers,body:'{}'})).response.status,410);
+ server.context.db.prepare("UPDATE entitlements SET trial_expires_at='2020-01-01T00:00:00.000Z' WHERE user_id=?").run(registered.body.user.id);
+ await api('/v1/auth/phone/login',{method:'POST',body:JSON.stringify({identifier,password:'abcd'})});
+ assert.equal((await api('/v1/me/entitlements',{headers})).body.trialActive,false);
+ for(const route of ['/v1/coach/stream','/v1/coach/answer']) {
+  const blocked=await api(route,{method:'POST',headers,body:JSON.stringify({question:'next set',trainingSummary:JSON.stringify({training:{active:true},selectedExerciseIds:[]})})});
+  assert.equal(blocked.response.status,403);assert.equal(blocked.body.error,'membership_required');
+ }
 });
 
 test('legacy check-in endpoints are disabled after removing the reward feature', async () => {
@@ -878,6 +828,7 @@ test('Pro cloud keeps plans and pre-membership workouts, then becomes read-only 
   assert.equal(registered.response.status, 201);
   const token = registered.body.session.token;
   const headers = { authorization: `Bearer ${token}` };
+  server.context.db.prepare("UPDATE entitlements SET trial_expires_at='2020-01-01T00:00:00.000Z' WHERE user_id=?").run(registered.body.user.id);
   const beforePro = await api('/v1/sync', {
     method: 'POST', headers,
     body: JSON.stringify({ entityType: 'workout', entityId: 'pre-pro-workout', baseRevision: 0, payload: { completedAt: '2026-08-01T10:00:00.000Z', sets: 12 } }),
