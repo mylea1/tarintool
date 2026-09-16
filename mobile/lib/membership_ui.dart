@@ -103,12 +103,14 @@ class MembershipPurchaseCoordinator extends ChangeNotifier {
   Future<T> _storeRequest<T>(Future<T> request) async {
     final result = Completer<T>();
     final timer = Timer(const Duration(seconds: 20), () {
-      if (!result.isCompleted)
+      if (!result.isCompleted) {
         result.completeError(TimeoutException('store_timeout'));
+      }
     });
     _storeTimeouts[timer] = () {
-      if (!result.isCompleted)
+      if (!result.isCompleted) {
         result.completeError(StateError('store_disposed'));
+      }
     };
     request.then(
       (value) {
