@@ -61,3 +61,19 @@ class NativeAppleSignInClient implements AppleSignInClient {
     }
   }
 }
+
+Future<Map<String, String>> requestAppleDeletionCredentials() async {
+  final credential = await SignInWithApple.getAppleIDCredential(
+    scopes: const [],
+  );
+  final token = credential.identityToken;
+  if (token == null || token.isEmpty || credential.authorizationCode.isEmpty) {
+    throw const AppleSignInClientException(
+      AppleSignInFailure.missingIdentityToken,
+    );
+  }
+  return {
+    'identityToken': token,
+    'authorizationCode': credential.authorizationCode,
+  };
+}

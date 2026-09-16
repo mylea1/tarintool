@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_storekit/in_app_purchase_storekit.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -38,9 +39,13 @@ enum MembershipPaywallReason {
   premiumFeature,
 }
 
+bool get usesAppleBilling =>
+    defaultTargetPlatform == TargetPlatform.iOS ||
+    defaultTargetPlatform == TargetPlatform.macOS;
+
 const Map<MembershipPlan, String> membershipProductIds = {
-  MembershipPlan.oneMonth: 'com.kilostrength.pro.monthly',
-  MembershipPlan.yearly: 'com.kilostrength.pro.yearly',
+  MembershipPlan.oneMonth: '11',
+  MembershipPlan.yearly: '33',
 };
 
 const Map<MembershipPlan, String> _fallbackPrices = {
@@ -90,10 +95,11 @@ class MembershipPurchaseCoordinator extends ChangeNotifier {
   MembershipPurchaseCoordinator(this.controller);
 
   final AppController controller;
-  final InAppPurchase _store = InAppPurchase.instance;
+  InAppPurchase get _store => InAppPurchase.instance;
   StreamSubscription<List<PurchaseDetails>>? _subscription;
   final Map<String, ProductDetails> _products = {};
   final Map<String, String> _pendingOrderByProduct = {};
+  bool _disposed = false;
   bool loading = false;
   bool storeAvailable = false;
   bool wechatPayAvailable = false;
@@ -107,7 +113,8 @@ class MembershipPurchaseCoordinator extends ChangeNotifier {
       productFor(plan)?.price ?? _fallbackPrices[plan] ?? '';
 
   Future<void> initialize() async {
-    if (_subscription != null) return;
+    if (loading) return;
+    errorMessage = null;
     loading = true;
     notifyListeners();
     try {
@@ -121,33 +128,41 @@ class MembershipPurchaseCoordinator extends ChangeNotifier {
         }
         return;
       }
-      if (Platform.isIOS || Platform.isMacOS) {
+      if (_subscription == null && (usesAppleBilling)) {
         // StoreKit 1 is intentionally kept until the server migrates from
         // receipt verification to signed StoreKit 2 transaction JWS data.
         // ignore: deprecated_member_use
-        InAppPurchaseStoreKitPlatform.enableStoreKit1();
+        await InAppPurchaseStoreKitPlatform.enableStoreKit1().timeout(
+          const Duration(seconds: 20),
+        );
       }
-      _subscription = _store.purchaseStream.listen(
+      _subscription ??= _store.purchaseStream.listen(
         _handlePurchaseUpdates,
         onError: (Object error) {
           errorMessage = '商店连接中断，请稍后重试。';
           notifyListeners();
         },
       );
-      storeAvailable = await _store.isAvailable();
+      storeAvailable = await _store.isAvailable().timeout(
+        const Duration(seconds: 20),
+      );
       if (!storeAvailable) {
         errorMessage = '当前无法连接 App Store，请稍后重试。';
       }
       if (storeAvailable) {
-        final response = await _store.queryProductDetails(
-          membershipProductIds.values.toSet(),
-        );
+        final response = await _store
+            .queryProductDetails(membershipProductIds.values.toSet())
+            .timeout(const Duration(seconds: 20));
         _products
           ..clear()
           ..addEntries(
             response.productDetails.map((item) => MapEntry(item.id, item)),
           );
-        if (response.error != null) errorMessage = '会员商品加载失败，请稍后重试。';
+        if (response.error != null ||
+            response.notFoundIDs.isNotEmpty ||
+            _products.isEmpty) {
+          errorMessage = '会员方案未能加载，请重新加载后再试。';
+        }
       }
     } catch (_) {
       storeAvailable = false;
@@ -201,6 +216,19 @@ class MembershipPurchaseCoordinator extends ChangeNotifier {
   }
 
   Future<bool> purchase(MembershipPlan plan) async {
+    if (loading) return false;
+    loading = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      return await _purchase(plan);
+    } finally {
+      loading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> _purchase(MembershipPlan plan) async {
     final product = productFor(plan);
     if (!storeAvailable || product == null) {
       errorMessage = '该会员方案尚未在 App Store 配置完成。';
@@ -243,6 +271,8 @@ class MembershipPurchaseCoordinator extends ChangeNotifier {
         purchaseParam: PurchaseParam(productDetails: product),
       );
       if (!started) {
+        errorMessage = '未能打开系统支付，请重试。';
+        notifyListeners();
         await _cancelRemoteQuietly(order.id);
         controller.updateMembershipOrder(
           order.id,
@@ -362,7 +392,13 @@ class MembershipPurchaseCoordinator extends ChangeNotifier {
   }
 
   @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
+  }
+
+  @override
   void dispose() {
+    _disposed = true;
     _subscription?.cancel();
     super.dispose();
   }
@@ -609,11 +645,22 @@ class _MembershipCenterPageState extends State<MembershipCenterPage>
             onSelected: (plan) => setState(() => selected = plan),
           ),
           const SizedBox(height: 8),
-          _TrialStatus(entitlement: entitlement),
+          if (!usesAppleBilling) _TrialStatus(entitlement: entitlement),
           const SizedBox(height: 8),
           _CloudSyncStatus(isEnabled: widget.controller.cloudSyncAllowed),
           const SizedBox(height: 12),
           const _BenefitsCard(),
+          if (usesAppleBilling)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Text(
+                '订阅自动续期，可随时在 App Store 账户设置中取消。',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: _membershipMuted(context),
+                ),
+              ),
+            ),
           if (purchase.errorMessage != null) ...[
             const SizedBox(height: 12),
             _InlineNotice(message: purchase.errorMessage!),
@@ -622,17 +669,17 @@ class _MembershipCenterPageState extends State<MembershipCenterPage>
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              if (Platform.isIOS || Platform.isMacOS) ...[
+              if (usesAppleBilling) ...[
                 TextButton(
                   onPressed: purchase.restore,
                   child: const Text('恢复购买'),
                 ),
-                Text('·', style: TextStyle(color: _membershipMuted(context))),
               ],
-              TextButton(
-                onPressed: () => _showRedeem(context, widget.controller),
-                child: const Text('兑换会员'),
-              ),
+              if (!usesAppleBilling)
+                TextButton(
+                  onPressed: () => _showRedeem(context, widget.controller),
+                  child: const Text('兑换会员'),
+                ),
             ],
           ),
         ],
@@ -642,7 +689,6 @@ class _MembershipCenterPageState extends State<MembershipCenterPage>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const LegalLinks(),
             Platform.isAndroid
                 ? Row(
                     children: [
@@ -689,12 +735,16 @@ class _MembershipCenterPageState extends State<MembershipCenterPage>
                     ],
                   )
                 : FilledButton(
-                    onPressed:
-                        purchase.loading ||
-                            !purchase.storeAvailable ||
-                            purchase.productFor(selected) == null
+                    onPressed: purchase.loading
                         ? null
-                        : () => purchase.purchase(selected),
+                        : () async {
+                            if (!purchase.storeAvailable ||
+                                purchase.productFor(selected) == null) {
+                              await purchase.initialize();
+                            } else {
+                              await purchase.purchase(selected);
+                            }
+                          },
                     style: FilledButton.styleFrom(
                       minimumSize: const Size.fromHeight(54),
                       backgroundColor: _membershipEmber(context),
@@ -708,8 +758,14 @@ class _MembershipCenterPageState extends State<MembershipCenterPage>
                               color: Colors.white,
                             ),
                           )
-                        : Text('购买 · ${purchase.priceFor(selected)}'),
+                        : Text(
+                            purchase.productFor(selected) == null
+                                ? '重新加载会员方案'
+                                : '订阅 · ${purchase.priceFor(selected)}',
+                          ),
                   ),
+            const SizedBox(height: 4),
+            const LegalLinks(),
           ],
         ),
       ),

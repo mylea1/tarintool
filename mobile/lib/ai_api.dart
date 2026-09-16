@@ -609,6 +609,22 @@ class HttpCoachApi
     return _decodeJsonResponse(response, 'food_recognition');
   }
 
+  Future<void> deleteAccount({
+    Map<String, String> appleCredentials = const {},
+  }) async {
+    final response = await _client
+        .post(
+          _endpoint('/v1/me/delete-account'),
+          headers: _authHeaders,
+          body: jsonEncode({'confirmation': 'DELETE', ...appleCredentials}),
+        )
+        .timeout(requestTimeout);
+    final payload = _decodeJsonResponse(response, 'account_deletion');
+    if (payload['deleted'] != true) {
+      throw const CoachApiException('account_deletion_failed');
+    }
+  }
+
   void clearSession() {
     _sessionToken = null;
     _remoteSession = null;

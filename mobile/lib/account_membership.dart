@@ -777,6 +777,19 @@ class AccountService extends ChangeNotifier {
     message: 'Google 登录尚未配置，请先完成 OAuth 客户端配置。',
   );
 
+  void deleteCurrentAccount() {
+    final id = _currentUserId;
+    if (id == null) return;
+    _users.remove(id);
+    _entitlements.remove(id);
+    _rewardedWorkouts.remove(id);
+    _orders.removeWhere((_, order) => order.userId == id);
+    _codes.removeWhere((_, code) => code.usedBy == id);
+    _currentUserId = null;
+    _persist();
+    notifyListeners();
+  }
+
   void logout() {
     _currentUserId = null;
     _persist();

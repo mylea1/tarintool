@@ -48,6 +48,9 @@ export function loadConfig(env = process.env) {
     aiQueueLimit: nonNegativeIntValue(env, 'KILO_AI_QUEUE_LIMIT', 40),
     aiRequestTimeoutSeconds: intValue(env, 'KILO_AI_REQUEST_TIMEOUT_SECONDS', 60),
     appleClientId: env.APPLE_CLIENT_ID || '',
+    appleTeamId: env.APPLE_TEAM_ID || '',
+    appleKeyId: env.APPLE_KEY_ID || '',
+    applePrivateKey: env.APPLE_PRIVATE_KEY || '',
     appleSharedSecret: env.APPLE_SHARED_SECRET || '',
     appleBundleId:
       env.APPLE_BUNDLE_ID || 'com.kilostrength.kiloStrength',

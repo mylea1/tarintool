@@ -1,3 +1,4 @@
+import { deleteAccountData, revokeAppleAuthorization } from './account-deletion.mjs';
 import { createServer } from 'node:http';
 import { createHmac, randomUUID } from 'node:crypto';
 import fs from 'node:fs';
@@ -162,6 +163,8 @@ const PLANS = new Set(['oneMonth', 'yearly', 'threeMonths', 'forever']);
 // remain verifiable so a previously purchased prototype product is not
 // silently lost during migration.
 const APPLE_MEMBERSHIP_PRODUCTS = new Map([
+  ['11', 'oneMonth'],
+  ['33', 'yearly'],
   ['com.kilostrength.pro.monthly', 'oneMonth'],
   ['com.kilostrength.pro.quarterly', 'threeMonths'],
   ['com.kilostrength.pro.yearly', 'yearly'],
@@ -2065,7 +2068,8 @@ function publicMembershipOrder(row) {
 
 function membershipProduct(productId) {
   const id = String(productId || '').trim();
-  const product = PUBLIC_MEMBERSHIP_PRODUCTS.get(id);
+  const canonical = ({'11': 'com.kilostrength.pro.monthly', '33': 'com.kilostrength.pro.yearly'})[id] || id;
+  const product = PUBLIC_MEMBERSHIP_PRODUCTS.get(canonical);
   if (!product) throw httpError(400, 'unknown_membership_product');
   return { productId: id, ...product };
 }
@@ -2617,6 +2621,18 @@ async function handleRequest(req, res, ctx) {
     }
     const session = createSession(ctx.db, ctx.cfg, user.id);
     writeJson(res, 200, { user: publicUser(user), session }, req, ctx.cfg); return;
+  }
+  if (req.method === 'POST' && url.pathname === '/v1/me/delete-account') {
+    const user = authenticate(req, ctx);
+    const body = await readBody(req, ctx.cfg.maxJsonBytes);
+    if (body.confirmation !== 'DELETE') throw httpError(400, 'deletion_confirmation_required');
+    if (user.auth_provider === 'apple') {
+      const claims = await verifyProviderToken('apple', body.identityToken, ctx.cfg);
+      if (String(claims.sub) !== user.provider_subject) throw httpError(403, 'apple_account_mismatch');
+      await revokeAppleAuthorization(ctx.cfg, requireString(body.authorizationCode, 'apple_authorization_code_required', 4096), user.provider_subject);
+    }
+    await deleteAccountData(ctx, user);
+    writeJson(res, 200, { deleted: true }, req, ctx.cfg); return;
   }
   if (req.method === 'POST' && url.pathname === '/v1/auth/logout') {
     const user = authenticate(req, ctx);

@@ -77,15 +77,15 @@ void main() {
     expect(find.textContaining('付款由 App Store'), findsNothing);
     expect(find.text('部分会员商品尚未在商店启用。'), findsNothing);
     final purchaseButton = find.ancestor(
-      of: find.text('购买 · ¥128'),
+      of: find.text('重新加载会员方案'),
       matching: find.byType(FilledButton),
     );
     expect(purchaseButton, findsOneWidget);
-    expect(tester.widget<FilledButton>(purchaseButton).onPressed, isNull);
+    expect(tester.widget<FilledButton>(purchaseButton).onPressed, isNotNull);
 
     await tester.tap(monthly);
     await tester.pump();
-    expect(find.text('购买 · ¥12'), findsOneWidget);
+    expect(find.text('重新加载会员方案'), findsOneWidget);
     expect(find.byIcon(Icons.radio_button_checked_rounded), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

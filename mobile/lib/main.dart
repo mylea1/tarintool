@@ -27,6 +27,7 @@ import 'trend_chart.dart';
 import 'trend_data.dart';
 import 'link_utils.dart';
 import 'legal_links.dart';
+import 'account_settings_page.dart';
 import 'membership_ui.dart';
 import 'models.dart';
 import 'exercise_reorder.dart';
@@ -15149,7 +15150,7 @@ class _AccountMembershipCard extends StatelessWidget {
             ),
           ],
         ),
-        if (user.isAdmin) ...[
+        if (user.isAdmin && !Platform.isIOS && !Platform.isMacOS) ...[
           const Divider(height: 18),
           const Row(
             children: [
@@ -15487,7 +15488,16 @@ class ProfilePage extends StatelessWidget {
                 onTap: () => controller.selectPage(PageId.ai),
               ),
               const Divider(height: 1),
-              const LegalLinks(),
+              _ProfileSettingRow(
+                icon: Icons.manage_accounts_outlined,
+                title: '账号与法律信息',
+                caption: '隐私政策、使用条款与账号删除',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => AccountSettingsPage(controller: controller),
+                  ),
+                ),
+              ),
               const Divider(height: 1),
               _ProfileSettingRow(
                 key: Key('app-version-row'),

@@ -47,11 +47,19 @@ class LegalLinks extends StatelessWidget {
       children: [
         if (apple)
           TextButton(
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+              textStyle: const TextStyle(fontSize: 12),
+            ),
             key: const Key('legal-eula-link'),
             onPressed: () => _open(context, appleEulaUrl),
             child: const Text('使用条款（EULA）'),
           ),
         TextButton(
+          style: TextButton.styleFrom(
+            foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+            textStyle: const TextStyle(fontSize: 12),
+          ),
           key: const Key('legal-privacy-link'),
           onPressed: () => _open(context, privacyPolicyUrl),
           child: const Text('隐私政策'),

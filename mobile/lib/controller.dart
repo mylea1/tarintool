@@ -525,6 +525,7 @@ class AppController extends ChangeNotifier {
   Future<void> _activateMembershipTrialAfterWorkout(
     WorkoutRecord record,
   ) async {
+    if (Platform.isIOS || Platform.isMacOS) return;
     // A local record is useful offline, but it must never mint local PRO
     // access. Only an authenticated server response can activate the trial.
     if (!accountService.isAuthenticated) return;
@@ -1445,6 +1446,36 @@ class AppController extends ChangeNotifier {
     }
   }
 
+  Future<void> deleteCurrentAccountRemote() async {
+    final user = currentUser;
+    if (user == null) throw const CoachApiException('coach_unauthenticated');
+    final api = await _activeCoachApi();
+    if (api is! HttpCoachApi) throw const CoachApiException('account_deletion_unavailable');
+    final credentials = user.provider == AuthProvider.apple
+        ? await requestAppleDeletionCredentials() : <String, String>{};
+    await api.deleteAccount(appleCredentials: credentials);
+    abortWorkout();
+    await Future.wait([_historyWriteChain, _activeWorkoutWriteChain,
+      _trainingLibraryWriteChain, _customExerciseWriteChain, _aiConversationWriteChain]);
+    final preferences = await SharedPreferences.getInstance();
+    for (final key in preferences.getKeys().toList()) {
+      if (key.endsWith('.${user.id}')) {
+        await preferences.remove(key);
+      } else if (key == SharedPreferencesWorkoutHistoryPersistence.storageKey ||
+          key == SharedPreferencesTrainingLibraryPersistence.storageKey ||
+          key == SharedPreferencesActiveWorkoutPersistence.storageKey) {
+        final raw = preferences.getString(key);
+        if (raw == null) continue;
+        final root = jsonDecode(raw) as Map<String, dynamic>;
+        (root['users'] as Map?)?.remove(user.id);
+        await preferences.setString(key, jsonEncode(root));
+      }
+    }
+    accountService.deleteCurrentAccount();
+    logout();
+    await secureSessionStore.clear();
+  }
+
   void logout() {
     _remoteIdentifier = null;
     _defaultCoachApi?.clearSession();
@@ -2194,6 +2225,9 @@ class AppController extends ChangeNotifier {
   }
 
   Future<AccountResult<EntitlementSnapshot>> redeemCode(String code) async {
+    if (Platform.isIOS || Platform.isMacOS) {
+      return const AccountResult.failure(AccountError.serviceNotConfigured, message: '请通过 App Store 管理订阅。');
+    }
     final normalized = code.trim().toUpperCase();
     if (normalized.isEmpty) {
       return const AccountResult.failure(AccountError.invalidCode);
