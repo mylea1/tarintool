@@ -2194,7 +2194,8 @@ class AppController extends ChangeNotifier {
   }
 
   Future<AccountResult<EntitlementSnapshot>> redeemCode(String code) async {
-    if (Platform.isIOS || Platform.isMacOS) {
+    if (defaultTargetPlatform == TargetPlatform.iOS ||
+        defaultTargetPlatform == TargetPlatform.macOS) {
       return const AccountResult.failure(AccountError.serviceNotConfigured, message: '请通过 App Store 管理订阅。');
     }
     final normalized = code.trim().toUpperCase();

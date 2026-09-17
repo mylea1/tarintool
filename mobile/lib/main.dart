@@ -15150,7 +15150,7 @@ class _AccountMembershipCard extends StatelessWidget {
             ),
           ],
         ),
-        if (user.isAdmin && !Platform.isIOS && !Platform.isMacOS) ...[
+        if (user.isAdmin && !usesAppleBilling) ...[
           const Divider(height: 18),
           const Row(
             children: [
