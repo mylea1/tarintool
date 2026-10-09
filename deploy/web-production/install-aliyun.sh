@@ -37,7 +37,7 @@ from pathlib import Path
 r=Path(sys.argv[1]);b=Path(sys.argv[2])
 p=Path('/etc/nginx/conf.d/kilo-website.conf')
 s=p.read_text()
-pattern=r'(?ms)^    location /agent/ \{.*?^    \}'
+pattern=r'(?ms)^[ \t]*location\s+/agent/\s*\{.*?^[ \t]*\}'
 assert len(re.findall(pattern,s))==1, 'Unexpected existing /agent/ configuration'
 assert not re.search(r'location\s+(?:=\s+)?/mcp',s), 'Existing MCP routing requires review'
 s=re.sub(pattern,(r/'deploy/web-production/nginx-locations.conf').read_text().strip(),s,count=1)
