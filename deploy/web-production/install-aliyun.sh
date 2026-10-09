@@ -16,16 +16,14 @@ mkdir -m 700 "$backup"
 cp -a /etc/kilo/kilo.env "$backup/kilo.env"
 cp -a /etc/nginx/conf.d/kilo-website.conf "$backup/kilo-website.conf"
 printf '%s\n' "$old" > "$backup/previous-release"
-python3 - "$backup" <<'PY'
-import sqlite3,sys
-from pathlib import Path
-b=Path(sys.argv[1])
-src=sqlite3.connect('file:/var/lib/kilo/kilo.sqlite3?mode=ro',uri=True)
-dst=sqlite3.connect(str(b/'kilo.sqlite3'))
-src.backup(dst)
-assert dst.execute('PRAGMA integrity_check').fetchone()[0]=='ok'
-dst.close();src.close()
-PY
+node --input-type=module - "$release" "$backup" <<'JS'
+import { createRequire } from 'node:module';
+const require = createRequire(process.argv[2] + '/backend/package.json');
+const Database = require('better-sqlite3');
+const db = new Database('/var/lib/kilo/kilo.sqlite3', { readonly: true, fileMustExist: true });
+await db.backup(process.argv[3] + '/kilo.sqlite3');
+db.close();
+JS
 chown -R root:kilo "$release"
 chmod -R u=rwX,g=rX,o= "$release"
 # Preserve the existing worker directory if deployed alongside the backend.
