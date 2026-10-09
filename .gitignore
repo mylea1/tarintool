@@ -24,3 +24,11 @@ gpu-worker/.venv-local/
 # Python bytecode and local interpreter caches are not deployment inputs.
 __pycache__/
 *.py[cod]
+
+# Local macOS Web launcher runtime
+.local-web/
+.agent-local/
+.agent.env
+
+.wger-local/
+backend/wger-shell/**/__pycache__/

@@ -370,6 +370,8 @@ class InMemoryActiveWorkoutPersistence implements ActiveWorkoutPersistence {
 
 Map<String, dynamic> _recordToMap(WorkoutRecord record) => {
   'id': record.id,
+  if (record.updatedAt != null)
+    'updatedAt': record.updatedAt!.toIso8601String(),
   'name': record.name,
   'date': record.date.toIso8601String(),
   'startTime': record.startTime,
@@ -386,6 +388,7 @@ Map<String, dynamic> _recordToMap(WorkoutRecord record) => {
 
 WorkoutRecord _recordFromMap(Map<String, dynamic> map) => WorkoutRecord(
   id: map['id']?.toString() ?? '',
+  updatedAt: DateTime.tryParse(map['updatedAt']?.toString() ?? ''),
   name: map['name']?.toString() ?? '训练记录',
   date: DateTime.tryParse(map['date']?.toString() ?? '') ?? DateTime.now(),
   startTime: map['startTime']?.toString() ?? '',

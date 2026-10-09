@@ -13,6 +13,7 @@ import { LocalStorage, extensionForType } from './storage.mjs';
 import { ConcurrencyGate, QueueCapacityError } from './concurrency.mjs';
 import { sendAliyunSms, smsProviderConfigured } from './sms.mjs';
 import { createFcmSender } from './push.mjs';
+import { initializeAgent, handleAgentRequest } from './agent.mjs';
 
 const JSON_CONTENT_TYPE = 'application/json; charset=utf-8';
 const MAX_TEXT = 4000;
@@ -1776,7 +1777,7 @@ function isTrainingPlanRequest(question) {
   return mentionsPlan && (asksToCreate || shortPlanIntent);
 }
 
-async function callDeepSeekStream(ctx, messages, userId, onDelta) {
+async function callDeepSeekStream(ctx, messages, userId, onDelta, externalSignal) {
   const controller = new AbortController();
   const timeout = setTimeout(
     () => controller.abort(),
@@ -1794,7 +1795,7 @@ async function callDeepSeekStream(ctx, messages, userId, onDelta) {
         messages,
         stream: true,
       }),
-      signal: controller.signal,
+      signal: externalSignal ? AbortSignal.any([controller.signal, externalSignal]) : controller.signal,
     });
     if (!response.ok || !response.body) throw httpError(response.status === 429 ? 503 : 502, 'deepseek_upstream_error', { upstreamStatus: response.status });
     const decoder = new TextDecoder();
@@ -2439,7 +2440,7 @@ async function handleRequest(req, res, ctx) {
     const origin = parseOrigin(req, ctx.cfg);
     const headers = {
       'access-control-allow-methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
-      'access-control-allow-headers': 'authorization,content-type,x-kilo-gpu-key,x-upload-token',
+      'access-control-allow-headers': 'authorization,content-type,x-kilo-gpu-key,x-upload-token,mcp-protocol-version,mcp-session-id',
       'access-control-max-age': '600',
     };
     if (origin) { headers['access-control-allow-origin'] = origin; headers.vary = 'Origin'; }
@@ -2449,6 +2450,7 @@ async function handleRequest(req, res, ctx) {
     writeJson(res, 200, {
       ok: true,
       service: 'kilo-backend',
+      agent: { version: '2.0.0', webPath: '/agent/', mcpPath: '/mcp' },
       time: nowIso(),
       ai: {
         configured: Boolean(ctx.cfg.deepSeekApiKey),
@@ -2456,6 +2458,7 @@ async function handleRequest(req, res, ctx) {
       },
     }, req, ctx.cfg); return;
   }
+  if (await handleAgentRequest(req, res, ctx, { authenticate, requireActiveMembership, readBody, writeJson, reserveQuota, changeReservation, callDeepSeekStream })) return;
   if (req.method === 'GET' && url.pathname === '/v1/analysis/capabilities') {
     writeJson(res, 200, {
       modelVersion: 'bettercoach-cpu-v1',
@@ -3786,6 +3789,7 @@ export function createApp(options = {}) {
     ? options.pushSender
     : createFcmSender(cfg);
   const ctx = { cfg, db, storage, aiGate, smsSender, smsSenderInjected, pushSender, friendSearchWindows: new Map() };
+  initializeAgent(db);
   purgeExpiredCloudData(db);
   const cloudRetentionTimer = setInterval(() => purgeExpiredCloudData(db), 24 * 60 * 60 * 1000);
   cloudRetentionTimer.unref();

@@ -21,6 +21,8 @@ export function loadConfig(env = process.env) {
   const resolve = (value, fallback) => resolveFromRoot(value, fallback);
   return Object.freeze({
     nodeEnv: env.NODE_ENV || 'development',
+    agentPublicBaseUrl: (env.KILO_AGENT_PUBLIC_BASE_URL || env.KILO_PUBLIC_BASE_URL || `http://127.0.0.1:${env.KILO_PORT || 8790}`).replace(/\/+$/, ''),
+    agentBackendUrl: env.KILO_AGENT_BACKEND_URL || 'https://api.kilostrength.cn',
     host: env.KILO_HOST || '127.0.0.1',
     port: intValue(env, 'KILO_PORT', 8790),
     publicBaseUrl: (env.KILO_PUBLIC_BASE_URL || `http://127.0.0.1:${env.KILO_PORT || 8790}`).replace(/\/+$/, ''),

@@ -655,6 +655,7 @@ class WorkoutRecord {
     this.prDetails = const [],
     this.exercises = const [],
     this.gymId,
+    this.updatedAt,
   });
   final String id;
   final String name;
@@ -672,6 +673,7 @@ class WorkoutRecord {
   /// Older records may omit it and fall back to [exerciseIds].
   final List<WorkoutExercise> exercises;
   final String? gymId;
+  final DateTime? updatedAt;
 }
 
 /// A personal record proven against this user's earlier records for the same
@@ -1102,6 +1104,9 @@ class NutritionEntry {
     this.recognitionWarnings = const [],
     this.recognitionReviewed = false,
     this.waterMl = 0,
+    this.note = '',
+    this.estimated = false,
+    this.updatedAt,
   });
 
   final String id;
@@ -1121,9 +1126,15 @@ class NutritionEntry {
   /// timeline share one durable source of truth. Food entries keep the
   /// default value of zero for backwards compatibility.
   final double waterMl;
+  final String note;
+  final bool estimated;
+  final DateTime? updatedAt;
 
   Map<String, dynamic> toJson() => {
     'id': id,
+    'note': note,
+    'estimated': estimated,
+    if (updatedAt != null) 'updatedAt': updatedAt!.toIso8601String(),
     'recordedAt': recordedAt.toIso8601String(),
     'mealType': mealType,
     'foodName': foodName,
@@ -1141,6 +1152,9 @@ class NutritionEntry {
 
   factory NutritionEntry.fromJson(Map<String, dynamic> json) => NutritionEntry(
     id: json['id']?.toString() ?? '',
+    note: json['note']?.toString() ?? '',
+    estimated: json['estimated'] == true,
+    updatedAt: DateTime.tryParse(json['updatedAt']?.toString() ?? ''),
     recordedAt:
         DateTime.tryParse(json['recordedAt']?.toString() ?? '') ??
         DateTime.now(),
@@ -1179,6 +1193,7 @@ class WeightEntry {
     required this.weightKg,
     this.note = '',
     this.bodyFatPercent,
+    this.updatedAt,
   });
 
   final String id;
@@ -1186,14 +1201,17 @@ class WeightEntry {
   final double weightKg;
   final String note;
   final double? bodyFatPercent;
+  final DateTime? updatedAt;
 
   WeightEntry copyWith({
     DateTime? recordedAt,
+    DateTime? updatedAt,
     double? weightKg,
     String? note,
     Object? bodyFatPercent = _sentinel,
   }) => WeightEntry(
     id: id,
+    updatedAt: updatedAt ?? this.updatedAt,
     recordedAt: recordedAt ?? this.recordedAt,
     weightKg: weightKg ?? this.weightKg,
     note: note ?? this.note,
@@ -1204,6 +1222,7 @@ class WeightEntry {
 
   Map<String, dynamic> toJson() => {
     'id': id,
+    if (updatedAt != null) 'updatedAt': updatedAt!.toIso8601String(),
     'recordedAt': recordedAt.toIso8601String(),
     'weightKg': weightKg,
     if (note.trim().isNotEmpty) 'note': note.trim(),
@@ -1212,6 +1231,7 @@ class WeightEntry {
 
   factory WeightEntry.fromJson(Map<String, dynamic> json) => WeightEntry(
     id: json['id']?.toString() ?? '',
+    updatedAt: DateTime.tryParse(json['updatedAt']?.toString() ?? ''),
     recordedAt:
         DateTime.tryParse(json['recordedAt']?.toString() ?? '') ??
         DateTime.now(),

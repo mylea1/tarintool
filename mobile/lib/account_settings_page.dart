@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'controller.dart';
 import 'legal_links.dart';
@@ -11,6 +14,78 @@ class AccountSettingsPage extends StatefulWidget {
 
 class _AccountSettingsPageState extends State<AccountSettingsPage> {
   bool deleting = false;
+  bool syncingWeb = false;
+  Future<void> importWebRecords() async {
+    final picked = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['json'],
+      withData: true,
+    );
+    if (picked == null || !mounted) return;
+    final file = picked.files.single;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('导入 Web / MCP 记录？'),
+        content: const Text(
+          '将训练、逐组备注、计划、饮食、体重与目标合并到当前账号，保留较新的记录。本次导入不会发起云端上传；后续仍遵循 App 的会员备份设置。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('导入'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    setState(() => syncingWeb = true);
+    try {
+      if (file.size > 8 * 1024 * 1024) throw StateError('文件超过 8 MiB');
+      final text = file.bytes != null
+          ? utf8.decode(file.bytes!)
+          : await File(file.path!).readAsString();
+      final parsed = jsonDecode(text);
+      if (parsed is! Map ||
+          parsed['source'] != 'traintool-web' ||
+          parsed['schemaVersion'] != 2) {
+        throw StateError('请选择新版网页导出的兼容备份');
+      }
+      await widget.controller.importWebBackup(
+        Map<String, dynamic>.from(parsed),
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Web / MCP 记录已合并到 App')));
+      }
+    } catch (e) {
+      if (mounted) setState(() => error = '导入未完成：$e');
+    } finally {
+      if (mounted) setState(() => syncingWeb = false);
+    }
+  }
+
+  Future<void> syncWebRecords() async {
+    setState(() => syncingWeb = true);
+    try {
+      await widget.controller.syncWebRecords();
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('MCP 云端记录已同步')));
+      }
+    } catch (e) {
+      if (mounted) setState(() => error = '同步未完成：$e');
+    } finally {
+      if (mounted) setState(() => syncingWeb = false);
+    }
+  }
+
   String? error;
 
   Future<void> deleteAccount() async {
@@ -88,6 +163,21 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
               const LegalLinks(),
               if (widget.controller.currentUser != null) ...[
                 const Divider(height: 32),
+                ListTile(
+                  key: const Key('import-web-records'),
+                  leading: const Icon(Icons.file_download_outlined),
+                  title: const Text('导入 Web / MCP 本地备份'),
+                  subtitle: const Text('合并训练、逐组备注、饮食、身体资料与每日目标'),
+                  onTap: syncingWeb ? null : importWebRecords,
+                ),
+                ListTile(
+                  key: const Key('sync-web-records'),
+                  leading: const Icon(Icons.sync),
+                  title: const Text('同步 MCP 云端记录'),
+                  subtitle: const Text('从同一会员账号获取外部 AI 保存的记录'),
+                  onTap: syncingWeb ? null : syncWebRecords,
+                ),
+                if (syncingWeb) const LinearProgressIndicator(),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: Icon(

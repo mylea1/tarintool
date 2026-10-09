@@ -7821,7 +7821,8 @@ List<Widget> _nutritionRecordWidgets(
         final entry = indexed.$2;
         final nutrition = <String>[
           if (entry.amount.trim().isNotEmpty) entry.amount.trim(),
-          '${entry.calories.toStringAsFixed(0)} kcal',
+          '${entry.calories.toStringAsFixed(0)} kcal${entry.estimated ? '（估算，可调整）' : ''}',
+          if (entry.note.trim().isNotEmpty) entry.note.trim(),
           if (entry.proteinGrams > 0)
             '蛋白质 ${entry.proteinGrams.toStringAsFixed(0)} g',
         ].join(' · ');

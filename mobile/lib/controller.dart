@@ -23,6 +23,7 @@ import 'push_notifications.dart';
 import 'secure_session_store.dart';
 import 'workout_history_persistence.dart';
 import 'training_intelligence.dart';
+import 'web_sync_merge.dart';
 
 part 'workout_coach_controller.dart';
 
@@ -1419,13 +1420,21 @@ class AppController extends ChangeNotifier {
     final user = currentUser;
     if (user == null) throw const CoachApiException('coach_unauthenticated');
     final api = await _activeCoachApi();
-    if (api is! HttpCoachApi) throw const CoachApiException('account_deletion_unavailable');
+    if (api is! HttpCoachApi) {
+      throw const CoachApiException('account_deletion_unavailable');
+    }
     final credentials = user.provider == AuthProvider.apple
-        ? await requestAppleDeletionCredentials() : <String, String>{};
+        ? await requestAppleDeletionCredentials()
+        : <String, String>{};
     await api.deleteAccount(appleCredentials: credentials);
     abortWorkout();
-    await Future.wait([_historyWriteChain, _activeWorkoutWriteChain,
-      _trainingLibraryWriteChain, _customExerciseWriteChain, _aiConversationWriteChain]);
+    await Future.wait([
+      _historyWriteChain,
+      _activeWorkoutWriteChain,
+      _trainingLibraryWriteChain,
+      _customExerciseWriteChain,
+      _aiConversationWriteChain,
+    ]);
     final preferences = await SharedPreferences.getInstance();
     for (final key in preferences.getKeys().toList()) {
       if (key.endsWith('.${user.id}')) {
@@ -1542,112 +1551,139 @@ class AppController extends ChangeNotifier {
     if (androidNotifications) unawaited(_activateNotifications());
   }
 
-  Future<void> restoreCloudBackup() async {
+  Future<void> restoreCloudBackup({bool throwOnError = false}) async {
     final userId = currentUser?.id;
     if (userId == null || userId.isEmpty || !cloudRestoreAllowed) return;
     try {
       final api = await _activeCoachApi();
       if (api is! HttpCoachApi) return;
-      final entities = await api.fetchSyncEntities('settings');
-      final workoutEntities = await api.fetchSyncEntities('workout');
-      final planEntities = await api.fetchSyncEntities('plan');
-      Map<String, dynamic>? backup;
-      for (final entity in entities) {
-        if (entity['entityId'] == _cloudBackupEntityId &&
-            entity['deleted'] != true &&
-            entity['payload'] is Map) {
-          backup = Map<String, dynamic>.from(entity['payload'] as Map);
-          break;
-        }
-      }
+      final settings = await api.fetchSyncEntities('settings');
+      final workouts = await api.fetchSyncEntities('workout');
+      final plans = await api.fetchSyncEntities('plan');
       if (currentUser?.id != userId) return;
-      backup ??= <String, dynamic>{};
-      final localHistory = await workoutHistoryPersistence.read(userId);
-      final restored = workoutEntities
-          .where((item) => item['deleted'] != true)
-          .expand((item) => decodeWorkoutRecords([item['payload']]))
-          .toList(growable: false);
-      final legacy = decodeWorkoutRecords(backup['workoutHistory']);
-      final cloudHistory = restored.isNotEmpty ? restored : legacy;
-      final mergedHistory = <String, WorkoutRecord>{
-        for (final record in cloudHistory) record.id: record,
-        // The device copy wins conflicts while missing cloud records are added.
-        for (final record in localHistory) record.id: record,
-      }.values.toList(growable: false)..sort((a, b) => b.date.compareTo(a.date));
-      if (mergedHistory.length != localHistory.length) {
-        await workoutHistoryPersistence.write(userId, mergedHistory);
-      }
-      final localLibrary = await trainingLibraryPersistence.read(userId);
-      final cloudRoutines = planEntities
-          .where((item) => item['deleted'] != true && item['payload'] is Map)
-          .expand(
-            (item) => decodeTrainingLibrary({
-              'routines': [item['payload']],
-            }).routines,
-          )
-          .toList(growable: false);
-      final legacyLibrary = decodeTrainingLibrary(backup['trainingLibrary']);
-      final remoteRoutines = cloudRoutines.isNotEmpty
-          ? cloudRoutines
-          : legacyLibrary.routines;
-      final cloudFolders =
-          (backup['routineFolders'] as List<dynamic>? ?? const [])
-              .map((item) => item.toString())
-              .where((item) => item.isNotEmpty)
-              .toList(growable: false);
-      final cloudLabels = (backup['scheduledLabels'] is Map)
-          ? Map<String, String>.from(
-              (backup['scheduledLabels'] as Map).map(
-                (key, value) => MapEntry(key.toString(), value.toString()),
-              ),
-            )
-          : const <String, String>{};
-      final mergedRoutines = <String, Routine>{
-        for (final routine in remoteRoutines) routine.id: routine,
-        for (final routine in localLibrary.routines) routine.id: routine,
-      }.values.toList(growable: false);
-      if (mergedRoutines.length != localLibrary.routines.length ||
-          (localLibrary.routineFolders.isEmpty && cloudFolders.isNotEmpty) ||
-          (localLibrary.scheduledLabels.isEmpty && cloudLabels.isNotEmpty)) {
-        await trainingLibraryPersistence.write(
-          userId,
-          TrainingLibrarySnapshot(
-            routines: mergedRoutines,
-            routineFolders: localLibrary.routineFolders.isNotEmpty
-                ? localLibrary.routineFolders
-                : (cloudFolders.isNotEmpty
-                      ? cloudFolders
-                      : legacyLibrary.routineFolders),
-            scheduledLabels: localLibrary.scheduledLabels.isNotEmpty
-                ? localLibrary.scheduledLabels
-                : (cloudLabels.isNotEmpty
-                      ? cloudLabels
-                      : legacyLibrary.scheduledLabels),
-          ),
-        );
-      }
-      final preferences = await SharedPreferences.getInstance();
-      final aiKey = 'xingyu.ai-conversations.v1.$userId';
-      if ((preferences.getString(aiKey) ?? '').isEmpty) {
-        final aiPayload = backup['aiConversations'];
-        if (aiPayload is Map) {
-          await preferences.setString(aiKey, jsonEncode(aiPayload));
+      final remote = <String, dynamic>{};
+      for (final row in settings) {
+        if (row['entityId'] == _cloudBackupEntityId &&
+            row['deleted'] != true &&
+            row['payload'] is Map) {
+          remote.addAll(Map<String, dynamic>.from(row['payload'] as Map));
         }
       }
-      for (final item in const [
-        ['trainingProfile', 'kilo.training-profile.v1.'],
-        ['nutrition', 'kilo.nutrition.v1.'],
-        ['weight', 'kilo.weight.v1.'],
-        ['trainingIntelligence', 'kilo.training-intelligence.v1.'],
-      ]) {
-        final key = '${item[1]}$userId';
-        if ((preferences.getString(key) ?? '').isNotEmpty) continue;
-        final value = backup[item[0]];
-        if (value != null) await preferences.setString(key, jsonEncode(value));
+      remote['workoutHistory'] = mergeWebRecords(
+        remote['workoutHistory'],
+        workouts
+            .where((e) => e['deleted'] != true)
+            .map((e) => e['payload'])
+            .toList(),
+      );
+      remote['trainingLibrary'] = {
+        ...(remote['trainingLibrary'] as Map? ?? {}),
+        'routines': mergeWebRecords(
+          (remote['trainingLibrary'] as Map? ?? {})['routines'],
+          plans
+              .where((e) => e['deleted'] != true)
+              .map((e) => e['payload'])
+              .toList(),
+        ),
+      };
+      final tombstones = Map<String, dynamic>.from(
+        remote['webTombstones'] as Map? ?? {},
+      );
+      for (final pair in [('workoutHistory', workouts), ('plan', plans)]) {
+        tombstones[pair.$1] = {
+          ...(tombstones[pair.$1] as Map? ?? {}),
+          for (final e in pair.$2.where((e) => e['deleted'] == true))
+            '${e['entityId']}': e['deletedAt'],
+        };
       }
+      remote['webTombstones'] = tombstones;
+      await importWebBackup(remote);
     } catch (_) {
-      // Cloud recovery is best effort; existing on-device data always wins.
+      // Preserve all on-device data when the member backend is unavailable.
+      if (throwOnError) rethrow;
     }
+  }
+
+  /// Imports a Web/MCP backup into the current user's actual App stores.
+  /// It does not initiate cloud upload. No account switch or database wipe.
+  Future<int> importWebBackup(Map<String, dynamic> incoming) async {
+    final userId = currentUser?.id;
+    if (userId == null || userId.isEmpty) throw StateError('请先登录');
+    final preferences = await SharedPreferences.getInstance();
+    Object? saved(String key) {
+      final raw = preferences.getString(key);
+      return raw == null ? null : jsonDecode(raw);
+    }
+
+    final local = <String, dynamic>{
+      'workoutHistory': encodeWorkoutRecords(
+        await workoutHistoryPersistence.read(userId),
+      ),
+      'trainingLibrary': encodeTrainingLibrary(
+        await trainingLibraryPersistence.read(userId),
+      ),
+      'trainingProfile': saved(_profileStorageKey),
+      'nutrition': saved(_nutritionStorageKey),
+      'weight': saved(_weightStorageKey),
+      'nutritionGoals': saved('kilo.nutrition-goals.v1.$userId'),
+      'webTombstones': saved('kilo.web-tombstones.v1.$userId'),
+    };
+    final merged = mergeWebBackup(local, incoming);
+    if (currentUser?.id != userId) throw StateError('账号已切换');
+    final records = decodeWorkoutRecords(merged['workoutHistory']);
+    await workoutHistoryPersistence.write(userId, records);
+    await trainingLibraryPersistence.write(
+      userId,
+      decodeTrainingLibrary(merged['trainingLibrary']),
+    );
+    for (final pair in [
+      (_profileStorageKey, 'trainingProfile'),
+      (_nutritionStorageKey, 'nutrition'),
+      (_weightStorageKey, 'weight'),
+      ('kilo.nutrition-goals.v1.$userId', 'nutritionGoals'),
+      ('kilo.web-tombstones.v1.$userId', 'webTombstones'),
+    ]) {
+      await preferences.setString(pair.$1, jsonEncode(merged[pair.$2]));
+    }
+    if (incoming['activeWorkout'] is Map && !workoutStarted && !workoutDraft) {
+      final active = Map<String, dynamic>.from(
+        incoming['activeWorkout'] as Map,
+      );
+      final exercises = decodeWorkoutRecords([
+        {...active, 'id': 'web-active'},
+      ]).first.exercises;
+      await activeWorkoutPersistence.write(
+        userId,
+        ActiveWorkoutSnapshot(
+          name: active['name']?.toString() ?? '训练',
+          note: active['note']?.toString() ?? '',
+          freeWorkout: true,
+          draft: true,
+          timerStarted: false,
+          paused: false,
+          elapsedSeconds: (active['durationSeconds'] as num?)?.toInt() ?? 0,
+          startedAt: null,
+          exercises: exercises,
+        ),
+      );
+      await hydrateActiveWorkout();
+    }
+    await hydrateWorkoutHistory(force: true);
+    await hydrateTrainingLibrary(force: true);
+    await hydratePersonalAgentData();
+    if (!_disposed) notifyListeners();
+    return records.length +
+        webRecordMaps(merged['nutrition']).length +
+        webRecordMaps(merged['weight']).length;
+  }
+
+  /// Explicit refresh for records written by an external AI. Server snapshots
+  /// are merged before upload, so older phone backups cannot erase new entries.
+  Future<void> syncWebRecords() async {
+    await refreshRemoteEntitlements();
+    if (!cloudRestoreAllowed) throw StateError('需要有效云端读取权限');
+    await restoreCloudBackup(throwOnError: true);
+    if (cloudSyncAllowed) await backupUserData();
   }
 
   Future<void> backupUserData() async {
@@ -1675,26 +1711,43 @@ class AppController extends ChangeNotifier {
           break;
         }
       }
+      final remoteSettings = entities
+          .where(
+            (e) =>
+                e['entityId'] == _cloudBackupEntityId && e['deleted'] != true,
+          )
+          .firstOrNull;
+      final localBackup = <String, dynamic>{
+        'schemaVersion': 1,
+        'updatedAt': DateTime.now().toUtc().toIso8601String(),
+        'routineFolders': routineFolders,
+        'scheduledLabels': scheduledLabels,
+        if (rawAi?.isNotEmpty == true) 'aiConversations': jsonDecode(rawAi!),
+        if (rawProfile?.isNotEmpty == true)
+          'trainingProfile': jsonDecode(rawProfile!),
+        if (rawNutrition?.isNotEmpty == true)
+          'nutrition': jsonDecode(rawNutrition!),
+        if (rawWeight?.isNotEmpty == true) 'weight': jsonDecode(rawWeight!),
+        if (rawIntelligence?.isNotEmpty == true)
+          'trainingIntelligence': jsonDecode(rawIntelligence!),
+        'nutritionGoals': jsonDecode(
+          preferences.getString('kilo.nutrition-goals.v1.$userId') ?? '[]',
+        ),
+        'webTombstones': jsonDecode(
+          preferences.getString('kilo.web-tombstones.v1.$userId') ?? '{}',
+        ),
+      };
+      final mergedBackup = mergeWebBackup(
+        localBackup,
+        Map<String, dynamic>.from(remoteSettings?['payload'] as Map? ?? {}),
+      );
+      mergedBackup.remove('workoutHistory');
+      mergedBackup.remove('trainingLibrary');
       await api.upsertSyncEntity(
         entityType: 'settings',
         entityId: _cloudBackupEntityId,
         baseRevision: revision,
-        payload: {
-          'schemaVersion': 1,
-          'updatedAt': DateTime.now().toUtc().toIso8601String(),
-          // Workouts and plans are stored as individual sync entities below.
-          // Keeping them out of settings avoids the 2 MiB request ceiling.
-          'routineFolders': routineFolders,
-          'scheduledLabels': scheduledLabels,
-          if (rawAi?.isNotEmpty == true) 'aiConversations': jsonDecode(rawAi!),
-          if (rawProfile?.isNotEmpty == true)
-            'trainingProfile': jsonDecode(rawProfile!),
-          if (rawNutrition?.isNotEmpty == true)
-            'nutrition': jsonDecode(rawNutrition!),
-          if (rawWeight?.isNotEmpty == true) 'weight': jsonDecode(rawWeight!),
-          if (rawIntelligence?.isNotEmpty == true)
-            'trainingIntelligence': jsonDecode(rawIntelligence!),
-        },
+        payload: mergedBackup,
       );
       final workoutCloud = await api.fetchSyncEntities('workout');
       final workoutRevisions = {
@@ -1702,7 +1755,21 @@ class AppController extends ChangeNotifier {
           item['entityId']?.toString() ?? '':
               (item['revision'] as num?)?.toInt() ?? 0,
       };
-      for (final record in history) {
+      final mergedWorkouts = mergeWebRecords(
+        encodeWorkoutRecords(history),
+        workoutCloud
+            .where((e) => e['deleted'] != true)
+            .map((e) => e['payload'])
+            .toList(),
+        deleted: {
+          ...webDeletedIds(mergedBackup, 'workoutHistory'),
+          ...workoutCloud
+              .where((e) => e['deleted'] == true)
+              .map((e) => '${e['entityId']}'),
+        },
+      );
+      for (final recordMap in mergedWorkouts) {
+        final record = decodeWorkoutRecords([recordMap]).first;
         await api.upsertSyncEntity(
           entityType: 'workout',
           entityId: record.id,
@@ -1716,7 +1783,30 @@ class AppController extends ChangeNotifier {
           item['entityId']?.toString() ?? '':
               (item['revision'] as num?)?.toInt() ?? 0,
       };
-      for (final routine in routines) {
+      final localPlans = encodeTrainingLibrary(
+        TrainingLibrarySnapshot(
+          routines: routines,
+          routineFolders: const [],
+          scheduledLabels: const {},
+        ),
+      );
+      final mergedPlans = mergeWebRecords(
+        localPlans['routines'],
+        planCloud
+            .where((e) => e['deleted'] != true)
+            .map((e) => e['payload'])
+            .toList(),
+        deleted: {
+          ...webDeletedIds(mergedBackup, 'plan'),
+          ...planCloud
+              .where((e) => e['deleted'] == true)
+              .map((e) => '${e['entityId']}'),
+        },
+      );
+      for (final routineMap in mergedPlans) {
+        final routine = decodeTrainingLibrary({
+          'routines': [routineMap],
+        }).routines.first;
         final encoded = encodeTrainingLibrary(
           TrainingLibrarySnapshot(
             routines: [routine],
@@ -2196,7 +2286,10 @@ class AppController extends ChangeNotifier {
   Future<AccountResult<EntitlementSnapshot>> redeemCode(String code) async {
     if (defaultTargetPlatform == TargetPlatform.iOS ||
         defaultTargetPlatform == TargetPlatform.macOS) {
-      return const AccountResult.failure(AccountError.serviceNotConfigured, message: '请通过 App Store 管理订阅。');
+      return const AccountResult.failure(
+        AccountError.serviceNotConfigured,
+        message: '请通过 App Store 管理订阅。',
+      );
     }
     final normalized = code.trim().toUpperCase();
     if (normalized.isEmpty) {
@@ -2276,6 +2369,7 @@ class AppController extends ChangeNotifier {
   final List<WorkoutRecord> history = [];
   final List<NutritionEntry> nutritionEntries = [];
   final List<WeightEntry> weightEntries = [];
+  final List<Map<String, dynamic>> nutritionGoals = [];
   final List<GymLocationProfile> gymLocations = [];
   List<Plan> officialPlans = const [];
   bool officialPlansLoading = false;
@@ -2563,6 +2657,18 @@ class AppController extends ChangeNotifier {
   Future<void> hydratePersonalAgentData() async {
     final preferences = await SharedPreferences.getInstance();
     try {
+      nutritionGoals
+        ..clear()
+        ..addAll(
+          webRecordMaps(
+            jsonDecode(
+              preferences.getString(
+                    'kilo.nutrition-goals.v1.${currentUser?.id ?? 'local'}',
+                  ) ??
+                  '[]',
+            ),
+          ),
+        );
       final rawProfile = preferences.getString(_profileStorageKey);
       if (rawProfile != null && rawProfile.isNotEmpty) {
         final value = jsonDecode(rawProfile);
@@ -2676,7 +2782,11 @@ class AppController extends ChangeNotifier {
     final preferences = await SharedPreferences.getInstance();
     await preferences.setString(
       _profileStorageKey,
-      jsonEncode({'completed': completed, 'profile': profile.toJson()}),
+      jsonEncode({
+        'completed': completed,
+        'profile': profile.toJson(),
+        'updatedAt': DateTime.now().toUtc().toIso8601String(),
+      }),
     );
     _scheduleCloudBackup();
     notifyListeners();
@@ -2777,7 +2887,13 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> addNutritionEntry(NutritionEntry entry) async {
-    nutritionEntries.insert(0, entry);
+    nutritionEntries.insert(
+      0,
+      NutritionEntry.fromJson({
+        ...entry.toJson(),
+        'updatedAt': DateTime.now().toUtc().toIso8601String(),
+      }),
+    );
     notifyListeners();
     // Storage is an optional durability layer. Do not keep the capture sheet
     // open while a platform channel is unavailable or slow (notably in
@@ -2785,7 +2901,23 @@ class AppController extends ChangeNotifier {
     unawaited(_persistNutrition().catchError((_) {}));
   }
 
+  Future<void> _markWebDeletion(String kind, String id) async {
+    final userId = currentUser?.id;
+    if (userId == null) return;
+    final preferences = await SharedPreferences.getInstance();
+    final key = 'kilo.web-tombstones.v1.$userId';
+    final deleted = Map<String, dynamic>.from(
+      jsonDecode(preferences.getString(key) ?? '{}') as Map,
+    );
+    deleted[kind] = {
+      ...(deleted[kind] as Map? ?? {}),
+      id: DateTime.now().toUtc().toIso8601String(),
+    };
+    await preferences.setString(key, jsonEncode(deleted));
+  }
+
   Future<void> deleteNutritionEntry(String id) async {
+    await _markWebDeletion('nutrition', id);
     nutritionEntries.removeWhere((item) => item.id == id);
     notifyListeners();
     unawaited(_persistNutrition().catchError((_) {}));
@@ -2802,7 +2934,7 @@ class AppController extends ChangeNotifier {
 
   Future<void> addWeightEntry(WeightEntry entry) async {
     if (entry.weightKg <= 0) return;
-    weightEntries.insert(0, entry);
+    weightEntries.insert(0, entry.copyWith(updatedAt: DateTime.now().toUtc()));
     weightEntries.sort((a, b) => b.recordedAt.compareTo(a.recordedAt));
     notifyListeners();
     try {
@@ -2816,7 +2948,7 @@ class AppController extends ChangeNotifier {
     if (entry.weightKg <= 0) return;
     final index = weightEntries.indexWhere((item) => item.id == entry.id);
     if (index < 0) return;
-    weightEntries[index] = entry;
+    weightEntries[index] = entry.copyWith(updatedAt: DateTime.now().toUtc());
     weightEntries.sort((a, b) => b.recordedAt.compareTo(a.recordedAt));
     notifyListeners();
     try {
@@ -2827,6 +2959,7 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> deleteWeightEntry(String id) async {
+    await _markWebDeletion('weight', id);
     weightEntries.removeWhere((item) => item.id == id);
     notifyListeners();
     try {
@@ -2895,7 +3028,17 @@ class AppController extends ChangeNotifier {
 
   double get todayWaterMl => waterMlForDay(DateTime.now());
 
+  Map<String, dynamic>? nutritionGoalForDay(DateTime day) {
+    final date =
+        '${day.year.toString().padLeft(4, '0')}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
+    final goals = nutritionGoals.where((g) => g['date'] == date).toList()
+      ..sort((a, b) => webRecordTime(b).compareTo(webRecordTime(a)));
+    return goals.firstOrNull;
+  }
+
   double? get estimatedDailyCalories {
+    final explicit = nutritionGoalForDay(DateTime.now())?['calories'];
+    if (explicit is num) return explicit.toDouble();
     final profile = trainingProfile;
     if (profile.weightKg == null ||
         profile.heightCm == null ||
@@ -4677,6 +4820,12 @@ class AppController extends ChangeNotifier {
       const ExerciseResource(note: '', link: '');
 
   void deleteRecord(WorkoutRecord record) {
+    unawaited(
+      _markWebDeletion(
+        'workoutHistory',
+        record.id,
+      ).then((_) => backupUserData()),
+    );
     history.remove(record);
     _persistWorkoutHistory();
     notifyListeners();
@@ -4687,6 +4836,7 @@ class AppController extends ChangeNotifier {
     if (index < 0) return;
     history[index] = WorkoutRecord(
       id: record.id,
+      updatedAt: DateTime.now().toUtc(),
       name: record.name,
       date: record.date,
       startTime: record.startTime,
@@ -4711,6 +4861,7 @@ class AppController extends ChangeNotifier {
     if (index < 0) return;
     history[index] = WorkoutRecord(
       id: record.id,
+      updatedAt: DateTime.now().toUtc(),
       name: name.trim(),
       date: record.date,
       startTime: record.startTime,
@@ -4854,6 +5005,9 @@ class AppController extends ChangeNotifier {
   }
 
   void deleteRoutine(Routine routine) {
+    unawaited(
+      _markWebDeletion('plan', routine.id).then((_) => backupUserData()),
+    );
     routines.remove(routine);
     _persistTrainingLibrary();
     notifyListeners();
