@@ -1,3 +1,4 @@
+import {initializeEquipment,readEquipment,saveEquipment,equipmentSchema} from './exercise-equipment.mjs';
 import { initializeManagement, manageAgent } from './agent-management.mjs';
 import { storageStatus, selectStorage, isBrowserStorage, broker } from './browser-bridge.mjs';
 import { initializeRecords, appExercises, exerciseHistory, mutateRecord, mutationSchema, nutritionDay, recordData, recordSchemas, exerciseSchema } from './web-records.mjs';
@@ -21,6 +22,7 @@ const textResult = (data) => ({ content:[{type:'text',text:JSON.stringify(data)}
 const pagination = { limit:z.number().int().min(1).max(100).default(20),offset:z.number().int().min(0).max(100000).default(0),startDate:z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),endDate:z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional() };
 export function initializeAgent(db) {
   initializeManagement(db);
+  initializeEquipment(db);
   initializeRemote(db);
   initializeRecords(db);
   db.exec(`
@@ -92,6 +94,7 @@ function createMemberMcp(ctx,token,api) {
   const managementTool=(name,scope,kind,inputSchema)=>{if(!scopes.includes(scope))return;server.registerTool(name,{description:kind==='skill'?'创建、更新或删除本人的共享技能，保存到服务器。external=true 才向外部 AI 共享；幂等键必填。':'创建或追加本人服务器聊天记录，更新标题或删除会话。messages 含 user/assistant role 和 content；不覆盖 App 同步的 mobile: 历史。幂等键必填。',inputSchema,annotations:{readOnlyHint:false,destructiveHint:true,idempotentHint:true}},async(args)=>{try{await check(scope,name);if(isBrowserStorage(ctx,userId))fail(409,'server_storage_required');return textResult(manageAgent(ctx,userId,kind,args));}catch(e){return {isError:true,content:[{type:'text',text:e.code||'write_failed'}]};}});};
   managementTool('save_skill','skills.write','skill',{idempotencyKey:z.string().min(8).max(150),action:z.enum(['save','delete']).default('save'),skillId:z.string().regex(/^[a-zA-Z0-9_-]{1,100}$/).optional(),record:z.object({name:z.string().trim().min(1).max(100),description:z.string().max(500).default(''),instructions:z.string().trim().min(1).max(12000),enabled:z.boolean().default(true),external:z.boolean().default(true)}).optional()});
   managementTool('save_conversation','chats.write','conversation',{idempotencyKey:z.string().min(8).max(150),action:z.enum(['save','delete']).default('save'),conversationId:z.string().regex(/^[a-zA-Z0-9_-]{1,120}$/).optional(),title:z.string().trim().min(1).max(200).optional(),messages:z.array(z.object({role:z.enum(['user','assistant']),content:z.string().min(1).max(20000)})).max(100).default([])});
+  if(scopes.includes('workouts.write'))server.registerTool('save_exercise_equipment',{description:'给本人动作保存器械名称与照片，或修改、删除。photo 为 JPEG/PNG/WebP base64 data URL，图片最大1MB，保存到服务器；equipmentId 用于修改删除。',inputSchema:equipmentSchema.shape,annotations:{readOnlyHint:false,destructiveHint:true}},async(a)=>{try{await check('workouts.write','save_exercise_equipment');return textResult(saveEquipment(ctx,userId,a,id=>appExercises(id).records.some(e=>e.id===id)));}catch(e){return {isError:true,content:[{type:'text',text:e.code||e.message}]};}});
   const register=(name,scope,description,inputSchema,fn)=>{
     if (!scopes.includes(scope)) return;
     server.registerTool(name,{description,inputSchema,annotations:{readOnlyHint:true,destructiveHint:false,openWorldHint:false}},async(args)=>{
@@ -100,6 +103,7 @@ function createMemberMcp(ctx,token,api) {
     });
   };
   for(const [name,kind] of [['append_plan_exercise','plan'],['append_current_workout_exercise','activeWorkout']]){if(scopes.includes('workouts.write'))server.registerTool(name,{description:'将 App 动作库动作追加到指定计划或当前训练，保留原动作及备注。exercise 含稳定 exerciseId、sets（每组重量次数休息备注），idempotencyKey 必填，重试使用相同参数；expectedVersion 可防止覆盖。',inputSchema:{idempotencyKey:z.string().min(8).max(150),planId:z.string().optional(),expectedVersion:z.string().optional(),exercise:exerciseSchema},annotations:{readOnlyHint:false,destructiveHint:false,idempotentHint:true}},async(a)=>{try{await check('workouts.write',name);return textResult(await mutateRecord(ctx,userId,kind,{idempotencyKey:a.idempotencyKey,action:'append',recordId:kind==='plan'?a.planId:'active-workout',...(a.expectedVersion?{expectedVersion:a.expectedVersion}:{}),exercise:a.exercise}));}catch(e){return {isError:true,content:[{type:'text',text:e.code||'write_failed'}]};}});}
+  register('read_exercise_equipment','workouts','读取本人给动作添加的器械名称和照片，照片为 data URL。',{exerciseId:z.string().max(120)},a=>readEquipment(ctx,userId,a.exerciseId));
   register('read_current_workout','workouts','读取正在进行中的训练草稿及每组数据，未开始时返回 null。',{},async()=>({workout:(await recordData(ctx,userId)).activeWorkout||null}));
   register('get_app_exercise','workouts','读取 App 动作详情、教学步骤、图像路径、肌群与器械，使用稳定 ID。',{exerciseId:z.string().max(120)},a=>{const e=appExercises(a.exerciseId).records.find(e=>e.id===a.exerciseId);if(!e)fail(404,'exercise_not_found');return {...e,imageUrl:e.imageAsset?ctx.cfg.agentPublicBaseUrl+'/agent/exercise-media/'+e.imageAsset:null,gifUrl:e.gifAsset?ctx.cfg.agentPublicBaseUrl+'/agent/exercise-media/'+e.gifAsset:null};});
   register('search_app_exercises','workouts','查找本 App 动作库，返回用于训练保存的稳定动作 ID、中文名和器械。',{query:z.string().max(100).default(''),muscle:z.string().max(50).default(''),equipment:z.string().max(50).default('')},a=>appExercises(a.query,a.muscle,a.equipment));
@@ -197,6 +201,8 @@ export async function handleAgentRequest(req,res,ctx,api) {
   if(url.pathname==='/v1/agent/app-exercises'&&req.method==='GET'){write(200,appExercises(url.searchParams.get('query')||'',url.searchParams.get('muscle')||'',url.searchParams.get('equipment')||''));return true;}
   if(url.pathname==='/v1/agent/exercise-progress'&&req.method==='GET'){write(200,await exerciseHistory(ctx,user.id,url.searchParams.get('exerciseId')||''));return true;}
   if(url.pathname==='/v1/agent/nutrition-day'&&req.method==='GET'){const day=url.searchParams.get('date')||'';if(!/^\d{4}-\d{2}-\d{2}$/.test(day))fail(400,'invalid_date');write(200,await nutritionDay(ctx,user.id,day));return true;}
+  if(url.pathname==='/v1/agent/exercise-equipment'&&req.method==='GET'){write(200,readEquipment(ctx,user.id,url.searchParams.get('exerciseId')||''));return true;}
+  if(url.pathname==='/v1/agent/exercise-equipment'&&req.method==='POST'){write(200,saveEquipment(ctx,user.id,await api.readBody(req,ctx.cfg.maxJsonBytes),id=>appExercises(id).records.some(e=>e.id===id)));return true;}
   const recordMatch=url.pathname.match(/^\/v1\/agent\/records\/(workout|plan|nutrition|weight|profile|nutritionGoals|activeWorkout)$/);
   if(recordMatch&&req.method==='POST'){const result=await mutateRecord(ctx,user.id,recordMatch[1],await api.readBody(req,ctx.cfg.maxJsonBytes));write(200,result);return true;}
   const exerciseMatch=url.pathname.match(/^\/v1\/agent\/exercises\/(\d+)$/);
