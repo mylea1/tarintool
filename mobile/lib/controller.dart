@@ -1686,14 +1686,65 @@ class AppController extends ChangeNotifier {
     if (cloudSyncAllowed) await backupUserData();
   }
 
-  Future<void> backupUserData() async {
+  Future<void> _cloudBackupWriteChain = Future<void>.value();
+
+  Future<void> uploadLocalDataToCloud() async {
+    final userId = currentUser?.id;
+    if (userId == null) throw StateError('请先登录账号');
+    await refreshRemoteEntitlements();
+    if (currentUser?.id != userId) throw StateError('账号已切换，请重新上传');
+    if (!cloudSyncAllowed) {
+      throw StateError('App 云端上传需要有效会员');
+    }
+    await backupUserData(throwOnError: true);
+    if (currentUser?.id != userId) throw StateError('账号已切换，请重新上传');
+  }
+
+  Future<void> backupUserData({bool throwOnError = false}) async {
+    final owner = currentUser?.id;
+    final work = _cloudBackupWriteChain.then((_) async {
+      if (owner == null || currentUser?.id != owner) return;
+      for (var attempt = 0; ; attempt++) {
+        try {
+          await _performCloudBackup(throwOnError: true);
+          return;
+        } catch (e) {
+          if (attempt >= 2 || currentUser?.id != owner) rethrow;
+          await Future<void>.delayed(
+            Duration(milliseconds: 400 * (attempt + 1)),
+          );
+        }
+      }
+    });
+    _cloudBackupWriteChain = work.catchError((Object _) {});
+    try {
+      await work;
+    } catch (_) {
+      if (throwOnError) rethrow;
+    }
+  }
+
+  Future<void> _performCloudBackup({bool throwOnError = false}) async {
     final userId = currentUser?.id;
     if (userId == null || userId.isEmpty || !cloudSyncAllowed) return;
     try {
-      await Future.wait([_historyWriteChain, _aiConversationWriteChain]);
+      await Future.wait([
+        _historyWriteChain,
+        _aiConversationWriteChain,
+        _trainingLibraryWriteChain,
+        _activeWorkoutWriteChain,
+        _customExerciseWriteChain,
+      ]);
       final api = await _activeCoachApi();
-      if (api is! HttpCoachApi || currentUser?.id != userId) return;
+      if (api is! HttpCoachApi || currentUser?.id != userId) {
+        throw StateError('云端连接不可用，请重新登录后上传');
+      }
       final preferences = await SharedPreferences.getInstance();
+      final diskHistory = await workoutHistoryPersistence.read(userId);
+      final diskLibrary = await trainingLibraryPersistence.read(userId);
+      if (currentUser?.id != userId) throw StateError('账号已切换，请重新上传');
+      final rawCustom = preferences.getString('custom_exercises_v1_$userId');
+      final rawSkills = preferences.getString('xingyu.ai-skills.v1.$userId');
       final rawAi = preferences.getString('xingyu.ai-conversations.v1.$userId');
       final rawProfile = preferences.getString(
         'kilo.training-profile.v1.$userId',
@@ -1720,6 +1771,9 @@ class AppController extends ChangeNotifier {
       final localBackup = <String, dynamic>{
         'schemaVersion': 1,
         'updatedAt': DateTime.now().toUtc().toIso8601String(),
+        if (rawCustom?.isNotEmpty == true)
+          'customExercises': jsonDecode(rawCustom!),
+        if (rawSkills?.isNotEmpty == true) 'aiSkills': jsonDecode(rawSkills!),
         'routineFolders': routineFolders,
         'scheduledLabels': scheduledLabels,
         if (rawAi?.isNotEmpty == true) 'aiConversations': jsonDecode(rawAi!),
@@ -1743,6 +1797,7 @@ class AppController extends ChangeNotifier {
       );
       mergedBackup.remove('workoutHistory');
       mergedBackup.remove('trainingLibrary');
+      if (currentUser?.id != userId) throw StateError('账号已切换，请重新上传');
       await api.upsertSyncEntity(
         entityType: 'settings',
         entityId: _cloudBackupEntityId,
@@ -1756,7 +1811,10 @@ class AppController extends ChangeNotifier {
               (item['revision'] as num?)?.toInt() ?? 0,
       };
       final mergedWorkouts = mergeWebRecords(
-        encodeWorkoutRecords(history),
+        mergeWebRecords(
+          encodeWorkoutRecords(history),
+          encodeWorkoutRecords(diskHistory),
+        ),
         workoutCloud
             .where((e) => e['deleted'] != true)
             .map((e) => e['payload'])
@@ -1770,6 +1828,7 @@ class AppController extends ChangeNotifier {
       );
       for (final recordMap in mergedWorkouts) {
         final record = decodeWorkoutRecords([recordMap]).first;
+        if (currentUser?.id != userId) throw StateError('账号已切换，请重新上传');
         await api.upsertSyncEntity(
           entityType: 'workout',
           entityId: record.id,
@@ -1791,7 +1850,10 @@ class AppController extends ChangeNotifier {
         ),
       );
       final mergedPlans = mergeWebRecords(
-        localPlans['routines'],
+        mergeWebRecords(
+          localPlans['routines'],
+          encodeTrainingLibrary(diskLibrary)['routines'],
+        ),
         planCloud
             .where((e) => e['deleted'] != true)
             .map((e) => e['payload'])
@@ -1814,6 +1876,7 @@ class AppController extends ChangeNotifier {
             scheduledLabels: const {},
           ),
         );
+        if (currentUser?.id != userId) throw StateError('账号已切换，请重新上传');
         await api.upsertSyncEntity(
           entityType: 'plan',
           entityId: routine.id,
@@ -1822,7 +1885,8 @@ class AppController extends ChangeNotifier {
         );
       }
     } catch (_) {
-      // Sync must never interrupt training or chat. A later write retries it.
+      if (throwOnError) rethrow;
+      // Automatic backups keep local training usable; manual uploads report errors.
     }
   }
 

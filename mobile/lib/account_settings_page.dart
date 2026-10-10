@@ -70,6 +70,22 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
     }
   }
 
+  Future<void> uploadLocalData() async {
+    setState(() => syncingWeb = true);
+    try {
+      await widget.controller.uploadLocalDataToCloud();
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('本地记录已上传云端，网页 / MCP 可读取')));
+      }
+    } catch (e) {
+      if (mounted) setState(() => error = '上传未完成：$e');
+    } finally {
+      if (mounted) setState(() => syncingWeb = false);
+    }
+  }
+
   Future<void> syncWebRecords() async {
     setState(() => syncingWeb = true);
     try {
@@ -169,6 +185,13 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                   title: const Text('导入 Web / MCP 本地备份'),
                   subtitle: const Text('合并训练、逐组备注、饮食、身体资料与每日目标'),
                   onTap: syncingWeb ? null : importWebRecords,
+                ),
+                ListTile(
+                  key: const Key('upload-local-cloud-records'),
+                  leading: const Icon(Icons.cloud_upload_outlined),
+                  title: const Text('上传本地记录到云端'),
+                  subtitle: const Text('读取手机本地记录，合并云端较新数据后上传'),
+                  onTap: syncingWeb ? null : uploadLocalData,
                 ),
                 ListTile(
                   key: const Key('sync-web-records'),

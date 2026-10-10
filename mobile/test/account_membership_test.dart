@@ -9,6 +9,7 @@ import 'package:kilo_strength/ai_api.dart';
 import 'package:kilo_strength/controller.dart';
 import 'package:kilo_strength/main.dart';
 import 'package:kilo_strength/models.dart';
+import 'package:kilo_strength/workout_history_persistence.dart';
 import 'package:kilo_strength/recognition_api.dart';
 import 'package:kilo_strength/secure_session_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -23,6 +24,8 @@ class _SyncCoachApi extends HttpCoachApi {
   String membership;
   int syncReads = 0;
   int syncWrites = 0;
+  int failuresRemaining = 0;
+  final uploadedIds = <String>[];
 
   @override
   Future<Map<String, dynamic>> fetchEntitlements() async => {
@@ -45,6 +48,8 @@ class _SyncCoachApi extends HttpCoachApi {
     required int baseRevision,
   }) async {
     syncWrites += 1;
+    if (failuresRemaining-- > 0) throw StateError('temporary upload failure');
+    uploadedIds.add('$entityType:$entityId');
     return const {};
   }
 }
@@ -683,6 +688,82 @@ void main() {
 
       expect(restored.preferredWeekdays, [1, 2, 3, 4]);
       expect(restored.weeklyTrainingDays, 4);
+    },
+  );
+
+  test(
+    'manual cloud upload includes disk-only records and retries failures',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final service = AccountService()..loginWithPhone('13800138021');
+      final userId = service.currentUser!.id;
+      final records = InMemoryWorkoutHistoryPersistence();
+      final library = InMemoryTrainingLibraryPersistence();
+      await records.write(userId, [
+        WorkoutRecord(
+          id: 'disk-workout',
+          name: 'Local',
+          date: DateTime.utc(2026, 10, 11),
+          startTime: '12:00',
+          durationSeconds: 60,
+          volume: 10,
+          effectiveSets: 1,
+          exerciseIds: const [],
+        ),
+      ]);
+      await library.write(
+        userId,
+        TrainingLibrarySnapshot(
+          routines: [
+            Routine(
+              id: 'disk-plan',
+              name: 'Local plan',
+              folder: '',
+              exercises: [],
+              updatedAt: DateTime.utc(2026, 10, 11),
+            ),
+          ],
+          routineFolders: const [],
+          scheduledLabels: const {},
+        ),
+      );
+      final api = _SyncCoachApi('yearly')..failuresRemaining = 1;
+      final controller = AppController(
+        accountService: service,
+        coachApi: api,
+        recognitionApi: UnconfiguredRecognitionApi(),
+        workoutHistoryPersistence: records,
+        trainingLibraryPersistence: library,
+      );
+      addTearDown(controller.dispose);
+      expect(controller.history.where((r) => r.id == 'disk-workout'), isEmpty);
+      await controller.uploadLocalDataToCloud();
+      expect(
+        api.uploadedIds,
+        containsAll(['workout:disk-workout', 'plan:disk-plan']),
+      );
+      expect(api.failuresRemaining, lessThan(0));
+    },
+  );
+
+  test(
+    'manual cloud upload reports exhausted failures and rejects free accounts',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final service = AccountService()..loginWithPhone('13800138022');
+      final api = _SyncCoachApi('free');
+      final controller = AppController(
+        accountService: service,
+        coachApi: api,
+        recognitionApi: UnconfiguredRecognitionApi(),
+      );
+      addTearDown(controller.dispose);
+      await expectLater(controller.uploadLocalDataToCloud(), throwsStateError);
+      expect(api.syncWrites, 0);
+      api.membership = 'yearly';
+      api.failuresRemaining = 3;
+      await expectLater(controller.uploadLocalDataToCloud(), throwsStateError);
+      expect(api.syncWrites, 3);
     },
   );
 
