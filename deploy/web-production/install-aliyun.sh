@@ -38,9 +38,13 @@ r=Path(sys.argv[1]);b=Path(sys.argv[2])
 p=Path('/etc/nginx/conf.d/kilo-website.conf')
 s=p.read_text()
 pattern=r'(?ms)^[ \t]*location\s+/agent/\s*\{.*?^[ \t]*\}'
-assert len(re.findall(pattern,s))==1, 'Unexpected existing /agent/ configuration'
-assert not re.search(r'location\s+(?:=\s+)?/mcp',s), 'Existing MCP routing requires review'
-s=re.sub(pattern,(r/'deploy/web-production/nginx-locations.conf').read_text().strip(),s,count=1)
+if re.search(r'location\s+\^~\s+/agent/',s):
+ for route in [r'location\s+=\s+/mcp',r'location\s+\^~\s+/v1/agent/']:
+  assert re.search(route,s), 'Incomplete existing agent routing'
+else:
+ assert len(re.findall(pattern,s))==1, 'Unexpected existing /agent/ configuration'
+ assert not re.search(r'location\s+(?:=\s+)?/mcp',s), 'Existing MCP routing requires review'
+ s=re.sub(pattern,(r/'deploy/web-production/nginx-locations.conf').read_text().strip(),s,count=1)
 (b/'new-kilo-website.conf').write_text(s)
 p=Path('/etc/kilo/kilo.env');s=p.read_text()
 s=re.sub(r'(?m)^KILO_AGENT_PUBLIC_BASE_URL=.*\n?', '', s)

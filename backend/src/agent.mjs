@@ -1,3 +1,4 @@
+import { initializeManagement, manageAgent } from './agent-management.mjs';
 import { storageStatus, selectStorage, isBrowserStorage, broker } from './browser-bridge.mjs';
 import { initializeRecords, appExercises, exerciseHistory, mutateRecord, mutationSchema, nutritionDay, recordData, recordSchemas, exerciseSchema } from './web-records.mjs';
 import fs from 'node:fs';
@@ -12,13 +13,14 @@ import { randomId, randomToken, sha256, nowIso } from './security.mjs';
 import { cloudData, dashboard, pageRecords, conversationList, conversationDetail, BUILTIN_SKILLS } from './agent-data.mjs';
 
 const root = fileURLToPath(new URL('../agent-web/', import.meta.url));
-const SCOPES = ['workouts','profile','nutrition','chats','skills','workouts.write','profile.write','nutrition.write'];
+const SCOPES = ['workouts','profile','nutrition','chats','skills','workouts.write','profile.write','nutrition.write','skills.write','chats.write'];
 const fail = (status, code) => { throw Object.assign(new Error(code),{status,code}); };
 const bounded = (v,n=200) => typeof v==='string' ? v.trim().slice(0,n) : '';
 const json = (v) => JSON.parse(v);
 const textResult = (data) => ({ content:[{type:'text',text:JSON.stringify(data)}] });
 const pagination = { limit:z.number().int().min(1).max(100).default(20),offset:z.number().int().min(0).max(100000).default(0),startDate:z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),endDate:z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional() };
 export function initializeAgent(db) {
+  initializeManagement(db);
   initializeRemote(db);
   initializeRecords(db);
   db.exec(`
@@ -76,7 +78,7 @@ function createMemberMcp(ctx,token,api) {
     if (!scopes.includes(scope)) fail(403,'mcp_scope_required');
     if(!isBrowserStorage(ctx,userId))await refreshBackend(ctx,userId);
     ctx.db.prepare('UPDATE agent_tokens SET last_used_at=? WHERE id=?').run(nowIso(),token.id);
-    audit(ctx,userId,'mcp_read',operation,{tokenId:token.id,scope});
+    audit(ctx,userId,scope.endsWith('.write')?'mcp_write':'mcp_read',operation,{tokenId:token.id,scope});
   };
   const server=new McpServer({name:'traintool',version:'2.0.0'});
   const writeTool=(name,scope,description,kind)=>{if(!scopes.includes(scope))return;server.registerTool(name,{description,inputSchema:{...mutationSchema.shape,record:recordSchemas[kind].optional()},annotations:{readOnlyHint:false,destructiveHint:true,idempotentHint:true,openWorldHint:false}},async(args)=>{try{await check(scope,name);return textResult(await mutateRecord(ctx,userId,kind,args));}catch(e){return {isError:true,content:[{type:'text',text:e.code||'write_failed'}]};}});};
@@ -87,6 +89,9 @@ function createMemberMcp(ctx,token,api) {
   writeTool('save_body_weight','profile.write','记录体重：record 含 recordedAt、weightKg、可选 bodyFatPercent 和 note。支持修改与删除。','weight');
   writeTool('save_body_profile','profile.write','合并维护本人身体与训练资料：heightCm/weightKg/gender/age/goal/trainingYears/preferredWeekdays/focusMuscles 等。保留未提供字段。','profile');
   writeTool('save_nutrition_goal','nutrition.write','保存用户或外部 AI 计算的某日热量目标。record 含 date(YYYY-MM-DD)、calories、goalType(减脂/维持/增肌/其他)、basis计算依据、source(user/external-ai)，可选营养素目标。先询问缺失资料；目标和建议由外部 AI 计算，服务不伪造计算结果。','nutritionGoals');
+  const managementTool=(name,scope,kind,inputSchema)=>{if(!scopes.includes(scope))return;server.registerTool(name,{description:kind==='skill'?'创建、更新或删除本人的共享技能，保存到服务器。external=true 才向外部 AI 共享；幂等键必填。':'创建或追加本人服务器聊天记录，更新标题或删除会话。messages 含 user/assistant role 和 content；不覆盖 App 同步的 mobile: 历史。幂等键必填。',inputSchema,annotations:{readOnlyHint:false,destructiveHint:true,idempotentHint:true}},async(args)=>{try{await check(scope,name);if(isBrowserStorage(ctx,userId))fail(409,'server_storage_required');return textResult(manageAgent(ctx,userId,kind,args));}catch(e){return {isError:true,content:[{type:'text',text:e.code||'write_failed'}]};}});};
+  managementTool('save_skill','skills.write','skill',{idempotencyKey:z.string().min(8).max(150),action:z.enum(['save','delete']).default('save'),skillId:z.string().regex(/^[a-zA-Z0-9_-]{1,100}$/).optional(),record:z.object({name:z.string().trim().min(1).max(100),description:z.string().max(500).default(''),instructions:z.string().trim().min(1).max(12000),enabled:z.boolean().default(true),external:z.boolean().default(true)}).optional()});
+  managementTool('save_conversation','chats.write','conversation',{idempotencyKey:z.string().min(8).max(150),action:z.enum(['save','delete']).default('save'),conversationId:z.string().regex(/^[a-zA-Z0-9_-]{1,120}$/).optional(),title:z.string().trim().min(1).max(200).optional(),messages:z.array(z.object({role:z.enum(['user','assistant']),content:z.string().min(1).max(20000)})).max(100).default([])});
   const register=(name,scope,description,inputSchema,fn)=>{
     if (!scopes.includes(scope)) return;
     server.registerTool(name,{description,inputSchema,annotations:{readOnlyHint:true,destructiveHint:false,openWorldHint:false}},async(args)=>{
@@ -232,6 +237,8 @@ export async function handleAgentRequest(req,res,ctx,api) {
   }
   if (url.pathname==='/v1/agent/tokens'&&req.method==='POST') {
     const b=await api.readBody(req,ctx.cfg.maxJsonBytes),label=bounded(b.label,100);
+    const full=b.access==='full'||(Array.isArray(b.scopes)&&b.scopes.length===1&&b.scopes[0]==='*')||b.scopes===undefined||(Array.isArray(b.scopes)&&SCOPES.every(scope=>b.scopes.includes(scope)));
+    if(full){if(isBrowserStorage(ctx,user.id))fail(409,'server_storage_required');b.scopes=[...SCOPES];}
     if(!label||!Array.isArray(b.scopes)||!b.scopes.length||b.scopes.some((s)=>!SCOPES.includes(s)))fail(400,'invalid_mcp_scopes');
     const days=b.days===undefined?30:Number(b.days);if(!Number.isInteger(days)||days<1||days>90)fail(400,'invalid_token_expiry');
     if(ctx.db.prepare('SELECT COUNT(*) AS n FROM agent_tokens WHERE user_id=? AND revoked_at IS NULL AND expires_at>?').get(user.id,nowIso()).n>=20)fail(400,'token_limit_reached');
