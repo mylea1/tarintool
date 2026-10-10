@@ -1,3 +1,6 @@
+import {syncWebToApp} from './web-app-sync.mjs';
+import {initializeWebAccounts,webAccountAuth} from './web-accounts.mjs';
+import {uploadAsset,serveAsset} from './exercise-assets.mjs';
 import {initializeEquipment,readEquipment,saveEquipment,equipmentSchema} from './exercise-equipment.mjs';
 import { initializeManagement, manageAgent } from './agent-management.mjs';
 import { storageStatus, selectStorage, isBrowserStorage, broker } from './browser-bridge.mjs';
@@ -22,6 +25,7 @@ const textResult = (data) => ({ content:[{type:'text',text:JSON.stringify(data)}
 const pagination = { limit:z.number().int().min(1).max(100).default(20),offset:z.number().int().min(0).max(100000).default(0),startDate:z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),endDate:z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional() };
 export function initializeAgent(db) {
   initializeManagement(db);
+  initializeWebAccounts(db);
   initializeEquipment(db);
   initializeRemote(db);
   initializeRecords(db);
@@ -53,7 +57,7 @@ export function skillsFor(db,userId) {
   const saved=db.prepare('SELECT * FROM agent_skills WHERE user_id=? ORDER BY updated_at DESC').all(userId).map((s)=>({id:s.id,name:s.name,description:s.description,instructions:s.instructions,enabled:!!s.enabled,external:!!s.external,builtin:BUILTIN_SKILLS.some((b)=>b.id===s.id)}));
   return [...saved,...BUILTIN_SKILLS.filter((s)=>!saved.some((x)=>x.id===s.id))];
 }
-function member(ctx,userId,api) { api.requireActiveMembership(ctx.db,userId); }
+function member(ctx,userId,api) { if(!ctx.db.prepare('SELECT user_id FROM web_accounts WHERE user_id=?').get(userId))api.requireActiveMembership(ctx.db,userId); }
 function ownedConversation(ctx,userId,id) {
   const c=ctx.db.prepare('SELECT * FROM conversations WHERE id=? AND user_id=?').get(id,userId);
   if (!c) fail(404,'conversation_not_found');
@@ -94,7 +98,7 @@ function createMemberMcp(ctx,token,api) {
   const managementTool=(name,scope,kind,inputSchema)=>{if(!scopes.includes(scope))return;server.registerTool(name,{description:kind==='skill'?'创建、更新或删除本人的共享技能，保存到服务器。external=true 才向外部 AI 共享；幂等键必填。':'创建或追加本人服务器聊天记录，更新标题或删除会话。messages 含 user/assistant role 和 content；不覆盖 App 同步的 mobile: 历史。幂等键必填。',inputSchema,annotations:{readOnlyHint:false,destructiveHint:true,idempotentHint:true}},async(args)=>{try{await check(scope,name);if(isBrowserStorage(ctx,userId))fail(409,'server_storage_required');return textResult(manageAgent(ctx,userId,kind,args));}catch(e){return {isError:true,content:[{type:'text',text:e.code||'write_failed'}]};}});};
   managementTool('save_skill','skills.write','skill',{idempotencyKey:z.string().min(8).max(150),action:z.enum(['save','delete']).default('save'),skillId:z.string().regex(/^[a-zA-Z0-9_-]{1,100}$/).optional(),record:z.object({name:z.string().trim().min(1).max(100),description:z.string().max(500).default(''),instructions:z.string().trim().min(1).max(12000),enabled:z.boolean().default(true),external:z.boolean().default(true)}).optional()});
   managementTool('save_conversation','chats.write','conversation',{idempotencyKey:z.string().min(8).max(150),action:z.enum(['save','delete']).default('save'),conversationId:z.string().regex(/^[a-zA-Z0-9_-]{1,120}$/).optional(),title:z.string().trim().min(1).max(200).optional(),messages:z.array(z.object({role:z.enum(['user','assistant']),content:z.string().min(1).max(20000)})).max(100).default([])});
-  if(scopes.includes('workouts.write'))server.registerTool('save_exercise_equipment',{description:'给本人动作保存器械名称与照片，或修改、删除。photo 为 JPEG/PNG/WebP base64 data URL，图片最大1MB，保存到服务器；equipmentId 用于修改删除。',inputSchema:equipmentSchema.shape,annotations:{readOnlyHint:false,destructiveHint:true}},async(a)=>{try{await check('workouts.write','save_exercise_equipment');return textResult(saveEquipment(ctx,userId,a,id=>appExercises(id).records.some(e=>e.id===id)));}catch(e){return {isError:true,content:[{type:'text',text:e.code||e.message}]};}});
+  if(scopes.includes('workouts.write'))server.registerTool('save_exercise_equipment',{description:'给本人动作保存器械名称与照片，或修改、删除。photo 为 JPEG/PNG/WebP base64 data URL，图片最大1MB，保存到服务器；equipmentId 用于修改删除。',inputSchema:equipmentSchema.shape,annotations:{readOnlyHint:false,destructiveHint:true}},async(a)=>{try{await check('workouts.write','save_exercise_equipment');return textResult(await saveEquipment(ctx,userId,a,id=>appExercises(id).records.some(e=>e.id===id)));}catch(e){return {isError:true,content:[{type:'text',text:e.code||e.message}]};}});
   const register=(name,scope,description,inputSchema,fn)=>{
     if (!scopes.includes(scope)) return;
     server.registerTool(name,{description,inputSchema,annotations:{readOnlyHint:true,destructiveHint:false,openWorldHint:false}},async(args)=>{
@@ -168,17 +172,21 @@ function staticFile(req,res,pathname) {
   const full=path.join(root,file);
   if (!fs.existsSync(full)) return false;
   const type=file.endsWith('.html')?'text/html':file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':file.endsWith('.svg')?'image/svg+xml':file.endsWith('.png')?'image/png':file.endsWith('.json')?'application/json':'text/plain';
-  res.writeHead(200,{'content-type':`${type}; charset=utf-8`,'cache-control':'no-cache','x-content-type-options':'nosniff','content-security-policy':"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",'referrer-policy':'no-referrer'});
+  res.writeHead(200,{'content-type':`${type}; charset=utf-8`,'cache-control':'no-cache','x-content-type-options':'nosniff','content-security-policy':"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",'referrer-policy':'no-referrer'});
   res.end(req.method==='HEAD'?undefined:fs.readFileSync(full));return true;
 }
 export async function handleAgentRequest(req,res,ctx,api) {
   const url=new URL(req.url,'http://localhost');
   if(['/zh-hans/dashboard','/kilo/'].includes(url.pathname)){res.writeHead(302,{location:'/agent/'});res.end();return true;}
   if (staticFile(req,res,url.pathname)) return true;
+  if(url.pathname==='/v1/agent/setup'&&req.method==='GET'){api.writeJson(res,200,{registerUrl:(ctx.cfg.agentPublicBaseUrl||ctx.cfg.publicBaseUrl)+'/agent/?register=1',mcpUrl:(ctx.cfg.agentPublicBaseUrl||ctx.cfg.publicBaseUrl)+'/mcp',instructions:'Create a web account yourself, then grant an MCP token in Settings. No App account required. Connect an App member account later to sync.'},req,ctx.cfg);return true;}
+  if(['/v1/agent/register','/v1/agent/login'].includes(url.pathname)&&req.method==='POST'){api.writeJson(res,url.pathname.endsWith('register')?201:200,webAccountAuth(ctx,req,await api.readBody(req,ctx.cfg.maxJsonBytes),url.pathname.endsWith('register')),req,ctx.cfg);return true;}
   const media=url.pathname.match(/^\/agent\/exercise-media\/(\d{4}\.(?:jpg|gif))$/);
   if(media&&['GET','HEAD'].includes(req.method)){const full=fileURLToPath(new URL('../../mobile/assets/exercises/reference/'+media[1],import.meta.url));if(!fs.existsSync(full))fail(404,'exercise_media_missing');res.writeHead(200,{'content-type':media[1].endsWith('.gif')?'image/gif':'image/jpeg','cache-control':'public, max-age=86400'});res.end(req.method==='HEAD'?undefined:fs.readFileSync(full));return true;}
   if (url.pathname==='/mcp') {await mcpRequest(req,res,ctx,api);return true;}
   if (!url.pathname.startsWith('/v1/agent/')) return false;
+  const assetMatch=url.pathname.match(/^\/v1\/agent\/exercise-media\/(asset_[a-zA-Z0-9_-]+)$/);
+  if(assetMatch&&['GET','HEAD'].includes(req.method)){let owner;try{owner=api.authenticate(req,ctx).id;member(ctx,owner,api);}catch(e){const grant=authorizeMcp(req,ctx,api);if(!json(grant.scopes_json).includes('workouts'))fail(403,'mcp_scope_required');owner=grant.user_id;}serveAsset(ctx,owner,assetMatch[1],req,res);return true;}
   const user=api.authenticate(req,ctx);
   member(ctx,user.id,api);
   const write=(status,data)=>api.writeJson(res,status,data,req,ctx.cfg);
@@ -192,6 +200,7 @@ export async function handleAgentRequest(req,res,ctx,api) {
    if(url.pathname==='/v1/agent/device/result'&&req.method==='POST'){const b=await api.readBody(req,12*1024*1024);broker(ctx).complete(user.id,deviceId,b.id,b.result,b.error);write(200,{ok:true});return true;}
    fail(404,'device_route_not_found');
   }
+  if(url.pathname==='/v1/agent/backend/import'&&req.method==='POST'){write(200,await syncWebToApp(ctx,user.id));return true;}
   if(url.pathname==='/v1/agent/backend'&&req.method==='POST') {write(200,await connectBackend(ctx,user.id,await api.readBody(req,ctx.cfg.maxJsonBytes)));return true;}
   if(url.pathname==='/v1/agent/backend'&&req.method==='DELETE') {disconnectBackend(ctx,user.id);write(200,backendStatus(ctx,user.id));return true;}
   // Disconnect remains available even when an upstream session is expired.
@@ -201,8 +210,9 @@ export async function handleAgentRequest(req,res,ctx,api) {
   if(url.pathname==='/v1/agent/app-exercises'&&req.method==='GET'){write(200,appExercises(url.searchParams.get('query')||'',url.searchParams.get('muscle')||'',url.searchParams.get('equipment')||''));return true;}
   if(url.pathname==='/v1/agent/exercise-progress'&&req.method==='GET'){write(200,await exerciseHistory(ctx,user.id,url.searchParams.get('exerciseId')||''));return true;}
   if(url.pathname==='/v1/agent/nutrition-day'&&req.method==='GET'){const day=url.searchParams.get('date')||'';if(!/^\d{4}-\d{2}-\d{2}$/.test(day))fail(400,'invalid_date');write(200,await nutritionDay(ctx,user.id,day));return true;}
+  if(url.pathname==='/v1/agent/exercise-media'&&req.method==='PUT'){write(201,await uploadAsset(ctx,user.id,req,url,id=>appExercises(id).records.some(e=>e.id===id)));return true;}
   if(url.pathname==='/v1/agent/exercise-equipment'&&req.method==='GET'){write(200,readEquipment(ctx,user.id,url.searchParams.get('exerciseId')||''));return true;}
-  if(url.pathname==='/v1/agent/exercise-equipment'&&req.method==='POST'){write(200,saveEquipment(ctx,user.id,await api.readBody(req,ctx.cfg.maxJsonBytes),id=>appExercises(id).records.some(e=>e.id===id)));return true;}
+  if(url.pathname==='/v1/agent/exercise-equipment'&&req.method==='POST'){write(200,await saveEquipment(ctx,user.id,await api.readBody(req,ctx.cfg.maxJsonBytes),id=>appExercises(id).records.some(e=>e.id===id)));return true;}
   const recordMatch=url.pathname.match(/^\/v1\/agent\/records\/(workout|plan|nutrition|weight|profile|nutritionGoals|activeWorkout)$/);
   if(recordMatch&&req.method==='POST'){const result=await mutateRecord(ctx,user.id,recordMatch[1],await api.readBody(req,ctx.cfg.maxJsonBytes));write(200,result);return true;}
   const exerciseMatch=url.pathname.match(/^\/v1\/agent\/exercises\/(\d+)$/);

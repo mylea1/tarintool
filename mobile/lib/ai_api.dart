@@ -828,6 +828,36 @@ class HttpCoachApi
     _decodeJsonResponse(response, 'push_token_unregister');
   }
 
+  Map<String, String> get exerciseMediaHeaders => {'Authorization': 'Bearer $_sessionToken'};
+
+  Uri exerciseMediaEndpoint(String id) => _endpoint('/v1/agent/exercise-media/$id');
+
+  Future<List<Map<String, dynamic>>> fetchExerciseMedia(String exerciseId) async {
+    final response = await _client.get(_endpoint('/v1/agent/exercise-equipment?exerciseId=${Uri.encodeQueryComponent(exerciseId)}'), headers: _authHeaders).timeout(requestTimeout);
+    final data = _decodeJsonResponse(response, 'exercise_media_list');
+    return (data['records'] as List? ?? []).whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList();
+  }
+
+  Future<void> uploadExerciseMedia(String exerciseId, String name, String path) async {
+    final file = File(path);
+    final ext = path.toLowerCase().split('.').last;
+    final type = {'jpg':'image/jpeg','jpeg':'image/jpeg','png':'image/png','webp':'image/webp','mp4':'video/mp4','mov':'video/quicktime','webm':'video/webm'}[ext];
+    if (type == null) throw const CoachApiException('exercise_media_type');
+    if (await file.length() > (type.startsWith('video/') ? 30 : 5) * 1024 * 1024) throw const CoachApiException('exercise_media_too_large');
+    final request = http.StreamedRequest('PUT', _endpoint('/v1/agent/exercise-media?exerciseId=${Uri.encodeQueryComponent(exerciseId)}&name=${Uri.encodeQueryComponent(name)}'))
+      ..headers.addAll({...exerciseMediaHeaders, 'Content-Type':type})
+      ..contentLength = await file.length();
+    final responseFuture = _client.send(request);
+    await file.openRead().pipe(request.sink);
+    final response = await http.Response.fromStream(await responseFuture.timeout(const Duration(minutes: 3)));
+    _decodeJsonResponse(response, 'exercise_media_upload');
+  }
+
+  Future<void> editExerciseMedia(String exerciseId, String id, {String? name, bool delete = false}) async {
+    final response = await _client.post(_endpoint('/v1/agent/exercise-equipment'), headers:_authHeaders, body:jsonEncode({'exerciseId':exerciseId,'equipmentId':id,'action':delete?'delete':'save',if(name != null)'name':name})).timeout(requestTimeout);
+    _decodeJsonResponse(response, 'exercise_media_edit');
+  }
+
   Future<void> uploadAvatar(String path) async {
     final file = File(path);
     if (!await file.exists()) throw const CoachApiException('avatar_not_found');

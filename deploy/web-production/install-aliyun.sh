@@ -45,6 +45,7 @@ else:
  assert len(re.findall(pattern,s))==1, 'Unexpected existing /agent/ configuration'
  assert not re.search(r'location\s+(?:=\s+)?/mcp',s), 'Existing MCP routing requires review'
  s=re.sub(pattern,(r/'deploy/web-production/nginx-locations.conf').read_text().strip(),s,count=1)
+s=re.sub(r'(location\s+\^~\s+/v1/agent/\s*\{)(?!\s*client_max_body_size)',r'\1\n        client_max_body_size 32m;',s)
 (b/'new-kilo-website.conf').write_text(s)
 p=Path('/etc/kilo/kilo.env');s=p.read_text()
 s=re.sub(r'(?m)^KILO_AGENT_PUBLIC_BASE_URL=.*\n?', '', s)

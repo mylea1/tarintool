@@ -26,8 +26,8 @@ const clean = (v) => {
   if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).filter(([k]) => !/photoPaths|avatar|token|password|secret|apiKey/i.test(k)).map(([k, x]) => [k, clean(x)]));
   return v;
 };
-export function cloudData(db, userId) {
-  const remote = db.prepare('SELECT user_id FROM agent_backend_links WHERE user_id=?').get(userId);
+export function cloudData(db, userId, localOnly=false) {
+  const remote = !localOnly && db.prepare('SELECT user_id FROM agent_backend_links WHERE user_id=?').get(userId);
   const table = remote ? 'agent_remote_entities' : 'sync_entities';
   const rows = db.prepare(`SELECT entity_type, entity_id, payload_json, updated_at FROM ${table} WHERE user_id=? AND deleted_at IS NULL ORDER BY updated_at DESC`).all(userId);
   const backupRow = rows.find((r) => r.entity_type === 'settings' && r.entity_id === 'mobile_backup_v1');

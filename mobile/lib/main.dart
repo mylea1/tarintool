@@ -1,3 +1,4 @@
+import 'shared_exercise_media.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -16474,6 +16475,8 @@ class _ExerciseDetailSheetState extends State<_ExerciseDetailSheet> {
           ),
         ),
         const SizedBox(height: 10),
+        if(controller.coachApi is HttpCoachApi && controller.entitlements?.isMember == true)
+          SharedExerciseMedia(api:controller.coachApi as HttpCoachApi,exerciseId:exercise.id,exerciseName:exercise.name),
         _DetailBlock(
           key: const Key('exercise-detail-resource'),
           title: '备注与链接',
