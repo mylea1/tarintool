@@ -17,7 +17,7 @@ import { randomId, randomToken, sha256, nowIso } from './security.mjs';
 import { cloudData, dashboard, pageRecords, conversationList, conversationDetail, BUILTIN_SKILLS } from './agent-data.mjs';
 
 const root = fileURLToPath(new URL('../agent-web/', import.meta.url));
-const SCOPES = ['workouts','profile','nutrition','chats','skills','workouts.write','profile.write','nutrition.write','skills.write','chats.write'];
+const SCOPES = ['workouts','profile','nutrition','chats','skills','workouts.write','profile.write','nutrition.write','skills.write','chats.write','accounts.write'];
 const fail = (status, code) => { throw Object.assign(new Error(code),{status,code}); };
 const bounded = (v,n=200) => typeof v==='string' ? v.trim().slice(0,n) : '';
 const json = (v) => JSON.parse(v);
@@ -87,6 +87,7 @@ function createMemberMcp(ctx,token,api) {
     audit(ctx,userId,scope.endsWith('.write')?'mcp_write':'mcp_read',operation,{tokenId:token.id,scope});
   };
   const server=new McpServer({name:'traintool',version:'2.0.0'});
+  if(scopes.includes('accounts.write')){server.registerTool('connect_app_account',{description:'Connect an authorized App member account. Existing grants are revoked; returns a replacement MCP Bearer token.',inputSchema:{appIdentifier:z.string().min(1).max(200),appPassword:z.string().min(1).max(256)},annotations:{readOnlyHint:false,destructiveHint:false}},async a=>{try{await check('accounts.write','connect_app_account');const backend=await connectBackend(ctx,userId,{identifier:a.appIdentifier,password:a.appPassword});return textResult({backend,...issueOnboardingGrant(ctx,userId)});}catch(e){return {isError:true,content:[{type:'text',text:e.code||'connection_failed'}]};}});server.registerTool('sync_web_records_to_app',{description:'Import saved standalone web records and exercise media to the connected App member account.',inputSchema:{},annotations:{readOnlyHint:false,destructiveHint:false}},async()=>{try{await check('accounts.write','sync_web_records_to_app');return textResult(await syncWebToApp(ctx,userId));}catch(e){return {isError:true,content:[{type:'text',text:e.code||'sync_failed'}]};}});}
   const writeTool=(name,scope,description,kind)=>{if(!scopes.includes(scope))return;server.registerTool(name,{description,inputSchema:{...mutationSchema.shape,record:recordSchemas[kind].optional()},annotations:{readOnlyHint:false,destructiveHint:true,idempotentHint:true,openWorldHint:false}},async(args)=>{try{await check(scope,name);return textResult(await mutateRecord(ctx,userId,kind,args));}catch(e){return {isError:true,content:[{type:'text',text:e.code||'write_failed'}]};}});};
   writeTool('save_workout','workouts.write','保存、修改或删除本人训练。record 必须有 name、ISO date、exercises，每个动作使用 search_app_exercises 的稳定 exerciseId，sets 数组含 weight/reps/restSeconds/completed/type/note，可加 state/feeling/additionalNotes 保存状态感受。支持动作和整次训练 note。每个独立请求提供唯一 idempotencyKey；网络重试重复使用同一 key 和参数。update/delete 提供 recordId，建议 expectedVersion 防止覆盖。','workout');
   writeTool('save_active_workout','workouts.write','保存或修改当前进行中的训练，record 含 name/date/exercises，保留每组 completed、重量次数休息与感受备注。网页可继续此训练。幂等键必填。','activeWorkout');
@@ -145,6 +146,17 @@ export function skillMarkdown(s) {
   const portableName=s.id.toLowerCase().replace(/[^a-z0-9-]/g,'-').replace(/-+/g,'-').replace(/^-|-$/g,'').slice(0,64)||'kilo-coach';
   return `---\nname: ${portableName}\ndescription: ${JSON.stringify(s.description||s.name)}\n---\n\n# ${s.name}\n\n${s.instructions}\n\n## 数据访问\n使用 KILO MCP 中获授权的工具；写入需单独权限和幂等键。仅工具返回保存成功后才说明已写入，估算需明确标注。\n`;
 }
+
+function issueOnboardingGrant(ctx,userId){const raw=randomToken(),id=randomId('mcp_'),expiresAt=new Date(Date.now()+30*86400000).toISOString();if(ctx.db.prepare('SELECT COUNT(*) AS n FROM agent_tokens WHERE user_id=? AND revoked_at IS NULL AND expires_at>?').get(userId,nowIso()).n>=20)fail(400,'token_limit_reached');ctx.db.prepare('INSERT INTO agent_tokens(id,user_id,label,token_hash,scopes_json,created_at,expires_at) VALUES(?,?,?,?,?,?,?)').run(id,userId,'MCP onboarding',sha256(raw,ctx.cfg.sessionPepper),JSON.stringify(SCOPES),nowIso(),expiresAt);return {mcpToken:raw,expiresAt,url:(ctx.cfg.agentPublicBaseUrl||ctx.cfg.publicBaseUrl)+'/mcp',transport:'streamable-http',headers:{Authorization:'Bearer '+raw},instructions:'Use this Bearer token for authenticated MCP tools. Keep the token and password private.'};}
+function createOnboardingMcp(ctx,api,req){const server=new McpServer({name:'kilostrength-account-setup',version:'1.0.0'});const register=(name,description,inputSchema,fn)=>server.registerTool(name,{description,inputSchema,annotations:{readOnlyHint:false,destructiveHint:false}},async(a)=>{try{return textResult(await fn(a));}catch(e){return {isError:true,content:[{type:'text',text:e.code||'account_setup_failed'}]};}});
+ const credentials={identifier:z.string().regex(/^[a-z0-9_-]{3,40}$/),password:z.string().min(8).max(256)};
+ for(const [name,isRegister] of [['register_web_account',true],['login_web_account',false]])register(name,isRegister?'Register a standalone web account directly through MCP using a user supplied or explicitly authorized generated username/password. No App account or membership required. Returns an MCP Bearer token.':'Log into a standalone web account through MCP; returns an MCP Bearer token.',credentials,a=>{const auth=webAccountAuth(ctx,req,a,isRegister);ctx.db.prepare('DELETE FROM sessions WHERE token_hash=?').run(sha256(auth.session.token,ctx.cfg.sessionPepper));if(isBrowserStorage(ctx,auth.user.id))fail(409,'server_storage_required');return {user:auth.user,...issueOnboardingGrant(ctx,auth.user.id)};});
+ const authorized=a=>{const token=authorizeMcp({headers:{authorization:'Bearer '+a.mcpToken}},ctx,api);if(!json(token.scopes_json).includes('accounts.write'))fail(403,'mcp_account_scope_required');return token.user_id;};
+ register('connect_app_account','Connect an existing App member account to the authenticated web account. Provide the MCP token and App credentials authorized by the user. Existing grants are revoked; returns a replacement MCP token. Does not import old web records until sync_web_records_to_app is called.',{mcpToken:z.string().min(20).max(200),appIdentifier:z.string().min(1).max(200),appPassword:z.string().min(1).max(256)},async a=>{const userId=authorized(a);const backend=await connectBackend(ctx,userId,{identifier:a.appIdentifier,password:a.appPassword});return {backend,...issueOnboardingGrant(ctx,userId)};});
+ register('sync_web_records_to_app','Import standalone server web training plans, workout history, nutrition, weight/profile and shared exercise media into the linked App member account. Previously imported entries are updated rather than duplicated.',{mcpToken:z.string().min(20).max(200)},a=>syncWebToApp(ctx,authorized(a)));
+ return server;
+}
+
 async function mcpRequest(req,res,ctx,api) {
   // Reject untrusted browser origins and hosts before token processing.
   const host=String(req.headers.host||'').split(':')[0];
@@ -152,11 +164,11 @@ async function mcpRequest(req,res,ctx,api) {
   const webOrigin=new URL(ctx.cfg.agentPublicBaseUrl||ctx.cfg.publicBaseUrl);
   if (![ctx.cfg.host,'127.0.0.1','localhost',publicHost,webOrigin.hostname].includes(host)) fail(403,'mcp_host_forbidden');
   if (req.headers.origin && !ctx.cfg.allowedOrigins.has(req.headers.origin) && req.headers.origin!==new URL(ctx.cfg.publicBaseUrl).origin && req.headers.origin!==webOrigin.origin) fail(403,'mcp_origin_forbidden');
-  const token=authorizeMcp(req,ctx,api);
-  if(!isBrowserStorage(ctx,token.user_id))await refreshBackend(ctx,token.user_id);
+  const token=req.headers.authorization?authorizeMcp(req,ctx,api):null;
+  if(token&&!isBrowserStorage(ctx,token.user_id))await refreshBackend(ctx,token.user_id);
   if (req.method!=='POST') { res.writeHead(405,{allow:'POST'});res.end();return; }
   const body=await api.readBody(req,ctx.cfg.maxJsonBytes);
-  const server=createMemberMcp(ctx,token,api);
+  const server=token?createMemberMcp(ctx,token,api):createOnboardingMcp(ctx,api,req);
   const transport=new StreamableHTTPServerTransport({sessionIdGenerator:undefined,enableJsonResponse:true});
   res.on('close',()=>{void transport.close();void server.close();});
   await server.connect(transport);
